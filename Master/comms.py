@@ -432,6 +432,31 @@ class Communicator:
 			method. (LIKEWISE, AN IP ADDRESS ATTRIBUTE IS ALSO EXPECTED.)
 		"""
 
+		"""	"HANDSHAKE" PROCESS: . . . . . . . . . . . . . . . . . . . . . . . .
+
+			1. Master and Slave initialize their ethernet interfaces separately.
+			2. Master sends UDP "general broadcast."
+			3. Slave finds broadcast and sends reply to given listener socket.
+			4. Master receives reply and lists Slave for user to choose.
+			(*. The following steps happen within connect())
+			5. Master reaches out to Slave using port numbers given in step 4.
+				NOTE: In this step, Master sends its MISO and MOSI addresses.
+			6. Slave receives message in MOSI socket and sends "ACK" to MISO.
+			7. Master receives "ACK" from Slave, sends one last "ACK" and
+				marks Slave as CONNECTED.
+
+			NOTE: Errors in 5. and 6. will result in Slave being marked as DIS-
+			CONNECTED and its network attributes (ip, mosi and miso) set to
+			None and "RIP" sent to Slave. In step 7, Slave may request verifica-
+			tion by sending "VER" to MISO. Errors in previous steps will result
+			in a new attempt in the next broadcast. Note that once a Slave is 
+			chosen by the user, unless BLOCKED, Master will automatically go for
+			reconnection whenever possible. Lastly, "errors" in this context re-
+			fer solely to UDP messages being lost.
+		
+		. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+		"""
+
 		# Firstly, look up targetMAC in self.slaves:
 			# NOTE: An IndexError will be raised if the given MAC address is
 			# not recorded in self.slaves.
@@ -538,6 +563,7 @@ class Communicator:
 
 					print "[C][CN]\t\tAttempting connection ({}/{})".\
 						format(attempts - attemptsLeft, attempts)
+
 					# Format message to be sent:
 					message = "{},{},{}".format(
 						misoSocket.getsockname()[1], 
@@ -605,7 +631,6 @@ class Communicator:
 				# Send end of connection message to Slave's MOSI, in case Slave
 				# interpretted the connection as secured:
 				mosiSocket.send("RIP")
-				mosiSocket.send("RIP") # Can't be too sure w/ UDP
 
 				# Shutdown and close sockets:
 
