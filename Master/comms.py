@@ -145,9 +145,9 @@ class Communicator:
 
 		# INITIALIZE BROADCAST THREAD ------------------------------------------
 
-		# Configure sentinel value for "graceful" thread death:
-		self.broadcastSwitch = 2
-			# ABOUT: Thread will end when this variable is allowed to go 1
+		# Configure sentinel value for broadcasts:
+		self.broadcastSwitch = True
+			# ABOUT: UDP broadcasts will be sent only when this switch is True
 		self.broadcastSwitchLock = threading.Lock() # for thread-safe access
 
 		self.broadcastThread =threading.Thread(target = self._broadcastRoutine,
@@ -187,9 +187,16 @@ class Communicator:
 			# Wait designated period:
 			time.sleep(broadcastPeriod)
 
-			# Broadcast message:
-			self.broadcastSocket.sendto(broadcastMessage, 
-				("<broadcast>", broadcastSocketPortCopy))
+			self.broadcastSwitchLock.acquire()
+			try:
+				# Send broadcast only if self.broadcastSwitch is set to True:
+				if broadcastSwitch:
+					# Broadcast message:
+					self.broadcastSocket.sendto(broadcastMessage, 
+						("<broadcast>", broadcastSocketPortCopy))
+			finally:
+				# Guarantee lock release:
+				self.broadcastSwitchLock.release()
 
 	# End _broadcastRoutine ====================================================
 
@@ -649,11 +656,46 @@ class Communicator:
 
 		# End connect() ========================================================
 
+		def setBroadcastSwitch(self, newState): # ==============================
+			""" ABOUT: Set whether to send UDP broadcast. Parameter Switch is
+				expected to be True or False. Otherwise, ValueError is raised.
+			"""
+
+			# Validate parameter:
+			if (type(newState) == bool):
+				# If input is valid, modify broadcast switch:
+				self.broadcastSwitchLock.acquire()
+				try:
+
+					self.broadcastSwitch = newState
+
+				finally:
+
+					# Lock will always be released:
+					self.broadcastSwitchLock.release()
+
+			else:
+				# Raise exception upon invalid input:
+				raise ValueError("setBroadcastSwitch expects bool, not {}".\
+					format(type(newState)))
+
+		# End setBroadcastSwitch() =============================================
+
+		def getBroadcastSwitch(self): # ========================================
+			""" ABOUT: Get the current value of broadcastSwitch.
+			"""
+
+			self.broadcastSwitchLock.acquire()
+			try:
+				return self.broadcastSwitch
+			finally:
+				# Lock will always be released:
+				self.broadcastSwitchLock.release()
+
+		# End getBroadcastSwitch() =============================================
 
 
-
-
-## MODULE'S TEST SUITE ########################################################
+## MODULE'S TEST SUITE #########################################################
 
 if __name__ == "__main__":
 
