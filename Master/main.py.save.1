@@ -1,0 +1,54 @@
+################################################################################
+## Project: Fanclub Mark II "Master" ## File: main.py  - Main file            ##
+##----------------------------------------------------------------------------##
+## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
+## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
+##----------------------------------------------------------------------------##
+##      ____      __      __  __      _____      __      __    __    ____     ##
+##     / __/|   _/ /|    / / / /|  _- __ __\    / /|    / /|  / /|  / _  \    ##
+##    / /_ |/  / /  /|  /  // /|/ / /|__| _|   / /|    / /|  / /|/ /   --||   ##
+##   / __/|/ _/    /|/ /   / /|/ / /|    __   / /|    / /|  / /|/ / _  \|/    ##
+##  / /|_|/ /  /  /|/ / // //|/ / /|__- / /  / /___  / -|_ - /|/ /     /|     ##
+## /_/|/   /_/ /_/|/ /_/ /_/|/ |\ ___--|_|  /_____/| |-___-_|/  /____-/|/     ##
+## |_|/    |_|/|_|/  |_|/|_|/   \|___|-    |_____|/   |___|     |____|/       ##
+##                   _ _    _    ___   _  _      __   __                      ##
+##                  | | |  | |  | T_| | || |    |  | |  |                     ##
+##                  | _ |  |T|  |  |  |  _|      ||   ||                      ##
+##                  || || |_ _| |_|_| |_| _|    |__| |__|                     ##
+##                                                                            ##
+##----------------------------------------------------------------------------##
+## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
+################################################################################
+
+VERSION = "MASTR_DAWN_0" # Reference for consecutive versions during testing
+
+# BE ADVISED: THIS VERSION IS NOT YET FUNCTIONAL                               #
+
+# This version will test the system's UDP broadcast
+
+#### IMPORTS ###################################################################
+import socket
+
+
+#### CONSTANT DEFINITIONS ######################################################
+
+BROADCAST_PORT = 65000
+
+
+#### MAIN ######################################################################
+
+print "\n\nFC MKII (" + VERSION + ") INITIATED"
+
+# UDP SOCKET SETUP:
+print "Initializing UDP"
+
+# Create UDP Socket:
+udp = socket.socket(AF_INET, SOCK_DGRAM)
+#                       ^         ^
+#       Address type (IPv4)      Socket type (UDP, i.e "Datagram")
+
+# Setup socket:
+udp.bind(None, BROADCAST_PORT)
+#	Bind the socket to no specific address and set its port to an arbitrary
+#	(but consistent with Slaves) broadcast port.
+#	SEE: https://erlerobotics.gitbooks.io/erle-robotics-python-gitbook-free/udp_and_tcp/socket_options.html
