@@ -38,8 +38,7 @@ import Slave
 ## CONSTANT PARAMETERS #########################################################
 
 STD_BROADCAST_PORT  = 65000
-STD_BROADCAST_PERIOD = 1 # (second(s))
-STD_SOCKET_TIMEOUT = 1 # (second(s))
+STD_PERIOD = 0.4 # (second(s))
 
 VERSION = "UDP_REVENGE"
 
@@ -47,15 +46,23 @@ VERSION = "UDP_REVENGE"
 
 class Communicator:
 
-	def __init__(self, knownMACs = None, broadcastPort = STD_BROADCAST_PORT):
+	def __init__(self, knownMACs = None, broadcastPort = STD_BROADCAST_PORT,
+			periodSeconds = STD_PERIOD):
 		""" ABOUT: Constructor for class Communicator. Parameter knownMACs is a
 			list of MAC addresses of known Slaves, to which to connect automa-
 			cally, as strings. (This parameter is optional.)
+			Parameter periodSeconds determines the time between MOSI messages
+			and the MISO timeout: Under normal operating conditions, one period
+			should be the time between one MOSI command and a subsequent MISO
+			reply, which means the socket timeouts will be set to HALF the given
+			period.
 		"""
 
 		print "[C] Initializing Communicator instance"
 
 		# INITIALIZE DATA MEMBERS ==============================================
+
+		self.periodSeconds = periodSeconds
 
 		self.broadcastPort = broadcastPort
 
@@ -169,7 +176,7 @@ class Communicator:
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 
 	def _broadcastRoutine(self, broadcastMessage,
-		broadcastPeriod = STD_BROADCAST_PERIOD): # =============================
+		broadcastPeriod = STD_PERIOD): # =======================================
 		""" ABOUT: This method is meant to run inside a Communicator instance's
 			broadcastThread.
 		"""
@@ -528,8 +535,8 @@ class Communicator:
 			mosiSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 			# Set a timeout for message reception:
-			misoSocket.settimeout(STD_SOCKET_TIMEOUT)
-			mosiSocket.settimeout(STD_SOCKET_TIMEOUT)
+			misoSocket.settimeout(self.periodSeconds/2)
+			mosiSocket.settimeout(self.periodSeconds/2)
 
 			# Secure connection ------------------------------------------------
 
@@ -539,17 +546,17 @@ class Communicator:
 			# 	NOTE: A message of the following form will cause the receiving
 			#	Slave to secure a connection with this Master, when sent to its
 			#	MOSI socket:
-			#					MISOP,MOSIP,SL:MA:CA:DD:RE:SS
+			#					MISOP,MOSIP,SL:MA:CA:DD:RE:SS,PPPP
 			#
 			# Where MISOP and MOSIP are the >MASTER'S< Master in/Slave out and
 			# Master out/Slave in sockets, respectively, followed by the tar-
-			# getted Slave's MAC address. The Slave will validate this message
-			# and reply to Master's MISO socket, in which case communications
-			# will be secured.
-
+			# getted Slave's MAC address and, lastly, the "period" of the ex-
+			# change. The Slave will validate this message and reply to Master's
+			# MISO socket, in which case communications will be secured.
+			#
 			# Use Master's MOSI socket w/ given Slave MOSI port and Slave IP
 			# to send message:
-
+			#
 			# Connect Master's MOSI socket to Slave's MOSI socket's address:
 			mosiSocket.connect(
 				(self.slaves[targetMAC].ip, self.slaves[targetMAC].mosi))
@@ -572,10 +579,11 @@ class Communicator:
 						format(attempts - attemptsLeft, attempts)
 
 					# Format message to be sent:
-					message = "{},{},{}".format(
+					message = "{},{},{},{}".format(
 						misoSocket.getsockname()[1], 
 						mosiSocket.getsockname()[1],
-						targetMAC)
+						targetMAC,
+						self.periodSeconds*1000)
 
 						# NOTE: See message standard above.
 
