@@ -31,6 +31,7 @@ This module handles low-level socket communications w/ Slave units.
 
 import socket
 import threading
+import Queue
 import time
 
 import Slave
@@ -387,17 +388,24 @@ class Communicator:
 
 				# Lock will always be released:
 				self.slavesLock.release()
-
-
-
-
-
-
-
 			
 	# End _listenerRoutine =====================================================
 
 
+	def _slaveRoutine(self, targetMAC):
+		# ABOUT: This method is meant to run on a Slave's communication-handling
+		# thread. It handles sending and receiving messages through its MISO and
+		# MOSI sockets, at a pace dictated by the Communicator instance's given
+		# period.
+		#
+		# NOTE: This current version is set to run as daemon.
+
+		print "[C][ST] Slave \"{}\" thread started".format(targetMAC)
+
+		while(True):
+
+			
+			pass
 	
 
 	# # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -632,6 +640,22 @@ class Communicator:
 				self.slaves[targetMAC].mosi = mosiSocket
 				self.slaves[targetMAC].status = Slave.CONNECTED
 
+				# Add comms handling thread and queue:
+
+				self.slaves[targetMAC].queue = Queue.Queue(1)
+					# ABOUT: Created a 1-item FIFO queue
+
+				self.slaves[targetMAC].thread = threading.Thread(
+					target = self._slaveRoutine, args = [targetMAC])
+
+				self.slaves[targetMAC].thread.setDaemon(True)
+
+					# ABOUT: Create and comms-handling thread, store it, and set
+					# it as daemon.
+
+				# Start comms-handling thread
+				self.slaves[targetMAC].thread.start()
+
 			else:
 
 				print "[C][CN]\t\tConnection unsuccessful"
@@ -641,7 +665,11 @@ class Communicator:
 				self.slaves[targetMAC].miso = None
 				self.slaves[targetMAC].mosi = None
 				self.slaves[targetMAC].ip = None
+				self.slaves[targetMAC].queue = None
+				self.slaves[targetMAC].thread = None
 				self.slaves[targetMAC].status = Slave.DISCONNECTED
+
+
 
 				# Send end of connection message to Slave's MOSI, in case Slave
 				# interpretted the connection as secured:

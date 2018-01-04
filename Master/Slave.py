@@ -43,16 +43,23 @@ CONNECTED = 1
 
 class Slave:
 
-	def __init__(self, mac, status,i ip = None, miso = None, mosi = None):
+	def __init__(self, mac, status,i ip = None, miso = None, mosi = None,
+		queue = None, thread = None):
 		# NOTE: "miso" and "mosi" stand for, "Master in, Slave out" and
 		# "Master out, Slave in," respectively. These are tuples of the
 		# form (socket, address) where "socket" is a Python UDP socket
 		# object and "address" is itself a tuple of the form (IP, PORt)
 		# which are the IP and port number of the corresponding miso 
 		# (or mosi) socket of this connected Slave board.
+		#
+		# NOTE: attribute "queue" is meant to hold the Slave's "message queue"
+		# used to give commands to be sent via its handler thread, which is to
+		# be stored inside attribute "thread."
 
 		self.mac = mac
 		self.status = status
 		self.ip  = ip
 		self.miso = miso
 		self.mosi = mosi
+		self.queue = queue
+		self.thread = thread
