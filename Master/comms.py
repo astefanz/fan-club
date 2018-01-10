@@ -47,8 +47,8 @@ VERSION = "UDP_REVENGE"
 
 class Communicator:
 
-	def __init__(self, knownMACs = None, broadcastPort = STD_BROADCAST_PORT,
-			periodSeconds = STD_PERIOD):
+	def __init__(self, knownMACs = None, 
+		broadcastPort = STD_BROADCAST_PORT, periodSeconds = STD_PERIOD):
 		""" ABOUT: Constructor for class Communicator. Parameter knownMACs is a
 			list of MAC addresses of known Slaves, to which to connect automa-
 			cally, as strings. (This parameter is optional.)
@@ -75,7 +75,10 @@ class Communicator:
 		if knownMACs is not None:
 			# Store information as "known" Slaves:
 			for macAddress in knownMACs:
-				self.slaves[macAddress] = Slaves.Slave(macAddress, Slaves.KNOWN)
+				self.slaves[macAddress] = Slaves.Slave(
+					mac = macAddress, 
+					status = Slaves.KNOWN,
+					lock = threading.Lock())
 		
 		# Create lock for thread-safe access to self.slaves:
 		self.slavesLock = threading.Lock()
@@ -158,7 +161,9 @@ class Communicator:
 			# ABOUT: UDP broadcasts will be sent only when this switch is True
 		self.broadcastSwitchLock = threading.Lock() # for thread-safe access
 
-		self.broadcastThread =threading.Thread(target = self._broadcastRoutine,
+		self.broadcastThread =threading.Thread(
+			name = "FanclubMk2_broadcast",
+			target = self._broadcastRoutine,
 			args = ["{},fcmkii".format(self.listenerPort) ] )
 
 		# Set thread as daemon (background task for automatic closure):
@@ -166,9 +171,20 @@ class Communicator:
 			# events and/or signals to trigger cleanup measures.
 		self.broadcastThread.setDaemon(True)
 
+		# INITIALIZE LISTENER THREAD -------------------------------------------
+
+		self.listenerThread =threading.Thread(
+			name = "FanclubMk2_listener",
+			target = self._listenerRoutine)
+
+		# Set thread as daemon (background task for automatic closure):
+			# NOTE: A better approach, to be taken in future versions, is to use
+			# events and/or signals to trigger cleanup measures.
+		self.listenerThread.setDaemon(True)
+
 		# START MASTER THREADS =================================================
 
-		self.broadcastThread.start()
+		self.listenerThread.start()
 
 
 	# # END __init__() # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -292,74 +308,116 @@ class Communicator:
 					# If the MAC address is in the Slave dictionary, check its re-
 					# corded status and proceed accordingly:
 
-					# Retrieve status for consecutive uses:
-					status = self.slaves[mac].status 
+					try:
+						# Acquire Slave-specific lock:
+						self.slaves[mac].lock.acquire()
 
-					if (status == Slave.KNOWN or
-						status == Slave.DISCONNECTED):
-						# ABOUT: 
-						#
-						# - KNOWN Slaves have been approved by the user and
-						#	should be connected to automatically.
-						#
-						# - DISCONNECTED Slaves were previosuly added during
-						#	execution and later lost due to an anomaly. Since
-						#	they were already chosen by the user, they should
-						#	be reconnected automatically.
+						# Retrieve status for consecutive uses:
+						status = self.slaves[mac].status 
+
+						if (status == Slave.KNOWN or
+							status == Slave.DISCONNECTED):
+							# ABOUT: 
+							#
+							# - KNOWN Slaves have been approved by the user and
+							#	should be connected to automatically.
+							#
+							# - DISCONNECTED Slaves were previously connected to
+							#	and later anomalously disconnected. Since have
+							#	been chosen by the user, they should be recon-
+							#	nected to automatically.
 
 
-						# Update status and networking information:
-						self.slaves[mac].ip = senderAddress[0]
-						self.slaves[mac].miso = misoPort
-						self.slaves[mac].mosi = mosiPort
-						self.slaves[mac].status = Slave.KNOWN
+							# Update status and networking information:
+							self.slaves[mac].ip = senderAddress[0]
+							self.slaves[mac].miso = misoPort
+							self.slaves[mac].mosi = mosiPort
+							self.slaves[mac].status = Slave.KNOWN
 
-						# Connect:
-						self.connect(mac)
+							# Connect:
+							self.connect(mac)
 
-						pass
+							pass
 
-					elif(status == Slave.CONNECTED):
-						# ABOUT:
-						#
-						# - CONNECTED Slaves are not supposed to respond to
-						#	this socket and, therefore, this message implies
-						#	an error. The Slave's connection should be reset.
+						elif(status == Slave.CONNECTED):
+							# ABOUT:
+							#
+							# - CONNECTED Slaves are not supposed to respond to
+							#	this socket and, therefore, this message implies
+							#	an error and a need to reconnect.
 
-						# If there is an obsolete connection with this Slave, terminate
-						# it before reconnecting.
+							# Send "end of communications" message:
+							self.slaves[mac].mosi.send("RIP")
 
-						# Send "end of communications" message:
-						self.slaves[mac].mosi.send("RIP")
+							# End thread:
+							self.slaves[mac].status = Slave.DISCONNECTED
 
-						# Terminate sockets:
-						self.slaves[mac].miso.shutdown(2)
-						self.slaves[mac].mosi.shutdown(2)
+							print "[C][LR] Reconnecting to \"{}\"".format(mac)
 
-						self.slaves[mac].miso.close()
-						self.slaves[mac].miso.close()
+							print "[C][LR]\tJoining thread"
+							self.slaves[mac].thread.join()
+							print "[C][LR]\t...Done"
 
-						# Update status and networking information:
-						self.slaves[mac].ip = senderAddress[0]
-						self.slaves[mac].miso = misoPort
-						self.slaves[mac].mosi = mosiPort
-						self.slaves[mac].status = Slave.KNOWN
+							self.slaves[mac].thread = None
 
-						# Connect:
-						self.connect(mac)
+							# Terminate Queues:
 
-					else:
-						# ABOUT: The remaining statuses (AVAILABLE and BLOCKED)
-						# indicate a connection should not yet be attempted by
-						# Master, until otherwise indicated by the user.
+							while not self.slaves[mac].mosiQueue.empty():
+								self.slaves[mac].mosiQueue.get()
+								self.slaves[mac].mosiQueue.task_done()
 
-						# Update networking information:
-						self.slaves[mac].ip = senderAddress[0]
-						self.slaves[mac].miso = misoPort
-						self.slaves[mac].mosi = mosiPort
+							print "[C][LR]\tJoining mosiQueue"
+							self.slaves[mac].mosiQueue.join()
+							print "[C][LR]\t...Done"
 
-						continue
+							while not self.slaves[mac].misoQueue.empty():
+								self.slaves[mac].misoQueue.get()
+								self.slaves[mac].misoQueue.task_done()
 
+							print "[C][LR]\tJoining misoQueue"
+							self.slaves[mac].misoQueue.join()
+							print "[C][LR]\t...Done"
+
+
+							self.slaves[mac].mosiQueue = None
+							self.slaves[mac].misoQueue = None
+
+							print "[C][LR]\tTerminating sockets"
+
+							# Terminate sockets:
+							self.slaves[mac].miso.shutdown(2)
+							self.slaves[mac].mosi.shutdown(2)
+
+							self.slaves[mac].miso.close()
+							self.slaves[mac].miso.close()
+
+							# Update status and networking information:
+							self.slaves[mac].ip = senderAddress[0]
+							self.slaves[mac].miso = misoPort
+							self.slaves[mac].mosi = mosiPort
+							self.slaves[mac].status = Slave.KNOWN
+
+							print "[C][LR]\tDone disconnecting. Reconnecting..."
+
+							# Connect:
+							self.connect(mac)
+
+						else:
+							# ABOUT: The remaining statuses (AVAILABLE, BLOCKED)
+							# indicate a connection should not be attempted by
+							# Master, until subsequently indicated by the user.
+
+							# Update networking information:
+							self.slaves[mac].ip = senderAddress[0]
+							self.slaves[mac].miso = misoPort
+							self.slaves[mac].mosi = mosiPort
+
+							continue
+
+					finally:
+
+						# Ensure Slave-specific lock release:
+						self.slaves[mac].lock.release()
 
 
 				else:
@@ -374,14 +432,19 @@ class Communicator:
 
 					# Create a new Slave instance and store it:
 					self.slaves[mac] = Slave.Slave(
-						mac, 				# MAC address
-						Slave.AVAILABLE, 	# Status
-						senderAddress[0], 	# IP address
-						misoPort, 			# Master in/Slave out port number
-						mosiPort			# Slave in/Master out port number
+						mac = mac, 				# MAC address
+						status = Slave.AVAILABLE, 	# Status
+						ip = senderAddress[0], 	# IP address
+						lock = threading.Lock(),
+						miso = misoPort, 	# Master in/Slave out port number
+						mosi = mosiPort		# Slave in/Master out port number
 						)
 
-					print "New Slave detected: \"{}\"".format(mac)
+					print "[C][LR] New Slave detected ({}) on:\
+						\n\tIP: {}\
+						\n\tMISO PORT: {}\
+						\n\tMOSI PORT: {}"\
+						.format(mac, senderAddress[0], misoPort, mosiPort)
 
 
 			finally:
@@ -392,20 +455,119 @@ class Communicator:
 	# End _listenerRoutine =====================================================
 
 
-	def _slaveRoutine(self, targetMAC):
+	def _slaveRoutine(self, targetMAC, mosiMasterPort):
 		# ABOUT: This method is meant to run on a Slave's communication-handling
 		# thread. It handles sending and receiving messages through its MISO and
 		# MOSI sockets, at a pace dictated by the Communicator instance's given
-		# period.
+		# period. Parameter targetMAC is the MAC address of the Slave handled by
+		# this thread. Parameter mosiMasterPort is the port number of the MOSI
+		# socket in the particular connection handled by this thread. If the MO-
+		# SI socket used by the Slave w/ targetMAC changes, this thread is to be
+		# replaced and will end automaticallys.
 		#
-		# NOTE: This current version is set to run as daemon.
+		# NOTE: This current version is designed to run as daemon.
 
 		print "[C][ST] Slave \"{}\" thread started".format(targetMAC)
 
 		while(True):
 
+			# Acquire Slave-specific lock:
+			if self.slaves[targetMAC].lock.acquire(False):
+				# NOTE: This call is non-blocking, which means this thread will
+				# not wait for the lock to become available if it isn't. Ins-
+				# tead, this thread will check the Slave's recorded status and
+				# if it is no longer connected, then this thread must finish its
+				# execution.
+
+				try:
+					
+					# Check connection status: . . . . . . . . . . . . . . . . .
+
+					if(self.slaves[targetMAC].status == Slave.DISCONNECTED or 
+						type(self.slaves[targetMAC].mosi)\
+													!= socket._socketobject or
+						self.slaves[targetMAC].mosi.getsockname()[1] \
+						!= mosiMasterPort):
+
+						# If this Slave has been marked as DISCONECTED or is in
+						# a new connection, this thread should shut down.
+
+						print "[C][ST] Slave \"{}\" thread: Connection change \
+							detected. Ending thread".format(targetMAC)
+
+						break
+
+					# (Connection verified by this point.)
+
+					# Get message to be sent: . . . . . . . . . . . . . . . . . 
+
+					message = "V {} MOSI".format(targetMAC)
+						# NOTE: this standardized message will be sent in the
+						# absence of a specific message in the queue. Its purpo-
+						# se is to verify the connection.
+
+					if not self.slaves[targetMAC].queue.empty():
+						# If there is a message waiting to be sent, retrieve it:
+						message = self.slaves[targetMAC].queue.get_nowait()
+							# NOTE: Queue method get_nowait() will raise
+							# Queue.Empty if there is no item to retrieve. 
+							# The presence of such item has just been verified,
+							# so no exception handling is done at this point.
+
+					# Send message . . . . . . . . . . . . . . . . . . . . . . .
+
+					# Send message:
+					self.slaves[targetMAC].mosi.send(message)
+						# By now, after the verification steps above, it is as-
+						# sumed that the "mosi" attribute is a working socket.
+					
+					# Mark item as handled (for Queue):
+					self.slaves[targetMAC].queue.task_done()
+
+					# Receive reply: . . . . . . . . . . . . . . . . . . . . . .
+
+					try:
+						reply = self.slaves[targetMAC].miso.recvfrom(256)
+
+					except socket.timeout:
+
+						# TODO: Implement me pls
+
+
+
+
+
+
+
+
+
+				finally:
+
+					# Guarantee release of Slave-specific lock
+					self.slaves[targetMAC].lock.release()
+
+			elif self.slaves[targetMAC].status != Slave.CONNECTED:
+				# If this Slave is no longer registered as connected, then
+				# the connection handled by this thread has ended, and this
+				# thread should therefore end.
+
+				# WARNING: The above read operation (to check Slave's status)
+				# is done w/o acquiring lock, and thus relies on the atomici-
+				# ty of said operation (See Python's Global Interpreter Lock).
+				# Beware of portability issues when using nonstandard versions
+				# of Python.
+
+				print "[C][ST] Slave \"{}\" connection change detected"\
+				.format(targetMAC)
+
+				break
+
+			else:
+				# If the Slave is still connected, try to acquire lock again.
+				pass
+
+		print "[C][ST] Slave \"{}\" thread ended".format(targetMAC)
 			
-			pass
 	
 
 	# # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -485,7 +647,7 @@ class Communicator:
 
 		print "[C][CN] Initiating connection to " + targetMAC
 
-		self.slavesLock.acquire()
+		self.slaves[targetMAC].lock.acquire()
 		try:
 			# NOTE: try/finally clause guarantees lock release.
 
@@ -640,13 +802,18 @@ class Communicator:
 				self.slaves[targetMAC].mosi = mosiSocket
 				self.slaves[targetMAC].status = Slave.CONNECTED
 
-				# Add comms handling thread and queue:
+				# Add comms handling thread and queues:
 
-				self.slaves[targetMAC].queue = Queue.Queue(1)
+				self.slaves[targetMAC].misoQueue = Queue.Queue(1)
+					# ABOUT: Created a 1-item FIFO queue
+
+				self.slaves[targetMAC].mosiQueue = Queue.Queue(1)
 					# ABOUT: Created a 1-item FIFO queue
 
 				self.slaves[targetMAC].thread = threading.Thread(
-					target = self._slaveRoutine, args = [targetMAC])
+					name = "FanclubMk2_slv_{}".format(targetMAC),
+					target = self._slaveRoutine, args = [targetMAC, 
+					mosiSocket.getsockname()[1]])
 
 				self.slaves[targetMAC].thread.setDaemon(True)
 
@@ -665,7 +832,8 @@ class Communicator:
 				self.slaves[targetMAC].miso = None
 				self.slaves[targetMAC].mosi = None
 				self.slaves[targetMAC].ip = None
-				self.slaves[targetMAC].queue = None
+				self.slaves[targetMAC].misoQueue = None
+				self.slaves[targetMAC].mosiQueue = None
 				self.slaves[targetMAC].thread = None
 				self.slaves[targetMAC].status = Slave.DISCONNECTED
 
@@ -688,7 +856,7 @@ class Communicator:
 
 
 		finally:
-			self.slavesLock.release()
+			self.slaves[targetMAC].lock.release()
 
 		# End connect() ========================================================
 
