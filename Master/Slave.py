@@ -33,11 +33,11 @@ This module contains OOP representation of Slave devices.
 	# ABOUT: Positive status codes are for connected Slaves, negative codes for
 	# disconnected ones.
 
-BLOCKED = -4
 DISCONNECTED = -3
 AVAILABLE = -2
 KNOWN = -1
 CONNECTED = 1
+BUSY = 2
 
 ## CLASS DEFINITION ############################################################
 

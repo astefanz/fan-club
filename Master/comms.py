@@ -39,7 +39,7 @@ import Slave
 ## CONSTANT PARAMETERS #########################################################
 
 STD_BROADCAST_PORT  = 65000
-STD_PERIOD = 0.4 # (second(s))
+STD_PERIOD = 1 # (second(s))
 
 VERSION = "UDP_REVENGE"
 
@@ -63,7 +63,7 @@ class Communicator:
 
 		# INITIALIZE DATA MEMBERS ==============================================
 
-		self.periodSeconds = periodSeconds
+		self.periodSeconds = periodSeconds*1.0
 
 		self.broadcastPort = broadcastPort
 
@@ -75,9 +75,9 @@ class Communicator:
 		if knownMACs is not None:
 			# Store information as "known" Slaves:
 			for macAddress in knownMACs:
-				self.slaves[macAddress] = Slaves.Slave(
+				self.slaves[macAddress] = Slave.Slave(
 					mac = macAddress, 
-					status = Slaves.KNOWN,
+					status = Slave.KNOWN,
 					lock = threading.Lock())
 		
 		# Create lock for thread-safe access to self.slaves:
@@ -164,7 +164,7 @@ class Communicator:
 		self.broadcastThread =threading.Thread(
 			name = "FanclubMk2_broadcast",
 			target = self._broadcastRoutine,
-			args = ["{},fcmkii".format(self.listenerPort) ] )
+			args = ["{} fcmkii".format(self.listenerPort) ] )
 
 		# Set thread as daemon (background task for automatic closure):
 			# NOTE: A better approach, to be taken in future versions, is to use
@@ -185,6 +185,7 @@ class Communicator:
 		# START MASTER THREADS =================================================
 
 		self.listenerThread.start()
+		self.broadcastThread.start()
 
 
 	# # END __init__() # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -214,10 +215,11 @@ class Communicator:
 			self.broadcastSwitchLock.acquire()
 			try:
 				# Send broadcast only if self.broadcastSwitch is set to True:
-				if broadcastSwitch:
+				if self.broadcastSwitch:
 					# Broadcast message:
 					self.broadcastSocket.sendto(broadcastMessage, 
-						("<broadcast>", broadcastSocketPortCopy))
+						("<broadcast>", 65000))
+
 			finally:
 				# Guarantee lock release:
 				self.broadcastSwitchLock.release()
@@ -243,13 +245,13 @@ class Communicator:
 			""" NOTE: The message received from Slave, at this point, should ha-
 				ve the following form:
 
-								"MISOP,MOSIP,SL:MA:CA:DD:RE:SS"
+								"MISOP MOSIP SL:MA:CA:DD:RE:SS"
 
 				Where MISOP and MOSIP are the Slave's MISO and MOSI port numb-
-				ers, respectively.
+				ers, respectively. Notice space-separator.
 			"""
 
-			messageSplitted = messageReceived.split(",")
+			messageSplitted = messageReceived.split(" ")
 				# NOTE: messageSplitted is a list of strings, each of which is
 				# expected to contain a string as defined in the comment above.
 
@@ -283,12 +285,12 @@ class Communicator:
 						, but {}")
 
 
-			except ValueError, IndexError as e:
+			except (ValueError, IndexError) as e:
 
 				# If the given message is invalid, discard it and move on:
 
-				print "[C][LR] Error: \"{}\"\n Obtained when parsing \"{}\" \
-				from {}. (Message discarded)"\
+				print "[C][LR] Error: \"{}\"\n\tObtained when parsing \"{}\"" +\
+				" from {}. (Message discarded)"\
 				.format(e, messageReceived, senderAddress)
 
 				# Move on:
@@ -311,6 +313,7 @@ class Communicator:
 					try:
 						# Acquire Slave-specific lock:
 						self.slaves[mac].lock.acquire()
+						print "[C][LR] Spec lock acquired"
 
 						# Retrieve status for consecutive uses:
 						status = self.slaves[mac].status 
@@ -335,9 +338,15 @@ class Communicator:
 							self.slaves[mac].status = Slave.KNOWN
 
 							# Connect:
+
+							# Release lock for connect method to use it:
+							self.slaves[mac].lock.release()
+
+							# Connect:
 							self.connect(mac)
 
-							pass
+							# Retake lock until execution finishes:
+							self.slaves[mac].lock.acquire()
 
 						elif(status == Slave.CONNECTED):
 							# ABOUT:
@@ -399,8 +408,12 @@ class Communicator:
 
 							print "[C][LR]\tDone disconnecting. Reconnecting..."
 
+							# Release lock for connect() to use:
+							self.slaves[mac].lock.release()
 							# Connect:
 							self.connect(mac)
+							# Reacquire lock:
+							self.slaves[mac].lock.acquire()
 
 						else:
 							# ABOUT: The remaining statuses (AVAILABLE, BLOCKED)
@@ -417,6 +430,7 @@ class Communicator:
 					finally:
 
 						# Ensure Slave-specific lock release:
+						print "FINALLY EXCECUTED IN LR"
 						self.slaves[mac].lock.release()
 
 
@@ -450,7 +464,14 @@ class Communicator:
 			finally:
 
 				# Lock will always be released:
-				self.slavesLock.release()
+
+				try:
+					self.slavesLock.release()
+
+				except threading.ThreadError:
+					# Lock may have been released earlier 
+					# (see call to connect())
+					pass
 			
 	# End _listenerRoutine =====================================================
 
@@ -468,6 +489,8 @@ class Communicator:
 		# NOTE: This current version is designed to run as daemon.
 
 		print "[C][ST] Slave \"{}\" thread started".format(targetMAC)
+
+		vCount = 0 # Assign a different number to each verification message
 
 		while(True):
 
@@ -501,14 +524,14 @@ class Communicator:
 
 					# Get message to be sent: . . . . . . . . . . . . . . . . . 
 
-					message = "V {} MOSI".format(targetMAC)
+					message = "V MOSI"
 						# NOTE: this standardized message will be sent in the
 						# absence of a specific message in the queue. Its purpo-
 						# se is to verify the connection.
 
-					if not self.slaves[targetMAC].queue.empty():
+					if not self.slaves[targetMAC].mosiQueue.empty():
 						# If there is a message waiting to be sent, retrieve it:
-						message = self.slaves[targetMAC].queue.get_nowait()
+						message = self.slaves[targetMAC].mosiQueue.get_nowait()
 							# NOTE: Queue method get_nowait() will raise
 							# Queue.Empty if there is no item to retrieve. 
 							# The presence of such item has just been verified,
@@ -521,24 +544,75 @@ class Communicator:
 						# By now, after the verification steps above, it is as-
 						# sumed that the "mosi" attribute is a working socket.
 					
-					# Mark item as handled (for Queue):
-					self.slaves[targetMAC].queue.task_done()
+					# Mark item as handled (if taken from Queue):
+					if message != "V MOSI":
+						self.slaves[targetMAC].mosiQueue.task_done()
 
 					# Receive reply: . . . . . . . . . . . . . . . . . . . . . .
 
 					try:
-						reply = self.slaves[targetMAC].miso.recvfrom(256)
+						reply, addrs = self.slaves[targetMAC].miso.recvfrom(256)
 
 					except socket.timeout:
 
-						# TODO: Implement me pls
+						print "[C][ST] Slave \"{}\" thread: Reply timeout.".\
+							format(targetMAC) + "Verification message sent."
+						# If the socket times out, send a verification message:
+						self.slaves[targetMAC].mosi.send("V {}".format(vCount))
+						vCount += 1
+
+						# Enter verification loop:
+						verified = False
+						try:
+							while(True):
+								# This loop will empty the socket's buffer. It
+								# will end either through successful verifica-
+								# tion or a socket timeout.
+
+								reply, addrs = \
+									self.slaves[targetMAC].miso.recvfrom(256)
+
+								# At this point, the received message could be  
+								# a reply to this verification or a previous 
+								# reply arriving "late"
+
+								print "[C][ST]\tReceived: " + reply
+
+								if reply == "V {}".format(vCount - 1):
+									verified = True
+									break
+
+								else:
+									print"[C][ST]\tWrong reply. Retrying."
+									continue
+
+						except socket.timeout:
+							print "[C][ST]\tTimed out while verifying."
+
+						if verified:
+							print "[C][ST]\tConnection verified."
+							continue
+
+						else:
+							print "[C][ST]\tVerification failed. Disconnecting."
+
+						# Release lock to give access to disconnect method:
+						self.slaves[targetMAC].lock.release()
+						self.disconnect(targetMAC, False)
+							# NOTE: Second argument indicates Slave's thread
+							# (this thread) should not be terminated within
+							# the method.
+
+						# Reacquire lock for finally clause:
+						self.slaves[targetMAC].lock.acquire()
+
+						# Exit loop:
+						break
 
 
+					# Process reply: . . . . . . . . . . . . . . . . . . . . . .
 
-
-
-
-
+					print "[C][ST] Received: " + reply + " [PROTOTYPE]"
 
 
 				finally:
@@ -634,9 +708,9 @@ class Communicator:
 			None and "RIP" sent to Slave. In step 7, Slave may request verifica-
 			tion by sending "VER" to MISO. Errors in previous steps will result
 			in a new attempt in the next broadcast. Note that once a Slave is 
-			chosen by the user, unless BLOCKED, Master will automatically go for
-			reconnection whenever possible. Lastly, "errors" in this context re-
-			fer solely to UDP messages being lost.
+			chosen by the user, Master will automatically attempt reconnection
+			whenever possible. Lastly, "errors" in this context refer solely
+			to UDP messages being lost.
 		
 		. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 		"""
@@ -680,7 +754,10 @@ class Communicator:
 					format(targetMAC, type(self.slaves[targetMAC].ip)))
 
 
-			print "[C][CN]\tNetwork attributes successfully validated"
+			print "[C][CN]\tNetwork attributes successfully validated: "
+			print "[C][CN]\t\tSlave MISO: {}".format(self.slaves[targetMAC].miso)
+			print "[C][CN]\t\tSlave MOSI: {}".format(self.slaves[targetMAC].mosi)
+			print "[C][CN]\t\tSlave IP: {}".format(self.slaves[targetMAC].ip)
 			# Once networking attributes have been validated, proceed to secure
 			# a connection:
 
@@ -716,17 +793,17 @@ class Communicator:
 			# 	NOTE: A message of the following form will cause the receiving
 			#	Slave to secure a connection with this Master, when sent to its
 			#	MOSI socket:
-			#					MISOP,MOSIP,SL:MA:CA:DD:RE:SS,PPPP
+			#					MISOP SL:MA:CA:DD:RE:SS,PPPP
 			#
-			# Where MISOP and MOSIP are the >MASTER'S< Master in/Slave out and
-			# Master out/Slave in sockets, respectively, followed by the tar-
-			# getted Slave's MAC address and, lastly, the "period" of the ex-
-			# change. The Slave will validate this message and reply to Master's
+			# Where MISOP is >MASTER'S< MISO port number, followed by the tar-
+			# getted Slave's MAC address and, the communication "period" in ms.
+			# The Slave will validate this message and reply to Master's
 			# MISO socket, in which case communications will be secured.
 			#
-			# Use Master's MOSI socket w/ given Slave MOSI port and Slave IP
-			# to send message:
-			#
+			# NOTE: Master's MOSI port number and IP address are obtained im-
+			# plictly from this first standardized message.
+
+			
 			# Connect Master's MOSI socket to Slave's MOSI socket's address:
 			mosiSocket.connect(
 				(self.slaves[targetMAC].ip, self.slaves[targetMAC].mosi))
@@ -741,7 +818,7 @@ class Communicator:
 			attemptsLeft = attempts
 			success = False # How optimistic
 
-			while(attemptsLeft > 0)
+			while(attemptsLeft > 0):
 				try:
 					attemptsLeft = attemptsLeft-1 
 
@@ -749,9 +826,8 @@ class Communicator:
 						format(attempts - attemptsLeft, attempts)
 
 					# Format message to be sent:
-					message = "{},{},{},{}".format(
-						misoSocket.getsockname()[1], 
-						mosiSocket.getsockname()[1],
+					message = "{} {} {}".format(
+						misoSocket.getsockname()[1],
 						targetMAC,
 						self.periodSeconds*1000)
 
@@ -771,7 +847,7 @@ class Communicator:
 
 					print "[C][CN]\t\t\tWaiting..."
 					
-					messageReceived, senderAddress = misoSocket.recv(3)
+					messageReceived, senderAddress = misoSocket.recvfrom(3)
 
 					print "[C][CN]\t\t\t\"{}\" Received from {}"\
 						.format(messageReceived, senderAddress)
@@ -790,6 +866,9 @@ class Communicator:
 
 					print "[C][CN]\t\t\tERROR: {}".format(e)
 					continue
+
+				except Exception as e:
+					print "UNCAUGHT EXCEPTION: {}".format(e)
 			
 			# Check success:
 			if success:
@@ -860,43 +939,95 @@ class Communicator:
 
 		# End connect() ========================================================
 
-		def setBroadcastSwitch(self, newState): # ==============================
-			""" ABOUT: Set whether to send UDP broadcast. Parameter Switch is
-				expected to be True or False. Otherwise, ValueError is raised.
-			"""
+	def setBroadcastSwitch(self, newState): # ==============================
+		""" ABOUT: Set whether to send UDP broadcast. Parameter Switch is
+			expected to be True or False. Otherwise, ValueError is raised.
+		"""
 
-			# Validate parameter:
-			if (type(newState) == bool):
-				# If input is valid, modify broadcast switch:
-				self.broadcastSwitchLock.acquire()
-				try:
-
-					self.broadcastSwitch = newState
-
-				finally:
-
-					# Lock will always be released:
-					self.broadcastSwitchLock.release()
-
-			else:
-				# Raise exception upon invalid input:
-				raise ValueError("setBroadcastSwitch expects bool, not {}".\
-					format(type(newState)))
-
-		# End setBroadcastSwitch() =============================================
-
-		def getBroadcastSwitch(self): # ========================================
-			""" ABOUT: Get the current value of broadcastSwitch.
-			"""
-
+		# Validate parameter:
+		if (type(newState) == bool):
+			# If input is valid, modify broadcast switch:
 			self.broadcastSwitchLock.acquire()
 			try:
-				return self.broadcastSwitch
+
+				self.broadcastSwitch = newState
+
 			finally:
+
 				# Lock will always be released:
 				self.broadcastSwitchLock.release()
 
-		# End getBroadcastSwitch() =============================================
+		else:
+			# Raise exception upon invalid input:
+			raise ValueError("setBroadcastSwitch expects bool, not {}".\
+				format(type(newState)))
+
+	# End setBroadcastSwitch() =============================================
+
+	def getBroadcastSwitch(self): # ========================================
+		""" ABOUT: Get the current value of broadcastSwitch.
+		"""
+
+		self.broadcastSwitchLock.acquire()
+		try:
+			return self.broadcastSwitch
+		finally:
+			# Lock will always be released:
+			self.broadcastSwitchLock.release()
+
+	# End getBroadcastSwitch() =============================================
+
+	def list(self):
+		""" ABOUT: Get a list that summarizes Slave dictionary.
+		"""
+
+		# Acquire lock:
+		self.slavesLock.acquire()
+
+		try:
+
+			result = []
+
+			# Loop over Slave dictionary and gather relevant information:
+			for mac in self.slaves:
+
+				# Acquire Slave-specific lock:
+				self.slaves[mac].lock.acquire()
+
+				try:
+
+					# Get MOSI and MISO attributes according to type:
+					if self.slaves[mac].status > 0:
+						# If status attribute is positive, this Slave is
+						# connected and MOSI and MISO are sockets.
+
+						# Retrieve port numbers:
+
+						mosi = (self.slaves[mac].mosi.getsockname()[1],
+								self.slaves[mac].mosi.getpeername()[1])
+						miso = (self.slaves[mac].miso.getsockname()[1],
+								self.slaves[mac].miso.getpeername()[1])
+
+						# Otherwise, MOSI and MISO attributes are either an
+						# integer (port numbers) or None.
+
+					result.append(
+						(
+						mac,
+						self.slaves[mac].status,
+						self.slaves[mac].ip,
+						str(self.slaves[mac].mosi),
+						str(self.slaves[mac].miso)
+						)
+						)
+				finally:
+					# Always release lock:
+					self.slaves[mac].lock.release()
+
+			return result
+
+		finally:
+			self.slavesLock.release()
 
 
 ## MODULE'S TEST SUITE #########################################################
@@ -906,7 +1037,39 @@ if __name__ == "__main__":
 	print "FANCLUB MARK II COMMUNICATOR MODULE TEST SUITE INITIATED"
 	print "VERSION = " + VERSION
 
-	instance = Communicator()
+	instance = Communicator(knownMACs = ['00:80:e1:45:00:46'])
 
-	while (True):
+	inp = ''
+	while (inp != 'exit'):
+
+		print "[T] Slave dictionary: "
+		for slv in instance.list():
+			print "\t>> " + str(slv)
+
+		inp = raw_input('[T] CMD ("exit" to leave): ')
+
+		spl = inp.split(' ')
+
+		try: 
+			if spl[0] == 'bs':
+
+				if spl[1] == 'on':
+					print "[T] Broadcast switch on"
+					instance.setBroadcastSwitch(True)
+
+				elif spl[1] == 'off':
+					print "[T] Broadcast switch off"
+					instance.setBroadcastSwitch(False)
+
+				else:
+					print "[T] Error. Bad 'bs' argument. Expect 'on' or 'off'"
+
+			else:
+				print "[T] Input not recognized. Valid inputs 'exit', 'bs'"
+
+		except IndexError as e:
+			print "[T] Error: {}".format(e) 
+
 		pass
+
+	print "[T] Terminating. Goodbye."
