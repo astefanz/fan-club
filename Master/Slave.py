@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark II "Master" ## File: Slave.py  - "Slave" class       ##
+## Project: Fan Club Mark II "Master" ## File: Slave.py                       ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -22,14 +22,19 @@
 
 ## ABOUT #######################################################################
 """
-This module contains OOP representation of Slave devices.
+OOP representation of Slave units.
 
 """
 ################################################################################
 
-## CONSTANT VALUS ##############################################################
+## DEPENDENCIES ################################################################
+import Fan       			 # Fan representation
+import Queue      # Communication between threads
+import threading   # Thread-safe access
 
-# SLAVE STATUS CODES
+## CONSTANT VALUES #############################################################
+
+# SLAVE STATUS CODES:
 	# ABOUT: Positive status codes are for connected Slaves, negative codes for
 	# disconnected ones.
 
@@ -42,31 +47,54 @@ BUSY = 2
 ## CLASS DEFINITION ############################################################
 
 class Slave:
+	# ABOUT: Representation of connected Slave model, primarily a container with
+	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, mac, status, lock, ip = None, miso = None, mosi = None,
-		misoQueue = None, mosiQueue = None, thread = None):
-		# NOTE: "miso" and "mosi" stand for, "Master in, Slave out" and
-		# "Master out, Slave in," respectively. These are tuples of the
-		# form (socket, address) where "socket" is a Python UDP socket
-		# object and "address" is itself a tuple of the form (IP, PORt)
-		# which are the IP and port number of the corresponding miso 
-		# (or mosi) socket of this connected Slave board. misoQueue and
-		# mosiQueue are expected to be Queue objects for outgoing MOSI and
-		# incoming MISO messages, respectively. 
+	def __init__(self, name, mac, status, fans, activeFans, ip = None, 
+		miso = None, mosi = None, thread = None):
+		# ABOUT: Constructor for class Slave.
+		# PARAMETERS:
+		# - name: String representing this Slave unit's name (arbitrary)
+		# - mac: String representing this Slave unit's MAC address
+		# - status: Integer value describing the connection of this Slave, or
+		#	lack thereof; its possible values are defined in Slave.py 
+		# - fans: List of exactly 21 Fan objects (see Fan.py) that represents
+		#	this Slave's set of physical fans.
+		# - activeFans: Int, number of fans in the array to be used.
+		# - ip: String describing this Slave's IP address, if any. May be left
+		#	blank, in which case it defaults to None.
+		# - miso: Either an integer representing the Slave's MISO port number or
+		#	a Python UDP socket object if this Slave unit is connected.
+		# - mosi: Either an integer representing the Slave's MOSI port number or
+		#	a Python UDP socket object if this Slave unit is connected.
+		# - thread: Python thread object (from Python threading package) that
+		#	executes FC MkII's Communicator's Slave routine.
 		#
-		# NOTE: attribute "queue" is meant to hold the Slave's "message queue"
-		# used to give commands to be sent via its handler thread, which is to
-		# be stored inside attribute "thread." Attribute lock is meant to be a
-		# Lock object to control access to a Slave instance in a thread-safe
-		# manner.
+		# ATTRIBUTES:
+		# Besides the Constructor parameters, the following data members are in-
+		# trinsic of every Slave instance:
+		# - lock: Python Lock object for thread-safe access.
+		# - mosiQueue: Python Queue object for inter-thread communication of 
+		#	outgoing messages.
+		# - thread: Python thread object (or None) that executes Slave's handler
+		#	routine.
+		# - exchange: int, to coordinate UDP communications.
+		#
+		# WARNING: THIS CLASS IS NOT MEANT TO BE USED ON ITS OWN BUT AS AN AUXI-
+		# LIARY CONTAINER FOR CLASSES SUCH AS Slave AND Profile. AS SUCH, FOR
+		# PURPOSES OF EFFICIENCY, IT OPERATES UNDER THE ASSUMPTION THAT ALL PA-
+		# RAMETERS HAVE BEEN VERIFIED BY THE GREATER CONTAINER CLASS.
 
-
+		self.name = name
 		self.mac = mac
 		self.status = status
-		self.lock = lock
+		self.lock = threading.Lock()
+		self.fans = fans
+		self.activeFans = activeFans
 		self.ip  = ip
 		self.miso = miso
 		self.mosi = mosi
-		self.misoQueue = misoQueue
-		self.mosiQueue = mosiQueue
+		self.mosiQueue = Queue.Queue(1)
 		self.thread = thread
+		self.exchange = 0
+

@@ -1,0 +1,19 @@
+\select@language {english}
+\contentsline {section}{INTRODUCTION}{1}{section*.2}
+\contentsline {section}{NAMING CONVENTIONS}{2}{section*.3}
+\contentsline {part}{I\hspace {1em}USER MANUAL}{3}{part.1}
+\contentsline {part}{II\hspace {1em}DESIGN SPECIFICATION}{4}{part.2}
+\contentsline {section}{\numberline {1}PRECEDENTS}{4}{section.1}
+\contentsline {section}{\numberline {2}OBJECTIVES}{5}{section.2}
+\contentsline {subsection}{\numberline {2.1}PRIMARY OBJECTIVES}{5}{subsection.2.1}
+\contentsline {subsection}{\numberline {2.2}SECONDARY OBJECTIVES}{5}{subsection.2.2}
+\contentsline {subsection}{\numberline {2.3}ADDITIONAL OBJECTIVES}{6}{subsection.2.3}
+\contentsline {section}{\numberline {3}GENERAL SPECIFICATION}{7}{section.3}
+\contentsline {subsection}{\numberline {3.1}GENERAL NETWORKING}{7}{subsection.3.1}
+\contentsline {subsubsection}{\numberline {3.1.1}EXPECTED BEHAVIOR}{7}{subsubsection.3.1.1}
+\contentsline {subsubsection}{\numberline {3.1.2}SUMMARY}{7}{subsubsection.3.1.2}
+\contentsline {section}{\numberline {4}"MASTER" SPECIFICATION}{8}{section.4}
+\contentsline {section}{\numberline {5}"SLAVE" SPECIFICATION}{8}{section.5}
+\contentsline {subsection}{\numberline {5.1}MODULAR BREAKDOWN}{8}{subsection.5.1}
+\contentsline {subsection}{\numberline {5.2}``SLAVE" NETWORKING}{8}{subsection.5.2}
+\contentsline {section}{REFERENCES}{9}{subsection.5.2}
