@@ -570,7 +570,7 @@ class Communicator:
 						# this Slave -- an acknowledgement message, and a reply.
 
 						# Set up sentinel variables for reply loop:
-						tries = 3
+						tries = 4
 							# Try to receive messages a limited amount of times.
 
 						remainConnected = False
@@ -704,31 +704,6 @@ class Communicator:
 								self.printS(targetMAC, "[{}] Parsed keyword: \"{}\"".\
 									format(self.slaves[targetMAC].exchange, keyword))
 
-								# Check for acknowledgement message .  .  .  .  
-								if keyword == "SACK":
-									# Acknowledgement received as expected.
-									self.printS(targetMAC, "[{}] Message acknowledged"\
-										.format(self.slaves[targetMAC].exchange))
-
-									mAcknowledged = True
-
-									# Add one more "try" to this loop:
-									tries += 1
-
-									# Loop again:
-									continue
-
-								else:
-									# If the reply received is not an acknow-
-									# ledgement message from Slave, then it is a 
-									# message and should be acknowledged.
-
-									# Acknowledge command:
-									self.slaves[targetMAC].mosi.\
-										send("{0:08d}|MACK".format(
-											self.slaves[targetMAC].exchange))								
-
-
 								# Check for disconnect message: .  .  .  .  .  .
 
 								if keyword == "SRIP":
@@ -856,8 +831,10 @@ class Communicator:
 									# Resend message:
 									self.slaves[targetMAC].mosi.send(message)
 							
-									self.printS(targetMAC, "[{}] WARNING: Missed acknowledgement message. Message resent".\
+									self.printS(targetMAC, "[{}] Timed out. Message resent".\
 										format(self.slaves[targetMAC].exchange), "W")
+
+									mAcknowledged = True
 
 									continue
 
@@ -1153,7 +1130,7 @@ class Communicator:
 
 			# Set up sentinel variables for reply loop:
 
-			tries = 2
+			tries = 4
 				# Try to receive messages a limited amount of times.
 
 			mAcknowledged = False
@@ -1280,32 +1257,7 @@ class Communicator:
 						self.printS(targetMAC, "({})({}/{}) Parsed keyword: \"{}\"".\
 									format(self.slaves[targetMAC].exchange, 
 									successfulSteps, totalSteps, keyword))
-
-
-						# Check for acknowledgement message .  .  .  .  
-						if keyword == "SACK":
-							# Acknowledgement received as expected.
-							self.printS(targetMAC, "({})({}/{}) Message acknowledged.".\
-									format(self.slaves[targetMAC].exchange, 
-									successfulSteps, totalSteps
-									),"G")
-
-							mAcknowledged = True
-
-							# Add one more "try" to this loop:
-							tries += 1
-
-							# Loop again:
-							continue
-
-						else:
-							# If the reply received is not an acknow-
-							# ledgement message from Slave, then it is a 
-							# message and should be acknowledged.
-
-							# Acknowledge command:
-							mosi.send("{0:08d}|MACK".format(
-								self.slaves[targetMAC].exchange))						
+					
 
 
 						# Check for disconnect message: .  .  .  .  .  .
@@ -1359,10 +1311,12 @@ class Communicator:
 						# Resend message:
 						mosi.send(message)
 
-						self.printS(targetMAC, "({})({}/{}) WARNING: Missed acknowledgement message. Message resent".\
+						self.printS(targetMAC, "({})({}/{}) Timed out. Message resent".\
 							format(self.slaves[targetMAC].exchange, 
 							successfulSteps, totalSteps
 							),"W")
+
+						mAcknowledged = True
 
 						continue
 
