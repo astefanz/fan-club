@@ -51,7 +51,7 @@ class Slave:
 	# no behavior besides that of its components, such as Locks.
 
 	def __init__(self, name, mac, status, fans, activeFans, ip = None, 
-		miso = None, mosi = None, thread = None):
+		misoP = None, mosiP = None, misoS = None, mosiS = None, thread = None):
 		# ABOUT: Constructor for class Slave.
 		# PARAMETERS:
 		# - name: String representing this Slave unit's name (arbitrary)
@@ -92,8 +92,10 @@ class Slave:
 		self.fans = fans
 		self.activeFans = activeFans
 		self.ip  = ip
-		self.miso = miso
-		self.mosi = mosi
+		self.misoP = misoP
+		self.mosiP = mosiP
+		self.misoS = misoS
+		self.mosiS = mosiS
 		self.mosiQueue = Queue.Queue(1)
 		self.thread = thread
 		self.exchange = 0

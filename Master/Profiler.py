@@ -50,7 +50,12 @@ DOUBLE = 2
 # COMMUNICATIONS:
 STD_BROADCAST_PORT  = 65000
 STD_BROADCAST_PERIOD_S = 1
-STD_PERIOD_MS = 10000 # (millisecod(s))
+STD_PERIOD_MS = 2000 # (millisecond(s))
+STD_MASTER_TIMEOUT_MS= 500
+STD_INTERIM_MS = 200
+STD_MAX_LENGTH = 512
+STD_MAX_TIMEOUTS = 4
+
 
 # FAN ARRAY:
 # NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
@@ -94,18 +99,23 @@ class Profiler:
 		self.broadcastPeriodS = STD_BROADCAST_PERIOD_S
 		self.periodMS = STD_PERIOD_MS
 		self.password = "good_luck"
+		self.maxLength = STD_MAX_LENGTH
+		self.maxTimeouts = STD_MAX_TIMEOUTS
+		self.masterTimeout = STD_MASTER_TIMEOUT_MS
+		self.interim = STD_INTERIM_MS
 
 		# Wind tunnel ----------------------------------------------------------
-		self.slaves = {
+		self.slaves = {}
 
-		"00:80:e1:38:00:2a":
-		Slave.Slave(name = "Lad", mac = "00:80:e1:38:00:2a", 
-			status = Slave.KNOWN, fans = [Fan.Fan(1,0), Fan.Fan(2,0), Fan.Fan(3,0), Fan.Fan(4,0), Fan.Fan(5,0), Fan.Fan(6,0), Fan.Fan(7,0),\
+		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = "Lad", mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, fans = [Fan.Fan(1,0), Fan.Fan(2,0), Fan.Fan(3,0), Fan.Fan(4,0), Fan.Fan(5,0), Fan.Fan(6,0), Fan.Fan(7,0),\
 											Fan.Fan(8,0), Fan.Fan(9,0), Fan.Fan(10,0), Fan.Fan(11,0), Fan.Fan(12,0), Fan.Fan(13,0), Fan.Fan(14,0),\
-											Fan.Fan(15,0), Fan.Fan(16,0), Fan.Fan(17,0), Fan.Fan(18,0), Fan.Fan(19,0), Fan.Fan(20,0), Fan.Fan(21,0)],\
-			activeFans = 21)
+											Fan.Fan(15,0), Fan.Fan(16,0), Fan.Fan(17,0), Fan.Fan(18,0), Fan.Fan(19,0), Fan.Fan(20,0), Fan.Fan(21,0)], activeFans = 21)
 
-		}
+		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = "Leed", mac = "00:80:e1:45:00:46", status = Slave.KNOWN, fans = [Fan.Fan(1,0), Fan.Fan(2,0), Fan.Fan(3,0), Fan.Fan(4,0), Fan.Fan(5,0), Fan.Fan(6,0), Fan.Fan(7,0),\
+											Fan.Fan(8,0), Fan.Fan(9,0), Fan.Fan(10,0), Fan.Fan(11,0), Fan.Fan(12,0), Fan.Fan(13,0), Fan.Fan(14,0),\
+											Fan.Fan(15,0), Fan.Fan(16,0), Fan.Fan(17,0), Fan.Fan(18,0), Fan.Fan(19,0), Fan.Fan(20,0), Fan.Fan(21,0)], activeFans = 21)
+
+		
 		self.slavesLock = threading.Lock()
 		self.dimensions = (0,0)
 
@@ -120,6 +130,7 @@ class Profiler:
 		self.maxRPM = DEFAULT_MAX_RPM
 		self.minRPM = DEFAULT_MIN_RPM
 		self.minDC = DEFAULT_MIN_DC
+
 
 		printM("\tProfiler initialized", "G")
 
@@ -190,6 +201,26 @@ class Profiler:
 		# ABOUT: Get parameter.
 
 		return self.password
+
+	def get_maxLength(self):
+		# ABOUT: Get parameter.
+
+		return self.maxLength
+
+	def get_maxTimeouts(self):
+		# ABOUT: Get parameter.
+
+		return self.maxTimeouts
+
+	def get_masterTimeoutS(self):
+		# Pls
+
+		return self.masterTimeout/1000.0
+
+	def get_interimS(self):
+		# Pls
+
+		return self.interim/1000.0
 
 	def get_dimensions(self):
 		# ABOUT: Get parameter.

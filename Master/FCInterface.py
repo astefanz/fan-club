@@ -62,6 +62,9 @@ class FCInterface(Tk.Frame):
 		self.background = "#e2e2e2"
 		self.config(bg = self.background)
 
+		# Set debug foreground:
+		self.debugColor = "#ff007f"
+
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
 		# CONTROL --------------------------------------------------------------
@@ -103,6 +106,20 @@ class FCInterface(Tk.Frame):
 			text ="Auto-scroll", variable = self.autoscrollVar, 
 			bg = self.background)
 
+		# Debug checkbox:
+		self.debugVar = Tk.IntVar()
+
+		self.debugButton = Tk.Checkbutton(self.terminalFrame, 
+			text ="Debug prints", variable = self.debugVar, 
+			bg = self.background)
+
+		# Terminal print:
+		self.terminalVar = Tk.IntVar()
+
+		self.terminalButton = Tk.Checkbutton(self.terminalFrame, 
+			text ="Terminal output", variable = self.terminalVar, 
+			bg = self.background)
+
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.mainTerminal = ttk.Frame(self.terminal)
 		self.mainTLock = threading.Lock()
@@ -124,6 +141,8 @@ class FCInterface(Tk.Frame):
 			"W", underline = 1, foreground = "orange")
 		self.mainTText.tag_config(\
 			"E", underline = 1, foreground = "red", background = "#510000")
+		self.mainTText.tag_config(\
+			"D", foreground = self.debugColor)
 
 		# SLAVE TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		self.slavesTerminal = ttk.Frame(self.terminal)
@@ -148,6 +167,8 @@ class FCInterface(Tk.Frame):
 			"E", underline = 1, foreground = "red", background = "#510000")
 		self.slavesTText.tag_config(\
 			"B", foreground = "blue")
+		self.slavesTText.tag_config(\
+			"D", foreground = self.debugColor)
 
 
 		# LISTENER TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -172,6 +193,8 @@ class FCInterface(Tk.Frame):
 			"W", underline = 1, foreground = "orange")
 		self.listenerTText.tag_config(\
 			"E", underline = 1, foreground = "red", background = "#510000")
+		self.listenerTText.tag_config(\
+			"D", foreground = self.debugColor)
 
 
 		# BROADCAST TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -196,6 +219,8 @@ class FCInterface(Tk.Frame):
 			"W", underline = 1, foreground = "orange")
 		self.broadcastTText.tag_config(\
 			"E", underline = 1, foreground = "red",	background = "#510000")
+		self.broadcastTText.tag_config(\
+			"D", foreground = self.debugColor)
 
 		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		self.terminal.add(self.mainTerminal, text = 'Main')
@@ -205,8 +230,12 @@ class FCInterface(Tk.Frame):
 
 		self.terminal.pack(fill = Tk.BOTH, expand = True)
 		self.autoscrollButton.pack(side = Tk.LEFT)
+		self.debugButton.pack(side = Tk.LEFT)
+		self.terminalButton.pack(side = Tk.LEFT)
 		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 		self.autoscrollButton.select()
+
+
 
 
 		# STATUS ---------------------------------------------------------------
@@ -249,9 +278,17 @@ class FCInterface(Tk.Frame):
 		#	ted. Can be "S" for "Standard," "W" for "Warning,"  "E" for Er-
 		#	ror or "G" for "Green". Defaults to "S"
 
+		if self.terminalVar.get() == 0:
+			return
+
 		self.mainTLock.acquire()
 
 		try: # NOTE: Use try/finally to guarantee lock release.
+
+			# Check for debug tag:
+			if tag is "D" and self.debugVar.get() == 0:
+				# Do not print if the debug variable is set to 0
+				return
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
@@ -273,18 +310,26 @@ class FCInterface(Tk.Frame):
 		# End printMain ========================================================
 
 
-	def printSlave(self, mac, output, tag = "S"): # =========================
+	def printSlave(self, slave, output, tag = "S"): # =========================
 		# ABOUT: Print to slave terminal window in a thread-safe manner.
 		# PARAMETERS:
-		# - mac: str, MAC address of Slave caller
+		# - mac: Slave object about which to print
 		# - output: str, text to print.
 		# - tag: str, single character representing type of text to be prin-
 		#	ted. Can be "S" for "Standard," "W" for "Warning,"  "E" for Er-
 		#	ror or "G" for "Green". Defaults to "S"
 
+		if self.terminalVar.get() == 0:
+			return
+
 		self.slavesTLock.acquire()
 
 		try: # NOTE: Use try/finally to guarantee lock release.
+
+			# Check for debug tag:
+			if tag is "D" and self.debugVar.get() == 0:
+				# Do not print if the debug variable is set to 0
+				return
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
@@ -294,7 +339,8 @@ class FCInterface(Tk.Frame):
 				# Must change state to add text.
 
 			# Add MAC address first:
-			self.slavesTText.insert(Tk.END, "[{}] ".format(mac), "B")
+			self.slavesTText.insert(Tk.END, 
+				"[{}][{}] ".format(slave.mac, slave.exchange), "B")
 			self.slavesTText.insert(Tk.END, output + "\n", tag)
 			self.slavesTText.config(state = Tk.DISABLED)
 
@@ -316,9 +362,17 @@ class FCInterface(Tk.Frame):
 		#	ted. Can be "S" for "Standard," "W" for "Warning,"  "E" for Er-
 		#	ror or "G" for "Green". Defaults to "S"
 
+		if self.terminalVar.get() == 0:
+			return
+
 		self.listenerTLock.acquire()
 
 		try: # NOTE: Use try/finally to guarantee lock release.
+
+			# Check for debug tag:
+			if tag is "D" and self.debugVar.get() == 0:
+				# Do not print if the debug variable is set to 0
+				return
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
@@ -347,9 +401,17 @@ class FCInterface(Tk.Frame):
 		#	ted. Can be "S" for "Standard," "W" for "Warning,"  "E" for Er-
 		#	ror or "G" for "Green". Defaults to "S"
 
+		if self.terminalVar.get() == 0:
+			return
+
 		self.broadcastTLock.acquire()
 
 		try: # NOTE: Use try/finally to guarantee lock release.
+
+			# Check for debug tag:
+			if tag is "D" and self.debugVar.get() == 0:
+				# Do not print if the debug variable is set to 0
+				return
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":

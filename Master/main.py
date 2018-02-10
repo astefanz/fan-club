@@ -37,5 +37,4 @@ comms = Communicator.Communicator(profiler, interface.printMain,
 	interface.printSlave, interface.printBroadcast, interface.printListener, 
 	interface.dataLog)   
 
-
 interface.mainloop()       
