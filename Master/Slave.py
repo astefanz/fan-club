@@ -44,6 +44,31 @@ KNOWN = -1
 CONNECTED = 1
 BUSY = 2
 
+# AUXILIARY STATUS TRANSLATE METHOD:
+
+def translate(statusCode): # ===================================================
+	# ABOUT: Translate an integer status code to a String.
+	# PARAMETERS:
+	# - statusCode: int, status code to translate.
+	# RAISES:
+	# - ValueError if given argument is not a valid status code
+
+	if statusCode == DISCONNECTED:
+		return "DISCONNECTED"
+	elif statusCode == AVAILABLE:
+		return "AVAILABLE"
+	elif statusCode == KNOWN:
+		return "KNOWN"
+	elif statusCode == CONNECTED:
+		return "CONNECTED"
+	elif statusCode == BUSY:
+		return "BUSY"
+	else:
+		raise ValueError("Slave.translate got nonexistent statusCode! ({})".\
+			format(statusCode))
+
+	# End translate # ==========================================================
+
 ## CLASS DEFINITION ############################################################
 
 class Slave:
@@ -99,4 +124,7 @@ class Slave:
 		self.mosiQueue = Queue.Queue(1)
 		self.thread = thread
 		self.exchange = 0
+
+		self.updateQueue = Queue.Queue(2)
+		self.slaveDisplay = None
 

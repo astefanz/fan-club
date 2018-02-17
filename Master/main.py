@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "Alpha_Interface_b1" # Reference for consecutive versions
+VERSION = "Alpha_Threaded_Interface_1" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator
@@ -31,10 +31,7 @@ import Fan
 
 #### MAIN ######################################################################       
 
+print "Initializing"
 interface = FCI.FCInterface(VERSION) 
-profiler = Profiler.Profiler(interface.printMain)   
-comms = Communicator.Communicator(profiler, interface.printMain, 
-	interface.printSlave, interface.printBroadcast, interface.printListener, 
-	interface.dataLog)   
-
-interface.mainloop()       
+print "Done w/ constructors"   
+interface.mainloop()

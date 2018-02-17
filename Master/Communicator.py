@@ -46,40 +46,38 @@ VERSION = "GO_1"
 
 class Communicator:
 
-    def __init__(self, profiler,\
-        printMain, printSlave, printBroadcast, printListener, dataLog):
-    #   \-----------------------------------------------------------/
-    #   Interface methods
-
+    def __init__(self, profiler):
+        #   \-----------------------------------------------------------/
+        #   Interface methods
         # ABOUT: Constructor for class Communicator.
         # PARAMETERS:
         # - profiler: Initialized Profiler object from which to load configu-
         #   ration.
-        # [See FCInterface for interface methods]
 
         try:
-            printMain("Initializing Communicator instance")
 
             # INITIALIZE DATA MEMBERS ==============================================
 
-            # Profiler, Interface, and their methods:
-            self.profiler = profiler
+            # Output queues:
+            self.mainQueue = Queue.Queue(profiler.mainQueueSize)
+            self.slaveQueue = Queue.Queue(profiler.slaveQueueSize)
+            self.broadcastQueue = Queue.Queue(profiler.broadcastQueueSize)
+            self.listenerQueue = Queue.Queue(profiler.listenerQueueSize)
 
-            self.printM = printMain
-            self.printS = printSlave
-            self.printB = printBroadcast
-            self.printL = printListener
-            self.dataLog = dataLog
+            self.printM("Initializing Communicator instance")
+
+            # Profiler:
+            self.profiler = profiler
 
             # Wind tunnel:
             self.slaves = profiler.slaves
             self.slavesLock = profiler.slavesLock
 
             # Communications:
-            self.broadcastPeriodS = profiler.get_broadcastPeriodS()
-            self.periodMS = profiler.get_periodMS()
-            self.broadcastPort = profiler.get_broadcastPort()
-            self.password = profiler.get_password()
+            self.broadcastPeriodS = profiler.broadcastPeriodS
+            self.periodMS = profiler.periodMS
+            self.broadcastPort = profiler.broadcastPort
+            self.password = profiler.passcode
 
             # Create a temporary socket to obtain Master's IP address for reference:
             temp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -206,9 +204,7 @@ class Communicator:
             self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
                 format(traceback.format_exc()), "E")
 
-
-    # # END __init__() # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
+        # # END __init__() # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
     # # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 
@@ -478,8 +474,7 @@ class Communicator:
                 
         # End _listenerRoutine =================================================
 
-
-    def _slaveRoutine(self, targetMAC): # # # # # # # # # # # # 
+    def _slaveRoutine(self, targetMAC): # # # # # # # # # # # # # # # # # # # # 
         # ABOUT: This method is meant to run on a Slave's communication-handling
         # thread. It handles sending and receiving messages through its MISO and
         # MOSI sockets, at a pace dictated by the Communicator instance's given
@@ -506,7 +501,7 @@ class Communicator:
             # MISO:
             slave.misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             slave.misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            slave.misoS.settimeout(self.profiler.get_masterTimeoutS())
+            slave.misoS.settimeout(self.profiler.masterTimeoutS)
                 # The communications period is defined in milliseconds. The 
                 # socket timeout should be one-fifth of said period, and this
                 # method expects a value in seconds.
@@ -515,7 +510,7 @@ class Communicator:
             # MOSI:
             slave.mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             slave.mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            slave.mosiS.settimeout(self.profiler.get_masterTimeoutS())
+            slave.mosiS.settimeout(self.profiler.masterTimeoutS)
                 # The communications period is defined in milliseconds. The 
                 # socket timeout should be one-fifth of said period, and this
                 # method expects a value in seconds.
@@ -532,23 +527,21 @@ class Communicator:
             MHS1 = "MHS1|{},{},{}".format(
                         slave.misoS.getsockname()[1], 
                         slave.mosiS.getsockname()[1], 
-                        self.profiler.get_periodMS())
+                        self.profiler.periodMS)
 
 
             # Second message:
             MHS2 = "MHS2|{},{},{},{},{},{},{},{},{}".\
                         format(
-                        self.profiler.get_fanMode(),
-                        self.profiler.get_targetRelation()[0],
-                        self.profiler.get_targetRelation()[1],
+                        self.profiler.fanMode,
+                        self.profiler.targetRelation[0],
+                        self.profiler.targetRelation[1],
                         self.slaves[targetMAC].activeFans,
-                        self.profiler.get_counterCounts(),
-                        self.profiler.get_pulsesPerRotation(),
-                        self.profiler.get_maxRPM(),
-                        self.profiler.get_minRPM(),
-                        self.profiler.get_minDC())
-
-
+                        self.profiler.counterCounts,
+                        self.profiler.pulsesPerRotation,
+                        self.profiler.maxRPM,
+                        self.profiler.minRPM,
+                        self.profiler.minDC)
 
             # Set up placeholders and sentinels: -------------------------------
             slave.exchange = 0
@@ -595,7 +588,7 @@ class Communicator:
                             self._send(MHS2, slave)
 
                             # Wait for next message:
-                            time.sleep(self.profiler.get_interimS())
+                            time.sleep(self.profiler.interimS)
 
                             # Try to receive reply:
                             reply = self._receive(slave)
@@ -647,7 +640,7 @@ class Communicator:
                         self._send(message, slave, 5)
 
                         # Wait for next message:
-                        time.sleep(self.profiler.get_interimS())
+                        time.sleep(self.profiler.interimS)
 
                         # Get reply:
                         reply = self._receive(slave)
@@ -668,12 +661,12 @@ class Communicator:
                             timeouts += 1
 
                             # Check timeout counter: - - - - - - - - - - - - - -
-                            if timeouts < self.profiler.get_maxTimeouts():
+                            if timeouts < self.profiler.maxTimeouts:
                                 # If there have not been enough timeouts to con-
                                 # sider the connection compromised, continue.
                                 self.printS(slave, "Reply missed ({}/{})".\
                                     format(timeouts, 
-                                        self.profiler.get_maxTimeouts()), "W")
+                                        self.profiler.maxTimeouts), "W")
 
                                 # Restart loop:
                                 continue;
@@ -683,7 +676,7 @@ class Communicator:
                                     "Too many missed replies. "+\
                                     "Slave disconnected ({}/{})".\
                                     format(timeouts, 
-                                        self.profiler.get_maxTimeouts()), "E")
+                                        self.profiler.maxTimeouts), "E")
 
                                 # Terminate connection: ........................
 
@@ -712,7 +705,7 @@ class Communicator:
                             format(slave.status), "D")
                         # Wait arbitrary amount (say, comms period):
                         slave.lock.release()
-                        time.sleep(self.profiler.get_periodMS()/1000)
+                        time.sleep(self.profiler.periodMS/1000)
 
                         # Restart loop to check again:
                         continue
@@ -727,6 +720,25 @@ class Communicator:
                         # Note: if the lock was released within the "try" clause
                         # then this statement will prevent a threading exception
                         # when an attempt to release an unlocked lock is made.
+
+                    # Update Slave information for Interface:
+                    try:
+                        slave.updateQueue.put_nowait(
+                            (
+                                str(slave.name),
+                                str(slave.mac),
+                                int(slave.status),
+                                "slave.fans",
+                                str(slave.activeFans),
+                                str(slave.ip),
+                                str(slave.misoP),
+                                str(slave.mosiP),
+                                str(slave.exchange),
+                            ))
+                    except Queue.Full:
+                        # Skip this update if there is no more room:
+                        pass
+
                     slave.lock.release()
 
                 # End Slave loop (while(True)) =================================
@@ -734,7 +746,7 @@ class Communicator:
 
         except Exception as e: # Print uncaught exceptions
             self.printS(slave, "UNCAUGHT EXCEPTION: \"{}\"".\
-                format(traceback.format_exc()), "E")
+               format(traceback.format_exc()), "E")
 
         finally:
             # Guarantee release of Slave-specific lock:
@@ -746,7 +758,8 @@ class Communicator:
                 # when an attempt to release an unlocked lock is made.
             slave.lock.release()
 
-    
+        
+        self.printS(slave, "ROUTINE TERMINATED", "E")
         # End _slaveRoutine  # # # # # # # # # # # #  # # # # # # # # # # # # # 
 
     # # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -754,7 +767,7 @@ class Communicator:
         # be accessed by the user of a Communicator instance, see INTERFACE ME-
         # THODS below.
 
-    def _send(self, message, slave ,repeat = 1): # # # # # # # # # # # # # # #
+    def _send(self, message, slave ,repeat = 1): # # # # # # # # # # # # # # # #
         # ABOUT: Send message to a KNOWN or CONNECTED Slave. Automatically add
         # index.
         # PARAMETERS:
@@ -803,7 +816,7 @@ class Communicator:
 
                 # Receive message: ---------------------------------------------
                 message, sender = slave.misoS.recvfrom(
-                    self.profiler.get_maxLength())
+                    self.profiler.maxLength)
 
                 self.printS(slave, "Received: \"{}\" from {}".\
                     format(message, sender), "D")
@@ -875,8 +888,7 @@ class Communicator:
 
         # End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-
-    def connect(self, targetMAC): # ============================================M
+    def connect(self, targetMAC): # ============================================
         # ABOUT: Given the MAC address of a known Slave, try to secure a
         # connection. Read usage notes below.
         #
@@ -961,7 +973,7 @@ class Communicator:
         # MISO:
         miso = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         miso.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        miso.settimeout(self.profiler.get_periodMS()/2000.0)
+        miso.settimeout(self.profiler.periodMS/2000.0)
             # The communications period is defined in milliseconds. The 
             # socket timeout should be one-fifth of said period, and this
             # method expects a value in seconds.
@@ -972,7 +984,7 @@ class Communicator:
         # MOSI:
         mosi = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         mosi.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        mosi.settimeout(self.profiler.get_periodMS()/2000.0)
+        mosi.settimeout(self.profiler.periodMS/2000.0)
             # The communications period is defined in milliseconds. The 
             # socket timeout should be one-fifth of said period, and this
             # method expects a value in seconds.
@@ -996,7 +1008,7 @@ class Communicator:
             format(
                 miso.getsockname()[1], 
                 mosi.getsockname()[1], 
-                self.profiler.get_periodMS()
+                self.profiler.periodMS
                 ))
 
         # Second message is of the form:
@@ -1006,15 +1018,15 @@ class Communicator:
 
         handshakeQueue.put("MHS2|{},{},{},{},{},{},{},{},{}".\
             format(
-            self.profiler.get_fanMode(),
-            self.profiler.get_targetRelation()[0],
-            self.profiler.get_targetRelation()[1],
+            self.profiler.fanMode,
+            self.profiler.targetRelation[0],
+            self.profiler.targetRelation[1],
             self.slaves[targetMAC].activeFans,
-            self.profiler.get_counterCounts(),
-            self.profiler.get_pulsesPerRotation(),
-            self.profiler.get_maxRPM(),
-            self.profiler.get_minRPM(),
-            self.profiler.get_minDC()
+            self.profiler.counterCounts,
+            self.profiler.pulsesPerRotation,
+            self.profiler.maxRPM,
+            self.profiler.minRPM,
+            self.profiler.minDC
             ))
 
 
@@ -1359,8 +1371,6 @@ class Communicator:
             self.printS(targetMAC, "Handshake terminated successfully.", "G")
         # End connect() ========================================================
 
-
-
     def disconnect(self, targetMAC, joinThread = True, remove = False): # ======
         # ABOUT: Terminate connection of a connected Slave.
         # PARAMETERS:
@@ -1438,10 +1448,77 @@ class Communicator:
 
         # End disconnect ======================================================= 
 
+    def printM(self, output, tag = 'S'): # =====================================
+        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
+        # this Communicator's corresponding output Queue.
+        # PARAMETERS:
+        # - output: str, string to be printed.
+        # - tag: str, single character for string formatting.
+        # RETURNS: bool, whether the placement of the message was successful.
+        # The given message will be added to the corresponding output Queue or
+        # will block until it is possible.
+
+        # Place item in corresponding output Queue:
+        return self.mainQueue.put((output, tag))
+
+    def printS(self, mac, output, tag = 'S'): # ================================
+        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
+        # this Communicator's corresponding output Queue.
+        # PARAMETERS:
+        # - mac: str, MAC address of Slave unit in question
+        # - output: str, string to be printed.
+        # - tag: str, single character for string formatting.
+        # RETURNS: bool, whether the placement of the message was successful.
+        # The given message will be added to the corresponding output Queue ONLY
+        # IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
+        # Output Queue sizes are set in Profiler.
+
+        # Place item in corresponding output Queue:
+        try:
+            self.slaveQueue.put_nowait((mac, output, tag))
+            return True
+        except Queue.Full:
+            return False
+
+    def printB(self, output, tag = 'S'): # =====================================
+        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
+        # this Communicator's corresponding output Queue.
+        # PARAMETERS:
+        # - output: str, string to be printed.
+        # - tag: str, single character for string formatting.
+        # RETURNS: bool, whether the placement of the message was successful.
+        # The given message will be added to the corresponding output Queue ONLY
+        # IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
+        # Output Queue sizes are set in Profiler.
+
+        # Place item in corresponding output Queue:
+        try:
+            self.broadcastQueue.put_nowait((output, tag))
+            return True
+        except Queue.Full:
+            return False
+
+    def printL(self, output, tag = 'S'): # =====================================
+        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
+        # this Communicator's corresponding output Queue.
+        # PARAMETERS:
+        # - output: str, string to be printed.
+        # - tag: str, single character for string formatting.
+        # RETURNS: bool, whether the placement of the message was successful.
+        # The given message will be added to the corresponding output Queue ONLY
+        # IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
+        # Output Queue sizes are set in Profiler.
+
+        # Place item in corresponding output Queue:
+        try:
+            self.listenerQueue.put_nowait((output, tag))
+            return True
+        except Queue.Full:
+            return False
 
     # # INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-    def add(self, targetMAC): # ================================================M
+    def add(self, targetMAC): # ================================================
         # ABOUT: Mark a Slave on the network for connection. The given Slave 
         # must be already listed and marked AVAILABLE. This method will mark it 
         # as KNOWN, and the Listener Thread will add it automatically when it
