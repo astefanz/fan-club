@@ -576,7 +576,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
                 ,tm, this->_interpret(result));pu;
                 
             // Blink red LED for signaling: - - - - - - - - - - - - - - - - - - 
-            for(int i = 0; i < (this->status == CONNECTED? 2:1); i++){
+            for(int i = 0; i < (this->status == CONNECTED? 0:1); i++){
                 this->red = !this->red;
                 wait_ms(50);
                 this->red = !this->red;
