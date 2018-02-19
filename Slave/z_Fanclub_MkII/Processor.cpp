@@ -63,7 +63,9 @@ bool Processor::process(const char* command){
      *  process.
      */
 
-	// NOT IMPLEMENTED
+    // NOT IMPLEMENTED
+    pl;printf("\n\r[%08dms][P] PROCESS: %s", tm, command);pu;
+
 	return true;
 }
  
@@ -73,7 +75,10 @@ void Processor::get(char* buffer){
      * -const char* buffer: pointer to char array in which to store reply.
      */
 
-	// NOT IMPLEMENTED
+    // NOT IMPLEMENTED
+
+    sprintf(buffer, "BUSY|11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500,11500|1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0");
+
 }
 
 void Processor::setStatus(int status){

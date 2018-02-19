@@ -463,12 +463,31 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
                 // Verification message. Reply w/ standard SVER to maintain
                 // connection.
 
-                // Answer w/ verification message:
-                this->_send("MVER|PROTO", 5);
+                // Get update from Processor:
+                this->processor.get(processed);
+
+                // Send update to Master:
+                this->_send(processed, 5);
                 
                 // Restart loop:
                 continue;
 
+
+            }else if(!strcmp(receivedKeyword, "MSTD")){
+                // Standard command message. Send command to Processor and for-
+                // ward Processor update to Master.
+
+                // Send command to Processor:
+                this->processor.process(receivedCommand);
+
+                // Get update from Processor:
+                this->processor.get(processed);
+
+                // Send update to Master:
+                this->_send(processed, 5);
+                
+                // Restart loop:
+                continue;
 
             } else if(!strcmp(receivedKeyword, "MRIP")){
                 pl;printf(
