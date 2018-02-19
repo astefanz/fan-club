@@ -1,0 +1,99 @@
+[
+    {
+        "module": "Fill", 
+        "size": {
+            ".data": 10, 
+            ".bss": 40, 
+            ".text": 241
+        }
+    }, 
+    {
+        "module": "Misc", 
+        "size": {
+            ".data": 2500, 
+            ".bss": 925, 
+            ".text": 56215
+        }
+    }, 
+    {
+        "module": "drivers", 
+        "size": {
+            ".data": 4, 
+            ".bss": 132, 
+            ".text": 2083
+        }
+    }, 
+    {
+        "module": "features/FEATURE_LWIP", 
+        "size": {
+            ".data": 77, 
+            ".bss": 46852, 
+            ".text": 39470
+        }
+    }, 
+    {
+        "module": "features/filesystem", 
+        "size": {
+            ".data": 0, 
+            ".bss": 0, 
+            ".text": 627
+        }
+    }, 
+    {
+        "module": "features/netsocket", 
+        "size": {
+            ".data": 85, 
+            ".bss": 60, 
+            ".text": 3928
+        }
+    }, 
+    {
+        "module": "hal", 
+        "size": {
+            ".data": 0, 
+            ".bss": 8, 
+            ".text": 568
+        }
+    }, 
+    {
+        "module": "platform", 
+        "size": {
+            ".data": 4, 
+            ".bss": 297, 
+            ".text": 2217
+        }
+    }, 
+    {
+        "module": "rtos", 
+        "size": {
+            ".data": 4, 
+            ".bss": 4, 
+            ".text": 783
+        }
+    }, 
+    {
+        "module": "rtos/rtx", 
+        "size": {
+            ".data": 20, 
+            ".bss": 6870, 
+            ".text": 7161
+        }
+    }, 
+    {
+        "module": "targets/TARGET_STM", 
+        "size": {
+            ".data": 4, 
+            ".bss": 736, 
+            ".text": 8835
+        }
+    }, 
+    {
+        "summary": {
+            "total_flash": 124836, 
+            "static_ram": 58632, 
+            "stack": 0, 
+            "heap": 24576, 
+            "total_ram": 83208
+        }
+    }
+]
