@@ -568,9 +568,6 @@ class Communicator:
                         # Try to receive reply:
                         reply = self._receive(slave)
 
-                        
-
-
                         # Check reply:
                         if reply != None and reply[1] == "SHS1":
                             self.printS(slave, "Processed reply: {}".format(reply), "G")

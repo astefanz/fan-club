@@ -98,7 +98,7 @@ class Profiler:
 		self.maxLength = STD_MAX_LENGTH
 		self.maxTimeouts = STD_MAX_TIMEOUTS
 		self.masterTimeout = STD_MASTER_TIMEOUT_MS
-		self.masterTimeoutS = self.masterTimeout*1000
+		self.masterTimeoutS = self.masterTimeout/1000.0
 		self.interim = STD_INTERIM_MS
 		self.interimS = self.interim/1000.0
 
