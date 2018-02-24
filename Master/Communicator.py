@@ -720,12 +720,17 @@ class Communicator:
 
                     # Update Slave information for Interface:
                     try:
+
+                        fans = []
+                        for fan in slave.fans:
+                            fans.append((fan.index, fan.status,fan.rpm, fan.dc))
+
                         slave.updateQueue.put_nowait(
                             (
                                 str(slave.name),
                                 str(slave.mac),
                                 int(slave.status),
-                                "slave.fans",
+                                fans,
                                 str(slave.activeFans),
                                 str(slave.ip),
                                 str(slave.misoP),

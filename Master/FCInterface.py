@@ -48,14 +48,15 @@ import Profiler
 
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, name, mac, initialStatus): # ====================
+	def __init__(self, master, name, mac, initialStatus, maxFans): # ===========
 
 		self.background = "#d3d3d3"
 		self.mac = mac
+		self.maxFans = maxFans
 
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
-		self.config(bg = self.background, relief = Tk.RAISED, borderwidth = 2)
+		self.config(bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
 
 		# ADD LABELS -----------------------------------------------------------
 
@@ -65,7 +66,8 @@ class SlaveDisplay(Tk.Frame):
 		self.generalFrame.pack(fill = Tk.X)
 
 		# ......................................................................
-		self.nameVar = '- "' + name + '"'
+		self.nameVar = Tk.StringVar()
+		self.nameVar.set('- "' + name + '"')
 		self.nameLabel = Tk.Label(self.generalFrame, textvariable = self.nameVar,
 			fg = "black", relief = Tk.SUNKEN, bd = 1, font = 'TkFixedFont 12 bold',
 			bg = self.background)
@@ -114,23 +116,19 @@ class SlaveDisplay(Tk.Frame):
 			bg = self.background)
 		self.exchangeLabel.pack(side = Tk.LEFT)
 
-		# FAN ARRAY - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		self.fanArrayFrame = Tk.Frame(self, bg = self.background)
-		self.fanArrayFrame.pack(fill = Tk.X)
-
 		# ......................................................................
-		self.activeFansLabel = Tk.Label(self.fanArrayFrame, 
+		self.activeFansLabel = Tk.Label(self.generalFrame, 
 			text = "Active Fans: [N\A]", relief = Tk.SUNKEN, bd = 1,
 			bg = self.background)
 		self.activeFansLabel.pack(side = Tk.LEFT)
 
-		# ......................................................................
-		self.fansLabel = Tk.Label(self.fanArrayFrame, 
-			text = "[FAN ARRAY GOES HERE]", relief = Tk.SUNKEN, bd = 1,
-			bg = self.background)
-		self.fansLabel.pack(side = Tk.LEFT)
+		# FAN ARRAY - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+		self.fanArrayFrame = Tk.Frame(self, bg = self.background)
+		self.fanArrayFrame.pack(fill = Tk.X)
 
-
+		self.fans = []
+		for i in range(maxFans):
+			self.fans.append(FanDisplay(self))
 		
 		self.pack(fill = Tk.X)
 
@@ -189,6 +187,29 @@ class SlaveDisplay(Tk.Frame):
         # End update ===========================================================
 
 
+class FanDisplay(Tk.Frame):
+	# ABOUT: Graphically represent each fan
+
+	def __init__(self, master): # ==============================================
+
+		self.background = "red"
+		size = 20 # px per side
+
+		# CONFIGURE FRAME = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+		Tk.Frame.__init__(self, master = master, bg = "black")
+		self.config(relief = Tk.SUNKEN, borderwidth = 1)
+
+		# CONFIGURE CANVAS = = = = = = = = = = = = = = = = = = = = = = = = = = =
+		self.canvas = Tk.Canvas(self, bg = self.background, 
+			width = size, height = size)
+
+
+		# PACK = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+		self.pack(side = Tk.LEFT, expand = False)
+		self.canvas.pack()
+
+
+
 ## CLASS DEFINITION ############################################################
 
 class FCInterface(Tk.Frame):      
@@ -201,7 +222,6 @@ class FCInterface(Tk.Frame):
 		# Deactivate resizing:
 		#self.master.resizable(False,False)
 
-
 		# Set title:
 		self.master.title("Fan Club MkII")
 
@@ -213,6 +233,22 @@ class FCInterface(Tk.Frame):
 		self.debugColor = "#ff007f"
 
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+		# ARRAY ----------------------------------------------------------------
+		self.arrayFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
+			width = 50, height = 300, bg=self.background)
+
+		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
+			bg = self.background)
+
+		self.arrayFrameLabel = Tk.Label(self.arrayFrameLabelFrame, 
+			text = "Slaves", bg = self.background)
+		self.arrayFrameLabel.pack()
+
+		self.arrayFrameLabelFrame.pack(fill = Tk.X)
+
+
+		self.arrayFrame.pack(fill = Tk.BOTH, expand = True)
 
 		# CONTROL --------------------------------------------------------------
 		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
@@ -231,22 +267,6 @@ class FCInterface(Tk.Frame):
 		self.b3.pack(side = Tk.RIGHT)
 
 		self.controlFrame.pack(fill = Tk.X, expand = False)
-
-		# ARRAY ----------------------------------------------------------------
-		self.arrayFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			width = 50, height = 300, bg=self.background)
-
-		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
-			bg = self.background)
-
-		self.arrayFrameLabel = Tk.Label(self.arrayFrameLabelFrame, 
-			text = "Slaves", bg = self.background)
-		self.arrayFrameLabel.pack()
-
-		self.arrayFrameLabelFrame.pack(fill = Tk.X)
-
-
-		self.arrayFrame.pack(fill = Tk.BOTH, expand = True)
 
 		# TERMINAL -------------------------------------------------------------
 		self.terminalFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
@@ -432,66 +452,39 @@ class FCInterface(Tk.Frame):
 		# Initialize Profiler --------------------------------------------------
 		self.profiler = Profiler.Profiler() 
 		self.printMain("Profiler initialized", "G")
-		print "Profiler done"
+		print "Profiler ready"
+		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(self.profiler)
 		self.printMain("Communicator initialized", "G")
-		print "Communicator done"
+		print "Communicator ready"
 
 		# INITIALIZE UPDATING THREADS = = = = = = = = = = = = = = = = = = = = = 
 
 		# ----------------------------------------------------------------------
-		self.mainPrinterThread = threading.Thread(
-			name = "FCMkII_mainPrinterThread",
-			target = self._mainPrinterRoutine)
+		self._mainPrinterRoutine()
 
-		self.mainPrinterThread.setDaemon(True)
 		
 		# ----------------------------------------------------------------------
-		self.slavesPrinterThread = threading.Thread(
-			name = "FCMkII_slavesPrinterThread",
-			target = self._slavesPrinterRoutine)
+		self._slavesPrinterRoutine()
 
-		self.slavesPrinterThread.setDaemon(True)
 		
 		# ----------------------------------------------------------------------
-		self.broadcastPrinterThread = threading.Thread(
-			name = "FCMkII_broadcastPrinterThread",
-			target = self._broadcastPrinterRoutine)
-
-		self.broadcastPrinterThread.setDaemon(True)
+		self._broadcastPrinterRoutine()
 		
 		# ----------------------------------------------------------------------
-		self.listenerPrinterThread = threading.Thread(
-			name = "FCMkII_listenerPrinterThread",
-			target = self._listenerPrinterRoutine)
+		self._listenerPrinterRoutine()
 
-		self.listenerPrinterThread.setDaemon(True)
 
 		# ----------------------------------------------------------------------
-		self.slaveDisplayThread = threading.Thread(
-			name = "FCMkII_slaveDisplayThread",
-			target = self._slaveDisplayRoutine)
+		self._slaveDisplayRoutine()
 
-		self.slaveDisplayThread.setDaemon(True)
 		
 		# Start printer threads ------------------------------------------------
-		self.mainPrinterThread.start()
-		self.slavesPrinterThread.start()
-		self.broadcastPrinterThread.start()
-		self.listenerPrinterThread.start()
-		self.slaveDisplayThread.start()
+
 
 		# End constructor ==========================================================
-
-		self.slaveDisplays = []
-
-		# Test SlaveDisplay:
-		for mac in self.profiler.slaves:
-
-			self.profiler.slaves[mac].slaveDisplay = SlaveDisplay(self.arrayFrame, 
-				self.profiler.slaves[mac].name, mac, "KNOWN")
 
 ## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 	
@@ -499,18 +492,11 @@ class FCInterface(Tk.Frame):
 
 	def _mainPrinterRoutine(self): # ===========================================
 		# ABOUT: Keep main terminal window updated w/ Communicator output. To be
-		# executed by mainPrinterThread
-		#
 		
-		while(True):
-			time.sleep(0.1)
+		if self.terminalVar.get() == 0:
+			pass
 
-			if self.terminalVar.get() == 0:
-				continue
-
-			self.mainTLock.acquire()
-
-
+		else: 
 			try: # NOTE: Use try/finally to guarantee lock release.
 
 				# Fetch item from Communicator queue:
@@ -521,29 +507,30 @@ class FCInterface(Tk.Frame):
 				# Check for debug tag:
 				if tag is "D" and self.debugVar.get() == 0:
 					# Do not print if the debug variable is set to 0
-					continue
+					pass
 
-				# Switch focus to this tab in case of errors of warnings:
-				if tag is "E":
-					self.terminal.select(0)
+				else:
 
-				self.mainTText.config(state = Tk.NORMAL)
-					# Must change state to add text.
-				self.mainTText.insert(Tk.END, output + "\n", tag)
-				self.mainTText.config(state = Tk.DISABLED)
+					# Switch focus to this tab in case of errors of warnings:
+					if tag is "E":
+						self.terminal.select(3)
 
-				# Check for auto scroll:
-				if self.autoscrollVar.get() == 1:
-					self.mainTText.see("end")
+					self.mainTText.config(state = Tk.NORMAL)
+						# Must change state to add text.
+					self.mainTText.insert(Tk.END, output + "\n", tag)
+					self.mainTText.config(state = Tk.DISABLED)
+
+					# Check for auto scroll:
+					if self.autoscrollVar.get() == 1:
+						self.mainTText.see("end")
 
 			except Queue.Empty:
 				# If there is nothing to print, try again.
-				continue
+				pass
 
-			finally:
-				self.mainTLock.acquire(False)
-				self.mainTLock.release()
 
+
+		self.mainTText.after(100, self._mainPrinterRoutine)
 		# End _mainPrintRoutine ================================================
 
 	def _slavesPrinterRoutine(self): # =========================================
@@ -551,70 +538,56 @@ class FCInterface(Tk.Frame):
 		# be executed by slavesPrinterThread
 		#
 		
-		while(True):
-			time.sleep(0.1)
-
 			if self.terminalVar.get() == 0:
-				continue
+				pass
 
-			self.slavesTLock.acquire()
+			else:
+				try:
 
+					# Fetch item from Communicator queue:
+					target, output, tag = self.communicator.slaveQueue.get_nowait()
+					# If there is an item, print it (otherwise, Empty exception is
+					# raised and handled)
 
-			try: # NOTE: Use try/finally to guarantee lock release.
+					# Check for debug tag:
+					if tag is "D" and self.debugVar.get() == 0:
+						# Do not print if the debug variable is set to 0
+						pass
 
-				# Fetch item from Communicator queue:
-				target, output, tag = self.communicator.slaveQueue.get_nowait()
-				# If there is an item, print it (otherwise, Empty exception is
-				# raised and handled)
+					# Switch focus to this tab in case of errors of warnings:
+					else:
+						if tag is "E":
+							self.terminal.select(1)
 
-				# Check for debug tag:
-				if tag is "D" and self.debugVar.get() == 0:
-					# Do not print if the debug variable is set to 0
-					continue
+						self.slavesTText.config(state = Tk.NORMAL)
+							# Must change state to add text.
 
-				# Switch focus to this tab in case of errors of warnings:
+						# Print MAC address:
+						self.slavesTText.insert(Tk.END, "[" + target.mac + "] ", "B")
 
-				if tag is "E":
-					self.terminal.select(0)
+						# Print text:
+						self.slavesTText.insert(Tk.END, output + "\n", tag)
+						self.slavesTText.config(state = Tk.DISABLED)
 
-				self.slavesTText.config(state = Tk.NORMAL)
-					# Must change state to add text.
+						# Check for auto scroll:
+						if self.autoscrollVar.get() == 1:
+							self.slavesTText.see("end")
 
-				# Print MAC address:
-				self.slavesTText.insert(Tk.END, "[" + target.mac + "] ", "B")
+				except Queue.Empty:
+					# If there is nothing to print, try again.
+					pass
 
-				# Print text:
-				self.slavesTText.insert(Tk.END, output + "\n", tag)
-				self.slavesTText.config(state = Tk.DISABLED)
+			self.mainTText.after(100, self._slavesPrinterRoutine)
 
-				# Check for auto scroll:
-				if self.autoscrollVar.get() == 1:
-					self.slavesTText.see("end")
-
-			except Queue.Empty:
-				# If there is nothing to print, try again.
-				continue
-
-			finally:
-				self.slavesTLock.acquire(False)
-				self.slavesTLock.release()
-
-		# End _slavesPrintRoutine ================================================
+		# End _slavesPrinterRoutine ============================================
 
 	def _broadcastPrinterRoutine(self): # ======================================
 		# ABOUT: Keep broadcast terminal window updated w/ Communicator output.
-		# To be executed by broadcastPrinterThread
-		#
-		
-		while(True):
-			time.sleep(0.1)
 
-			if self.terminalVar.get() == 0:
-				continue
+		if self.terminalVar.get() == 0:
+			pass
 
-			self.broadcastTLock.acquire()
-
-
+		else: 
 			try: # NOTE: Use try/finally to guarantee lock release.
 
 				# Fetch item from Communicator queue:
@@ -625,44 +598,39 @@ class FCInterface(Tk.Frame):
 				# Check for debug tag:
 				if tag is "D" and self.debugVar.get() == 0:
 					# Do not print if the debug variable is set to 0
-					continue
+					pass
 
-				# Switch focus to this tab in case of errors of warnings:
-				if tag is "E":
-					self.terminal.select(0)
+				else:
 
-				self.broadcastTText.config(state = Tk.NORMAL)
-					# Must change state to add text.
-				self.broadcastTText.insert(Tk.END, output + "\n", tag)
-				self.broadcastTText.config(state = Tk.DISABLED)
+					# Switch focus to this tab in case of errors of warnings:
+					if tag is "E":
+						self.terminal.select(3)
 
-				# Check for auto scroll:
-				if self.autoscrollVar.get() == 1:
-					self.broadcastTText.see("end")
+					self.broadcastTText.config(state = Tk.NORMAL)
+						# Must change state to add text.
+					self.broadcastTText.insert(Tk.END, output + "\n", tag)
+					self.broadcastTText.config(state = Tk.DISABLED)
+
+					# Check for auto scroll:
+					if self.autoscrollVar.get() == 1:
+						self.broadcastTText.see("end")
 
 			except Queue.Empty:
 				# If there is nothing to print, try again.
-				continue
+				pass
 
-			finally:
-				self.broadcastTLock.acquire(False)
-				self.broadcastTLock.release()
+		self.broadcastTText.after(500, self._broadcastPrinterRoutine)
+
 
 		# End _broadcastPrintRoutine ================================================
 
 	def _listenerPrinterRoutine(self): # =======================================
 		# ABOUT: Keep listener terminal window updated w/ Communicator output.
-		# To be executed by listenerPrinterThread
-		#
-		while(True):
-			time.sleep(0.1)
 
-			if self.terminalVar.get() == 0:
-				continue
+		if self.terminalVar.get() == 0:
+			pass
 
-			self.listenerTLock.acquire()
-
-
+		else: 
 			try: # NOTE: Use try/finally to guarantee lock release.
 
 				# Fetch item from Communicator queue:
@@ -673,72 +641,72 @@ class FCInterface(Tk.Frame):
 				# Check for debug tag:
 				if tag is "D" and self.debugVar.get() == 0:
 					# Do not print if the debug variable is set to 0
-					continue
+					pass
 
-				# Switch focus to this tab in case of errors of warnings:
-				if tag is "E":
-					self.terminal.select(0)
+				else:
 
-				self.listenerTText.config(state = Tk.NORMAL)
-					# Must change state to add text.
-				self.listenerTText.insert(Tk.END, output + "\n", tag)
-				self.listenerTText.config(state = Tk.DISABLED)
+					# Switch focus to this tab in case of errors of warnings:
+					if tag is "E":
+						self.terminal.select(3)
 
-				# Check for auto scroll:
-				if self.autoscrollVar.get() == 1:
-					self.listenerTText.see("end")
+					self.listenerTText.config(state = Tk.NORMAL)
+						# Must change state to add text.
+					self.listenerTText.insert(Tk.END, output + "\n", tag)
+					self.listenerTText.config(state = Tk.DISABLED)
+
+					# Check for auto scroll:
+					if self.autoscrollVar.get() == 1:
+						self.listenerTText.see("end")
 
 			except Queue.Empty:
 				# If there is nothing to print, try again.
-				continue
+				pass
 
-			finally:
-				self.listenerTLock.acquire(False)
-				self.listenerTLock.release()
+		self.listenerTText.after(500, self._listenerPrinterRoutine)
 
 		# End _listenerPrintRoutine ================================================
 
 	def _slaveDisplayRoutine(self): # ==========================================
 		# ABOUT: Loop over each Slave and display is relevant information.
-		while(True):
-			time.sleep(1)
+		try:
 
-			try:
+			# Loop over Slave list -----------------------------------------
+			for mac in self.slaves:
 
-				# Loop over Slave list -----------------------------------------
-				for mac in self.profiler.slaves:
+				# Check if this Slave has a display:
+				if self.slaves[mac].slaveDisplay == None:
 
-					# Check if this Slave has a display:
-					if self.profiler.slaves[mac].slaveDisplay == None:
+					# If it does not, give it a new one:
+					self.slaves[mac].slaveDisplay = \
+						SlaveDisplay(self.arrayFrame, 
+							self.slaves[mac].name, mac,
+							Slave.translate(
+								self.slaves[mac].status,
+								), self.profiler.maxFans)
 
-						# If it does not, give it a new one:
-						self.profiler.slaves[mac].slaveDisplay = \
-							SlaveDisplay(self.arrayFrame, 
-								self.profiler.slaves[mac].name, mac,
-								Slave.translate(
-									self.profiler.slaves[mac].status))
+				else:
+					# If it does have a display, try to update it:
+					try:
 
-					else:
-						# If it does have a display, try to update it:
-						try:
+						# Get data:
+						data = \
+							self.slaves[mac].\
+							updateQueue.get_nowait()
 
-							# Get data:
-							data = \
-								self.profiler.slaves[mac].\
-								updateQueue.get_nowait()
+						# Update display w/ such data:
+						self.slaves[mac].\
+							slaveDisplay.update(data)
 
-							# Update display w/ such data:
-							self.profiler.slaves[mac].\
-								slaveDisplay.update(data)
-
-						except Queue.Empty:
-							# If there is nothing to retrieve, move on
-							continue
+					except Queue.Empty:
+						# If there is nothing to retrieve, move on
+						pass
 
 
-			except Exception as e:
-				self.printMain("UNCAUGHT EXCEPTION: \"{}\"".\
-	               format(traceback.format_exc()), "E")
+		except Exception as e:
+			self.printMain("UNCAUGHT EXCEPTION: \"{}\"".\
+               format(traceback.format_exc()), "E")
+
+		self.after(300, self._slaveDisplayRoutine)
 
 		# End _slaveDisplayRoutine =============================================
 

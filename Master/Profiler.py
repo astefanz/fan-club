@@ -76,6 +76,7 @@ DEFAULT_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
 DEFAULT_MAX_RPM = 11500 # (Maximum nominal RPM)
 DEFAULT_MIN_RPM = 1185  # (Minimum nominal RPM)
 DEFAULT_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
+DEFAULT_MAX_FANS = 21
 
 ## CLASS DEFINITION ############################################################
 
@@ -120,6 +121,7 @@ class Profiler:
 
 		self.slavesLock = threading.Lock()
 		self.dimensions = (0,0)
+		self.maxFans = DEFAULT_MAX_FANS
 
 		# Fan array ------------------------------------------------------------
 		self.fanModel = DEFAULT_FAN_MODEL

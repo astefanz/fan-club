@@ -76,7 +76,7 @@ class Fan:
 			# values received from a connected Slave unit. As such, they have no
 			# meaning upon class initialization.
 
-		self.dutyCycle = 0
+		self.dc = 0
 		self.rpm = 0
 		self.status = status
 		

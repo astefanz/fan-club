@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "Alpha_Threaded_Interface_1" # Reference for consecutive versions
+VERSION = "Alpha_Unthreading_Interface_1" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator
@@ -33,5 +33,5 @@ import Fan
 
 print "Initializing"
 interface = FCI.FCInterface(VERSION) 
-print "Done w/ constructors"   
+print "Done w/ constructors"  
 interface.mainloop()
