@@ -192,7 +192,7 @@ class Communicator:
             # START KNOWN SLAVE THREADS ============================================
 
             for mac in self.slaves:
-                print "\tInitializing {}".format(mac), "G"
+                self.printM("\tInitializing {}".format(mac), "G")
 
                 self.slaves[mac].setStatus(Slave.DISCONNECTED)
                 self.slaves[mac].thread = threading.Thread( 
@@ -624,9 +624,6 @@ class Communicator:
 
                         self.printS(slave, "[On positive state]", "D")
 
-                        # DEBUG:
-                        print "communicating..."
-
                         # Check queue for message:
                         try:
                             message = "MSTD|" + slave.mosiQueue.get_nowait()
@@ -650,28 +647,18 @@ class Communicator:
                             # Increment index:
                             slave.incrementExchange()
 
-                            # DEBUG:
-                            print "Updating Slave from: " + str(reply)
-
                             # Restore timeout counter after success:
                             timeouts = 0
 
-
                             # Check if there are DCs and RPMs:
-                            if reply[2] != None:
+                            if len(reply) > 2:
                                 # Update RPMs and DCs:
-                                dcs = reply[2][:-1].split(',')
-                                rpms = reply[2][:-2].split(',')
+                                dcs = reply[-1].split(',')
+                                rpms = reply[-2].split(',')
 
-                                # DEBUG:
-                                print "Updating DCs & RPMs: \n\r\tDCs: " + str(dcs) + "\n\r\tRPMs: " + str(rpms)
-
-                                index = 0
-                                for dc in dcs:
-                                    slave.setDC(dc, index)
-                                    slave.setRPM(rpm, index)
-                                    index += 1
-
+                                for index in range(slave.activeFans):
+                                    slave.setDC(float(dcs[index])*100, index)
+                                    slave.setRPM(rpms[index], index)
 
                         else:
                             self.printS(slave, "Timed out. Resending", "W")
@@ -842,19 +829,33 @@ class Communicator:
                         continue
 
                     # Check for possible third element:
-                    self.printS(slave, 
-                        "Got {} part(s) from split".format(len(splitted)), "D")
+                    # DEBUG PRINT:
+                    #print \
+                    #    "Got {} part(s) from split: {}".\
+                    #        format(len(splitted), str(splitted)), "D"
 
-                    if len(splitted) == 3:
-                        command = splitted[2]
+                    output = None
+
+                    if len(splitted) == 2:
+                        output = (index, splitted[1])
+                        
+                    elif len(splitted) == 3:
+                        output = (index, splitted[1], splitted[2])
+
+                    elif len(splitted) == 4:
+                        output = (index, splitted[1], splitted[2], splitted[3])
+
                     else:
-                        command = None
+                        self.printS(slave,\
+                         "ERROR: Unrecognized split amount ({}) on: {}".\
+                         format(len(splitted), str(splitted)), "E")
+                        return None
+                        
 
-                    triple = (index, splitted[1], command)
 
                     # Return splitted message: ---------------------------------
-                    self.printS(slave, "Returning {}".format(triple), "D")
-                    return triple
+                    self.printS(slave, "Returning {}".format(output), "D")
+                    return output
 
                 except (ValueError, IndexError, TypeError) as e:
                     # Handle potential Exceptions from format mismatches:

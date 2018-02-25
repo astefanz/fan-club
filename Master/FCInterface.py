@@ -174,6 +174,15 @@ class SlaveDisplay(Tk.Frame):
 
 		self.statusVar.set(Slave.translate(newStatus))
 
+		if newStatus == Slave.CONNECTED:
+			self.statusLabel.configure(fg = "green", bg = "#1eaa08")
+
+		elif newStatus == Slave.DISCONNECTED:
+			self.statusLabel.configure(fg = "red", bg = "#6b0303")
+
+		elif newStatus == Slave.KNOWN:
+			self.statusLabel.configure(fg = "blue", bg = "#b7c3ff")
+
 		# End setStatus ========================================================
 
 	def setMAC(self, newMAC): # ================================================
@@ -308,7 +317,7 @@ class FanDisplay(Tk.Frame):
 		self.bind('<Button-1>', self.toggle)
 
 		# Index display = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-		self.indexLabel = Tk.Label(self, text = self.index, 
+		self.indexLabel = Tk.Label(self, text = self.index + 1, 
 			font = ('TkFixedFont', 7, 'bold'), background = '#282828',
 			foreground = "white",  pady = 0)
 		self.indexLabel.bind('<Button-1>', self.toggle)
@@ -449,7 +458,7 @@ class FCInterface(Tk.Frame):
 			command = self._changeCommandMenu)
 
 		self.commandLabelText = Tk.StringVar()
-		self.commandLabelText.set("RPM: ")
+		self.commandLabelText.set("DC: ")
 		self.commandLabel = Tk.Label(self.controlContainer, 
 			textvariable = self.commandLabelText, background = self.background)
 

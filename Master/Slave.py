@@ -174,7 +174,7 @@ class Slave:
 		# - newExchange: new IP address
 
 		self.ip = newIP
-		self.slaveDisplay.setName(newIP)
+		self.slaveDisplay.setIP(newIP)
 
 	def setActiveFans(self, newActiveFans): # ==================================
 		# ABOUT: Update activeFans value
