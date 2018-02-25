@@ -31,6 +31,7 @@ OOP representation of Slave units.
 import Fan       			 # Fan representation
 import Queue      # Communication between threads
 import threading   # Thread-safe access
+import FCInterface as FCI
 
 ## CONSTANT VALUES #############################################################
 
@@ -44,7 +45,7 @@ KNOWN = -1
 CONNECTED = 1
 BUSY = 2
 
-# AUXILIARY STATUS TRANSLATE METHOD:
+# AUXILIARY DEFINITIONS ########################################################
 
 def translate(statusCode): # ===================================================
 	# ABOUT: Translate an integer status code to a String.
@@ -75,9 +76,11 @@ class Slave:
 	# ABOUT: Representation of connected Slave model, primarily a container with
 	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, name, mac, status, fans, activeFans, ip = None, 
-		misoP = None, mosiP = None, misoS = None, mosiS = None, thread = None):
+	def __init__(self, name, mac, status, interface, maxFans, activeFans,
+		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None,
+		thread = None):
 		# ABOUT: Constructor for class Slave.
+		# WARNING: Method documentation outdated.
 		# PARAMETERS:
 		# - name: String representing this Slave unit's name (arbitrary)
 		# - mac: String representing this Slave unit's MAC address
@@ -92,8 +95,6 @@ class Slave:
 		#	a Python UDP socket object if this Slave unit is connected.
 		# - mosi: Either an integer representing the Slave's MOSI port number or
 		#	a Python UDP socket object if this Slave unit is connected.
-		# - thread: Python thread object (from Python threading package) that
-		#	executes FC MkII's Communicator's Slave routine.
 		#
 		# ATTRIBUTES:
 		# Besides the Constructor parameters, the following data members are in-
@@ -113,18 +114,78 @@ class Slave:
 		self.name = name
 		self.mac = mac
 		self.status = status
-		self.lock = threading.Lock()
-		self.fans = fans
+
 		self.activeFans = activeFans
 		self.ip  = ip
 		self.misoP = misoP
 		self.mosiP = mosiP
 		self.misoS = misoS
 		self.mosiS = mosiS
-		self.mosiQueue = Queue.Queue(1)
 		self.thread = thread
 		self.exchange = 0
 
-		self.updateQueue = Queue.Queue(2)
-		self.slaveDisplay = None
+		self.lock = threading.Lock()
+		self.mosiQueue = Queue.Queue(1)
+
+		self.slaveDisplay = FCI.SlaveDisplay(
+			interface, name, mac, status, maxFans, activeFans)
+
+		self.setRPM = self.slaveDisplay.setRPM
+		self.setDC = self.slaveDisplay.setDC
+
+
+	def setName(self, newName): # ==========================================
+		# ABOUT: Update name.
+		# PARAMETERS: 
+		# - newName: new name.
+
+		self.name = newName
+		self.slaveDisplay.setName(newName)
+
+	def setStatus(self, newStatus): # ==========================================
+		# ABOUT: Update status.
+		# PARAMETERS: 
+		# - newStatus: code of the new status.
+
+		self.status = newStatus
+		self.slaveDisplay.setStatus(newStatus)
+
+		# End setStatus ========================================================
+
+	def setMAC(self, newMAC): # ================================================
+		# ABOUT: Update MAC.
+		# PARAMETERS: 
+		# - MAC: new MAC address.
+
+		self.mac = newMAC
+		self.slaveDisplay.setMAC(newMAC)
+
+	def setExchange(self, newExchange): # ======================================
+		# ABOUT: Update exchange index.
+		# PARAMETERS: 
+		# - newExchange: new exchange index.
+
+		self.exchange = newExchange
+		self.slaveDisplay.setExchange("E: " + str(newExchange))
+
+	def setIP(self, newIP): # ==================================================
+		# ABOUT: Update IP address.
+		# PARAMETERS: 
+		# - newExchange: new IP address
+
+		self.ip = newIP
+		self.slaveDisplay.setName(newIP)
+
+	def setActiveFans(self, newActiveFans): # ==================================
+		# ABOUT: Update activeFans value
+		# PARAMETERS:
+		# - newActiveFans: new value for activeFans
+		self.activeFans = newActiveFans
+		self.slaveDisplay.setActiveFans(newActiveFans)
+
+	def incrementExchange(self):
+		# ABOUT: Increment exchange index by 1.
+		self.exchange += 1
+		self.slaveDisplay.setExchange("E: " + str(self.exchange))
+
 

@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "Alpha_Unthreading_Interface_1" # Reference for consecutive versions
+VERSION = "\"Getting there... \"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator

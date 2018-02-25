@@ -84,7 +84,7 @@ class Profiler:
 	# ABOUT: This module holds all "variable" data that should be kept in nonvo-
 	# latile storage.
 
-	def __init__(self):
+	def __init__(self, interface):
 		# ABOUT: Constructor for class Profiler.
 
 		# Administrative data --------------------------------------------------
@@ -111,13 +111,40 @@ class Profiler:
 		# Wind tunnel ----------------------------------------------------------
 		self.slaves = {}
 
-		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = "Lad", mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, fans = [Fan.Fan(1,0), Fan.Fan(2,0), Fan.Fan(3,0), Fan.Fan(4,0), Fan.Fan(5,0), Fan.Fan(6,0), Fan.Fan(7,0),\
-											Fan.Fan(8,0), Fan.Fan(9,0), Fan.Fan(10,0), Fan.Fan(11,0), Fan.Fan(12,0), Fan.Fan(13,0), Fan.Fan(14,0),\
-											Fan.Fan(15,0), Fan.Fan(16,0), Fan.Fan(17,0), Fan.Fan(18,0), Fan.Fan(19,0), Fan.Fan(20,0), Fan.Fan(21,0)], activeFans = 21)
+		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = "Lad", 
+			mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, 
+			interface = interface, maxFans = 21,  activeFans = 21)
 
-		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = "Leed", mac = "00:80:e1:45:00:46", status = Slave.KNOWN, fans = [Fan.Fan(1,0), Fan.Fan(2,0), Fan.Fan(3,0), Fan.Fan(4,0), Fan.Fan(5,0), Fan.Fan(6,0), Fan.Fan(7,0),\
-											Fan.Fan(8,0), Fan.Fan(9,0), Fan.Fan(10,0), Fan.Fan(11,0), Fan.Fan(12,0), Fan.Fan(13,0), Fan.Fan(14,0),\
-											Fan.Fan(15,0), Fan.Fan(16,0), Fan.Fan(17,0), Fan.Fan(18,0), Fan.Fan(19,0), Fan.Fan(20,0), Fan.Fan(21,0)], activeFans = 21)
+		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = "Leed", 
+			mac = "00:80:e1:45:00:46", status = Slave.KNOWN, 
+			interface = interface, maxFans = 21,  activeFans = 21)
+
+
+		""" PROVISIONAL ZOMBIE SLAVES
+		self.slaves["z:1"] = Slave.Slave(name = "Zombie", mac = "z:1", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:2"] = Slave.Slave(name = "Zombie", mac = "z:2", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:3"] = Slave.Slave(name = "Zombie", mac = "z:3", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:4"] = Slave.Slave(name = "Zombie", mac = "z:4", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:5"] = Slave.Slave(name = "Zombie", mac = "z:5", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+
+		self.slaves["z:6"] = Slave.Slave(name = "Zombie", mac = "z:6", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:7"] = Slave.Slave(name = "Zombie", mac = "z:7", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:8"] = Slave.Slave(name = "Zombie", mac = "z:8", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:9"] = Slave.Slave(name = "Zombie", mac = "z:9", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:10"] = Slave.Slave(name = "Zombie", mac = "z:10", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+
+		self.slaves["z:11"] = Slave.Slave(name = "Zombie", mac = "z:11", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:12"] = Slave.Slave(name = "Zombie", mac = "z:12", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:13"] = Slave.Slave(name = "Zombie", mac = "z:13", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:14"] = Slave.Slave(name = "Zombie", mac = "z:14", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:15"] = Slave.Slave(name = "Zombie", mac = "z:15", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+
+		self.slaves["z:16"] = Slave.Slave(name = "Zombie", mac = "z:16", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:17"] = Slave.Slave(name = "Zombie", mac = "z:17", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:18"] = Slave.Slave(name = "Zombie", mac = "z:18", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:19"] = Slave.Slave(name = "Zombie", mac = "z:19", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:20"] = Slave.Slave(name = "Zombie", mac = "z:20", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		"""
 
 		self.slavesLock = threading.Lock()
 		self.dimensions = (0,0)

@@ -46,7 +46,7 @@ VERSION = "GO_1"
 
 class Communicator:
 
-    def __init__(self, profiler):
+    def __init__(self, profiler, interface):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
@@ -65,6 +65,9 @@ class Communicator:
             self.listenerQueue = Queue.Queue(profiler.listenerQueueSize)
 
             self.printM("Initializing Communicator instance")
+
+            # Interface:
+            self.interface = interface
 
             # Profiler:
             self.profiler = profiler
@@ -189,9 +192,9 @@ class Communicator:
             # START KNOWN SLAVE THREADS ============================================
 
             for mac in self.slaves:
-                self.printM("\tInitializing {}".format(mac), "G")
+                print "\tInitializing {}".format(mac), "G"
 
-                self.slaves[mac].status = Slave.DISCONNECTED
+                self.slaves[mac].setStatus(Slave.DISCONNECTED)
                 self.slaves[mac].thread = threading.Thread( 
                     target = self._slaveRoutine,
                     args = [mac])
@@ -386,10 +389,10 @@ class Communicator:
                                 #   nected to automatically.
 
                                 # Update status and networking information:
-                                self.slaves[mac].ip = senderAddress[0]
+                                self.slaves[mac].setIP(senderAddress[0])
                                 self.slaves[mac].misoP = misoPort
                                 self.slaves[mac].mosiP = mosiPort
-                                self.slaves[mac].status = Slave.KNOWN
+                                self.slaves[mac].setStatus(Slave.KNOWN)
 
                             else:
 
@@ -401,7 +404,7 @@ class Communicator:
                                 # Master, until subsequently indicated by the user.
 
                                 # Update networking information:
-                                self.slaves[mac].ip = senderAddress[0]
+                                self.slaves[mac].setIP(senderAddress[0])
                                 self.slaves[mac].misoP = misoPort
                                 self.slaves[mac].mosiP = mosiPort
                                 continue
@@ -432,17 +435,13 @@ class Communicator:
 
                         # Create a new Slave instance and store it:
 
-                        # Create default list of fans:
-                        fList = []
-                        for i in range(21):
-                            fList.append(Fan.Fan(i+1, Fan.OFF))
-
                         self.slaves[mac] = Slave.Slave(
                             name = "Unnamed",
                             mac = mac,              # MAC address
                             status = Slave.AVAILABLE,   # Status
-                            fans = fList,
+                            interface = self.interface,
                             activeFans = 21,
+                            maxFans = 21,
                             ip = senderAddress[0],  # IP address
                             misoP = misoPort,   # Master in/Slave out port number
                             mosiP = mosiPort        # Slave in/Master out port number
@@ -544,7 +543,7 @@ class Communicator:
                         self.profiler.minDC)
 
             # Set up placeholders and sentinels: -------------------------------
-            slave.exchange = 0
+            slave.setExchange(0)
             timeouts = 0
 
             # Slave loop: ======================================================
@@ -575,7 +574,7 @@ class Communicator:
                                 "First handshake step confirmed", "G")
 
                             # Increment exchange index:
-                            slave.exchange += 1
+                            slave.incrementExchange()
 
                             # Proceed to second handshake step:
                             self.printS(slave, 
@@ -596,7 +595,7 @@ class Communicator:
                                     "Second handshake step confirmed. Slave connected.", "G")
 
                                 # Mark as CONNECTED and get to work:
-                                slave.status = Slave.CONNECTED
+                                slave.setStatus(Slave.CONNECTED)
 
                                 # Restart loop:
                                 continue
@@ -606,14 +605,14 @@ class Communicator:
                                     "Missed handshake (2/2). Restarting.", "W")
 
                                 # Set Slave to disconnected:
-                                slave.status = Slave.DISCONNECTED
+                                slave.setStatus(Slave.DISCONNECTED)
 
                         else:
                             # If there was an error, restart attempt:
                             self.printS(slave, 
                                 "Missed handshake (1/2). Retrying.", "W")
                             # Set Slave to disconnected:
-                            slave.status = Slave.DISCONNECTED
+                            slave.setStatus(Slave.DISCONNECTED)
 
 
                     elif slave.status > 0: # = = = = = = = = = = = = = = = = = = 
@@ -624,6 +623,9 @@ class Communicator:
                         # its connection need be maintained.
 
                         self.printS(slave, "[On positive state]", "D")
+
+                        # DEBUG:
+                        print "communicating..."
 
                         # Check queue for message:
                         try:
@@ -646,10 +648,31 @@ class Communicator:
                         if reply != None:
                             self.printS(slave, "Processed reply: {}".format(reply), "G")
                             # Increment index:
-                            slave.exchange += 1
+                            slave.incrementExchange()
+
+                            # DEBUG:
+                            print "Updating Slave from: " + str(reply)
 
                             # Restore timeout counter after success:
                             timeouts = 0
+
+
+                            # Check if there are DCs and RPMs:
+                            if reply[2] != None:
+                                # Update RPMs and DCs:
+                                dcs = reply[2][:-1].split(',')
+                                rpms = reply[2][:-2].split(',')
+
+                                # DEBUG:
+                                print "Updating DCs & RPMs: \n\r\tDCs: " + str(dcs) + "\n\r\tRPMs: " + str(rpms)
+
+                                index = 0
+                                for dc in dcs:
+                                    slave.setDC(dc, index)
+                                    slave.setRPM(rpm, index)
+                                    index += 1
+
+
                         else:
                             self.printS(slave, "Timed out. Resending", "W")
                             # Resend message:
@@ -681,7 +704,7 @@ class Communicator:
                                 self._send("MRIP", slave)
 
                                 # Update Slave status:
-                                slave.status = Slave.DISCONNECTED
+                                slave.setStatus(Slave.DISCONNECTED)
 
                                 # Restart loop:
                                 continue
@@ -696,7 +719,7 @@ class Communicator:
                         # contacted, wait for its state to change.
 
                         # Reset index:
-                        slave.exchange = 0
+                        slave.setExchange(0)
 
                         self.printS(slave, "[Inactive status: {}]".\
                             format(slave.status), "D")
@@ -718,28 +741,7 @@ class Communicator:
                         # then this statement will prevent a threading exception
                         # when an attempt to release an unlocked lock is made.
 
-                    # Update Slave information for Interface:
-                    try:
 
-                        fans = []
-                        for fan in slave.fans:
-                            fans.append((fan.index, fan.status,fan.rpm, fan.dc))
-
-                        slave.updateQueue.put_nowait(
-                            (
-                                str(slave.name),
-                                str(slave.mac),
-                                int(slave.status),
-                                fans,
-                                str(slave.activeFans),
-                                str(slave.ip),
-                                str(slave.misoP),
-                                str(slave.mosiP),
-                                str(slave.exchange),
-                            ))
-                    except Queue.Full:
-                        # Skip this update if there is no more room:
-                        pass
 
                     slave.lock.release()
 
@@ -890,566 +892,6 @@ class Communicator:
 
         # End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-    def connect(self, targetMAC): # ============================================
-        # ABOUT: Given the MAC address of a known Slave, try to secure a
-        # connection. Read usage notes below.
-        #
-        # PARAMETERS:
-        # - targetMAC: MAC address of Slave to which to connect.
-        #
-        # NOTE: This Slave is expected to be already recorded in self.slaves.
-        # FURTHERMORE this method assumes the given Slave has port numbers as
-        # its "miso" and "mosi" attributes, which will be replaced by sockets
-        # w/ corresponding functionality. Calling this method on a Slave that
-        # is CONNECTED, DISCONNECTED, or in any other state that has a socket
-        # or None in said attributes will result in a socket.error exception
-        # being raised. Modify these self.slaves entries before calling this
-        # method. (LIKEWISE, AN IP ADDRESS ATTRIBUTE IS ALSO EXPECTED.)
-        #
-        # If the constraints outlined above are not met, ValueError is raised.
-        # (If a non-listed Slave is requested, KeyError is raised)
-
-        # WARNING: THIS METHOD ACCESSES SHARED RESOURCES WITHOUT ACQUIRING THEIR
-        # RESPECTIVE LOCKS. THIS IS BECAUSE IT IS ONLY MEANT TO BE USED WITHIN
-        # COMMUNICATOR THREADS THAT WILL ONLY CALL IT AFTER ACQUIRING SAID LOCKS
-        # AND BEFORE RELEASING THEM.
-
-        """ "HANDSHAKE" PROCESS: . . . . . . . . . . . . . . . . . . . . . . . .
-            
-            FIRST EXCHANGE:
-            -M: Send MMISO and MMOSI port numbers and communication "period" to 
-                S's SMOSI
-            -S: Receive. Stop listening for broadcasts
-            -S: Reply w/ confirmation
-                (By now all four sockets are verified (MOSI pair and MISO pair))
-            -M: Receive
-            
-            SECOND EXCHANGE:
-            -M: Send profile data level 2
-            -S: Receive profile data. Assign profile data accordingly
-            -S: Send confirmation
-            -M: Receive confirmation
-
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-        """
-
-        # VALIDATE INPUT AND TARGET SLAVE --------------------------------------
-
-        self.printS(targetMAC, "Initiating connection.", "G")
-
-
-        # Check if given Slave meets this method's constraints:
-        if not self.slaves[targetMAC].status in \
-            [Slave.KNOWN, Slave.AVAILABLE]:
-
-            # If this Slave does not have the right status, raise an excep-
-            # tion:
-
-            raise ValueError("Current Slave status does not allow \
-                connection")
-
-        elif type(self.slaves[targetMAC].mosi) is not int or\
-            type(self.slaves[targetMAC].miso) is not int:
-
-            # If either of the Slave's miso or mosi attributes is not an in-
-            # teger, raise an exception:
-
-            raise ValueError("Bad MISO and/or MOSI types (need int)")
-
-        elif self.slaves[targetMAC].ip is None:
-
-            # If there is no IP address, raise an exception:
-
-            raise ValueError("Given Slave has no IP address")
-
-        self.printS(targetMAC, "Verified. Setting up sockets")
-
-        # Done verifying. By this point, this Slave is registered w/ an ac-
-        # ceptable status, has integer miso and mosi attributes, and an IP
-        # address.
-
-        # HANDSHAKE EXCHANGES ----------------------------------------------
-
-        # Set up Slave sockets: - - - - - - - - - - - - - - - - - - - - - - 
-
-        # MISO:
-        miso = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        miso.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        miso.settimeout(self.profiler.periodMS/2000.0)
-            # The communications period is defined in milliseconds. The 
-            # socket timeout should be one-fifth of said period, and this
-            # method expects a value in seconds.
-        miso.bind(('', 0))
-        miso.connect((self.slaves[targetMAC].ip, 
-            self.slaves[targetMAC].miso))
-
-        # MOSI:
-        mosi = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        mosi.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        mosi.settimeout(self.profiler.periodMS/2000.0)
-            # The communications period is defined in milliseconds. The 
-            # socket timeout should be one-fifth of said period, and this
-            # method expects a value in seconds.
-        mosi.bind(('', 0))
-        mosi.connect((self.slaves[targetMAC].ip, 
-            self.slaves[targetMAC].mosi))
-
-        self.printS(targetMAC, "Sockets set up:\
-            \n\t\tSMISO: {}\
-            \n\t\tSMOSI: {}".format(
-                miso.getsockname(), mosi.getsockname()))
-        
-        # Set up Queue of things to send: - - - - - - - - - - - - - - - - - 
-        handshakeQueue = Queue.Queue()
-
-
-        # First message is of the form:
-        #       INDEX|MHS1|MMISO|MMOSI|PERIOD_MS
-        #   e.g 00000001|MHS1|52011|61102|1000
-        handshakeQueue.put("MHS1|{},{},{}".\
-            format(
-                miso.getsockname()[1], 
-                mosi.getsockname()[1], 
-                self.profiler.periodMS
-                ))
-
-        # Second message is of the form:
-        #       INDEX|MHS2|FAN_MODE|DOUBLE_PARAM1|DOUBLE_PARAM2|...
-        #   ...FAN_AMOUNT|COUNTER_COUNTS|PULSES_PER_ROTATION|...
-        #   ...MAXRPM|MINRPM|MINDC
-
-        handshakeQueue.put("MHS2|{},{},{},{},{},{},{},{},{}".\
-            format(
-            self.profiler.fanMode,
-            self.profiler.targetRelation[0],
-            self.profiler.targetRelation[1],
-            self.slaves[targetMAC].activeFans,
-            self.profiler.counterCounts,
-            self.profiler.pulsesPerRotation,
-            self.profiler.maxRPM,
-            self.profiler.minRPM,
-            self.profiler.minDC
-            ))
-
-
-
-
-        self.printS(targetMAC, "Handshake initiated.")
-        # Handshake loop - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        totalSteps = handshakeQueue.qsize()
-        successfulSteps = 0
-        failed = True
-        self.slaves[targetMAC].exchange = 0
-
-
-        while(not successfulSteps >= totalSteps):
-            # NOTE: Besides by uncaught exceptions, this loop will only 
-            # terminate either by "failed" being set to True, or by ac-
-            # cumulating enough successfulSteps
-
-            # Increase exchange index:
-            self.slaves[targetMAC].exchange += 1
-
-
-
-            # Get message to be sent: . . . . . . . . . . . . . . . 
-            try:
-
-                message = "{:08d}|{:s}".\
-                    format(self.slaves[targetMAC].exchange, 
-                        handshakeQueue.get_nowait())
-
-                # Mark task as done:
-                handshakeQueue.task_done()
-
-            except Queue.Empty:
-                # Terminate handshake loop if there is nothing left
-                # to send:
-                self.printS(targetMAC, "({})({}/{}) HS Queue emptied.".\
-                format(self.slaves[targetMAC].exchange
-                    , successfulSteps, totalSteps))
-                break
-
-            # Send message . . . . . . . . . . . . . . . . . . . . .
-
-            # Send message:
-            mosi.send(message)
-            
-            self.printS(targetMAC,"({})({}/{}) Sent: {}".format(
-                self.slaves[targetMAC].exchange,
-                 successfulSteps, totalSteps, message))
-
-            # Reply loop: . . . . . . . . . . . . . . . . . . . . . 
-
-            # For each exchange, two messages should be received 
-            # from this Slave -- an acknowledgement message, and a 
-            # reply.
-
-            # Set up sentinel variables for reply loop:
-
-            tries = 4
-                # Try to receive messages a limited amount of times.
-
-            mAcknowledged = False
-                # Keep track of whether an acknowledgement message 
-                # was received for this exchange.
-
-            while(tries > 0): #(Reply loop)
-
-                tries -= 1
-
-                try:
-
-                    # Receive a message. Ignore any messages with 
-                    # outdated indices:
-
-                    receivedIndex = 0
-
-                    # Receive loop: .  .  .  .  .  .  .  .  .  .  .
-
-                    """ --------------------------------------------
-                    NOTE: The messages received here are expected to 
-                    have the following form:
-
-                            INDEX|KEYWORD|
-                                0       1
-
-                    -------------------------------------------- """
-
-                    # NOTE: This loop will be exited in one of two ways:
-                    #
-                    # (1) A correctly indexed, correctly splittable mes-
-                    #     sage is received.
-                    #
-                    # (2) A socket timeout exception.
-
-                    while(receivedIndex != 
-                        self.slaves[targetMAC].exchange): # (Receive loop)
-
-                        received = miso.recv(512)
-
-                        self.printS(targetMAC, "({})({}/{}) Received: {}".\
-                            format(self.slaves[targetMAC].exchange, 
-                            successfulSteps, totalSteps, received))
-
-                        # Split message:
-                        receivedSplitted = received.split("|")
-
-
-
-                        # Check index:
-                        try:
-                            receivedIndex = int(receivedSplitted[0])
-
-                            if receivedIndex != \
-                                self.slaves[targetMAC].exchange:
-                                self.printS(targetMAC, "({})({}/{}) Index mismatch ({}). Discarded.".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps,
-                                    receivedIndex))
-
-                                # Discard this message and get ano-
-                                # ther:
-                                continue
-
-                            else:
-                                # Check length:
-                                if len(receivedSplitted) < 2:
-                                    # By this convention, 
-                                    # receivedSplitted sho-
-                                    # uld never have length 
-                                    # smaller than 2.
-
-
-                                    self.printS(targetMAC, "({})({}/{}) WARNING: Invalid message size. Discarded.".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps
-                                    ), "W")
-
-                                    # Discard this message and get 
-                                    # another:
-                                    continue
-
-                                else:
-
-                                    # If there are still no errors,
-                                    # Proceed to analyze this mes-
-                                    # sage.
-
-                                    # Exit receive loop:
-                                    self.printS(targetMAC, "({})({}/{}) Valid message and size: \n\t\t\tIndex: {}\n\t\t\tKeyword: \"{}\"".\
-                                        format(self.slaves[targetMAC].exchange, 
-                                        successfulSteps, totalSteps, receivedIndex,receivedSplitted[1]))
-
-
-                                    self.printS(targetMAC, "({})({}/{}) receivedIndex != exchange: {}".\
-                                        format(self.slaves[targetMAC].exchange, 
-                                        successfulSteps, totalSteps, receivedIndex != self.slaves[targetMAC].exchange))
-
-                                    pass
-
-
-                        except ValueError:
-                            self.printS(targetMAC, "({})({}/{}) WARNING: Invalid message content (ValueError). Discarded.".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps
-                                    ), "W")
-
-                            # Discard this message and get another:
-                            continue
-
-                        except IndexError:
-                            self.printS(targetMAC, "({})({}/{}) WARNING: Invalid message (IndexError). Discarded.".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps
-                                    ),"W")
-
-                            # Discard this message and get another:
-                            continue
-
-                        # End receive loop .  .  .  .  .  .  .  .  .  . 
-
-                        # Check keywords:
-                        keyword = receivedSplitted[1]
-                        self.printS(targetMAC, "({})({}/{}) Parsed keyword: \"{}\"".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps, keyword))
-                    
-
-
-                        # Check for disconnect message: .  .  .  .  .  .
-
-                        if keyword == "SRIP":
-                            # "Connection terminated."
-
-                            # Check for optional error message:
-                            try:
-
-                                self.printS(targetMAC, "({})({}/{}) WARNING: Slave terminated handshake: {}".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps,
-                                    receivedSplitted[2]
-                                    ),"W")
-
-                            except IndexError:
-                                # If there is no message to be printed,
-                                # proceed:
-
-                                self.printS(targetMAC, "({})({}/{}) WARNING: Slave terminated handshake.".\
-                                    format(self.slaves[targetMAC].exchange, 
-                                    successfulSteps, totalSteps
-                                    ),"W")
-
-                                pass
-
-
-                            # Break out of reply loop w/ failure flag:
-                            failed = True
-                            break
-
-                        elif keyword == "SHS1" or keyword == "SHS2":
-                            # If the message received is a handshake
-                            # confirmation that matches the exchange
-                            # index, then this step has been comple-
-                            # ted successfully.
-                            self.printS(targetMAC, "Handshake keyword confirmed", "G")
-                            # Increase success counter:
-                            successfulSteps += 1
-                            failed = False
-
-                            # Resume loop:
-                            continue
-                        
-
-                except socket.timeout:
-
-                    # Check if the message was acknowledged:
-                    if not mAcknowledged:
-                        # Resend message:
-                        mosi.send(message)
-
-                        self.printS(targetMAC, "({})({}/{}) Timed out. Message resent".\
-                            format(self.slaves[targetMAC].exchange, 
-                            successfulSteps, totalSteps
-                            ),"W")
-
-                        mAcknowledged = True
-
-                        continue
-
-                    else:
-                        # If the message was acknowledged, continue w/
-                        # loop, which will automatically terminate w/
-                        # "too many" timeouts.
-
-                        self.printS(targetMAC, "({})({}/{}) WARNING: Timed out.".\
-                            format(self.slaves[targetMAC].exchange, 
-                            successfulSteps, totalSteps
-                            ),"W")
-
-                        continue
-
-                except IndexError:
-
-                    # An IndexError is raised if the received message
-                    # is missing expected components. In this context,
-                    # this implies the simple handshake message is mis-
-                    # sing something fundamental.
-
-                    self.printS(targetMAC, "({})({}/{}) WARNING: Invalid message after initial verification. Terminating.".\
-                            format( self.slaves[targetMAC].exchange, 
-                            successfulSteps, totalSteps
-                            ), "W")
-
-                    # Break out of loop and end connection attempt:
-                    failed = True
-                    break # Out of reply loop
-
-            # End reply loop .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
-
-            self.printS(targetMAC, "Ended reply loop with failure flag as: {}".format(failed))
-
-            # Check sentinel variable(s): .  .  .  .  .  .  .  .  .  .  .
-            if failed:
-                # If the failure flag is raised, break out of handshake to
-                # terminate the connection attempt.
-                break
-
-
-        # End handshake loop - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # CHECK HANDSHAKE RESULTS ------------------------------------------
-
-        if failed or not successfulSteps >= totalSteps:
-            # If either the condition required for success failed, or the 
-            # failure flag was raised, terminate this connection attempt:
-
-            self.printS(targetMAC, "Handshake unsuccessful. Disconnecting.", "W")
-
-            # Send termination message:
-            mosi.send("{0:08d}|MRIP".\
-                format(self.slaves[targetMAC].exchange))
-
-            self.slaves[targetMAC].exchange = 0
-
-            # Deactivate sockets
-            miso.shutdown(2)
-            mosi.shutdown(2)
-
-            miso.close()
-            mosi.close()
-
-            # Modify parameters in accordance:
-
-            self.slaves[targetMAC].status = Slave.DISCONNECTED
-            self.slaves[targetMAC].mosi = None
-            self.slaves[targetMAC].miso = None
-            self.slaves[targetMAC].ip = None
-
-            self.printS(targetMAC, "Handshake terminated unsuccessfully.", "W")
-
-        else:
-            # If the connection was successful, allocate Slave accordingly:
-
-            self.printS(targetMAC, "Handshake successful.", "G")
-
-            # Allocate sockets:
-            self.slaves[targetMAC].miso = miso
-            self.slaves[targetMAC].mosi = mosi
-
-            # Change status:
-            self.slaves[targetMAC].status = Slave.CONNECTED
-
-            del self.slaves[targetMAC].mosiQueue
-            self.slaves[targetMAC].mosiQueue = Queue.Queue(1)
-
-            self.slaves[targetMAC].thread = threading.Thread( 
-                target = self._slaveRoutine,
-                args = [targetMAC, mosi.getsockname()[1]])
-
-            self.slaves[targetMAC].thread.start()
-
-            self.printS(targetMAC, "Handshake terminated successfully.", "G")
-        # End connect() ========================================================
-
-    def disconnect(self, targetMAC, joinThread = True, remove = False): # ======
-        # ABOUT: Terminate connection of a connected Slave.
-        # PARAMETERS:
-        # - targetMAC: String, MAC address of connected Slave from which to dis-
-        #   connect. If this method is used to REMOVE a Slave, it may be used on
-        #   a Slave that is not connected.
-        # - joinThread: Boolean, whether to join and terminate Slave's thread.
-        #   If set to False, the Slave thread will be removed from the Slave
-        #   without stopping, and be allowed to stop automatically. Defaults to
-        #   True.
-        # - remove: Boolean whether to mark a Slave to not connect automatically. 
-        #   This removes the Slave from the profile, if applicable.
-        #
-
-        # WARNING: THIS METHOD ACCESSES SHARED RESOURCES WITHOUT ACQUIRING THEIR
-        # RESPECTIVE LOCKS. THIS IS BECAUSE IT IS ONLY MEANT TO BE USED WITHIN
-        # COMMUNICATOR THREADS THAT WILL ONLY CALL IT AFTER ACQUIRING SAID LOCKS
-        # AND BEFORE RELEASING THEM.
-
-
-        # Check status:
-        if self.slaves[targetMAC].status > 0:
-            # If the Slave is connected, proceed with disconnection.
-
-            self.printS(targetMAC,"Disconnecting from Slave", "W")
-
-            # Send termination message:
-            self.slaves[targetMAC].miso.send("{0:08d}|MRIP".\
-                format(self.slaves[targetMAC].exchange))
-
-            self.slaves[targetMAC].exchange = 0
-
-            # Deactivate sockets
-            self.slaves[targetMAC].miso.shutdown(2)
-            self.slaves[targetMAC].mosi.shutdown(2)
-
-            self.slaves[targetMAC].miso.close()
-            self.slaves[targetMAC].mosi.close()
-
-            # Modify parameters in accordance:
-
-            self.slaves[targetMAC].status = Slave.DISCONNECTED
-            self.slaves[targetMAC].mosi = None
-            self.slaves[targetMAC].miso = None
-            self.slaves[targetMAC].ip = None
-
-            del self.slaves[targetMAC].mosiQueue
-            self.slaves[targetMAC].mosiQueue = Queue.Queue(1)
-
-            if joinThread:
-                # The thread will detect the changes above and terminate 
-                # automatically. 
-
-                self.printS(targetMAC, "Joining thread")
-                self.slaves[targetMAC].thread.join()
-
-            self.printS(targetMAC, "Disconnected from Slave", "W")
-
-            if remove:
-                self.printS(targetMAC, "Slave removed from list")
-                del self.slaves[targetMAC]
-
-
-
-        elif remove:
-            self.printS(targetMAC, "Slave removed from list")
-            del self.slaves[targetMAC]
-
-        else:
-
-            # Otherwise, raise exception:
-
-            self.printS(targetMAC, "ERROR: Tried to disconnect from disconnected\
-                Slave", "E")
-
-        # End disconnect ======================================================= 
-
     def printM(self, output, tag = 'S'): # =====================================
         # ABOUT: Print on corresponding GUI terminal screen by adding a message to
         # this Communicator's corresponding output Queue.
@@ -1539,7 +981,7 @@ class Communicator:
 
             else:
                 # If the board is AVAILABLE, set is as KNOWN:
-                self.slaves[targetMAC].status = Slave.KNOWN
+                self.slaves[targetMAC].setStatus(Slave.KNOWN)
 
         finally:
             self.slaves[targetMAC].lock.acquire(False)

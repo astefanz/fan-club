@@ -48,11 +48,12 @@ import Profiler
 
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, name, mac, initialStatus, maxFans): # ===========
+	def __init__(self, master, name, mac, initialStatus, maxFans, activeFans): #
 
 		self.background = "#d3d3d3"
 		self.mac = mac
 		self.maxFans = maxFans
+		self.activeFans = activeFans
 
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
@@ -70,7 +71,7 @@ class SlaveDisplay(Tk.Frame):
 		self.nameVar.set('- "' + name + '"')
 		self.nameLabel = Tk.Label(self.generalFrame, textvariable = self.nameVar,
 			fg = "black", relief = Tk.SUNKEN, bd = 1, font = 'TkFixedFont 12 bold',
-			bg = self.background)
+			bg = "white")
 		self.nameLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
@@ -79,16 +80,16 @@ class SlaveDisplay(Tk.Frame):
 
 		self.macLabel = Tk.Label(self.generalFrame, textvariable = self.macVar, 
 			fg = "blue",relief = Tk.SUNKEN, bd = 1,
-			bg = self.background)
+			bg = "white")
 		self.macLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
 		self.statusVar = Tk.StringVar()
-		self.statusVar.set(initialStatus)
+		self.statusVar.set(Slave.translate(initialStatus))
 
 		self.statusLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.statusVar, font = 'TkFixedFont 12 bold',
-			bg = self.background, relief = Tk.SUNKEN, bd = 1)
+			bg = "white", relief = Tk.SUNKEN, bd = 1)
 		self.statusLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
@@ -96,31 +97,35 @@ class SlaveDisplay(Tk.Frame):
 		self.ipVar.set("IP: [NONE]")
 
 		self.ipLabel = Tk.Label(self.generalFrame, textvariable = self.ipVar,
-			bg = self.background, relief = Tk.SUNKEN, bd = 1)
+			bg = "white", relief = Tk.SUNKEN, bd = 1)
 		self.ipLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
-		self.portVar = Tk.StringVar()
-		self.portVar.set("Port: [NONE]")
-
-		self.portLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.portVar, relief = Tk.SUNKEN, bd = 1,
-			bg = self.background)
-		self.portLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
 		self.exchangeVar = Tk.StringVar()
-		self.exchangeVar.set("I: [NONE]")
+		self.exchangeVar.set("E: 0")
 		self.exchangeLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
-			bg = self.background)
+			bg = "white")
 		self.exchangeLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
+		self.activeFansVar = Tk.StringVar()
+		self.activeFansVar.set("Active Fans: {}/{}".\
+			format(activeFans, maxFans))
 		self.activeFansLabel = Tk.Label(self.generalFrame, 
-			text = "Active Fans: [N\A]", relief = Tk.SUNKEN, bd = 1,
-			bg = self.background)
+			textvariable = self.activeFansVar, relief = Tk.SUNKEN, bd = 1,
+			bg = "white")
 		self.activeFansLabel.pack(side = Tk.LEFT)
+
+		# ......................................................................
+
+		self.toggled = False
+		self.selectText = Tk.StringVar()
+		self.selectText.set("Select")
+		self.selectButton = Tk.Button(self.generalFrame, textvariable = self.selectText, 
+			command = self.toggleAll, highlightbackground = self.background)
+
+		self.selectButton.pack(side =Tk.RIGHT)
 
 		# FAN ARRAY - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.fanArrayFrame = Tk.Frame(self, bg = self.background)
@@ -128,85 +133,238 @@ class SlaveDisplay(Tk.Frame):
 
 		self.fans = []
 		for i in range(maxFans):
-			self.fans.append(FanDisplay(self))
+			self.fans.append(FanDisplay(self.fanArrayFrame, i, 
+				self.setSelection))
 		
-		self.pack(fill = Tk.X)
+		self.master.create_window((0,0), window = self, anchor = 'w', width = 781)
+		self.pack(fill = Tk.X, side = Tk.TOP)
 
+		# OLD VALUES: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			# Keep track of old values to 
+			# only update values that need updating...
+
+		self.oldRPMs = []
+		self.oldDCs = []
+
+		# Populate lists w/ placeholders:
+		for i in range(maxFans):
+			self.oldRPMs.append(-1)
+			self.oldDCs.append(-1)
+
+
+		# SELECTED FLAG - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			# Keep track of whether one or more fans in this Slave are selected
+		self.selected = []
+		self.selectionCount = 0
+		for i in range(maxFans):
+			self.selected.append("0")
 		# End __init__ =========================================================
 
-	def update(self, data): # ==================================================
-		# ABOUT: Update target Slave's Display according to given data.
-		# PARAMETER:
-		# - data: tuple w/ as many elements as in Slave update (see Communicator
-		#	Slave routine)
+	def setName(self, newName): # ==========================================
+		# ABOUT: Update name.
+		# PARAMETERS: 
+		# - newName: new name.
 
-		# Update each parameter accordingly = = = = = = = = = = = = = = = = = = 
+		self.nameVar.set(newName)
 
-		# name -----------------------------------------------------------------
-		pass
-		# mac ------------------------------------------------------------------
-		pass
-		# status ---------------------------------------------------------------
-		if data[2] == Slave.DISCONNECTED:
-			self.statusVar.set("DISCONNECTED")
-			self.statusLabel.config(fg = "red")
+	def setStatus(self, newStatus): # ==========================================
+		# ABOUT: Update status.
+		# PARAMETERS: 
+		# - newStatus: code of the new status.
 
-		elif data[2] == Slave.CONNECTED:
-			self.statusVar.set("CONNECTED")
-			self.statusLabel.config(fg = "#34c111")
+		self.statusVar.set(Slave.translate(newStatus))
 
-		elif data[2] == Slave.KNOWN:
-			self.statusVar.set("KNOWN")
-			self.statusLabel.config(fg = "yellow")
+		# End setStatus ========================================================
 
-		elif data[2] == Slave.BUSY:
-			self.statusVar.set("BUSY")
-			self.statusLabel.config(fg = "blue")
+	def setMAC(self, newMAC): # ================================================
+		# ABOUT: Update MAC.
+		# PARAMETERS: 
+		# - MAC: new MAC address.
 
-		elif data[2] == Slave.AVAILABLE:
-			self.statusVar.set("AVAILABLE")
-			self.statusLabel.config(fg = "yellow")
+		self.macVar.set(newMAC)
 
-		# fans -----------------------------------------------------------------
-		pass # data[3]
-		# activeFans -----------------------------------------------------------
-		pass # data[4]
-		# ip -------------------------------------------------------------------
-		if data[5] == "None":
-			self.ipVar.set("[NO IP]")
+	def setExchange(self, newExchange): # ======================================
+		# ABOUT: Update exchange index.
+		# PARAMETERS: 
+		# - newExchange: new exchange index.
+
+		self.exchangeVar.set(newExchange)
+
+	def setIP(self, newIP): # ==================================================
+		# ABOUT: Update IP address.
+		# PARAMETERS: 
+		# - newExchange: new IP address
+
+		self.ipVar.set(newIP)
+
+	def setRPM(self, rpm, fan): # ==============================================
+		# ABOUT: Update RPM of one fan.
+		# PARAMETERS:
+		# - rpm: new RPM value
+		# - fan: index of the fan to update
+
+		# Check old values and update only when there is a change:
+		if self.oldRPMs[fan] != rpm:
+			self.fans[fan].setRPM(str(rpm) + ' R')
+			self.oldRPMs[fan] = rpm
 		else:
-			self.ipVar.set(data[5])
-		# misoP ----------------------------------------------------------------
-		if data[6] == "None":
-			self.portVar.set("[NO PORT]")
+			pass
+
+	def setDC(self, dc, fan): # ================================================
+		# ABOUT: Update DC of one fan.
+		# PARAMETERS:
+		# - dc: new DC value
+		# - fan: index of fan to update
+
+		# Check old values and update only when there is a change:
+		if self.oldDCs[fan] != dc:
+			self.fans[fan].setDC(str(dc) + '%')
+			self.oldDCs[fan] = dc
 		else:
-			self.portVar.set(data[6])
-		# exchange -------------------------------------------------------------
-		self.exchangeVar.set("I: " + data[8])
+			pass
 
-        # End update ===========================================================
+	def setActiveFans(self, newActiveFans): # ==================================
+		# ABOUT: Update activeFans value
+		# PARAMETERS:
+		# - newActiveFans: new value for activeFans
 
+		self.activeFansVar.set("Active Fans: {}/{}".\
+			format(newActiveFans, self.maxFans))
+
+	def toggleAll(self): # =====================================================
+		# ABOUT: Set all fans as selected or deselected (Alternate):
+		if not self.toggled:
+			for fan in self.fans:
+				fan.select(None)
+				self.selectText.set("Deselect")
+		else:
+			for fan in self.fans:
+				fan.deselect(None)
+				self.selectText.set("Select")
+
+		self.toggled = not self.toggled
+
+	def selectAll(self): # =====================================================
+		# ABOUT: Set all fans as selected:
+		for fan in self.fans:
+			fan.select(None)
+			self.selectText.set("Deselect")
+
+		self.toggled = True
+
+	def deselectAll(self): # ====================================================
+		# ABOUT: Set all fans as selected:
+		for fan in self.fans:
+			fan.deselect(None)
+			self.selectText.set("Select")
+
+		self.toggled = False
+
+	def setSelection(self, selected, index): # =================================
+		# ABOUT: Set whether a fan in the array is selected:
+		# PARAMETERS:
+		# - selected: bool, whether the fan in question is selected.
+		# - index: int, index of the fan in question
+
+		if selected:
+			self.selected[index] = '1'
+			self.selectionCount += 1
+		else:
+			self.selected[index] = '0'
+			self.selectionCount -= 1
+
+	def getSelection(self): # ==================================================
+		# ABOUT: Get list of selected fans
+		# RETURNS:
+		# List of selected fans as string of 1's and 0's
+
+		result = ''
+
+		for fan in self.selected:
+			result += fan
+
+		return result
 
 class FanDisplay(Tk.Frame):
 	# ABOUT: Graphically represent each fan
 
-	def __init__(self, master): # ==============================================
+	def __init__(self, master, index, selectMethod): # =========================
+		# ABOUT: Constructor for class FanDisplay
 
-		self.background = "red"
+		self.background = "white"
 		size = 20 # px per side
+		self.rpm = 0
+		self.dc = 0
+		self.index = index
+		self.selectMethod = selectMethod
+
+		# SELECTION ------------------------------------------------------------
+		self.selected = False
+
 
 		# CONFIGURE FRAME = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-		Tk.Frame.__init__(self, master = master, bg = "black")
+		Tk.Frame.__init__(self, master = master, bg = "white")
 		self.config(relief = Tk.SUNKEN, borderwidth = 1)
+		self.bind('<Button-1>', self.toggle)
 
-		# CONFIGURE CANVAS = = = = = = = = = = = = = = = = = = = = = = = = = = =
-		self.canvas = Tk.Canvas(self, bg = self.background, 
-			width = size, height = size)
+		# Index display = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+		self.indexLabel = Tk.Label(self, text = self.index, 
+			font = ('TkFixedFont', 7, 'bold'), background = '#282828',
+			foreground = "white",  pady = 0)
+		self.indexLabel.bind('<Button-1>', self.toggle)
+		self.indexLabel.pack(fill = Tk.X)
 
+		# RPM display = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+		self.rpmVar = Tk.StringVar()
+		self.rpmVar.set("NR")
+		self.rpmDisplay = Tk.Label(self, textvariable = self.rpmVar, 
+			font = ('TkFixedFont', 7), pady = -100)
+		self.rpmDisplay.pack()
+
+		self.rpmDisplay.bind('<Button-1>', self.toggle)
+
+		# DC display = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+		self.dcVar = Tk.StringVar()
+		self.dcVar.set("N%")
+		self.dcDisplay = Tk.Label(self, textvariable = self.dcVar, 
+			font = ('TkFixedFont', 7), pady = -100)
+
+		self.dcDisplay.pack()
+		self.dcDisplay.bind('<Button-1>', self.toggle)
+
+		# SETTERS = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+		self.setRPM = self.rpmVar.set
+		self.setDC = self.dcVar.set
 
 		# PACK = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-		self.pack(side = Tk.LEFT, expand = False)
-		self.canvas.pack()
+		self.pack(side = Tk.LEFT)
+
+	def toggle(self, event): # =================================================
+		# ABOUT: To be activated on click. Toggles fan selection.
+		if(self.selected):
+			self.deselect(None)
+		else:
+			self.select(None)
+	
+	def select(self, event): # =================================================
+		# ABOUT: Set this fan as selected.
+		if(not self.selected):
+			self.selected =  True
+			self.rpmDisplay.configure(bg = "orange")
+			self.dcDisplay.configure(bg = "orange")
+			self.configure(bg = "orange")
+			self.selectMethod(True, self.index)
+
+
+	def deselect(self, event): # ===============================================
+		# ABOUT: Set this fan as not selected.
+		if(self.selected):
+			self.selected =  False
+			self.rpmDisplay.configure(bg = "white")
+			self.dcDisplay.configure(bg = "white")
+			self.configure(bg = "white")
+			self.selectMethod(False, self.index)
 
 
 
@@ -219,11 +377,12 @@ class FCInterface(Tk.Frame):
 
 		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = = 
 
+
 		# Deactivate resizing:
 		#self.master.resizable(False,False)
 
 		# Set title:
-		self.master.title("Fan Club MkII")
+		self.master.title("Fan Club MkII [ALPHA]")
 
 		# Set background:
 		self.background = "#e2e2e2"
@@ -235,37 +394,93 @@ class FCInterface(Tk.Frame):
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
 		# ARRAY ----------------------------------------------------------------
-		self.arrayFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			width = 50, height = 300, bg=self.background)
+		self.arrayFrame = Tk.Frame(self, relief = Tk.RIDGE, 
+			borderwidth = 2, width = 1500, height = 100)
+
+		self.arrayCanvas = Tk.Canvas(self.arrayFrame, height = 300, 
+			bg = 'darkgray',highlightthickness=0)
 
 		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
-			bg = self.background)
+			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
+
+
+		self.shutdownButtonFrame = Tk.Frame(self.arrayFrameLabelFrame, relief = Tk.SUNKEN,
+			borderwidth = 1)
+
+		self.shutdownButton = Tk.Button(self.shutdownButtonFrame, 
+			highlightbackground = "#890c0c", text = "SHUT DOWN", 
+			command = self._shutdownButton)
+
+		self.shutdownButtonFrame.pack(side = Tk.RIGHT)
+		self.shutdownButton.pack()
 
 		self.arrayFrameLabel = Tk.Label(self.arrayFrameLabelFrame, 
-			text = "Slaves", bg = self.background)
+			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
+		
+
 		self.arrayFrameLabel.pack()
+		self.arrayFrameLabelFrame.pack(fill = Tk.BOTH)
 
-		self.arrayFrameLabelFrame.pack(fill = Tk.X)
+		# ARRAY SCROLLBAR: 
+
+		self.arrayScrollbar = Tk.Scrollbar(self.arrayFrame)
+		self.arrayScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
+		self.arrayScrollbar.config(command=self.arrayCanvas.yview)
+		self.arrayCanvas.config(yscrollcommand = self.arrayScrollbar.set)
+		self.arrayCanvas.configure(scrollregion=(0,0,1500,1200))
 
 
-		self.arrayFrame.pack(fill = Tk.BOTH, expand = True)
+		self.arrayFrame.pack(fill = Tk.X)
+
+		self.arrayCanvas.pack(fill = Tk.X, expand = False)
+		self.arrayCanvas.pack_propagate(False)
 
 		# CONTROL --------------------------------------------------------------
 		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background)
 
-		self.l1 = Tk.Label(self.controlFrame, text = "Controls:" , bg = self.background)
-		self.l1.pack(side = Tk.LEFT)
+		self.controlContainer = Tk.Frame(self.controlFrame, 
+			bg = self.background)
 
-		self.b1 = Tk.Button(self.controlFrame, text='Button', bg = self.background)
-		self.b1.pack(side = Tk.LEFT)
+		self.selectedCommand = Tk.StringVar()
+		self.selectedCommand.set("Set Duty Cycle")
+		self.commandMenu = Tk.OptionMenu(self.controlContainer, 
+			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
+			command = self._changeCommandMenu)
 
-		self.b2 = Tk.Button(self.controlFrame, text='Button', bg = self.background)
-		self.b2.pack(side = Tk.LEFT)
+		self.commandLabelText = Tk.StringVar()
+		self.commandLabelText.set("RPM: ")
+		self.commandLabel = Tk.Label(self.controlContainer, 
+			textvariable = self.commandLabelText, background = self.background)
 
-		self.b3 = Tk.Button(self.controlFrame, text='Test')
-		self.b3.pack(side = Tk.RIGHT)
+		self.commandMenu.configure(highlightbackground = self.background)
+		self.commandMenu.configure(background = self.background)
 
+		self.commandMenu.pack(side = Tk.LEFT)
+		self.commandLabel.pack(side = Tk.LEFT)
+
+		validateC = self.register(self._validateN)
+		self.commandEntry = Tk.Entry(self.controlContainer, 
+			highlightbackground = self.background,
+			width = 7, validate = 'key', validatecommand = \
+				(validateC, '%S', '%s', '%d'))
+		self.commandEntry.pack(side = Tk.LEFT)
+
+		self.sendButton = Tk.Button(self.controlContainer, 
+			highlightbackground = self.background, text = "Send")
+
+		self.sendButton.pack(side = Tk.LEFT)
+
+
+
+		self.selectedAll = False
+		self.selectAllButton = Tk.Button(self.controlFrame, 
+			highlightbackground = self.background, text = "Select All", 
+			command = self.selectAllSlaves)
+
+		self.selectAllButton.pack(side = Tk.RIGHT)
+
+		self.controlContainer.pack()
 		self.controlFrame.pack(fill = Tk.X, expand = False)
 
 		# TERMINAL -------------------------------------------------------------
@@ -346,7 +561,6 @@ class FCInterface(Tk.Frame):
 			"B", foreground = "blue")
 		self.slavesTText.tag_config(\
 			"D", foreground = self.debugColor)
-
 
 		# LISTENER TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.listenerTerminal = ttk.Frame(self.terminal)
@@ -435,7 +649,7 @@ class FCInterface(Tk.Frame):
 		#                    Height  |  |
 		#                  Width  |  |  |
 		#                      |  |  |  |
-		self.master.geometry('%dx%d+%d+%d' % (800, 650, \
+		self.master.geometry('%dx%d+%d+%d' % (960, 630, \
 			(self.master.winfo_screenwidth()/5),      \
 			(self.master.winfo_screenheight()/8)        \
 			)                                           \
@@ -450,13 +664,13 @@ class FCInterface(Tk.Frame):
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler() 
+		self.profiler = Profiler.Profiler(self.arrayCanvas) 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
 		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
-		self.communicator = Communicator.Communicator(self.profiler)
+		self.communicator = Communicator.Communicator(self.profiler, self.arrayCanvas)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
 
@@ -475,14 +689,6 @@ class FCInterface(Tk.Frame):
 		
 		# ----------------------------------------------------------------------
 		self._listenerPrinterRoutine()
-
-
-		# ----------------------------------------------------------------------
-		self._slaveDisplayRoutine()
-
-		
-		# Start printer threads ------------------------------------------------
-
 
 		# End constructor ==========================================================
 
@@ -666,50 +872,6 @@ class FCInterface(Tk.Frame):
 
 		# End _listenerPrintRoutine ================================================
 
-	def _slaveDisplayRoutine(self): # ==========================================
-		# ABOUT: Loop over each Slave and display is relevant information.
-		try:
-
-			# Loop over Slave list -----------------------------------------
-			for mac in self.slaves:
-
-				# Check if this Slave has a display:
-				if self.slaves[mac].slaveDisplay == None:
-
-					# If it does not, give it a new one:
-					self.slaves[mac].slaveDisplay = \
-						SlaveDisplay(self.arrayFrame, 
-							self.slaves[mac].name, mac,
-							Slave.translate(
-								self.slaves[mac].status,
-								), self.profiler.maxFans)
-
-				else:
-					# If it does have a display, try to update it:
-					try:
-
-						# Get data:
-						data = \
-							self.slaves[mac].\
-							updateQueue.get_nowait()
-
-						# Update display w/ such data:
-						self.slaves[mac].\
-							slaveDisplay.update(data)
-
-					except Queue.Empty:
-						# If there is nothing to retrieve, move on
-						pass
-
-
-		except Exception as e:
-			self.printMain("UNCAUGHT EXCEPTION: \"{}\"".\
-               format(traceback.format_exc()), "E")
-
-		self.after(300, self._slaveDisplayRoutine)
-
-		# End _slaveDisplayRoutine =============================================
-
 ## AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 	def printMain(self, output, tag = "S"): # ==================================
@@ -751,7 +913,63 @@ class FCInterface(Tk.Frame):
 
 		# End printMain ========================================================
 
+	def _validateN(self, newCharacter, textBeforeCall, action): # ==============
+		# ABOUT: To be used by TkInter to validate text in "Send" Entry.
+		if action == '0':
+			return True
+		elif self.selectedCommand.get() == "Set Duty Cycle" and \
+			len(textBeforeCall) < 8:
+			if newCharacter in '0123456789':
+				try:
+					total = float(textBeforeCall + newCharacter)
+					return total <= 1
+				except ValueError:
+					return False
+			elif newCharacter == '.' and not '.' in textBeforeCall:
+				return True
+			else:
+				return False
+
+		elif self.selectedCommand.get() == "Set RPM" and newCharacter \
+			in '0123456789' and len(textBeforeCall) < 5:
+			return True
+
+		else:
+			return False
+
+	def _changeCommandMenu(self, newValue): # ==================================
+		# ABOUT: Handle changes in commandMenu
+
+		# Check value and update command frame in accordance:
+		if newValue == "Set Duty Cycle":
+			self.commandLabelText.set("DC: ")
+
+		elif newValue == "Chase RPM":
+			self.commandLabelText.set("RPM: ")
+
+	def _shutdownButton(self): # ===============================================
+		# ABOUT: To be bound to shutdownButton
+
+		self.printMain("WARNING: SHUTDOWN BUTTON NOT YET IMPLEMENTED", "E")
+
 ## INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+	def selectAllSlaves(self): # ===============================================
+		# ABOUT: To be bound to the "Select All" button (selects all fans in all
+		# Slaves)
+
+		if not self.selectedAll:
+			for mac in self.profiler.slaves:
+				self.profiler.slaves[mac].slaveDisplay.selectAll()
+			self.selectAllButton.configure(text = "Deselect All")
+		else:
+			for mac in self.profiler.slaves:
+				self.profiler.slaves[mac].slaveDisplay.deselectAll()
+				self.selectAllButton.configure(text = "Select All")
+
+		self.selectedAll = not self.selectedAll
+
+
 
 
 
