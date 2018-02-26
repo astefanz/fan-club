@@ -30,10 +30,9 @@ OOP representation of Fans.
 
 # FAN STATUS CODES:
 
-ON = 1
-OFF = 0
+ACTIVE = 1
 INACTIVE = -1
-MISBEHAVING = -2
+BROKEN = -2
 
 
 ## CLASS DEFINITION ############################################################

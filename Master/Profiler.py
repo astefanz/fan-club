@@ -38,6 +38,9 @@ Nonvolatile storage and wind tunnel representation.
 import Slave 
 import threading
 import Fan
+import names
+
+import random # Random names, boy
 
 ## CONSTANT VALUES #############################################################
 
@@ -78,6 +81,7 @@ DEFAULT_MIN_RPM = 1185  # (Minimum nominal RPM)
 DEFAULT_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
 DEFAULT_MAX_FANS = 21
 
+
 ## CLASS DEFINITION ############################################################
 
 class Profiler:
@@ -111,40 +115,40 @@ class Profiler:
 		# Wind tunnel ----------------------------------------------------------
 		self.slaves = {}
 
-		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = "Lad", 
+		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, 
 			interface = interface, maxFans = 21,  activeFans = 21)
 
-		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = "Leed", 
+		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:45:00:46", status = Slave.KNOWN, 
-			interface = interface, maxFans = 21,  activeFans = 21)
+			interface = interface, maxFans = 21,  activeFans = 10)
 
 
-		""" PROVISIONAL ZOMBIE SLAVES
-		self.slaves["z:1"] = Slave.Slave(name = "Zombie", mac = "z:1", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:2"] = Slave.Slave(name = "Zombie", mac = "z:2", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:3"] = Slave.Slave(name = "Zombie", mac = "z:3", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:4"] = Slave.Slave(name = "Zombie", mac = "z:4", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:5"] = Slave.Slave(name = "Zombie", mac = "z:5", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		#"""PROVISIONAL ZOMBIE SLAVES
+		self.slaves["z:01"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:01", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:02"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:02", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:03"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:03", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:04"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:04", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:05"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:05", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 
-		self.slaves["z:6"] = Slave.Slave(name = "Zombie", mac = "z:6", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:7"] = Slave.Slave(name = "Zombie", mac = "z:7", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:8"] = Slave.Slave(name = "Zombie", mac = "z:8", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:9"] = Slave.Slave(name = "Zombie", mac = "z:9", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:10"] = Slave.Slave(name = "Zombie", mac = "z:10", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:06"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:06", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:07"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:07", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:08"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:08", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:09"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:09", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:10"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:10", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 
-		self.slaves["z:11"] = Slave.Slave(name = "Zombie", mac = "z:11", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:12"] = Slave.Slave(name = "Zombie", mac = "z:12", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:13"] = Slave.Slave(name = "Zombie", mac = "z:13", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:14"] = Slave.Slave(name = "Zombie", mac = "z:14", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:15"] = Slave.Slave(name = "Zombie", mac = "z:15", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:11"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:11", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:12"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:12", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:13"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:13", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:14"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:14", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:15"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:15", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 
-		self.slaves["z:16"] = Slave.Slave(name = "Zombie", mac = "z:16", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:17"] = Slave.Slave(name = "Zombie", mac = "z:17", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:18"] = Slave.Slave(name = "Zombie", mac = "z:18", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:19"] = Slave.Slave(name = "Zombie", mac = "z:19", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		self.slaves["z:20"] = Slave.Slave(name = "Zombie", mac = "z:20", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		"""
+		self.slaves["z:16"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:16", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:17"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:17", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:18"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:18", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:19"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:19", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		self.slaves["z:20"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:20", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
+		#"""
 
 		self.slavesLock = threading.Lock()
 		self.dimensions = (0,0)

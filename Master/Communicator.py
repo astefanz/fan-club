@@ -192,7 +192,7 @@ class Communicator:
             # START KNOWN SLAVE THREADS ============================================
 
             for mac in self.slaves:
-                self.printM("\tInitializing {}".format(mac), "G")
+                #self.printM("\tInitializing {}".format(mac), "G")
 
                 self.slaves[mac].setStatus(Slave.DISCONNECTED)
                 self.slaves[mac].thread = threading.Thread( 
@@ -596,6 +596,7 @@ class Communicator:
 
                                 # Mark as CONNECTED and get to work:
                                 slave.setStatus(Slave.CONNECTED)
+                                message = "MVER"
 
                                 # Restart loop:
                                 continue
@@ -625,15 +626,25 @@ class Communicator:
                         self.printS(slave, "[On positive state]", "D")
 
                         # Check queue for message:
-                        try:
-                            message = "MSTD|" + slave.mosiQueue.get_nowait()
-                            mosiQueue.task_done()
+                        try:  
+                            print "Trying to get command"
+                            command = slave.mosiQueue.get_nowait()
+                            print "Got: " + command
+                            slave.mosiQueue.task_done()
+
+                            print "Command: " + command
+                            message = "MSTD|" + command
 
                         except Queue.Empty:
-                            message = "MVER"
+                            # Use previous message
+                            print "Queue Empty"
+                            pass
 
                         # Send message:
                         self._send(message, slave, 5)
+
+                        # DEBUG: 
+                        print "Sent: {}".format(message)
 
                         # Wait for next message:
                         time.sleep(self.profiler.interimS)

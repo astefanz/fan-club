@@ -111,11 +111,10 @@ class Slave:
 		# PURPOSES OF EFFICIENCY, IT OPERATES UNDER THE ASSUMPTION THAT ALL PA-
 		# RAMETERS HAVE BEEN VERIFIED BY THE GREATER CONTAINER CLASS.
 
-		self.name = name
+		self.name = name + mac[-3:]
 		self.mac = mac
 		self.status = status
 
-		self.activeFans = activeFans
 		self.ip  = ip
 		self.misoP = misoP
 		self.mosiP = mosiP
@@ -128,7 +127,10 @@ class Slave:
 		self.mosiQueue = Queue.Queue(1)
 
 		self.slaveDisplay = FCI.SlaveDisplay(
-			interface, name, mac, status, maxFans, activeFans)
+			interface, self.name, mac, status, maxFans, activeFans)
+
+		# Set active fans:
+		self.setActiveFans(activeFans)
 
 		self.setRPM = self.slaveDisplay.setRPM
 		self.setDC = self.slaveDisplay.setDC
