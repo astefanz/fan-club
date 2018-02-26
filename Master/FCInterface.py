@@ -405,7 +405,7 @@ class FanDisplay(Tk.Frame):
 	def setStatus(self, newStatus): # ==========================================
 		# ABOUT: Set the status of this fan. Inactive fans cannot be selected.
 
-		# Check for redundance:
+		# Check for redundancy:
 		if self.status != newStatus:
 			# Check new status:
 			if newStatus == Fan.ACTIVE:
@@ -439,7 +439,7 @@ class FanDisplay(Tk.Frame):
 					"Invalid FanDisplay status code: {}".format(newStatus))
 
 		else: 
-			# In case of redundance, do nothing:
+			# In case of redundancy, do nothing:
 			pass
 
 		# End setStatus ========================================================

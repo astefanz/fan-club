@@ -29,9 +29,9 @@
 
 //// DEPENDENCIES //////////////////////////////////////////////////////////////
 
-#include "feedback.h"
 #include "print.h"
 #include "settings.h"
+#include "Fan.h"
 
 //// CONSTANT DECLARATIONS /////////////////////////////////////////////////////
 
@@ -50,6 +50,13 @@ extern const int
 
 extern const int GET_ERROR;
 
+// Process data structure ------------------------------------------------------
+
+typedef struct{
+    char content[MAX_MESSAGE_LENGTH];
+} command;
+
+
 //// CLASS INTERFACE ///////////////////////////////////////////////////////////
 
 class Processor { 
@@ -64,11 +71,11 @@ public:
     
     // PUBLIC INTERFACE --------------------------------------------------------
     
-    bool process(const char* command);
+    bool process(const char* givenCommand);
         /* ABOUT: Take a given command for processing.
          * PARAMETERS:
-         * -const char* command: NULL-terminated string representing command to
-         *  process.
+         * -const char* givenCommand: NULL-terminated string representing command 
+         * to process.
          */
          
     void get(char* buffer);
@@ -78,12 +85,14 @@ public:
          */
 
     void setStatus(int status);
-    	/* ABOUT: Modify Processor status.
-    	 * PARAMETERS:
-    	 * -int status: Integer code of new status to set. Must be defined in 
-    	 * Processor.h.
-    	 */
-
+        /* ABOUT: Modify Processor status.
+         * PARAMETERS:
+         * -int status: Integer code of new status to set. Must be defined in 
+         * Processor.h.
+         */
+    
+    void start(void);
+    
 private:
 
     // INNER THREAD ROUTINES ---------------------------------------------------
@@ -100,7 +109,7 @@ private:
     // PROFILE DATA ------------------------------------------------------------
     int8_t fanMode;         // Single or double fan configuration
     int targetRelation[2];  // (If applic.) Rel. between front and rear fan RPM
-    uint8_t fanAmount;      // Number of active fans
+    uint8_t activeFans;     // Number of active fans
     uint8_t counterCounts;  // Number of pulses to be counted when reading
     uint8_t pulsesPerRotation;   // Pulses sent by sensor in one full rotation
     uint8_t maxRPM;         // Maximum nominal RPM of fan model
@@ -111,12 +120,13 @@ private:
     int8_t status;      // Current processor status
     DigitalOut blue;    // Access to blue LED
     Ticker blinker;     // Used to blink blue LED for status   
-    Mutex arrayLock, taskLock, replyLock; // Thread safe access
+    Mutex dataLock; // Thread safe access
     
     // PROCESS DATA ------------------------------------------------------------
-    char taskBuffer[512];
-    int rpms[MAX_FANS];
-    float dcs[MAX_FANS];
+    Mail<command, 1> inputQueue, outputQueue; // For inter-thread comms.
+
+    // Fan array data ----------------------------------------------------------
+    Fan fanArray[MAX_FANS];
     
 };
 

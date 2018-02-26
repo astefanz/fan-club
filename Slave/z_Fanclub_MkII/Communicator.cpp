@@ -242,6 +242,8 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
             pu;
 
             
+            this->processor.start();
+            
             this->_setStatus(NO_MASTER);
             pl;printf("\n\r[%08dms][C] Ready for messages",tm);pu;  
         }

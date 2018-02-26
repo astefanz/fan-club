@@ -29,7 +29,47 @@ const int
           
 const bool DO_TEST = true,  // For testing fan activity upon initialization
            NO_TEST = false,
-		   NO_DEBUG = false;
+           NO_DEBUG = false;
+           
+// PINOUTS /////////////////////////////////////////////////////////////////////
+
+// CHOOSE PINOUT:
+#define v2_8
+
+// VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
+#ifdef v2_8
+#define PINOUT_NAME  "v2.8"
+#define MAX_FANS 21
+
+extern PwmOut pwmOut[MAX_FANS];
+
+extern PinName tachIn[MAX_FANS];
+
+#endif // v2_8 // ==============================================================
+
+// VERSION 2.8J(REVISED V2.4 FOR PCB-1, ADAPTED TO JPL MODULES) ================
+#ifdef v2_8J
+#define PINOUT_NAME  "v2.8J"
+#define MAX_FANS 8
+
+extern PwmOut pwmOut[MAX_FANS];
+
+extern PinName tachIn[MAX_FANS];
+
+#endif // v2_8J // =============================================================
+
+// VERSION 2.7 (REVISED v2.4 FOR MORPHO PINOUT) ================================
+#ifdef v2_7
+#define PINOUT_NAME  "v2.7"
+#define MAX_FANS 21
+
+extern PwmOut pwmOut[MAX_FANS];
+
+extern PinName tachIn[MAX_FANS];
+                          
+#endif  // v2_7 // =============================================================
+           
+           
 // CLASS INTERFACE /////////////////////////////////////////////////////////////
 
 class Fan{

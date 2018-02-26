@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"get_rekt1\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"now deallocating\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 

@@ -530,7 +530,7 @@ class Communicator:
 
 
             # Second message:
-            MHS2 = "MHS2|{},{},{},{},{},{},{},{},{}".\
+            MHS2 = "MHS2|S~{},{},{},{},{},{},{},{},{}".\
                         format(
                         self.profiler.fanMode,
                         self.profiler.targetRelation[0],
