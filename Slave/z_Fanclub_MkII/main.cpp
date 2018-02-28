@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"prott counter\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"short hsk\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 

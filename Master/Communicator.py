@@ -518,20 +518,12 @@ class Communicator:
             self.printS(slave, "Sockets set up successfully: \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
                 format(slave.misoS.getsockname(), slave.mosiS.getsockname()), "G")
 
-            # HS1 and HS2 messages: --------------------------------------------
+            # HSK message: -----------------------------------------------------
 
-            # First message is of the form:
-            #       INDEX|MHS1|MMISO|MMOSI|PERIOD_MS
-            #   e.g 00000001|MHS1|52011|61102|1000
-            MHS1 = "MHS1|{},{},{}".format(
+            MHSK = "MHSK|{},{},{},S~{},{},{},{},{},{},{},{},{}".format(
                         slave.misoS.getsockname()[1], 
                         slave.mosiS.getsockname()[1], 
-                        self.profiler.periodMS)
-
-
-            # Second message:
-            MHS2 = "MHS2|S~{},{},{},{},{},{},{},{},{}".\
-                        format(
+                        self.profiler.periodMS,
                         self.profiler.fanMode,
                         self.profiler.targetRelation[0],
                         self.profiler.targetRelation[1],
@@ -559,61 +551,33 @@ class Communicator:
                     if slave.status == Slave.KNOWN: # = = = = = = = = = = = = = 
 
                         # If the Slave is known, try to secure a connection:
-                        self.printS(slave, "Attempting handshake (1/2)")
+                        self.printS(slave, "Attempting handshake")
 
-                        # Check for signs of life w/ HS1 message:
-                        self._send(MHS1, slave)
+                        # Check for signs of life w/ HSK message:
+                        self._send(MHSK, slave)
 
                         # Try to receive reply:
                         reply = self._receive(slave)
 
                         # Check reply:
-                        if reply != None and reply[1] == "SHS1":
+                        if reply != None and reply[1] == "SHSK":
                             self.printS(slave, "Processed reply: {}".format(reply), "G")
-                            self.printS(slave,
-                                "First handshake step confirmed", "G")
+                            self.printS(slave, "Handshake confirmed", "G")
 
                             # Increment exchange index:
                             slave.incrementExchange()
 
-                            # Proceed to second handshake step:
-                            self.printS(slave, 
-                                "Attempting handshake (2/2)")
-
-                            # Send HS2 message:
-                            self._send(MHS2, slave)
-
-                            # Wait for next message:
-                            time.sleep(self.profiler.interimS)
-
-                            # Try to receive reply:
-                            reply = self._receive(slave)
-
-                            # Check second reply:
-                            if reply != None and reply[1] == "SHS2":
-                                self.printS(slave, 
-                                    "Second handshake step confirmed. Slave connected.", "G")
-
-                                # Mark as CONNECTED and get to work:
-                                slave.setStatus(Slave.CONNECTED)
-                                message = "MVER"
-
-                                # Restart loop:
-                                continue
-
-                            else: 
-                                self.printS(slave, 
-                                    "Missed handshake (2/2). Restarting.", "W")
-
-                                # Set Slave to disconnected:
-                                slave.setStatus(Slave.DISCONNECTED)
+                            # Mark as CONNECTED and get to work:
+                            slave.setStatus(Slave.CONNECTED)
+                            message = "MVER"
 
                         else:
                             # If there was an error, restart attempt:
                             self.printS(slave, 
-                                "Missed handshake (1/2). Retrying.", "W")
+                                "Missed handshake. Retrying.", "W")
                             # Set Slave to disconnected:
-                            slave.setStatus(Slave.DISCONNECTED)
+                            slave.setStatus(Slave.DISCONNECTED) 
+                                # NOTE: This call also resets exchange index.
 
 
                     elif slave.status > 0: # = = = = = = = = = = = = = = = = = = 

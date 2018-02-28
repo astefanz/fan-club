@@ -150,6 +150,10 @@ class Slave:
 		# - newStatus: code of the new status.
 
 		self.status = newStatus
+		
+		if newStatus == DISCONNECTED:
+			self.setExchange(0)
+
 		self.slaveDisplay.setStatus(newStatus)
 
 		# End setStatus ========================================================

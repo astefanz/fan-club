@@ -1,4 +1,3 @@
-    } // End Communicator::_interpret // // // // // // // // // // // // / // /
 ////////////////////////////////////////////////////////////////////////////////
 // Project: Fanclub Mark II "Slave" // File: Communicator.cpp - Implementation//
 //----------------------------------------------------------------------------//
@@ -57,7 +56,6 @@ Communicator::Communicator():processor(),
     pl;printf("\n\r[%08dms][c] Communicator constructor done", tm);pu;
 
     } // End Communicator::Communicator // // // // // // // // // // // // // /
-
      
 void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // / 
     /* ABOUT: Code to be executed by the broadcast listener thread.
@@ -242,7 +240,6 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
             printf("\n\r[%08dms][C] Sockets initialized",tm);
             pu;
 
-            
             this->processor.start();
             
             this->_setStatus(NO_MASTER);
@@ -275,7 +272,7 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
     
             pl;printf("\n\r[%08dms][C] Checking results (1/2)",tm);pu;
             // Check result:  - -  - - - - - - - - - - - - - - - - - - - - - - - - - 
-            if( result <= 0 || strcmp(receivedKeyword, "MHS1") != 0){
+            if( result <= 0 || strcmp(receivedKeyword, "MHSK") != 0){
                 // Invalid results
 
                 pl;printf("\n\r[%08dms][C] Failed to receive HS1...(%d NT's)",
@@ -289,21 +286,19 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
                     // Network timeouts past threshold. Assume network error.
                     pl;printf(
                         "\n\r[%08dms][C] Network timeouts past threshold",tm);pu;
-                    // Update status:
-                    this->_setStatus(NO_NETWORK);
+                    
+                    pl;printf("\n\r[%08dms][C] Network error detected. "
+                        "Rebooting",tm);pu;
+                    
+                    NVIC_SystemReset();
 
                     } // End check network timeouts ................................
                 
                 // Restart loop:
-                
-                // Yield control to listener thread:
-                Thread::yield();
-                
-                // Then restart loop:
                 continue;
 
             }else{ // Valid results
-                pl;printf("\n\r[%08dms][C] HS1 received. Updating sockets",tm);pu;
+                pl;printf("\n\r[%08dms][C] HSK received. Updating sockets",tm);pu;
 
                 // Update status to stop broadcast:
                 this->_setStatus(CONNECTING);
@@ -369,71 +364,54 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
                     continue;
                 }
 
-                // Reply to HS1: ...................................................
-                this->_send("SHS1", 2); // Send reply twice for good measure
+                // Get fan array configuration for Processor:
+                ptr = strtok(NULL, ",");
+                pl;printf("\n\r[%08dms][C] Fourth item: %s",tm, ptr);pu;
 
-                pl;printf( "\n\r[%08dms][C] HS1 Success: MMISO: %d, Period: %dms",
-                    tm, this->masterMISO.get_port(), periodms);pu;
+                // Verify:
+                if(ptr == NULL){
+                    // Error while splitting.
+                    pl;printf(
+                        "\n\r[%08dms][C] HS2 ERROR. NULL configuration."
+                        ,tm);pu;
 
-
-                // Handshake (2/2) -------------------------------------------------
-
-                pl;printf("\n\r[%08dms][C] On handshake (2/2)",tm);pu;
-
-                // Receive message: - - - - - - - - - - - - - - - - - - - - - - - - 
-                int result = this->_receive(&this->exchangeIndex, 
-                    &receivedExchange, receivedKeyword, receivedCommand);
-
-                // Check result:  - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-                if( result <= 0 or strcmp(receivedKeyword, "MHS2") != 0 ){
-                    // Invalid results
-
-                    pl;printf("\n\r[%08dms][C] Failed to receive HS2...(%d NT's)",
-                        tm, this->networkTimeouts);pu;
-
-                    // Update status:
+                    // Discard progress and restart:
                     this->_setStatus(NO_MASTER);
 
                     // Restart loop:
                     continue;
 
-                }else{ // Valid results
+                }
+
+                // Send command to processor: ..................................
+                bool success = this->processor.process(ptr);
+
+                // Check success: ..............................................
+                if(not success){
+                    // If there was a failure in the configuration, terminate 
+                    // the attempt:
+                    pl;printf(
+                        "\n\r[%08dms][C] HS2 error at processor. "
+                        "Handshake aborted",tm);pu;
+
+                }else{
+                    // Success. 
+
+                    // Send reply to master:
+                    this->_send("SHSK", 2); // Send reply twice for good measure
 
                     pl;printf(
-                        "\n\r[%08dms][C] HS2 received. Configuring processor",
-                        tm);pu;
+                        "\n\r[%08dms][C] HSK Success",tm);pu;
 
-                    // Send command to processor: ..................................
-                    bool success = this->processor.process(receivedCommand);
+                    // Update status and move on:
+                    this->_setStatus(CONNECTED);
 
-                    // Check success: ..............................................
-                    if(not success){
-                        // If there was a failure in the configuration, terminate 
-                        // the attempt:
-                        pl;printf(
-                            "\n\r[%08dms][C] HS2 error at processor. "
-                            "Handshake aborted",tm);pu;
+                    // Restart loop:
+                    continue;
 
-                    }else{
-                        // Success. 
+                    } // End check success .....................................
 
-                        // Send reply to master:
-                        this->_send("SHS2", 2); // Send reply twice for good measure
-
-                        pl;printf(
-                            "\n\r[%08dms][C] HS2 Success",tm);pu;
-
-                        // Update status and move on:
-                        this->_setStatus(CONNECTED);
-
-                        // Restart loop:
-                        continue;
-
-                        } // End check success .....................................
-
-                    } // End check results (2/2) - - - - - - - - - - - - - - - - - -
-
-                } // End check results (1/2) - - - - - - - - - - - - - - - - - - - -
+            } // End check results (1/2) - - - - - - - - - - - - - - - - - - - -
 
         } else if(this->status == CONNECTED){ // CONNECTED = = = = = = = = = = =
 
