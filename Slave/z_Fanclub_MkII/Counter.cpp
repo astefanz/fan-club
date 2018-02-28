@@ -41,8 +41,8 @@ Counter::Counter(PinName pin) : interrupt(pin) {// Create the InterruptIn on the
     // timer will be syncronized at, approximately, 0
     t.reset();
     t.start();
-    while(count<1 && t.read_us()<timeout){
-        // Wait until either the next rise (or timeout)
+    while(count<4 && t.read_us()<4*timeout){
+        // Wait until either enough rises (or timeouts)
     }
     t.stop();   // Stop the timer as soon as the counter variable hits 1
     wait(0.001); // Let the system catch up
@@ -51,7 +51,7 @@ Counter::Counter(PinName pin) : interrupt(pin) {// Create the InterruptIn on the
     }
     
     // Otherwise, convert from microseconds between half-cycles to RPM and return
-    return 1/(2*(t.read_us()/60000000.0)); 
+    return count/(2*(t.read_us()/60000000.0)); 
     
 }
 

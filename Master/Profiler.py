@@ -121,10 +121,16 @@ class Profiler:
 
 		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:45:00:46", status = Slave.KNOWN, 
-			interface = interface, maxFans = 21,  activeFans = 10)
+			interface = interface, maxFans = 21,  activeFans = 21)
+
+		
+
+		self.slaves["00:80:e1:2f:00:1d"] = Slave.Slave(name = random.choice(names.coolNames), 
+			mac = "00:80:e1:2f:00:1d", status = Slave.KNOWN, 
+			interface = interface, maxFans = 21,  activeFans = 21)
 
 
-		#"""PROVISIONAL ZOMBIE SLAVES
+		"""PROVISIONAL ZOMBIE SLAVES
 		self.slaves["z:01"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:01", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 		self.slaves["z:02"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:02", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 		self.slaves["z:03"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:03", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
@@ -148,7 +154,7 @@ class Profiler:
 		self.slaves["z:18"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:18", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 		self.slaves["z:19"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:19", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
 		self.slaves["z:20"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:20", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
-		#"""
+		"""
 
 		self.slavesLock = threading.Lock()
 		self.dimensions = (0,0)
