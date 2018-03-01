@@ -682,7 +682,7 @@ class Communicator:
                             format(slave.status), "D")
                         # Wait arbitrary amount (say, comms period):
                         slave.lock.release()
-                        time.sleep(self.profiler.periodMS/1000)
+                        time.sleep(self.profiler.interimS)
 
                         # Restart loop to check again:
                         continue
