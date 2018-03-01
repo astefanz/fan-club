@@ -554,7 +554,7 @@ class Communicator:
                         self.printS(slave, "Attempting handshake")
 
                         # Check for signs of life w/ HSK message:
-                        self._send(MHSK, slave)
+                        self._send(MHSK, slave, 4)
 
                         # Try to receive reply:
                         reply = self._receive(slave)
@@ -591,17 +591,12 @@ class Communicator:
 
                         # Check queue for message:
                         try:  
-                            print "Trying to get command"
                             command = slave.mosiQueue.get_nowait()
-                            print "Got: " + command
                             slave.mosiQueue.task_done()
-
-                            print "Command: " + command
                             message = "MSTD|" + command
 
                         except Queue.Empty:
                             # Use previous message
-                            print "Queue Empty"
                             pass
 
                         # Send message:

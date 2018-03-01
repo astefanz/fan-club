@@ -398,7 +398,7 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
                     // Success. 
 
                     // Send reply to master:
-                    this->_send("SHSK", 2); // Send reply twice for good measure
+                    this->_send("SHSK", 5); // Send reply
 
                     pl;printf(
                         "\n\r[%08dms][C] HSK Success",tm);pu;
@@ -417,7 +417,7 @@ void Communicator::_communicationRoutine(void){ // // // // // // // // // // //
 
             // When connected, wait for messages (or timeouts), and process them
             // in accordance w/ keywords.
-
+            wait(0.001);
             // Receive message: ------------------------------------------------
                 int result = this->_receive(&this->exchangeIndex, 
                     &receivedExchange, receivedKeyword, receivedCommand);
