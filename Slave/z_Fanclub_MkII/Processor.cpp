@@ -243,10 +243,11 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 // Store command in placeholder:
                 char placeholder[MAX_MESSAGE_LENGTH];
                 strcpy(placeholder, rawCommand->content);
+                char *splitPosition; 
                 
-                sl;
                 // Split contents: 
-                char* splitPtr = strtok(placeholder, "~");
+                char* splitPtr = strtok_r(placeholder, "~", &splitPosition);
+                    // NOTE: Use strtok_r instead of strtok for thread-safety
                 
                 // Deallocate command from inputQueue:
                 this->inputQueue.free(rawCommand);
@@ -258,7 +259,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                     tm);pu;
 
                     // Resume loop:
-                    su;continue;
+                    continue;
                 } // End verify splitting.
                 
                 // Check command: ----------------------------------------------
@@ -276,7 +277,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         }
 
                         // Split contents for duty cycle:
-                        splitPtr = strtok(NULL, "~");
+                        splitPtr = strtok_r(NULL, "~", &splitPosition);
 
                         // Validate:
                         if(splitPtr == NULL){
@@ -286,7 +287,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
-                            su;continue;
+                            continue;
                         } // End validate splitting
 
                         // Get float duty cycle:
@@ -294,7 +295,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
 
                         // Split contents for selected fans:
-                        splitPtr = strtok(NULL, "~");
+                        splitPtr = strtok_r(NULL, "~", &splitPosition);
 
                             // spliPtr now points to a string of 0's and 1's,
                             // indicating which fans are selected. For example:
@@ -311,7 +312,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
-                            su;continue;
+                            continue;
                         } // End validate splitting
 
                         // Get length of selection:
@@ -375,7 +376,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                             tm, splitPtr[0]);pu;
 
                 } // End check command -----------------------------------------
-                su;
+                
             } // End command processing ========================================
 
             // Update values: ==================================================

@@ -211,11 +211,13 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
                 masterBroadcast.get_port());pu;
 
             // Validate data received: - - - - - - - - - - - - - - - - - - - - -
-            sl;
-            strtok(dataReceived, "|");
-            strcpy(password, strtok(NULL, "|"));
-            masterListenerPort = atoi(strtok(NULL, "|"));
-            su;
+            char* splitPosition; // Save splitting position in strtok_r
+                // NOTE: Use strtok_r instead of strtok for thread safety.
+
+            strtok_r(dataReceived, "|", &splitPosition);
+            strcpy(password, strtok_r(NULL, "|", &splitPosition));
+            masterListenerPort = atoi(strtok_r(NULL, "|", &splitPosition));
+            
             pl;printf("\n\r[%08dms][L] Parsing:"
                       "\n\r                Master LPort: %d"
                       "\n\r                Password: \"%s\"", 
@@ -351,10 +353,11 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                 this->configurationLock.lock();
 
                 // Get values: . . . . . . . . . . . . . . . . . . . . . . . . . . .
-                char *ptr = NULL;
+                char *ptr = NULL, *splitPosition;
                 int port, periodms;
-                sl;
-                ptr = strtok(receivedCommand, ",");
+                    // NOTE: Use strtok_r instead of strtok for thread-safety
+
+                ptr = strtok_r(receivedCommand, ",", &splitPosition);
                 pl;printf("\n\r[%08dms][C] First item: %s",tm, ptr);pu;
 
                 // Get Master MISO port:
@@ -380,14 +383,14 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     this->configurationLock.unlock();
 
                     // Restart loop:
-                    su;continue;
+                    continue;
                 }
 
                 // Skip Master MOSI port:
-                ptr = strtok(NULL, ",");
+                ptr = strtok_r(NULL, ",", &splitPosition);
                 pl;printf("\n\r[%08dms][C] Second item: %s",tm, ptr);pu;
                 
-                ptr = strtok(NULL, ",");
+                ptr = strtok_r(NULL, ",", &splitPosition);
                 pl;printf("\n\r[%08dms][C] Third item: %s",tm, ptr);pu;
 
                 // Get period:
@@ -409,11 +412,11 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     this->configurationLock.unlock();
 
                     // Restart loop:
-                    su;continue;
+                    continue;
                 }
 
                 // Get fan array configuration for Processor:
-                ptr = strtok(NULL, ",");
+                ptr = strtok_r(NULL, ",", &splitPosition);
                 pl;printf("\n\r[%08dms][C] Fourth item: %s",tm, ptr);pu;
 
                 // Verify:
@@ -430,10 +433,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     this->configurationLock.unlock();
 
                     // Restart loop:
-                    su;continue;
+                    continue;
 
                 }
-                su;
+                
                 // Send command to processor: ..................................
                 bool success = this->processor.process(ptr);
 
@@ -589,7 +592,8 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
         pl;printf("\n\r[%08dms][R] Waiting on message",tm);pu;
         
         result = 
-            this->slaveMOSI.recvfrom(&this->masterMOSI, received, MAX_MESSAGE_LENGTH);
+            this->slaveMOSI.recvfrom(&this->masterMOSI, received, 
+                MAX_MESSAGE_LENGTH);
 
         // Validate message = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
@@ -608,8 +612,9 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
         
         pl;printf("\n\r[%08dms][R] Received: %s (%d)", tm,received, result);pu;
 
-        sl;
-        ptr = strtok(received,"|");
+        char* splitPosition;
+            // NOTE: Use strtok_r instead of strtok for thread-safety
+        ptr = strtok_r(received,"|", &splitPosition);
         
         // Get index: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
         if(ptr != NULL){
@@ -629,10 +634,10 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
                 ptr == NULL? 0 : *receivedIndex, *currentIndex);pu;
 
             // Restart loop:
-            su;continue;
+            continue;
         }
         // Check keyword: - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        ptr = strtok(NULL, "|");
+        ptr = strtok_r(NULL, "|", &splitPosition);
 
         if(ptr != NULL and strlen(ptr) == 4){
             strcpy(keyword, ptr);
@@ -643,7 +648,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
                 ptr == NULL? "[NULL]" : keyword);pu;
 
             // Restart loop:
-            su;continue;
+            continue;
         }
 
         // Check HSK flag:
@@ -653,12 +658,12 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
                 tm);pu;
 
             // Restart loop:
-            su;continue;
+            continue;
         }
         
 
         // Check command: - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        ptr = strtok(NULL, "|");
+        ptr = strtok_r(NULL, "|", &splitPosition);
 
         if(ptr != NULL){
 
@@ -668,7 +673,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
             command[0] = '\0';
         }
 
-        su;
+        
 
         // Reset corresponding timeout: - - - - - - - - - - - - - - - - - - - - 
         if(this->status == CONNECTED){
