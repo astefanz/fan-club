@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"Getting there... \"" # Reference for consecutive versions
+VERSION = "\"AC 3\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator

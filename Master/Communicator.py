@@ -40,7 +40,7 @@ import Profiler    # Custom representation of wind tunnel
 import Slave
 import Fan
 
-VERSION = "GO_1"
+VERSION = "Asymmetrical 1"
 
 ## CLASS DEFINITION ############################################################
 
@@ -527,6 +527,8 @@ class Communicator:
             # Slave loop: ======================================================
             while(True):
 
+                time.sleep(self.profiler.interimS)
+
                 # Acquire:
                 slave.lock.acquire()
                 # DEBUG DEACTV
@@ -541,7 +543,7 @@ class Communicator:
                         self.printS(slave, "Attempting handshake")
 
                         # Check for signs of life w/ HSK message:
-                        self._send(MHSK, slave, 1)
+                        self._send(MHSK, slave, 1, True)
 
                         # Try to receive reply:
                         reply = self._receive(slave)
@@ -645,6 +647,9 @@ class Communicator:
                                 # Send termination message:
                                 self._send("MRIP", slave)
 
+                                # Reset timeout counter:
+                                timeouts = 0
+
                                 # Update Slave status:
                                 slave.setStatus(Slave.DISCONNECTED)
 
@@ -663,11 +668,12 @@ class Communicator:
                         # Reset index:
                         slave.setExchange(0)
 
-                        self.printS(slave, "[Inactive status: {}]".\
-                            format(slave.status), "D")
+                        # DEBUG DEACTIV
+                        #self.printS(slave, "[Inactive status: {}]".\
+                        #   format(slave.status), "D")
+
                         # Wait arbitrary amount (say, comms period):
                         slave.lock.release()
-                        time.sleep(self.profiler.interimS)
 
                         # Restart loop to check again:
                         continue
@@ -714,7 +720,7 @@ class Communicator:
         # be accessed by the user of a Communicator instance, see INTERFACE ME-
         # THODS below.
 
-    def _send(self, message, slave ,repeat = 1): # # # # # # # # # # # # # # # #
+    def _send(self, message, slave ,repeat = 1, hsk = False): # # # # # # # # # 
         # ABOUT: Send message to a KNOWN or CONNECTED Slave. Automatically add
         # index.
         # PARAMETERS:
@@ -722,10 +728,15 @@ class Communicator:
         # - slave: Slave to contact (must be KNOWN or CONNECTED or behavior is
         #   undefined)
         # - repeat: How many times to send message.
+        # - hsk: Bool, whether this message is a handshake message.
         # WARNING: THIS METHOD ASSUMES THE SLAVE'S LOCK IS HELD BY ITS CALLER.
 
-        # Increment exchange index:
-        slave.incrementExchange()
+        if not hsk:
+            # Increment exchange index:
+            slave.incrementExchange()
+        else:
+            # Set index to zero:
+            slave.setExchange(0)
 
         # Send message:
         for i in range(repeat):

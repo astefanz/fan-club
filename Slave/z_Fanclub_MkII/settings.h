@@ -45,7 +45,7 @@
 #define SLISTENER 65000
 #define MAX_MESSAGE_LENGTH 512 // Characters
 #define MAX_NETWORK_TIMEOUTS 10 // Before checking connection status
-#define MAX_MASTER_TIMEOUTS 10 // Before assuming disconnection
+#define MAX_MASTER_TIMEOUTS 3 // Before assuming disconnection
 
 // DEFAULT FAN ARRAY VALUES ////////////////////////////////////////////////////
 #define MAX_FANS 21

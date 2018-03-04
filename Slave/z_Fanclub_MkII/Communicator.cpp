@@ -571,6 +571,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
     char received[MAX_MESSAGE_LENGTH];
     int result = -1;
     char *ptr;
+    bool hsk = false;
 
     // Default values: =========================================================
     *receivedIndex = 0;
@@ -616,7 +617,13 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
         }
         
         // Check index: - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        if((*receivedIndex <= *currentIndex) or (ptr == NULL)){
+        if(*receivedIndex == 0){
+            // Zero index might indicate HSK. Raise HSK flag.
+            hsk = true;
+            pl;printf("\n\r[%08dms][R] Zero index. HSK flag raised",
+                tm);pu;
+        }
+        else if((*receivedIndex <= *currentIndex) or (ptr == NULL)){
             // Bad index:
             pl;printf("\n\r[%08dms][R] Bad recv'd index (%d): expected %d",tm,
                 ptr == NULL? 0 : *receivedIndex, *currentIndex);pu;
@@ -634,6 +641,16 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
             // Bad keyword: 
             pl;printf("\n\r[%08dms][R] Bad recv'd keyword (%s)",tm,
                 ptr == NULL? "[NULL]" : keyword);pu;
+
+            // Restart loop:
+            su;continue;
+        }
+
+        // Check HSK flag:
+        if(hsk and strcmp(keyword, "MHSK") != 0){
+            // Have zero index but non-HSK keyword. (Invalid)
+            pl;printf("\n\r[%08dms][R] Zero index w/o MHSK. Message discarded",
+                tm);pu;
 
             // Restart loop:
             su;continue;
