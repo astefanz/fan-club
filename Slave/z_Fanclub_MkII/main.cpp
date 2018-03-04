@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"wait1ms\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"Assym. 10\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 
@@ -72,7 +72,8 @@ int main(){ ////////////////////////////////////////////////////////////////////
         "\n\r|\t - SLAVE MOSI PORT: %d"
         "\n\r|\t - SLAVE LISTENER PORT: %d"
         "\n\r|\t - MAX. MESSAGE LENGTH : %d characters"
-        "\n\r|\t - MAX. TIMEOUTS BEFORE NETW. CHECK: %d"
+        "\n\r|\t - MAX. NETW. TIMEOUTS BEFORE REBOOT: %d"
+        "\n\r|\t - MAX. MASTER TIMEOUTS: %d"
         "\n\r+ - - - - - - - - - - - - - - - - - - - - - - - - - - "
         "- - - - - - - - - - - - - "
         // Fan array:
@@ -86,7 +87,9 @@ int main(){ ////////////////////////////////////////////////////////////////////
         "\n\r|\t - DEF. MIN RPM: %d"
         "\n\r|\t - DEF. MIN DUTY CYCLE: %0.2f%%"
         ,BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, BROADCAST_PORT, TIMEOUT_MS, 
-        PASSWORD, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, MAX_TIMEOUTS, 
+        PASSWORD, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
+        MAX_NETWORK_TIMEOUTS, 
+        MAX_MASTER_TIMEOUTS,
         FAN_MODE == SINGLE? "SINGLE":"DOUBLE",
         TARGET_RELATION_0,
         TARGET_RELATION_1,

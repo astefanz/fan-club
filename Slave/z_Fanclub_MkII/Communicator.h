@@ -71,8 +71,12 @@ private:
         /* ABOUT: Code to be executed by the broadcast listener thread.
          */ 
          
-    void _communicationRoutine(void);
-        /* ABOUT: Code to be executed by the communications thread.
+    void _misoRoutine(void);
+        /* ABOUT: Code to be executed by the miso thread.
+         */
+
+    void _mosiRoutine(void);
+        /* ABOUT: Code to be executed by the mosi thread.
          */
          
     int _send(const char* message, int times = 1);
@@ -127,11 +131,13 @@ private:
     // PRIVATE DATA ------------------------------------------------------------
     Processor processor;      // Command-processing module
     int status;               // Connection status
+    int periodMS;             // MISO period
     bool messageResent; // Keep track of Master's acknowledgement
     
     int exchangeIndex;   // Index messages
+    int misoIndex;       // Index outgoing messages
     int networkTimeouts; // Keep track of timeouts for network check
-    int  masterTimeouts;  // Keep track of timeouts for connection check
+    int masterTimeouts;  // Keep track of timeouts for connection check
     
     EthernetInterface ethernet;
     
@@ -140,8 +146,10 @@ private:
     SocketAddress masterMISO, masterMOSI, masterListener, masterBroadcast;
         // Store information of all relevant Master sockets
     
-    Thread listenerThread, communicationThread;
+    Thread listenerThread, misoThread, mosiThread;
         // Use threads for communications
+
+    Mutex configurationLock; // Lock relevant threads when modifying values
     
     DigitalOut red, green;
         // Use red and green LED's to convey connection status

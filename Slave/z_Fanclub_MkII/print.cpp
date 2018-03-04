@@ -52,5 +52,6 @@ const char* INIT =
 Serial PC(USBTX, USBRX, BAUD);
 
 Mutex PL;
+Mutex SL;
 
 Timer T;

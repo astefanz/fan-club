@@ -122,6 +122,7 @@ class Slave:
 		self.mosiS = mosiS
 		self.thread = thread
 		self.exchange = 0
+		self.misoIndex = 0
 
 		self.lock = threading.Lock()
 		self.mosiQueue = Queue.Queue(1)
@@ -153,6 +154,7 @@ class Slave:
 		
 		if newStatus == DISCONNECTED:
 			self.setExchange(0)
+			self.setMISOIndex(0)
 
 		self.slaveDisplay.setStatus(newStatus)
 
@@ -193,5 +195,18 @@ class Slave:
 		# ABOUT: Increment exchange index by 1.
 		self.exchange += 1
 		self.slaveDisplay.setExchange("E: " + str(self.exchange))
+
+	def incrementMISOIndex(self):
+		# ABOUT: Increment misoIndex index by 1.
+		self.misoIndex += 1
+		self.slaveDisplay.setMISOIndex("I: " + str(self.misoIndex))
+
+	def setMISOIndex(self, newMISOIndex): # ======================================
+		# ABOUT: Update misoIndex index.
+		# PARAMETERS: 
+		# - newmisoIndex: new misoIndex index.
+
+		self.misoIndex = newMISOIndex
+		self.slaveDisplay.setMISOIndex("I: " + str(newMISOIndex))
 
 

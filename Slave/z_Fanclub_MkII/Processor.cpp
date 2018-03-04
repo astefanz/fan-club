@@ -244,6 +244,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 char placeholder[MAX_MESSAGE_LENGTH];
                 strcpy(placeholder, rawCommand->content);
                 
+                sl;
                 // Split contents: 
                 char* splitPtr = strtok(placeholder, "~");
                 
@@ -257,7 +258,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                     tm);pu;
 
                     // Resume loop:
-                    continue;
+                    su;continue;
                 } // End verify splitting.
                 
                 // Check command: ----------------------------------------------
@@ -285,7 +286,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
-                            continue;
+                            su;continue;
                         } // End validate splitting
 
                         // Get float duty cycle:
@@ -310,7 +311,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
-                            continue;
+                            su;continue;
                         } // End validate splitting
 
                         // Get length of selection:
@@ -374,7 +375,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                             tm, splitPtr[0]);pu;
 
                 } // End check command -----------------------------------------
-
+                su;
             } // End command processing ========================================
 
             // Update values: ==================================================

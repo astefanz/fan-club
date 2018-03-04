@@ -394,21 +394,6 @@ class Communicator:
                                 self.slaves[mac].mosiP = mosiPort
                                 self.slaves[mac].setStatus(Slave.KNOWN)
 
-                            else:
-
-                                self.printL(
-                                    "Slave is neither KNOWN nor DISCONNECTED. Updated.",
-                                     "D")
-                                # ABOUT: The remaining statuses (AVAILABLE...)
-                                # indicate a connection should not be attempted by
-                                # Master, until subsequently indicated by the user.
-
-                                # Update networking information:
-                                self.slaves[mac].setIP(senderAddress[0])
-                                self.slaves[mac].misoP = misoPort
-                                self.slaves[mac].mosiP = mosiPort
-                                continue
-
                         finally:
 
                             # Guarantee release of Slave-specific lock:
@@ -537,13 +522,15 @@ class Communicator:
             # Set up placeholders and sentinels: -------------------------------
             slave.setExchange(0)
             timeouts = 0
+            message = None
 
             # Slave loop: ======================================================
             while(True):
 
                 # Acquire:
                 slave.lock.acquire()
-                self.printS(slave, "Slave lock acquired", "D")
+                # DEBUG DEACTV
+                #self.printS(slave, "Slave lock acquired", "D")
 
                 try:
 
@@ -554,7 +541,7 @@ class Communicator:
                         self.printS(slave, "Attempting handshake")
 
                         # Check for signs of life w/ HSK message:
-                        self._send(MHSK, slave, 4)
+                        self._send(MHSK, slave, 1)
 
                         # Try to receive reply:
                         reply = self._receive(slave)
@@ -564,12 +551,8 @@ class Communicator:
                             self.printS(slave, "Processed reply: {}".format(reply), "G")
                             self.printS(slave, "Handshake confirmed", "G")
 
-                            # Increment exchange index:
-                            slave.incrementExchange()
-
                             # Mark as CONNECTED and get to work:
                             slave.setStatus(Slave.CONNECTED)
-                            message = "MVER"
 
                         else:
                             # If there was an error, restart attempt:
@@ -587,7 +570,8 @@ class Communicator:
                         # A positive state indicates this Slave is online and 
                         # its connection need be maintained.
 
-                        self.printS(slave, "[On positive state]", "D")
+                        #DEBUG DEACTV
+                        #self.printS(slave, "[On positive state]", "D")
 
                         # Check queue for message:
                         try:  
@@ -596,17 +580,16 @@ class Communicator:
                             message = "MSTD|" + command
 
                         except Queue.Empty:
-                            # Use previous message
+                            # Nothing to send:
+                            message = None
                             pass
 
-                        # Send message:
-                        self._send(message, slave, 5)
+                        # Send message, if any:
+                        if message != None:
+                            self._send(message, slave, 4)
 
-                        # DEBUG: 
-                        print "Sent: {}".format(message)
-
-                        # Wait for next message:
-                        time.sleep(self.profiler.interimS)
+                            # DEBUG: 
+                            print "Sent: {}".format(message)
 
                         # Get reply:
                         reply = self._receive(slave)
@@ -614,8 +597,6 @@ class Communicator:
                         # Check reply: -----------------------------------------
                         if reply != None:
                             self.printS(slave, "Processed reply: {}".format(reply), "G")
-                            # Increment index:
-                            slave.incrementExchange()
 
                             # Restore timeout counter after success:
                             timeouts = 0
@@ -631,11 +612,15 @@ class Communicator:
                                     slave.setRPM(rpms[index], index)
 
                         else:
-                            self.printS(slave, "Timed out. Resending", "W")
-                            # Resend message:
-                            self._send(message, slave, 10)
-                            # Increment timeout counter:
                             timeouts += 1
+
+                            if message != None:
+                                # If a message was sent and no reply was 
+                                # received, resend it:
+                                self.printS(slave, "Timed out. Resending", "W")
+                                # Resend message:
+                                self._send(message, slave, 4)
+                                # Increment timeout counter:
 
                             # Check timeout counter: - - - - - - - - - - - - - -
                             if timeouts < self.profiler.maxTimeouts:
@@ -689,7 +674,8 @@ class Communicator:
 
 
                 finally:
-                    self.printS(slave, "Slave lock released", "D")
+                    # DEBUG DEACTV
+                    #self.printS(slave, "Slave lock released", "D")
                     # Guarantee release of Slave-specific lock:
                     slave.lock.acquire(False)
                         #                                ^ Non-blocking
@@ -738,6 +724,9 @@ class Communicator:
         # - repeat: How many times to send message.
         # WARNING: THIS METHOD ASSUMES THE SLAVE'S LOCK IS HELD BY ITS CALLER.
 
+        # Increment exchange index:
+        slave.incrementExchange()
+
         # Send message:
         for i in range(repeat):
             outgoing = "{}|{}".format(slave.exchange, message)
@@ -773,14 +762,16 @@ class Communicator:
 
                 # Increment counter: -------------------------------------------
                 count += 1
-                self.printS(slave, "Receiving...({})".format(count), "D")
+                # DEBUG DEACTV
+                #self.printS(slave, "Receiving...({})".format(count), "D")
 
                 # Receive message: ---------------------------------------------
                 message, sender = slave.misoS.recvfrom(
                     self.profiler.maxLength)
 
-                self.printS(slave, "Received: \"{}\" from {}".\
-                    format(message, sender), "D")
+                # DEBUG DEACTV
+                #self.printS(slave, "Received: \"{}\" from {}".\
+                 #   format(message, sender), "D")
 
                 try:
                     # Split message: -------------------------------------------
@@ -789,11 +780,10 @@ class Communicator:
                     # Verify index:
                     index = int(splitted[0])
 
-                    if index != slave.exchange:
+                    if index <= slave.misoIndex:
                         # Bad index. Discard message:
                         self.printS(slave, "Bad index: ({})".\
                             format(index), "D")
-                        indexMatch = True
 
                         # Discard message:
                         continue
@@ -821,10 +811,12 @@ class Communicator:
                          format(len(splitted), str(splitted)), "E")
                         return None
                         
-
+                    # Update MISO index:
+                    slave.setMISOIndex(index)
 
                     # Return splitted message: ---------------------------------
-                    self.printS(slave, "Returning {}".format(output), "D")
+                    # DEBUG DEACTV
+                    #self.printS(slave, "Returning {}".format(output), "D")
                     return output
 
                 except (ValueError, IndexError, TypeError) as e:
@@ -836,7 +828,9 @@ class Communicator:
                     if not indexMatch:
                         # If the correct index has not yet been found, keep lo-
                         # oking:
-                        self.printS(slave, "Retrying receive", "D")
+
+                        # DEBUG DEACTV
+                        #self.printS(slave, "Retrying receive", "D")
 
                         continue;
                     else:

@@ -110,6 +110,14 @@ class SlaveDisplay(Tk.Frame):
 		self.exchangeLabel.pack(side = Tk.LEFT)
 
 		# ......................................................................
+		self.misoIndexVar = Tk.StringVar()
+		self.misoIndexVar.set("I: 0")
+		self.misoIndexLabel = Tk.Label(self.generalFrame, 
+			textvariable = self.misoIndexVar, relief = Tk.SUNKEN, bd = 1,
+			bg = "white")
+		self.misoIndexLabel.pack(side = Tk.LEFT)
+
+		# ......................................................................
 		self.activeFansVar = Tk.StringVar()
 		self.activeFansVar.set("Active Fans: {}/{}".\
 			format(activeFans, maxFans))
@@ -211,6 +219,13 @@ class SlaveDisplay(Tk.Frame):
 		# - newExchange: new exchange index.
 
 		self.exchangeVar.set(newExchange)
+
+	def setMISOIndex(self, newMISOIndex): # ====================================
+		# ABOUT: Update MISO index.
+		# PARAMETERS: 
+		# - newMISOIndex: new MISO index.
+
+		self.misoIndexVar.set(newMISOIndex)
 
 	def setIP(self, newIP): # ==================================================
 		# ABOUT: Update IP address.

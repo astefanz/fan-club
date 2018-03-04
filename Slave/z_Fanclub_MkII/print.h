@@ -30,17 +30,21 @@
 
 #include "settings.h" // Custom settings
 
-//// CONSTANTS /////////////////////////////////////////////////////////////////
+//// CONSTANTS & GLOBALS ///////////////////////////////////////////////////////
 
 #define pl PL.lock();
 #define pu PL.unlock();
 #define tm T.read_ms()
 
+#define sl SL.lock();
+#define su SL.unlock();
+
 extern const char* INIT;
 
 extern Serial PC;
 
-extern Mutex PL; // "Print lock" for sharing printf among threads
+extern Mutex PL; // "Print lock" to share printf among threads
+extern Mutex SL; // "Split lock" to share strtok among threads
 
 extern Timer T; // For timestamps
 
