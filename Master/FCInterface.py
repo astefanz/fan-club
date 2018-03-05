@@ -536,6 +536,66 @@ class FCInterface(Tk.Frame):
 		# Array frame label frame ..............................................
 		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
+		self.arrayFrameLabelFrame.pack(fill = Tk.X)
+
+		# Array PanedWindow ....................................................
+		self.arrayPanedWindow = Tk.PanedWindow(self.arrayFrame, 
+			orient = Tk.VERTICAL)
+		self.arrayPanedWindow.pack(fill =Tk.BOTH, expand = True)
+
+		# List of Slaves .......................................................
+
+		# Create list:
+		self.slaveList = ttk.Treeview(self.arrayPanedWindow, selectmode="extended", height = 5)
+		self.slaveList["columns"] = \
+			("Name","MAC","Status","IP","Out","In","Fans")
+
+		# Create columns:
+		self.slaveList.column('#0', width = 20, stretch = False)
+		self.slaveList.column("Name", width = 50)
+		self.slaveList.column("MAC", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Status", width = 50, 
+			anchor = "center")
+		self.slaveList.column("IP", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Out", width = 50)
+		self.slaveList.column("In", width = 50)		
+		self.slaveList.column("Fans", width = 50, stretch = False, 
+			anchor = "center")
+
+		# Configure column headings:
+		self.slaveList.heading("Name", text = "Name")
+		self.slaveList.heading("MAC", text = "MAC")
+		self.slaveList.heading("Status", text = "Status")
+		self.slaveList.heading("IP", text = "IP")
+		self.slaveList.heading("Out", text = "Out")
+		self.slaveList.heading("In", text = "In")
+		self.slaveList.heading("Fans", text = "Fans")
+
+		# Configure tags:
+		self.slaveList.tag_configure("C", background= '#d1ffcc', foreground = '#0e4707', font = 'TkFixedFont 12 ') # Connected
+		self.slaveList.tag_configure("B", background= '#ccdeff', foreground ='#1b2d4f', font = 'TkFixedFont 12 ') # Busy
+		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
+		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
+		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
+
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods1", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'C')
+
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'D')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'K')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
+
+		self.slaveList.pack(fill = Tk.X, expand = False, side = Tk.BOTTOM, anchor = 's')
+		self.arrayPanedWindow.add(self.slaveList)
 
 		# Shutdown button ......................................................
 		self.shutdownButtonFrame = Tk.Frame(self.arrayFrameLabelFrame, 
@@ -553,21 +613,12 @@ class FCInterface(Tk.Frame):
 			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
 		
 		self.arrayFrameLabel.pack()
-		self.arrayFrameLabelFrame.pack(fill = Tk.BOTH)
-
-		# Array scrollbar ......................................................
-
-		self.arrayScrollbar = Tk.Scrollbar(self.arrayFrame)
-		self.arrayScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.arrayScrollbar.config(command=self.arrayCanvas.yview)
-		self.arrayCanvas.config(yscrollcommand = self.arrayScrollbar.set)
-		self.arrayCanvas.configure(scrollregion=(0,0,1500,1200))
 
 
 		# Pack array frame and canvas ..........................................
 		self.arrayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
-		self.arrayCanvas.pack(fill = Tk.X, expand = True)
+		#self.arrayCanvas.pack(fill = Tk.X, expand = True)
 
 		# CONTROL --------------------------------------------------------------
 		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
@@ -846,7 +897,8 @@ class FCInterface(Tk.Frame):
 
 					# Switch focus to this tab in case of errors of warnings:
 					if tag is "E":
-						pass
+						self.terminalToggleVar.set(1)
+						self._terminalToggle()
 
 					self.mainTText.config(state = Tk.NORMAL)
 						# Must change state to add text.
@@ -947,7 +999,8 @@ class FCInterface(Tk.Frame):
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
-				pass
+				self.terminalToggleVar.set(1)
+				self._terminalToggle()
 
 			self.mainTText.config(state = Tk.NORMAL)
 				# Must change state to add text.

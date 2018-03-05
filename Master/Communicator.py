@@ -264,7 +264,7 @@ class Communicator:
             the listenerSocket and respond accordingly.
         """
 
-        try:
+        try:    
 
             self.printM("[LT] Listener thread started. Waiting.", "G")
 
