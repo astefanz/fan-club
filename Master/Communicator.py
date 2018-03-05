@@ -46,13 +46,10 @@ VERSION = "Asymmetrical 1"
 
 class Communicator:
 
-    def __init__(self, profiler, interface):
+    def __init__(self, profiler, interface, bcupdate):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
-        # PARAMETERS:
-        # - profiler: Initialized Profiler object from which to load configu-
-        #   ration.
 
         try:
 
@@ -61,13 +58,13 @@ class Communicator:
             # Output queues:
             self.mainQueue = Queue.Queue(profiler.mainQueueSize)
             self.slaveQueue = Queue.Queue(profiler.slaveQueueSize)
-            self.broadcastQueue = Queue.Queue(profiler.broadcastQueueSize)
             self.listenerQueue = Queue.Queue(profiler.listenerQueueSize)
 
             self.printM("Initializing Communicator instance")
 
             # Interface:
             self.interface = interface
+            self.bcupdate = bcupdate
 
             # Profiler:
             self.profiler = profiler
@@ -219,35 +216,18 @@ class Communicator:
 
             broadcastSocketPortCopy = self.broadcastSocketPort # Thread safety
 
-            self.printB("Broadcast thread started w/ period of {} second(s)"\
+            self.printM("Broadcast thread started w/ period of {} second(s)"\
                 .format(broadcastPeriod), "G")
-
-            self.printB("\tBroadcasting \"{}\""\
-                .format(broadcastMessage))
 
             count = 0
 
             while(True):
-
-
 
                 # Increment counter:
                 count += 1
 
                 # Wait designated period:
                 time.sleep(broadcastPeriod)
-
-                # Check if there are still Slaves to find:
-                slavesLeft = False
-
-                for mac in self.slaves:
-                    if self.slaves[mac].status != Slave.CONNECTED:
-                        slavesLeft = True
-                        break
-
-                if not slavesLeft:
-                    self.printB("No offline Slaves to find.")
-                    continue
 
                 self.broadcastSwitchLock.acquire()
                 try:
@@ -257,14 +237,15 @@ class Communicator:
                         self.broadcastSocket.sendto(broadcastMessage, 
                             ("<broadcast>", 65000))
 
-                        self.printB("Broadcast sent ({})".format(count))
+                    # Blink broadcast display:
+                    self.bcupdate()
 
                 finally:
                     # Guarantee lock release:
                     self.broadcastSwitchLock.release()
 
         except Exception as e:
-            self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
+            self.printM("[BT] UNCAUGHT EXCEPTION: \"{}\"".\
                 format(traceback.format_exc()), "E")
 
         # End _broadcastRoutine ================================================
@@ -317,6 +298,8 @@ class Communicator:
                     # and an IndexError will be raised if the given message yields 
                     # less than three strings when splitted.
 
+                    # DEBUG DEACTV:
+                    """
                     self.printL("Parsed:\
                                 \n\t\t Password: {}\
                                 \n\t\t MAC: {}\
@@ -327,6 +310,7 @@ class Communicator:
                                 messageSplitted[2],
                                 messageSplitted[3],
                                 messageSplitted[4]))
+                    """
 
                     # Verify converted values:
                     if (misoPort <= 0 or misoPort > 65535):
@@ -431,6 +415,13 @@ class Communicator:
                             misoP = misoPort,   # Master in/Slave out port number
                             mosiP = mosiPort        # Slave in/Master out port number
                             )
+
+                        # Add slave thread:
+                        self.slaves[mac].thread = threading.Thread( 
+                            target = self._slaveRoutine,
+                            args = [mac])
+                        self.slaves[mac].thread.setDaemon(True)
+                        self.slaves[mac].thread.start()
 
                         self.printL("New Slave detected ({}) on:\
                             \n\tIP: {}\
@@ -896,24 +887,6 @@ class Communicator:
         # Place item in corresponding output Queue:
         try:
             self.slaveQueue.put_nowait((mac, output, tag))
-            return True
-        except Queue.Full:
-            return False
-
-    def printB(self, output, tag = 'S'): # =====================================
-        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
-        # this Communicator's corresponding output Queue.
-        # PARAMETERS:
-        # - output: str, string to be printed.
-        # - tag: str, single character for string formatting.
-        # RETURNS: bool, whether the placement of the message was successful.
-        # The given message will be added to the corresponding output Queue ONLY
-        # IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
-        # Output Queue sizes are set in Profiler.
-
-        # Place item in corresponding output Queue:
-        try:
-            self.broadcastQueue.put_nowait((output, tag))
             return True
         except Queue.Full:
             return False

@@ -399,6 +399,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     pl;printf("\n\r[%08dms][C] Timeout set to: %dms",
                         tm, periodms);pu;
 
+                    this->configurationLock.lock();
+                    this->periodMS = periodms;
+                    this->configurationLock.unlock();
+
                 }else{
                     // Bad timeout:
                     pl;printf(

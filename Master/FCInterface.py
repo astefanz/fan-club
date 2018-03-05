@@ -45,16 +45,23 @@ import Fan
 
 ## CONSTANT VALUES #############################################################      
 
+# Broadcast status codes:
+GREEN = 1
+GREEN2 = 2
+RED = 0
+
 ## AUXILIARY CLASSES ###########################################################
 
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, name, mac, initialStatus, maxFans, activeFans): #
+	def __init__(self, master, slave): #
 
 		self.background = "#d3d3d3"
-		self.mac = mac
-		self.maxFans = maxFans
-		self.activeFans = activeFans
+		self.mac = slave.mac
+		self.maxFans = slave.maxFans
+		self.activeFans = slave.activeFans
+		self.status = slave.status
+		self.slave = slave
 
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
@@ -69,7 +76,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.nameVar = Tk.StringVar()
-		self.nameVar.set('- "' + name + '"')
+		self.nameVar.set('- "' + slave.name + '"')
 		self.nameLabel = Tk.Label(self.generalFrame, textvariable = self.nameVar,
 			fg = "black", relief = Tk.SUNKEN, bd = 1, font = 'TkFixedFont 12 bold',
 			bg = "white")
@@ -77,7 +84,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.macVar = Tk.StringVar()
-		self.macVar.set(" ["+mac+"] ")
+		self.macVar.set(" ["+slave.mac+"] ")
 
 		self.macLabel = Tk.Label(self.generalFrame, textvariable = self.macVar, 
 			fg = "blue",relief = Tk.SUNKEN, bd = 1,
@@ -86,7 +93,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.statusVar = Tk.StringVar()
-		self.statusVar.set(Slave.translate(initialStatus))
+		self.statusVar.set(Slave.translate(slave.status))
 
 		self.statusLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.statusVar, font = 'TkFixedFont 12 bold',
@@ -103,7 +110,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.exchangeVar = Tk.StringVar()
-		self.exchangeVar.set("E: 0")
+		self.exchangeVar.set("O: 0")
 		self.exchangeLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
 			bg = "white")
@@ -120,7 +127,7 @@ class SlaveDisplay(Tk.Frame):
 		# ......................................................................
 		self.activeFansVar = Tk.StringVar()
 		self.activeFansVar.set("Active Fans: {}/{}".\
-			format(activeFans, maxFans))
+			format(slave.activeFans, slave.maxFans))
 		self.activeFansLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.activeFansVar, relief = Tk.SUNKEN, bd = 1,
 			bg = "white")
@@ -129,6 +136,7 @@ class SlaveDisplay(Tk.Frame):
 		# ......................................................................
 		self.toggled = False
 		self.selectText = Tk.StringVar()
+
 		self.selectText.set("Select")
 		self.selectButton = Tk.Button(self.generalFrame, textvariable = self.selectText, 
 			command = self.toggleAll, highlightbackground = self.background)
@@ -140,7 +148,7 @@ class SlaveDisplay(Tk.Frame):
 		self.fanArrayFrame.pack(fill = Tk.X)
 
 		self.fans = []
-		for i in range(maxFans):
+		for i in range(self.maxFans):
 			self.fans.append(FanDisplay(self.fanArrayFrame, i, 
 				self.setSelection))
 		
@@ -154,7 +162,7 @@ class SlaveDisplay(Tk.Frame):
 		self.oldDCs = []
 
 		# Populate lists w/ placeholders:
-		for i in range(maxFans):
+		for i in range(self.maxFans):
 			self.oldRPMs.append(-1)
 			self.oldDCs.append(-1)
 
@@ -163,8 +171,11 @@ class SlaveDisplay(Tk.Frame):
 			# Keep track of whether one or more fans in this Slave are selected
 		self.selected = []
 		self.selectionCount = 0
-		for i in range(maxFans):
+		for i in range(self.maxFans):
 			self.selected.append("0")
+
+		# Run status-dependent routines:
+		self.setStatus(slave.status, True)
 		# End __init__ =========================================================
 
 	def setName(self, newName): # ==========================================
@@ -174,10 +185,17 @@ class SlaveDisplay(Tk.Frame):
 
 		self.nameVar.set(newName)
 
-	def setStatus(self, newStatus): # ==========================================
+	def setStatus(self, newStatus, redundant = False): # =======================
 		# ABOUT: Update status.
 		# PARAMETERS: 
 		# - newStatus: code of the new status.
+		# - redundant: bool, whether to run again for the current status
+
+		# Check for redundancy:
+		if newStatus == self.status and not redundant:
+			return
+		else:
+			self.status = newStatus
 
 		self.statusVar.set(Slave.translate(newStatus))
 
@@ -199,6 +217,16 @@ class SlaveDisplay(Tk.Frame):
 			self.statusLabel.configure(fg = "blue", bg = "#b7c3ff")
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
+			# Reset lists:
+			for i in range(self.maxFans):
+				self.oldRPMs[i] = -1
+				self.oldDCs[i] = -1
+
+		elif newStatus == Slave.AVAILABLE:
+			self.selectText.set("Connect")
+			self.selectButton.configure(state = Tk.NORMAL)
+			self.statusLabel.configure(fg = "#1e8eff", bg = "#0e397f")
+			self.setActiveFans(0)
 			# Reset lists:
 			for i in range(self.maxFans):
 				self.oldRPMs[i] = -1
@@ -279,16 +307,24 @@ class SlaveDisplay(Tk.Frame):
 
 	def toggleAll(self): # =====================================================
 		# ABOUT: Set all fans as selected or deselected (Alternate):
-		if not self.toggled:
-			for fan in self.fans:
-				fan.select(None)
-				self.selectText.set("Deselect")
-		else:
-			for fan in self.fans:
-				fan.deselect(None)
-				self.selectText.set("Select")
 
-		self.toggled = not self.toggled
+		# Check status:
+		if self.status == Slave.CONNECTED:
+
+			if not self.toggled:
+				for fan in self.fans:
+					fan.select(None)
+					self.selectText.set("Deselect")
+			else:
+				for fan in self.fans:
+					fan.deselect(None)
+					self.selectText.set("Select")
+
+			self.toggled = not self.toggled
+
+		elif self.status == Slave.AVAILABLE:
+			self.slave.setStatus(Slave.KNOWN)
+			self.selectText.set("Select")
 
 	def selectAll(self): # =====================================================
 		# ABOUT: Set all fans as selected:
@@ -537,6 +573,8 @@ class FCInterface(Tk.Frame):
 		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background)
 
+		# ARRAY CONTROL ........................................................
+
 		self.controlContainer = Tk.Frame(self.controlFrame, 
 			bg = self.background)
 
@@ -587,19 +625,27 @@ class FCInterface(Tk.Frame):
 			bg = self.background)
 
 		self.terminal = ttk.Notebook(self.terminalFrame)
+
+		self.terminal.pack(fill = Tk.BOTH, expand = True)
 		
+		# TERMINAL CONTROL FRAME ...............................................
+
+		self.terminalControlFrame = Tk.Frame(self.terminalFrame, 
+			bg = self.background)
 
 		# Autoscroll checkbox:
 		self.autoscrollVar = Tk.IntVar()
 
-		self.autoscrollButton = Tk.Checkbutton(self.terminalFrame, 
+		self.autoscrollButton = Tk.Checkbutton(self.terminalControlFrame, 
 			text ="Auto-scroll", variable = self.autoscrollVar, 
 			bg = self.background)
+
+		self.terminalControlFrame.pack(fill = Tk.BOTH)
 
 		# Debug checkbox:
 		self.debugVar = Tk.IntVar()
 
-		self.debugButton = Tk.Checkbutton(self.terminalFrame, 
+		self.debugButton = Tk.Checkbutton(self.terminalControlFrame, 
 			text ="Debug prints", variable = self.debugVar, 
 			bg = self.background)
 
@@ -607,9 +653,34 @@ class FCInterface(Tk.Frame):
 		self.terminalVar = Tk.IntVar()
 		self.terminalVar.set(1)
 
-		self.terminalButton = Tk.Checkbutton(self.terminalFrame, 
+		self.terminalButton = Tk.Checkbutton(self.terminalControlFrame, 
 			text ="Terminal output", variable = self.terminalVar, 
 			bg = self.background)
+
+		# Connection status:
+		self.connectionStatusFrame = Tk.Frame(self.terminalControlFrame, 
+			bg = self.background, padx = 10)
+
+		self.connectionStatusFrame.pack(side = Tk.RIGHT)
+
+		# BROACAST DISPLAY:: 
+
+		# Label:
+		self.broadcastDisplayLabel = Tk.Label(self.connectionStatusFrame, 
+			text = "BC: ", background = self.background,)
+		self.broadcastDisplayLabel.pack(side = Tk.LEFT)
+
+		# Display:
+		self.broadcastDisplay = Tk.Frame(self.connectionStatusFrame, 
+			background = "#510000", relief = Tk.SUNKEN, borderwidth = 1,
+			width = 10, height = 10)
+		self.broadcastDisplay.pack(side = Tk.RIGHT)
+
+		# Status sentinel and colors:
+		self.broadcastStatus = RED
+		self.broadcastRED = "red"
+		self.broadcastGREEN1 = "#168e07"
+		self.broadcastGREEN2 = "#3cce1e"
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.mainTerminal = ttk.Frame(self.terminal)
@@ -686,39 +757,11 @@ class FCInterface(Tk.Frame):
 		self.listenerTText.tag_config(\
 			"D", foreground = self.debugColor)
 
-
-		# BROADCAST TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - -
-		self.broadcastTerminal = ttk.Frame(self.terminal)
-		self.broadcastTLock = threading.Lock()
-		self.broadcastTText = Tk.Text(self.broadcastTerminal, height = 10, 
-			selectbackground = "#8b96a8",
-			width = 120, 
-			fg = "#004763", bg="#b5bece", font = ('TkFixedFont'),
-			state = Tk.DISABLED)
-		self.broadcastTScrollbar = Tk.Scrollbar(self.broadcastTerminal)
-		self.broadcastTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.broadcastTScrollbar.config(command=self.broadcastTText.yview)
-		self.broadcastTText.config(yscrollcommand = self.broadcastTScrollbar.set)
-		self.broadcastTText.bind("<1>", 
-			lambda event: self.broadcastTText.focus_set())
-		self.broadcastTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.broadcastTText.tag_config("S")
-		self.broadcastTText.tag_config("G", foreground = "#008c15")
-		self.broadcastTText.tag_config(\
-			"W", underline = 1, foreground = "orange")
-		self.broadcastTText.tag_config(\
-			"E", underline = 1, foreground = "red",	background = "#510000")
-		self.broadcastTText.tag_config(\
-			"D", foreground = self.debugColor)
-
 		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		self.terminal.add(self.mainTerminal, text = 'Main')
 		self.terminal.add(self.slavesTerminal, text = 'Slaves')
 		self.terminal.add(self.listenerTerminal, text = 'Listener')
-		self.terminal.add(self.broadcastTerminal, text = 'Broadcast')
 
-		self.terminal.pack(fill = Tk.BOTH, expand = True)
 		self.autoscrollButton.pack(side = Tk.LEFT)
 		self.debugButton.pack(side = Tk.LEFT)
 		self.terminalButton.pack(side = Tk.LEFT)
@@ -769,7 +812,8 @@ class FCInterface(Tk.Frame):
 		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
-		self.communicator = Communicator.Communicator(self.profiler, self.arrayCanvas)
+		self.communicator = Communicator.Communicator(self.profiler, 
+			self.arrayCanvas, self.broadcastDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
 
@@ -781,10 +825,6 @@ class FCInterface(Tk.Frame):
 		
 		# ----------------------------------------------------------------------
 		self._slavesPrinterRoutine()
-
-		
-		# ----------------------------------------------------------------------
-		self._broadcastPrinterRoutine()
 		
 		# ----------------------------------------------------------------------
 		self._listenerPrinterRoutine()
@@ -886,49 +926,6 @@ class FCInterface(Tk.Frame):
 
 		# End _slavesPrinterRoutine ============================================
 
-	def _broadcastPrinterRoutine(self): # ======================================
-		# ABOUT: Keep broadcast terminal window updated w/ Communicator output.
-
-		if self.terminalVar.get() == 0:
-			pass
-
-		else: 
-			try: # NOTE: Use try/finally to guarantee lock release.
-
-				# Fetch item from Communicator queue:
-				output, tag = self.communicator.broadcastQueue.get_nowait()
-				# If there is an item, print it (otherwise, Empty exception is
-				# raised and handled)
-
-				# Check for debug tag:
-				if tag is "D" and self.debugVar.get() == 0:
-					# Do not print if the debug variable is set to 0
-					pass
-
-				else:
-
-					# Switch focus to this tab in case of errors of warnings:
-					if tag is "E":
-						self.terminal.select(3)
-
-					self.broadcastTText.config(state = Tk.NORMAL)
-						# Must change state to add text.
-					self.broadcastTText.insert(Tk.END, output + "\n", tag)
-					self.broadcastTText.config(state = Tk.DISABLED)
-
-					# Check for auto scroll:
-					if self.autoscrollVar.get() == 1:
-						self.broadcastTText.see("end")
-
-			except Queue.Empty:
-				# If there is nothing to print, try again.
-				pass
-
-		self.broadcastTText.after(500, self._broadcastPrinterRoutine)
-
-
-		# End _broadcastPrintRoutine ================================================
-
 	def _listenerPrinterRoutine(self): # =======================================
 		# ABOUT: Keep listener terminal window updated w/ Communicator output.
 
@@ -970,6 +967,35 @@ class FCInterface(Tk.Frame):
 		self.listenerTText.after(500, self._listenerPrinterRoutine)
 
 		# End _listenerPrintRoutine ================================================
+
+	def broadcastDisplayUpdate(self, code = GREEN):
+		# ABOUT: Update broadcastDisplay widget.
+		# PARAMETERS:
+		# - code: int, representing the new status of the widget. Defaults to 
+		# GREEN to alternate between green tones. Valid codes are RED and GREEN, 
+		# defined in FCInterface.py.
+
+		# Check given code:
+		if code == GREEN:
+			# Alternate between colors
+			if self.broadcastStatus == GREEN:
+				# Use alternate green:
+				self.broadcastDisplay.config(background = self.broadcastGREEN2)
+				self.broadcastStatus = GREEN2
+
+			else:
+				# Use first green:
+				self.broadcastDisplay.config(background = self.broadcastGREEN1)
+				self.broadcastStatus = GREEN
+
+		elif code == RED and self.broadcastStatus != RED:
+			# Switch to red:
+			self.broadcastDisplay.config(background = self.broadcastRED)
+
+		else:
+			# Bad value. Raise exception:
+			raise ValueError("Bad broadcast status code \"{}\" \
+				expected GREEN or RED".format(code))
 
 ## AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

@@ -115,6 +115,9 @@ class Slave:
 		self.mac = mac
 		self.status = status
 
+		self.maxFans = maxFans
+		self.activeFans = activeFans
+
 		self.ip  = ip
 		self.misoP = misoP
 		self.mosiP = mosiP
@@ -128,7 +131,7 @@ class Slave:
 		self.mosiQueue = Queue.Queue(1)
 
 		self.slaveDisplay = FCI.SlaveDisplay(
-			interface, self.name, mac, status, maxFans, activeFans)
+			interface, self)
 
 		# Set active fans:
 		self.setActiveFans(activeFans)
