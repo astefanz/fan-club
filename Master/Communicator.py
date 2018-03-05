@@ -31,11 +31,13 @@ This module handles low-level socket communications w/ Slave units.
 
 import socket     # Networking
 import threading  # Multitasking
+import thread     # thread.error
 import time       # Timing
 import Queue
 import sys        # Exception handling
 import traceback  # More exception handling
 import random # Random names, boy
+
 
 import Profiler    # Custom representation of wind tunnel
 import Slave
@@ -384,14 +386,11 @@ class Communicator:
                         finally:
 
                             # Guarantee release of Slave-specific lock:
-                            self.slaves[mac].lock.acquire(False)
-                                #                                ^ Non-blocking
-                                #
-                                # Note: if the lock was released within the "try" clause
-                                # then this statement will prevent a threading exception
-                                # when an attempt to release an unlocked lock is made.
-                            
-                            self.slaves[mac].lock.release()
+                            try:
+                                self.slaves[mac].lock.release()
+                            except thread.error:
+                                pass
+
 
 
                     else:
@@ -667,7 +666,10 @@ class Communicator:
                         #   format(slave.status), "D")
 
                         # Wait arbitrary amount (say, comms period):
-                        slave.lock.release()
+                        try:
+                            slave.lock.release()
+                        except thread.error:
+                            pass
 
                         # Restart loop to check again:
                         continue
@@ -677,16 +679,11 @@ class Communicator:
                     # DEBUG DEACTV
                     #self.printS(slave, "Slave lock released", "D")
                     # Guarantee release of Slave-specific lock:
-                    slave.lock.acquire(False)
-                        #                                ^ Non-blocking
-                        #
-                        # Note: if the lock was released within the "try" clause
-                        # then this statement will prevent a threading exception
-                        # when an attempt to release an unlocked lock is made.
 
-
-
-                    slave.lock.release()
+                    try:
+                        slave.lock.release()
+                    except thread.error:
+                        pass
 
                 # End Slave loop (while(True)) =================================
 
@@ -696,14 +693,11 @@ class Communicator:
                format(traceback.format_exc()), "E")
 
         finally:
-            # Guarantee release of Slave-specific lock:
-            slave.lock.acquire(False)
-                #                                ^ Non-blocking
-                #
-                # Note: if the lock was released within the "try" clause
-                # then this statement will prevent a threading exception
-                # when an attempt to release an unlocked lock is made.
-            slave.lock.release()
+
+            try:
+                slave.lock.release()
+            except thread.error:
+                pass
 
         
         self.printS(slave, "ROUTINE TERMINATED", "E")
@@ -942,7 +936,10 @@ class Communicator:
                 # Note: if the lock was released within the "try" clause
                 # then this statement will prevent a threading exception
                 # when an attempt to release an unlocked lock is made.
-            self.slaves[targetMAC].lock.release()
+            try:
+                self.slaves[targetMAC].lock.release()
+            except thread.error:
+                    pass
 
 
         # End add ==============================================================

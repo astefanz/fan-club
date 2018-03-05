@@ -115,6 +115,8 @@ class Profiler:
 		# Wind tunnel ----------------------------------------------------------
 		self.slaves = {}
 
+
+		""" ALEX'S """
 		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, 
 			interface = interface, maxFans = 21,  activeFans = 21)
@@ -124,11 +126,11 @@ class Profiler:
 			interface = interface, maxFans = 21,  activeFans = 21)
 
 		
-
+		""" BASEMENT WIND TUNNEL:
 		self.slaves["00:80:e1:2f:00:1d"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:2f:00:1d", status = Slave.KNOWN, 
 			interface = interface, maxFans = 21,  activeFans = 21)
-
+		"""
 
 		"""PROVISIONAL ZOMBIE SLAVES
 		self.slaves["z:01"] = Slave.Slave(name = random.choice(names.coolNames), mac = "z:01", status = Slave.KNOWN, interface = interface, maxFans = 21,  activeFans = 21)
