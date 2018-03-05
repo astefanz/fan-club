@@ -744,35 +744,8 @@ class FCInterface(Tk.Frame):
 		self.mainTText.tag_config(\
 			"D", foreground = self.debugColor)
 
-		# SLAVE TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		self.slavesTerminal = ttk.Frame(self.terminal)
-		self.slavesTLock = threading.Lock()
-		self.slavesTText = Tk.Text(self.slavesTerminal, height = 10, width = 120, 
-			fg = "black", bg= "white", font = ('TkFixedFont'),
-			selectbackground = "#f4f1be",
-			state = Tk.DISABLED)
-		self.slavesTScrollbar = Tk.Scrollbar(self.slavesTerminal)
-		self.slavesTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.slavesTScrollbar.config(command=self.slavesTText.yview)
-		self.slavesTText.config(yscrollcommand = self.slavesTScrollbar.set)
-		self.slavesTText.bind("<1>", 
-			lambda event: self.slavesTText.focus_set())
-		self.slavesTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.slavesTText.tag_config("S")
-		self.slavesTText.tag_config("G", foreground = "#168e07")
-		self.slavesTText.tag_config(\
-			"W", underline = 1, foreground = "#e5780b")
-		self.slavesTText.tag_config(\
-			"E", underline = 1, foreground = "red", background = "#510000")
-		self.slavesTText.tag_config(\
-			"B", foreground = "blue")
-		self.slavesTText.tag_config(\
-			"D", foreground = self.debugColor)
-
 		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		self.terminal.add(self.mainTerminal, text = 'Main')
-		self.terminal.add(self.slavesTerminal, text = 'Slaves')
 
 		self.autoscrollButton.pack(side = Tk.LEFT)
 		self.debugButton.pack(side = Tk.LEFT)
@@ -835,10 +808,6 @@ class FCInterface(Tk.Frame):
 		# ----------------------------------------------------------------------
 		self._mainPrinterRoutine()
 
-		
-		# ----------------------------------------------------------------------
-		self._slavesPrinterRoutine()
-
 		# End constructor ==========================================================
 
 ## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -887,54 +856,6 @@ class FCInterface(Tk.Frame):
 
 		self.mainTText.after(100, self._mainPrinterRoutine)
 		# End _mainPrintRoutine ================================================
-
-	def _slavesPrinterRoutine(self): # =========================================
-		# ABOUT: Keep slaves terminal window updated w/ Communicator output. To
-		# be executed by slavesPrinterThread
-		#
-		
-			if self.terminalVar.get() == 0:
-				pass
-
-			else:
-				try:
-
-					# Fetch item from Communicator queue:
-					target, output, tag = self.communicator.slaveQueue.get_nowait()
-					# If there is an item, print it (otherwise, Empty exception is
-					# raised and handled)
-
-					# Check for debug tag:
-					if tag is "D" and self.debugVar.get() == 0:
-						# Do not print if the debug variable is set to 0
-						pass
-
-					# Switch focus to this tab in case of errors of warnings:
-					else:
-						if tag is "E":
-							self.terminal.select(1)
-
-						self.slavesTText.config(state = Tk.NORMAL)
-							# Must change state to add text.
-
-						# Print MAC address:
-						self.slavesTText.insert(Tk.END, "[" + target.mac + "] ", "B")
-
-						# Print text:
-						self.slavesTText.insert(Tk.END, output + "\n", tag)
-						self.slavesTText.config(state = Tk.DISABLED)
-
-						# Check for auto scroll:
-						if self.autoscrollVar.get() == 1:
-							self.slavesTText.see("end")
-
-				except Queue.Empty:
-					# If there is nothing to print, try again.
-					pass
-
-			self.mainTText.after(100, self._slavesPrinterRoutine)
-
-		# End _slavesPrinterRoutine ============================================
 
 	def listenerDisplayUpdate(self, code = "G"):
 		# ABOUT: Update listenerDisplay widget.
