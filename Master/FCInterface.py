@@ -545,21 +545,6 @@ class FCInterface(Tk.Frame):
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
 		self.slaveListFrame.pack(fill = Tk.X, expand = False)
 
-		# Shutdown button ......................................................
-		self.slaveListTitleFrame = Tk.Frame(self.slaveListFrame, 
-			relief = Tk.SUNKEN, borderwidth = 1, background = self.background)
-		self.slaveListTitleFrame.pack(side = Tk.TOP, fill =Tk.X, expand =False)
-
-		self.shutdownButton = Tk.Button(self.slaveListTitleFrame,
-			highlightbackground = "#890c0c", text = "SHUTDOWN", 
-			command = self._shutdownButton)
-		self.shutdownButton.pack(side = Tk.RIGHT)
-
-		# Array frame label ....................................................
-		self.slaveListLabel = Tk.Label(self.slaveListTitleFrame, 
-			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
-		self.slaveListLabel.pack()
-
 		# List of Slaves .......................................................
 
 		# Create list:
@@ -638,7 +623,7 @@ class FCInterface(Tk.Frame):
 		self.slaveListToggleVar.set(1)
 
 		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
-			text ="Slave List", variable = self.slaveListToggleVar, 
+			text ="List", variable = self.slaveListToggleVar, 
 			bg = self.background, command = self._slaveListToggle)
 
 		self.slaveListToggle.pack(side = Tk.LEFT)
@@ -678,8 +663,13 @@ class FCInterface(Tk.Frame):
 
 		self.sendButton.pack(side = Tk.LEFT)
 
+		# Shutdown button:
+		self.shutdownButton = Tk.Button(self.controlFrame,
+			highlightbackground = "#890c0c", text = "SHUTDOWN", 
+			command = self._shutdownButton)
+		self.shutdownButton.pack(side = Tk.RIGHT)
 
-
+		# Select All button:
 		self.selectedAll = False
 		self.selectAllButton = Tk.Button(self.controlFrame, 
 			highlightbackground = self.background, text = "Select All", 
@@ -688,7 +678,6 @@ class FCInterface(Tk.Frame):
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
 		self.arrayControlFrame.pack()
-		#self.controlFrame.pack(fill = Tk.X, expand = False)
 
 
 		# TERMINAL -------------------------------------------------------------
@@ -799,7 +788,7 @@ class FCInterface(Tk.Frame):
 
 		# Label:
 		self.broadcastDisplayLabel = Tk.Label(self.broadcastDisplayFrame, 
-			text = "BC: ", background = self.background,)
+			text = "Broadcast: ", background = self.background,)
 		self.broadcastDisplayLabel.pack(side = Tk.LEFT)
 
 		# Display:
@@ -823,7 +812,7 @@ class FCInterface(Tk.Frame):
 
 		# Label:
 		self.listenerDisplayLabel = Tk.Label(self.listenerDisplayFrame, 
-			text = "LT: ", background = self.background,)
+			text = "Listener: ", background = self.background,)
 		self.listenerDisplayLabel.pack(side = Tk.LEFT)
 
 		# Display:
