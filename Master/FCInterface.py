@@ -529,15 +529,15 @@ class FCInterface(Tk.Frame):
 		# ARRAY ----------------------------------------------------------------
 
 		# Array frame ..........................................................
-		self.arrayFrame = Tk.Frame(self.main, relief = Tk.RIDGE, 
+		self.bigDisplayFrame = Tk.Frame(self.main, relief = Tk.RIDGE, 
 			borderwidth = 2, height = 100, bg = 'black')
 
 		# Pack array frame and canvas ..........................................
-		self.arrayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
+		self.bigDisplayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
 		#self.arrayCanvas.pack(fill = Tk.X, expand = True)
 
 		# Array canvas .........................................................
-		self.arrayCanvas = Tk.Canvas(self.arrayFrame, height = 300, 
+		self.arrayCanvas = Tk.Canvas(self.bigDisplayFrame, height = 300, 
 			bg = 'darkgray',highlightthickness=0)
 
 		# Slave list frame .....................................................
@@ -556,9 +556,9 @@ class FCInterface(Tk.Frame):
 		self.shutdownButton.pack(side = Tk.RIGHT)
 
 		# Array frame label ....................................................
-		self.arrayFrameLabel = Tk.Label(self.slaveListTitleFrame, 
+		self.slaveListLabel = Tk.Label(self.slaveListTitleFrame, 
 			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
-		self.arrayFrameLabel.pack()
+		self.slaveListLabel.pack()
 
 		# List of Slaves .......................................................
 
@@ -632,6 +632,16 @@ class FCInterface(Tk.Frame):
 			bg = self.background, command = self._terminalToggle)
 
 		self.terminalToggle.pack(side = Tk.LEFT)
+
+		# SLAVE LIST TOGGLE ....................................................
+		self.slaveListToggleVar = Tk.IntVar()
+		self.slaveListToggleVar.set(1)
+
+		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Slave List", variable = self.slaveListToggleVar, 
+			bg = self.background, command = self._slaveListToggle)
+
+		self.slaveListToggle.pack(side = Tk.LEFT)
 
 		# ARRAY CONTROL ........................................................
 
@@ -1067,6 +1077,19 @@ class FCInterface(Tk.Frame):
 			# Hide terminal:
 			self.terminalFrame.pack_forget()
 			self.terminalContainerFrame.configure(height = 1)
+
+	def _slaveListToggle(self): # ==============================================
+		# ABOUT: Hide and show the Slave list
+
+		# Check variable:
+		if self.slaveListToggleVar.get() == 1:
+			# Build slaveList:
+			self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
+			self.slaveListVar.set(1)
+		else:
+			# Hide slaveList:
+			self.slaveList.pack_forget()
+			self.slaveListFrame.configure(height = 1)
 
 
 	def _shutdownButton(self): # ===============================================
