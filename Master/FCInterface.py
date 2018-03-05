@@ -48,6 +48,7 @@ import Fan
 # Broadcast status codes:
 GREEN = 1
 GREEN2 = 2
+BLUE = 3
 RED = 0
 
 ## AUXILIARY CLASSES ###########################################################
@@ -566,7 +567,7 @@ class FCInterface(Tk.Frame):
 		# Pack array frame and canvas ..........................................
 		self.arrayFrame.pack(fill = Tk.X)
 
-		self.arrayCanvas.pack(fill = Tk.X, expand = False)
+		self.arrayCanvas.pack(fill = Tk.X, expand = True)
 		self.arrayCanvas.pack_propagate(False)
 
 		# CONTROL --------------------------------------------------------------
@@ -657,30 +658,67 @@ class FCInterface(Tk.Frame):
 			text ="Terminal output", variable = self.terminalVar, 
 			bg = self.background)
 
+
+		# THREAD ACTIVITY DISPLAYS .............................................
+
+		self.displayRED = "red"
+		self.displayGREEN1 = "#13590b"
+		self.displayGREEN2 = "#33ed1e"
+		self.displayBLUE = "#4fa7ff"
+
 		# Connection status:
 		self.connectionStatusFrame = Tk.Frame(self.terminalControlFrame, 
 			bg = self.background, padx = 10)
 
 		self.connectionStatusFrame.pack(side = Tk.RIGHT)
 
-		# BROACAST DISPLAY:: 
+		# BROADCAST DISPLAY:
+
+		# Frame:
+		self.broadcastDisplayFrame = Tk.Frame(self.connectionStatusFrame, 
+			bg = self.background, padx = 5)
+		self.broadcastDisplayFrame.pack(side = Tk.LEFT)
 
 		# Label:
-		self.broadcastDisplayLabel = Tk.Label(self.connectionStatusFrame, 
+		self.broadcastDisplayLabel = Tk.Label(self.broadcastDisplayFrame, 
 			text = "BC: ", background = self.background,)
 		self.broadcastDisplayLabel.pack(side = Tk.LEFT)
 
 		# Display:
-		self.broadcastDisplay = Tk.Frame(self.connectionStatusFrame, 
+		self.broadcastDisplay = Tk.Frame(self.broadcastDisplayFrame, 
 			background = "#510000", relief = Tk.SUNKEN, borderwidth = 1,
 			width = 10, height = 10)
 		self.broadcastDisplay.pack(side = Tk.RIGHT)
 
 		# Status sentinel and colors:
 		self.broadcastStatus = RED
-		self.broadcastRED = "red"
-		self.broadcastGREEN1 = "#168e07"
-		self.broadcastGREEN2 = "#3cce1e"
+		self.broadcastRED = self.displayRED
+		self.broadcastGREEN1 = self.displayGREEN1
+		self.broadcastGREEN2 = self.displayGREEN2
+
+		# LISTENER DISPLAY:
+
+		# Frame:
+		self.listenerDisplayFrame = Tk.Frame(self.connectionStatusFrame, 
+			bg = self.background, padx = 5)
+		self.listenerDisplayFrame.pack(side = Tk.LEFT)
+
+		# Label:
+		self.listenerDisplayLabel = Tk.Label(self.listenerDisplayFrame, 
+			text = "LT: ", background = self.background,)
+		self.listenerDisplayLabel.pack(side = Tk.LEFT)
+
+		# Display:
+		self.listenerDisplay = Tk.Frame(self.listenerDisplayFrame, 
+			background = "#510000", relief = Tk.SUNKEN, borderwidth = 1,
+			width = 10, height = 10)
+		self.listenerDisplay.pack(side = Tk.RIGHT)
+
+		# Status sentinel and colors:
+		self.listenerStatus = RED
+		self.listenerRED = self.displayRED
+		self.listenerGREEN = self.displayGREEN1
+		self.listenerBLUE = self.displayBLUE
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.mainTerminal = ttk.Frame(self.terminal)
@@ -732,35 +770,9 @@ class FCInterface(Tk.Frame):
 		self.slavesTText.tag_config(\
 			"D", foreground = self.debugColor)
 
-		# LISTENER TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		self.listenerTerminal = ttk.Frame(self.terminal)
-		self.listenerTLock = threading.Lock()
-		self.listenerTText = Tk.Text(self.listenerTerminal, height = 10, 
-			width = 120, 
-			fg = "#34635f", bg="#bcdbd6", font = ('TkFixedFont'),
-			selectbackground = "#a2c1bc", selectforeground = "white",
-			state = Tk.DISABLED)
-		self.listenerTScrollbar = Tk.Scrollbar(self.listenerTerminal)
-		self.listenerTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.listenerTScrollbar.config(command=self.listenerTText.yview)
-		self.listenerTText.config(yscrollcommand = self.listenerTScrollbar.set)
-		self.listenerTText.bind("<1>", 
-			lambda event: self.listenerTText.focus_set())
-		self.listenerTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.listenerTText.tag_config("S")
-		self.listenerTText.tag_config("G", foreground = "#389b1d")
-		self.listenerTText.tag_config(\
-			"W", underline = 1, foreground = "orange")
-		self.listenerTText.tag_config(\
-			"E", underline = 1, foreground = "red", background = "#510000")
-		self.listenerTText.tag_config(\
-			"D", foreground = self.debugColor)
-
 		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		self.terminal.add(self.mainTerminal, text = 'Main')
 		self.terminal.add(self.slavesTerminal, text = 'Slaves')
-		self.terminal.add(self.listenerTerminal, text = 'Listener')
 
 		self.autoscrollButton.pack(side = Tk.LEFT)
 		self.debugButton.pack(side = Tk.LEFT)
@@ -813,7 +825,8 @@ class FCInterface(Tk.Frame):
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(self.profiler, 
-			self.arrayCanvas, self.broadcastDisplayUpdate)
+			self.arrayCanvas, 
+			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
 
@@ -825,9 +838,6 @@ class FCInterface(Tk.Frame):
 		
 		# ----------------------------------------------------------------------
 		self._slavesPrinterRoutine()
-		
-		# ----------------------------------------------------------------------
-		self._listenerPrinterRoutine()
 
 		# End constructor ==========================================================
 
@@ -926,57 +936,43 @@ class FCInterface(Tk.Frame):
 
 		# End _slavesPrinterRoutine ============================================
 
-	def _listenerPrinterRoutine(self): # =======================================
-		# ABOUT: Keep listener terminal window updated w/ Communicator output.
-
-		if self.terminalVar.get() == 0:
-			pass
-
-		else: 
-			try: # NOTE: Use try/finally to guarantee lock release.
-
-				# Fetch item from Communicator queue:
-				output, tag = self.communicator.listenerQueue.get_nowait()
-				# If there is an item, print it (otherwise, Empty exception is
-				# raised and handled)
-
-				# Check for debug tag:
-				if tag is "D" and self.debugVar.get() == 0:
-					# Do not print if the debug variable is set to 0
-					pass
-
-				else:
-
-					# Switch focus to this tab in case of errors of warnings:
-					if tag is "E":
-						self.terminal.select(2)
-
-					self.listenerTText.config(state = Tk.NORMAL)
-						# Must change state to add text.
-					self.listenerTText.insert(Tk.END, output + "\n", tag)
-					self.listenerTText.config(state = Tk.DISABLED)
-
-					# Check for auto scroll:
-					if self.autoscrollVar.get() == 1:
-						self.listenerTText.see("end")
-
-			except Queue.Empty:
-				# If there is nothing to print, try again.
-				pass
-
-		self.listenerTText.after(500, self._listenerPrinterRoutine)
-
-		# End _listenerPrintRoutine ================================================
-
-	def broadcastDisplayUpdate(self, code = GREEN):
-		# ABOUT: Update broadcastDisplay widget.
+	def listenerDisplayUpdate(self, code = "G"):
+		# ABOUT: Update listenerDisplay widget.
 		# PARAMETERS:
-		# - code: int, representing the new status of the widget. Defaults to 
-		# GREEN to alternate between green tones. Valid codes are RED and GREEN, 
+		# - code: str, representing the new status of the widget. Defaults to 
+		# "G" to alternate between green tones. Valid codes are "R", "B" and "G"
 		# defined in FCInterface.py.
 
 		# Check given code:
-		if code == GREEN:
+		if code == "G" and self.listenerStatus != GREEN:
+			# Set status to green:
+			self.listenerDisplay.config(background = self.listenerGREEN)
+			self.listenerStatus = GREEN
+
+		elif code == "R" and self.listenerStatus != RED:
+			# Switch to red:
+			self.listenerDisplay.config(background = self.listenerRED)
+
+		elif code == "B":
+			# Blue is used to indicate the reception of a message.
+
+			self.listenerDisplay.config(background = self.listenerBLUE)
+			self.listenerStatus = BLUE
+
+		else:
+			# Bad value. Raise exception:
+			raise ValueError("Bad listener status code \"{}\" \
+				expected GREEN or RED".format(code))
+
+	def broadcastDisplayUpdate(self, code = "G"):
+		# ABOUT: Update broadcastDisplay widget.
+		# PARAMETERS:
+		# - code: str, representing the new status of the widget. Defaults to 
+		# "G" to alternate between green tones. Valid codes are "R", "B" and "G"
+		# defined in FCInterface.py.
+
+		# Check given code:
+		if code == "G":
 			# Alternate between colors
 			if self.broadcastStatus == GREEN:
 				# Use alternate green:
@@ -988,7 +984,7 @@ class FCInterface(Tk.Frame):
 				self.broadcastDisplay.config(background = self.broadcastGREEN1)
 				self.broadcastStatus = GREEN
 
-		elif code == RED and self.broadcastStatus != RED:
+		elif code == "R" and self.broadcastStatus != RED:
 			# Switch to red:
 			self.broadcastDisplay.config(background = self.broadcastRED)
 

@@ -38,7 +38,7 @@ import sys        # Exception handling
 import traceback  # More exception handling
 import random # Random names, boy
 
-
+import FCInterface
 import Profiler    # Custom representation of wind tunnel
 import Slave
 import Fan
@@ -51,7 +51,7 @@ VERSION = "Asymmetrical 1"
 
 class Communicator:
 
-    def __init__(self, profiler, interface, bcupdate):
+    def __init__(self, profiler, interface, bcupdate, ltupdate):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
@@ -63,13 +63,13 @@ class Communicator:
             # Output queues:
             self.mainQueue = Queue.Queue(profiler.mainQueueSize)
             self.slaveQueue = Queue.Queue(profiler.slaveQueueSize)
-            self.listenerQueue = Queue.Queue(profiler.listenerQueueSize)
 
             self.printM("Initializing Communicator instance")
 
             # Interface:
             self.interface = interface
             self.bcupdate = bcupdate
+            self.ltupdate = ltupdate
 
             # Profiler:
             self.profiler = profiler
@@ -253,6 +253,8 @@ class Communicator:
             self.printM("[BT] UNCAUGHT EXCEPTION: \"{}\"".\
                 format(traceback.format_exc()), "E")
 
+        self.bcupdate("R")
+
         # End _broadcastRoutine ================================================
 
     def _listenerRoutine(self): # ==============================================
@@ -263,16 +265,15 @@ class Communicator:
 
         try:
 
-            self.printL("Listener thread started. Waiting.", "G")
+            self.printM("Listener thread started. Waiting.", "G")
 
             while(True):
+                self.ltupdate()
 
                 # Wait for a message to arrive:
                 messageReceived, senderAddress = self.listenerSocket.recvfrom(256)
 
-                self.printL("\"{}\" received from {}".\
-                    format(messageReceived, senderAddress))
-
+                self.ltupdate("B")
                 """ NOTE: The message received from Slave, at this point, should ha-
                     ve the following form:
 
@@ -338,9 +339,9 @@ class Communicator:
 
                     # If the given message is invalid, discard it and move on:
 
-                    self.printL("Error: \"{}\"\n\tObtained when parsing \"\
+                    self.printM("Error: \"{}\"\n\tObtained when parsing \"\
                         {}\" from {}. (Message discarded)"\
-                    .format(e, messageReceived, senderAddress))
+                    .format(e, messageReceived, senderAddress), "W")
 
                     # Move on:
                     continue
@@ -355,7 +356,7 @@ class Communicator:
 
                     # Check if the Slave is known:
                     if(mac in self.slaves):
-                        self.printL("Found Slave in listing. Acquiring lock.", "D")
+
                         # If the MAC address is in the Slave dictionary, check its re-
                         # corded status and proceed accordingly:
                         self.slaves[mac].lock.acquire()
@@ -365,8 +366,7 @@ class Communicator:
 
                             if (status == Slave.KNOWN or
                                 status == Slave.DISCONNECTED):
-                                self.printL(
-                                    "Slave is KNOWN or DISCONNECTED. Updated.", "D")
+
                                 # ABOUT: 
                                 #
                                 # - KNOWN Slaves have been approved by the user and
@@ -394,7 +394,7 @@ class Communicator:
 
 
                     else:
-                        self.printL("New Slave found. Adding to list.", "D")
+
                         # If the MAC address is not recorded, list this board as A-
                         # VAILABLE and move on. The user may choose to add it later:
 
@@ -425,13 +425,6 @@ class Communicator:
                         self.slaves[mac].thread.setDaemon(True)
                         self.slaves[mac].thread.start()
 
-                        self.printL("New Slave detected ({}) on:\
-                            \n\tIP: {}\
-                            \n\tMISO PORT: {}\
-                            \n\tMOSI PORT: {}"\
-                            .format(mac, senderAddress[0], misoPort, mosiPort),
-                            "G")
-
 
                 finally:
 
@@ -448,6 +441,8 @@ class Communicator:
         except Exception as e: # Print uncaught exceptions
             self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
                 format(traceback.format_exc()), "E")
+
+        self.ltupdate("R")
                 
         # End _listenerRoutine =================================================
 
@@ -884,24 +879,6 @@ class Communicator:
         # Place item in corresponding output Queue:
         try:
             self.slaveQueue.put_nowait((mac, output, tag))
-            return True
-        except Queue.Full:
-            return False
-
-    def printL(self, output, tag = 'S'): # =====================================
-        # ABOUT: Print on corresponding GUI terminal screen by adding a message to
-        # this Communicator's corresponding output Queue.
-        # PARAMETERS:
-        # - output: str, string to be printed.
-        # - tag: str, single character for string formatting.
-        # RETURNS: bool, whether the placement of the message was successful.
-        # The given message will be added to the corresponding output Queue ONLY
-        # IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
-        # Output Queue sizes are set in Profiler.
-
-        # Place item in corresponding output Queue:
-        try:
-            self.listenerQueue.put_nowait((output, tag))
             return True
         except Queue.Full:
             return False
