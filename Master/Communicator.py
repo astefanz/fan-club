@@ -35,10 +35,13 @@ import time       # Timing
 import Queue
 import sys        # Exception handling
 import traceback  # More exception handling
+import random # Random names, boy
 
 import Profiler    # Custom representation of wind tunnel
 import Slave
 import Fan
+import names
+
 
 VERSION = "Asymmetrical 1"
 
@@ -405,7 +408,7 @@ class Communicator:
                         # Create a new Slave instance and store it:
 
                         self.slaves[mac] = Slave.Slave(
-                            name = "Unnamed",
+                            name = random.choice(names.coolNames),
                             mac = mac,              # MAC address
                             status = Slave.AVAILABLE,   # Status
                             interface = self.interface,
