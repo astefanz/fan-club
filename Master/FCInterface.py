@@ -565,29 +565,38 @@ class FCInterface(Tk.Frame):
 
 
 		# Pack array frame and canvas ..........................................
-		self.arrayFrame.pack(fill = Tk.X)
+		self.arrayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
 		self.arrayCanvas.pack(fill = Tk.X, expand = True)
-		self.arrayCanvas.pack_propagate(False)
 
 		# CONTROL --------------------------------------------------------------
 		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background)
 
+		# TERMINAL TOGGLE ......................................................
+		self.terminalToggleVar = Tk.IntVar()
+		self.terminalToggleVar.set(1)
+
+		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Terminal", variable = self.terminalToggleVar, 
+			bg = self.background, command = self._terminalToggle)
+
+		self.terminalToggle.pack(side = Tk.LEFT)
+
 		# ARRAY CONTROL ........................................................
 
-		self.controlContainer = Tk.Frame(self.controlFrame, 
+		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
 			bg = self.background)
 
 		self.selectedCommand = Tk.StringVar()
 		self.selectedCommand.set("Set Duty Cycle")
-		self.commandMenu = Tk.OptionMenu(self.controlContainer, 
+		self.commandMenu = Tk.OptionMenu(self.arrayControlFrame, 
 			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
 			command = self._changeCommandMenu)
 
 		self.commandLabelText = Tk.StringVar()
 		self.commandLabelText.set("DC: ")
-		self.commandLabel = Tk.Label(self.controlContainer, 
+		self.commandLabel = Tk.Label(self.arrayControlFrame, 
 			textvariable = self.commandLabelText, background = self.background)
 
 		self.commandMenu.configure(highlightbackground = self.background)
@@ -597,13 +606,13 @@ class FCInterface(Tk.Frame):
 		self.commandLabel.pack(side = Tk.LEFT)
 
 		validateC = self.register(self._validateN)
-		self.commandEntry = Tk.Entry(self.controlContainer, 
+		self.commandEntry = Tk.Entry(self.arrayControlFrame, 
 			highlightbackground = self.background,
 			width = 7, validate = 'key', validatecommand = \
 				(validateC, '%S', '%s', '%d'))
 		self.commandEntry.pack(side = Tk.LEFT)
 
-		self.sendButton = Tk.Button(self.controlContainer, 
+		self.sendButton = Tk.Button(self.arrayControlFrame, 
 			highlightbackground = self.background, text = "Send",
 			command = self._send)
 
@@ -618,16 +627,40 @@ class FCInterface(Tk.Frame):
 
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
-		self.controlContainer.pack()
+		self.arrayControlFrame.pack()
 		self.controlFrame.pack(fill = Tk.X, expand = False)
 
 		# TERMINAL -------------------------------------------------------------
-		self.terminalFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
+		self.terminalContainerFrame = Tk.Frame(self, relief = Tk.GROOVE, 
+		borderwidth = 1, bg = self.background)
+
+		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background)
 
-		self.terminal = ttk.Notebook(self.terminalFrame)
-
-		self.terminal.pack(fill = Tk.BOTH, expand = True)
+		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+		self.mainTerminal = ttk.Frame(self.terminalFrame)
+		self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
+		self.mainTLock = threading.Lock()
+		self.mainTText = Tk.Text(self.mainTerminal, height = 10, width = 120, 
+			fg = "#424242", bg=self.background, font = ('TkFixedFont'),
+			selectbackground = "#cecece",
+			state = Tk.DISABLED)
+		self.mainTScrollbar = Tk.Scrollbar(self.mainTerminal)
+		self.mainTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
+		self.mainTScrollbar.config(command=self.mainTText.yview)
+		self.mainTText.config(yscrollcommand = self.mainTScrollbar.set)
+		self.mainTText.bind("<1>", 
+			lambda event: self.mainTText.focus_set())
+		self.mainTText.pack(fill =Tk.BOTH, expand = True)
+		# Configure tags:
+		self.mainTText.tag_config("S")
+		self.mainTText.tag_config("G", foreground = "#168e07")
+		self.mainTText.tag_config(\
+			"W", underline = 1, foreground = "orange")
+		self.mainTText.tag_config(\
+			"E", underline = 1, foreground = "red", background = "#510000")
+		self.mainTText.tag_config(\
+			"D", foreground = self.debugColor)
 		
 		# TERMINAL CONTROL FRAME ...............................................
 
@@ -659,6 +692,28 @@ class FCInterface(Tk.Frame):
 			bg = self.background)
 
 
+		# TERMINAL SETUP:
+		self.terminalContainerFrame.pack(fill = Tk.BOTH, expand = False)
+		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+
+		self.autoscrollButton.pack(side = Tk.LEFT)
+		self.debugButton.pack(side = Tk.LEFT)
+		self.terminalButton.pack(side = Tk.LEFT)
+		self.autoscrollButton.select()
+
+
+
+
+		# STATUS ---------------------------------------------------------------
+		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
+			 bg=self.background)
+
+		self.versionLabel = Tk.Label(self.statusFrame, text = "Version: " + version,
+			bg = self.background, fg = "#424242")
+		self.versionLabel.pack(side = Tk.RIGHT)
+
+		self.statusFrame.pack(fill = Tk.X, expand = False)
+
 		# THREAD ACTIVITY DISPLAYS .............................................
 
 		self.displayRED = "red"
@@ -667,7 +722,7 @@ class FCInterface(Tk.Frame):
 		self.displayBLUE = "#4fa7ff"
 
 		# Connection status:
-		self.connectionStatusFrame = Tk.Frame(self.terminalControlFrame, 
+		self.connectionStatusFrame = Tk.Frame(self.statusFrame, 
 			bg = self.background, padx = 10)
 
 		self.connectionStatusFrame.pack(side = Tk.RIGHT)
@@ -720,52 +775,6 @@ class FCInterface(Tk.Frame):
 		self.listenerGREEN = self.displayGREEN1
 		self.listenerBLUE = self.displayBLUE
 
-		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		self.mainTerminal = ttk.Frame(self.terminal)
-		self.mainTLock = threading.Lock()
-		self.mainTText = Tk.Text(self.mainTerminal, height = 10, width = 120, 
-			fg = "#424242", bg=self.background, font = ('TkFixedFont'),
-			selectbackground = "#cecece",
-			state = Tk.DISABLED)
-		self.mainTScrollbar = Tk.Scrollbar(self.mainTerminal)
-		self.mainTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.mainTScrollbar.config(command=self.mainTText.yview)
-		self.mainTText.config(yscrollcommand = self.mainTScrollbar.set)
-		self.mainTText.bind("<1>", 
-			lambda event: self.mainTText.focus_set())
-		self.mainTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.mainTText.tag_config("S")
-		self.mainTText.tag_config("G", foreground = "#168e07")
-		self.mainTText.tag_config(\
-			"W", underline = 1, foreground = "orange")
-		self.mainTText.tag_config(\
-			"E", underline = 1, foreground = "red", background = "#510000")
-		self.mainTText.tag_config(\
-			"D", foreground = self.debugColor)
-
-		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		self.terminal.add(self.mainTerminal, text = 'Main')
-
-		self.autoscrollButton.pack(side = Tk.LEFT)
-		self.debugButton.pack(side = Tk.LEFT)
-		self.terminalButton.pack(side = Tk.LEFT)
-		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
-		self.autoscrollButton.select()
-
-
-
-
-		# STATUS ---------------------------------------------------------------
-		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			 bg=self.background)
-
-		self.versionLabel = Tk.Label(self.statusFrame, text = "Version: " + version,
-			bg = self.background, fg = "#424242")
-		self.versionLabel.pack(side = Tk.RIGHT)
-
-		self.statusFrame.pack(fill = Tk.X, expand = False)
-
 		# PACK -----------------------------------------------------------------
 
 		self.pack(fill = Tk.BOTH, expand = True)
@@ -811,7 +820,7 @@ class FCInterface(Tk.Frame):
 		# End constructor ==========================================================
 
 ## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-	
+
 	## PRINTER ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 	def _mainPrinterRoutine(self): # ===========================================
@@ -837,7 +846,7 @@ class FCInterface(Tk.Frame):
 
 					# Switch focus to this tab in case of errors of warnings:
 					if tag is "E":
-						self.terminal.select(0)
+						pass
 
 					self.mainTText.config(state = Tk.NORMAL)
 						# Must change state to add text.
@@ -880,7 +889,7 @@ class FCInterface(Tk.Frame):
 			self.listenerDisplay.config(background = self.listenerBLUE)
 			self.listenerStatus = BLUE
 
-		else:
+		elif not code in ["R", "G", "B"]:
 			# Bad value. Raise exception:
 			raise ValueError("Bad listener status code \"{}\" \
 				expected GREEN or RED".format(code))
@@ -909,7 +918,7 @@ class FCInterface(Tk.Frame):
 			# Switch to red:
 			self.broadcastDisplay.config(background = self.broadcastRED)
 
-		else:
+		elif not code in ["R", "G"]:
 			# Bad value. Raise exception:
 			raise ValueError("Bad broadcast status code \"{}\" \
 				expected GREEN or RED".format(code))
@@ -938,7 +947,7 @@ class FCInterface(Tk.Frame):
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
-				self.terminal.select(0)
+				pass
 
 			self.mainTText.config(state = Tk.NORMAL)
 				# Must change state to add text.
@@ -991,6 +1000,20 @@ class FCInterface(Tk.Frame):
 
 		elif newValue == "Chase RPM":
 			self.commandLabelText.set("RPM: ")
+
+	def _terminalToggle(self): # ===============================================
+		# ABOUT: Hide and show the terminal
+
+		# Check variable:
+		if self.terminalToggleVar.get() == 1:
+			# Build terminal:
+			self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+			self.terminalVar.set(1)
+		else:
+			# Hide terminal:
+			self.terminalFrame.pack_forget()
+			self.terminalContainerFrame.configure(height = 1)
+
 
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
