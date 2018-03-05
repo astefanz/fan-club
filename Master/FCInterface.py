@@ -507,7 +507,6 @@ class FCInterface(Tk.Frame):
 
 		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = = 
 
-
 		# Deactivate resizing:
 		#self.master.resizable(False,False)
 
@@ -523,30 +522,49 @@ class FCInterface(Tk.Frame):
 
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
+		# MAIN FRAME (DIVIDED IN RESIZEABLE PANES) -----------------------------
+		self.main = Tk.Frame(self)
+		self.main.pack(fill = Tk.BOTH, expand = True)
+
 		# ARRAY ----------------------------------------------------------------
 
 		# Array frame ..........................................................
-		self.arrayFrame = Tk.Frame(self, relief = Tk.RIDGE, 
-			borderwidth = 2, width = 1500, height = 100)
+		self.arrayFrame = Tk.Frame(self.main, relief = Tk.RIDGE, 
+			borderwidth = 2, height = 100, bg = 'black')
+
+		# Pack array frame and canvas ..........................................
+		self.arrayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
+		#self.arrayCanvas.pack(fill = Tk.X, expand = True)
 
 		# Array canvas .........................................................
 		self.arrayCanvas = Tk.Canvas(self.arrayFrame, height = 300, 
 			bg = 'darkgray',highlightthickness=0)
 
-		# Array frame label frame ..............................................
-		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
+		# Slave list frame .....................................................
+		self.slaveListFrame = Tk.Label(self.main,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
-		self.arrayFrameLabelFrame.pack(fill = Tk.X)
+		self.slaveListFrame.pack(fill = Tk.X, expand = False)
 
-		# Array PanedWindow ....................................................
-		self.arrayPanedWindow = Tk.PanedWindow(self.arrayFrame, 
-			orient = Tk.VERTICAL)
-		self.arrayPanedWindow.pack(fill =Tk.BOTH, expand = True)
+		# Shutdown button ......................................................
+		self.slaveListTitleFrame = Tk.Frame(self.slaveListFrame, 
+			relief = Tk.SUNKEN, borderwidth = 1, background = self.background)
+		self.slaveListTitleFrame.pack(side = Tk.TOP, fill =Tk.X, expand =False)
+
+		self.shutdownButton = Tk.Button(self.slaveListTitleFrame,
+			highlightbackground = "#890c0c", text = "SHUTDOWN", 
+			command = self._shutdownButton)
+		self.shutdownButton.pack(side = Tk.RIGHT)
+
+		# Array frame label ....................................................
+		self.arrayFrameLabel = Tk.Label(self.slaveListTitleFrame, 
+			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
+		self.arrayFrameLabel.pack()
 
 		# List of Slaves .......................................................
 
 		# Create list:
-		self.slaveList = ttk.Treeview(self.arrayPanedWindow, selectmode="extended", height = 5)
+		self.slaveList = ttk.Treeview(self.slaveListFrame, 
+			selectmode="extended", height = 5)
 		self.slaveList["columns"] = \
 			("Name","MAC","Status","IP","Out","In","Fans")
 
@@ -559,8 +577,10 @@ class FCInterface(Tk.Frame):
 			anchor = "center")
 		self.slaveList.column("IP", width = 50, 
 			anchor = "center")
-		self.slaveList.column("Out", width = 50)
-		self.slaveList.column("In", width = 50)		
+		self.slaveList.column("Out", width = 50, 
+			anchor = "center")
+		self.slaveList.column("In", width = 50, 
+			anchor = "center")
 		self.slaveList.column("Fans", width = 50, stretch = False, 
 			anchor = "center")
 
@@ -594,35 +614,14 @@ class FCInterface(Tk.Frame):
 		self.slaveList.insert('', 'end', None, 
 			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
 
-		self.slaveList.pack(fill = Tk.X, expand = False, side = Tk.BOTTOM, anchor = 's')
-		self.arrayPanedWindow.add(self.slaveList)
-
-		# Shutdown button ......................................................
-		self.shutdownButtonFrame = Tk.Frame(self.arrayFrameLabelFrame, 
-			relief = Tk.SUNKEN, borderwidth = 1)
-
-		self.shutdownButton = Tk.Button(self.shutdownButtonFrame, 
-			highlightbackground = "#890c0c", text = "SHUT DOWN", 
-			command = self._shutdownButton)
-
-		self.shutdownButtonFrame.pack(side = Tk.RIGHT)
-		self.shutdownButton.pack()
-
-		# Array frame label ....................................................
-		self.arrayFrameLabel = Tk.Label(self.arrayFrameLabelFrame, 
-			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
-		
-		self.arrayFrameLabel.pack()
-
-
-		# Pack array frame and canvas ..........................................
-		self.arrayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
-
-		#self.arrayCanvas.pack(fill = Tk.X, expand = True)
+		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
 
 		# CONTROL --------------------------------------------------------------
-		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			 bg=self.background)
+		self.controlFrame = Tk.Frame(self.main, 
+			relief = Tk.GROOVE, borderwidth = 1,
+			bg=self.background)
+
+		self.controlFrame.pack(fill = Tk.X, expand = False)
 
 		# TERMINAL TOGGLE ......................................................
 		self.terminalToggleVar = Tk.IntVar()
@@ -679,14 +678,19 @@ class FCInterface(Tk.Frame):
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
 		self.arrayControlFrame.pack()
-		self.controlFrame.pack(fill = Tk.X, expand = False)
+		#self.controlFrame.pack(fill = Tk.X, expand = False)
+
 
 		# TERMINAL -------------------------------------------------------------
 		self.terminalContainerFrame = Tk.Frame(self, relief = Tk.GROOVE, 
 		borderwidth = 1, bg = self.background)
+		self.terminalContainerFrame.pack(fill = Tk.X, expand = False, anchor = 's')
 
 		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background)
+		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+
+
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.mainTerminal = ttk.Frame(self.terminalFrame)
@@ -744,8 +748,6 @@ class FCInterface(Tk.Frame):
 
 
 		# TERMINAL SETUP:
-		self.terminalContainerFrame.pack(fill = Tk.BOTH, expand = False)
-		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 
 		self.autoscrollButton.pack(side = Tk.LEFT)
 		self.debugButton.pack(side = Tk.LEFT)
@@ -763,7 +765,7 @@ class FCInterface(Tk.Frame):
 			bg = self.background, fg = "#424242")
 		self.versionLabel.pack(side = Tk.RIGHT)
 
-		self.statusFrame.pack(fill = Tk.X, expand = False)
+		self.statusFrame.pack(fill = Tk.X, expand = False, side =Tk.BOTTOM, anchor = 's')
 
 		# THREAD ACTIVITY DISPLAYS .............................................
 
@@ -827,7 +829,6 @@ class FCInterface(Tk.Frame):
 		self.listenerBLUE = self.displayBLUE
 
 		# PACK -----------------------------------------------------------------
-
 		self.pack(fill = Tk.BOTH, expand = True)
 
 		# Center starting place:
