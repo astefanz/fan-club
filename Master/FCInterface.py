@@ -625,7 +625,7 @@ class FCInterface(Tk.Frame):
 
 		# TERMINAL TOGGLE ......................................................
 		self.terminalToggleVar = Tk.IntVar()
-		self.terminalToggleVar.set(1)
+		self.terminalToggleVar.set(0)
 
 		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
 			text ="Terminal", variable = self.terminalToggleVar, 
@@ -698,7 +698,8 @@ class FCInterface(Tk.Frame):
 
 		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background)
-		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+		#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+		# Comment out to not start w/ hidden terminal by default
 
 
 
@@ -755,7 +756,6 @@ class FCInterface(Tk.Frame):
 		self.terminalButton = Tk.Checkbutton(self.terminalControlFrame, 
 			text ="Terminal output", variable = self.terminalVar, 
 			bg = self.background)
-
 
 		# TERMINAL SETUP:
 
@@ -878,7 +878,6 @@ class FCInterface(Tk.Frame):
 
 		# ----------------------------------------------------------------------
 		self._mainPrinterRoutine()
-
 		# End constructor ==========================================================
 
 ## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1085,7 +1084,6 @@ class FCInterface(Tk.Frame):
 		if self.slaveListToggleVar.get() == 1:
 			# Build slaveList:
 			self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
-			self.slaveListVar.set(1)
 		else:
 			# Hide slaveList:
 			self.slaveList.pack_forget()
