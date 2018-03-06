@@ -522,9 +522,25 @@ class FCInterface(Tk.Frame):
 
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
-		# MAIN FRAME (DIVIDED IN RESIZEABLE PANES) -----------------------------
+		# SHUTDOWN -------------------------------------------------------------
+
+		# Shutdown button frame:
+		self.shutdownButtonFrame = Tk.Frame(self, relief = Tk.RIDGE, 
+			borderwidth = 1)
+		self.shutdownButtonFrame.pack(
+			side = Tk.TOP, fill = Tk.X, expand = False)
+
+		# Shutdown button:
+		self.shutdownButton = Tk.Button(self.shutdownButtonFrame,
+			highlightbackground = "#890c0c", text = "SHUTDOWN",
+			command = self._shutdownButton, font = 'TkFixedFont 17 bold ')
+		self.shutdownButton.pack(fill = Tk.X)
+
+		# MAIN FRAME -----------------------------------------------------------
 		self.main = Tk.Frame(self)
 		self.main.pack(fill = Tk.BOTH, expand = True)
+
+
 
 		# ARRAY ----------------------------------------------------------------
 
@@ -601,85 +617,7 @@ class FCInterface(Tk.Frame):
 
 		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
 
-		# CONTROL --------------------------------------------------------------
-		self.controlFrame = Tk.Frame(self.main, 
-			relief = Tk.GROOVE, borderwidth = 1,
-			bg=self.background)
-
-		self.controlFrame.pack(fill = Tk.X, expand = False)
-
-		# TERMINAL TOGGLE ......................................................
-		self.terminalToggleVar = Tk.IntVar()
-		self.terminalToggleVar.set(0)
-
-		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
-			text ="Terminal", variable = self.terminalToggleVar, 
-			bg = self.background, command = self._terminalToggle)
-
-		self.terminalToggle.pack(side = Tk.LEFT)
-
-		# SLAVE LIST TOGGLE ....................................................
-		self.slaveListToggleVar = Tk.IntVar()
-		self.slaveListToggleVar.set(1)
-
-		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
-			text ="List", variable = self.slaveListToggleVar, 
-			bg = self.background, command = self._slaveListToggle)
-
-		self.slaveListToggle.pack(side = Tk.LEFT)
-
-		# ARRAY CONTROL ........................................................
-
-		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
-			bg = self.background)
-
-		self.selectedCommand = Tk.StringVar()
-		self.selectedCommand.set("Set Duty Cycle")
-		self.commandMenu = Tk.OptionMenu(self.arrayControlFrame, 
-			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
-			command = self._changeCommandMenu)
-
-		self.commandLabelText = Tk.StringVar()
-		self.commandLabelText.set("DC: ")
-		self.commandLabel = Tk.Label(self.arrayControlFrame, 
-			textvariable = self.commandLabelText, background = self.background)
-
-		self.commandMenu.configure(highlightbackground = self.background)
-		self.commandMenu.configure(background = self.background)
-
-		self.commandMenu.pack(side = Tk.LEFT)
-		self.commandLabel.pack(side = Tk.LEFT)
-
-		validateC = self.register(self._validateN)
-		self.commandEntry = Tk.Entry(self.arrayControlFrame, 
-			highlightbackground = self.background,
-			width = 7, validate = 'key', validatecommand = \
-				(validateC, '%S', '%s', '%d'))
-		self.commandEntry.pack(side = Tk.LEFT)
-
-		self.sendButton = Tk.Button(self.arrayControlFrame, 
-			highlightbackground = self.background, text = "Send",
-			command = self._send)
-
-		self.sendButton.pack(side = Tk.LEFT)
-
-		# Shutdown button:
-		self.shutdownButton = Tk.Button(self.controlFrame,
-			highlightbackground = "#890c0c", text = "SHUTDOWN", 
-			command = self._shutdownButton)
-		self.shutdownButton.pack(side = Tk.RIGHT)
-
-		# Select All button:
-		self.selectedAll = False
-		self.selectAllButton = Tk.Button(self.controlFrame, 
-			highlightbackground = self.background, text = "Select All", 
-			command = self.selectAllSlaves)
-
-		self.selectAllButton.pack(side = Tk.RIGHT)
-
-		self.arrayControlFrame.pack()
-
-
+		
 		# TERMINAL -------------------------------------------------------------
 		self.terminalContainerFrame = Tk.Frame(self, relief = Tk.GROOVE, 
 		borderwidth = 1, bg = self.background)
@@ -689,8 +627,6 @@ class FCInterface(Tk.Frame):
 			bg = self.background)
 		#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 		# Comment out to not start w/ hidden terminal by default
-
-
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.mainTerminal = ttk.Frame(self.terminalFrame)
@@ -753,6 +689,78 @@ class FCInterface(Tk.Frame):
 		self.terminalButton.pack(side = Tk.LEFT)
 		self.autoscrollButton.select()
 
+
+		# CONTROL --------------------------------------------------------------
+		self.controlFrame = Tk.Frame(self, 
+			relief = Tk.GROOVE, borderwidth = 1,
+			bg=self.background)
+
+		self.controlFrame.pack(fill = Tk.X, expand = False)
+
+		# TERMINAL TOGGLE ......................................................
+		self.terminalToggleVar = Tk.IntVar()
+		self.terminalToggleVar.set(0)
+
+		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Terminal", variable = self.terminalToggleVar, 
+			bg = self.background, command = self._terminalToggle)
+
+		self.terminalToggle.pack(side = Tk.LEFT)
+
+		# SLAVE LIST TOGGLE ....................................................
+		self.slaveListToggleVar = Tk.IntVar()
+		self.slaveListToggleVar.set(1)
+
+		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="List", variable = self.slaveListToggleVar, 
+			bg = self.background, command = self._slaveListToggle)
+
+		self.slaveListToggle.pack(side = Tk.LEFT)
+
+		# ARRAY CONTROL ........................................................
+
+		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
+			bg = self.background)
+
+		self.arrayControlFrame.pack()
+
+		self.selectedCommand = Tk.StringVar()
+		self.selectedCommand.set("Set Duty Cycle")
+		self.commandMenu = Tk.OptionMenu(self.arrayControlFrame, 
+			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
+			command = self._changeCommandMenu)
+
+		self.commandLabelText = Tk.StringVar()
+		self.commandLabelText.set("DC: ")
+		self.commandLabel = Tk.Label(self.arrayControlFrame, 
+			textvariable = self.commandLabelText, background = self.background)
+
+		self.commandMenu.configure(highlightbackground = self.background)
+		self.commandMenu.configure(background = self.background)
+
+		self.commandMenu.pack(side = Tk.LEFT)
+		self.commandLabel.pack(side = Tk.LEFT)
+
+		validateC = self.register(self._validateN)
+		self.commandEntry = Tk.Entry(self.arrayControlFrame, 
+			highlightbackground = self.background,
+			width = 7, validate = 'key', validatecommand = \
+				(validateC, '%S', '%s', '%d'))
+		self.commandEntry.pack(side = Tk.LEFT)
+
+		self.sendButton = Tk.Button(self.arrayControlFrame, 
+			highlightbackground = self.background, text = "Send",
+			command = self._send)
+
+		self.sendButton.pack(side = Tk.LEFT)
+
+		# Select All button:
+		self.selectedAll = False
+		self.selectAllButton = Tk.Button(self.controlFrame, 
+			highlightbackground = self.background, text = "Select All", 
+			command = self.selectAllSlaves)
+
+		self.selectAllButton.pack(side = Tk.RIGHT)
 
 
 
