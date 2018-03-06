@@ -551,7 +551,7 @@ class FCInterface(Tk.Frame):
 		self.mainDisplayFrame.pack(
 			fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
-		# CONFIGURATION --------------------------------------------------------
+		# SETTINGS -------------------------------------------------------------
 
 		# Settings container:
 		self.settingsContainer = Tk.Frame(self.mainDisplayFrame,
@@ -581,6 +581,11 @@ class FCInterface(Tk.Frame):
 		# Array canvas .........................................................
 		self.arrayCanvas = Tk.Canvas(self.mainDisplayFrame, height = 300, 
 			bg = 'darkgray',highlightthickness=0)
+
+		# Array Frame ..........................................................
+		self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
+			relief = Tk.SUNKEN, borderwidth = 3)
+		self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
 
 		# LIVE PLOT ------------------------------------------------------------
 
