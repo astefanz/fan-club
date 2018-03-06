@@ -51,7 +51,7 @@ VERSION = "Asymmetrical 1"
 
 class Communicator:
 
-    def __init__(self, profiler, interface, bcupdate, ltupdate):
+    def __init__(self, profiler, display, bcupdate, ltupdate):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
@@ -67,7 +67,7 @@ class Communicator:
             self.printM("Initializing Communicator instance")
 
             # Interface:
-            self.interface = interface
+            self.display = display
             self.bcupdate = bcupdate
             self.ltupdate = ltupdate
 
@@ -125,7 +125,7 @@ class Communicator:
 
             # Bind socket to "nothing" (Broadcast on all interfaces and let system 
             # assign port number):
-            self.broadcastSocket.bind(("192.168.1.129", 0))
+            self.broadcastSocket.bind(("", 0))
 
             self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
@@ -411,7 +411,7 @@ class Communicator:
                             name = random.choice(names.coolNames),
                             mac = mac,              # MAC address
                             status = Slave.AVAILABLE,   # Status
-                            interface = self.interface,
+                            display = self.display,
                             activeFans = 21,
                             maxFans = 21,
                             ip = senderAddress[0],  # IP address

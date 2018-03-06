@@ -496,8 +496,6 @@ class FanDisplay(Tk.Frame):
 
 		# End setStatus ========================================================
 
-
-
 ## CLASS DEFINITION ############################################################
 
 class FCInterface(Tk.Frame):      
@@ -578,9 +576,6 @@ class FCInterface(Tk.Frame):
 		self.settingsLabel.pack(side = Tk.LEFT)
 
 		# ARRAY ----------------------------------------------------------------
-		# Array canvas .........................................................
-		self.arrayCanvas = Tk.Canvas(self.mainDisplayFrame, height = 300, 
-			bg = 'darkgray',highlightthickness=0)
 
 		# Array Frame ..........................................................
 		self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
@@ -669,7 +664,7 @@ class FCInterface(Tk.Frame):
 		self.slaveList = ttk.Treeview(self.slaveListFrame, 
 			selectmode="browse", height = 5)
 		self.slaveList["columns"] = \
-			("Name","MAC","Status","IP","Out","In","Fans")
+			("Name","MAC","Status","IP","Fans")
 
 		# Create columns:
 		self.slaveList.column('#0', width = 20, stretch = False)
@@ -680,10 +675,6 @@ class FCInterface(Tk.Frame):
 			anchor = "center")
 		self.slaveList.column("IP", width = 50, 
 			anchor = "center")
-		self.slaveList.column("Out", width = 50, 
-			anchor = "center")
-		self.slaveList.column("In", width = 50, 
-			anchor = "center")
 		self.slaveList.column("Fans", width = 50, stretch = False, 
 			anchor = "center")
 
@@ -692,8 +683,6 @@ class FCInterface(Tk.Frame):
 		self.slaveList.heading("MAC", text = "MAC")
 		self.slaveList.heading("Status", text = "Status")
 		self.slaveList.heading("IP", text = "IP")
-		self.slaveList.heading("Out", text = "Out")
-		self.slaveList.heading("In", text = "In")
 		self.slaveList.heading("Fans", text = "Fans")
 
 		# Configure tags:
@@ -702,32 +691,6 @@ class FCInterface(Tk.Frame):
 		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
 		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
 		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
-
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods1", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'C')
-
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'D')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'K')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
-
-		self.slaveList.insert('', 'end', None, 
-			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
 
 		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
 
@@ -993,14 +956,14 @@ class FCInterface(Tk.Frame):
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler(self.arrayCanvas) 
+		self.profiler = Profiler.Profiler(self.slaveList) 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
 		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(self.profiler, 
-			self.arrayCanvas, 
+			self.slaveList, 
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
