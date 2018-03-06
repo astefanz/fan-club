@@ -84,7 +84,7 @@ class Slave:
 	# ABOUT: Representation of connected Slave model, primarily a container with
 	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, name, mac, status, display, maxFans, activeFans,
+	def __init__(self, name, mac, status, master, display, maxFans, activeFans,
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None,
 		thread = None):
 		# ABOUT: Constructor for class Slave.
@@ -138,8 +138,10 @@ class Slave:
 		self.lock = threading.Lock()
 		self.mosiQueue = Queue.Queue(1)
 
-		#self.setRPM = self.slaveDisplay.setRPM
-		#self.setDC = self.slaveDisplay.setDC
+		self.slaveDisplay = FCI.SlaveDisplay(master, self)
+
+		self.setRPM = self.slaveDisplay.setRPM
+		self.setDC = self.slaveDisplay.setDC
 
 		# Add self to display (ttk Treeview)
 		# NOTE: If time allows, add layer of abstraction. (You wish.)
@@ -162,13 +164,18 @@ class Slave:
 		# PARAMETERS: 
 		# - newStatus: code of the new status.
 
-		self.status = newStatus
-		
-		if newStatus == DISCONNECTED:
-			self.setExchange(0)
-			self.setMISOIndex(0)
+		if self.status == newStatus:
+			return
+		else: 
+			self.status = newStatus
+			
+			if newStatus == DISCONNECTED:
+				self.setExchange(0)
+				self.setMISOIndex(0)
+				self.setActiveFans(0)
 
-		self.updateList(newStatus)
+			self.slaveDisplay.setStatus(newStatus)
+			self.updateList(newStatus)
 
 		# End setStatus ========================================================
 
@@ -216,7 +223,7 @@ class Slave:
 		# PARAMETERS:
 		# - newActiveFans: new value for activeFans
 		self.activeFans = newActiveFans
-
+		self.slaveDisplay.setActiveFans(newActiveFans)
 		self.updateList()
 
 	def incrementExchange(self):

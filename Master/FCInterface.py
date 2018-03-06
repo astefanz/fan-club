@@ -73,76 +73,36 @@ class SlaveDisplay(Tk.Frame):
 		# GENERAL INFORMATION - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 		self.generalFrame = Tk.Frame(self, bg = self.background)
-		self.generalFrame.pack(fill = Tk.X)
-
-		# ......................................................................
-		self.nameVar = Tk.StringVar()
-		self.nameVar.set('- "' + slave.name + '"')
-		self.nameLabel = Tk.Label(self.generalFrame, textvariable = self.nameVar,
-			fg = "black", relief = Tk.SUNKEN, bd = 1, font = 'TkFixedFont 12 bold',
-			bg = "white")
-		self.nameLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.macVar = Tk.StringVar()
-		self.macVar.set(" ["+slave.mac+"] ")
-
-		self.macLabel = Tk.Label(self.generalFrame, textvariable = self.macVar, 
-			fg = "blue",relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.macLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.statusVar = Tk.StringVar()
-		self.statusVar.set(Slave.translate(slave.status))
-
-		self.statusLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.statusVar, font = 'TkFixedFont 12 bold',
-			bg = "white", relief = Tk.SUNKEN, bd = 1)
-		self.statusLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.ipVar = Tk.StringVar()
-		self.ipVar.set("IP: [NONE]")
-
-		self.ipLabel = Tk.Label(self.generalFrame, textvariable = self.ipVar,
-			bg = "white", relief = Tk.SUNKEN, bd = 1)
-		self.ipLabel.pack(side = Tk.LEFT)
+		self.generalFrame.pack(fill = Tk.Y, side = Tk.LEFT)
 
 		# ......................................................................
 		self.exchangeVar = Tk.StringVar()
 		self.exchangeVar.set("O: 0")
 		self.exchangeLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.exchangeLabel.pack(side = Tk.LEFT)
+			bg = "white", font = 'TkFixedFont 8')
+		self.exchangeLabel.pack(side = Tk.TOP, anchor = 'w',fill = Tk.X, expand =True)
 
 		# ......................................................................
 		self.misoIndexVar = Tk.StringVar()
 		self.misoIndexVar.set("I: 0")
 		self.misoIndexLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.misoIndexVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.misoIndexLabel.pack(side = Tk.LEFT)
+			bg = "white", font = 'TkFixedFont 8')
+		self.misoIndexLabel.pack(side = Tk.TOP, anchor = 'w', fill = Tk.X, expand =True)
 
 		# ......................................................................
-		self.activeFansVar = Tk.StringVar()
-		self.activeFansVar.set("Active Fans: {}/{}".\
-			format(slave.activeFans, slave.maxFans))
-		self.activeFansLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.activeFansVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.activeFansLabel.pack(side = Tk.LEFT)
+		self.buttonFrame = Tk.Frame(self)
+		self.buttonFrame.pack(side = Tk.RIGHT)
 
-		# ......................................................................
 		self.toggled = False
 		self.selectText = Tk.StringVar()
 
 		self.selectText.set("Select")
-		self.selectButton = Tk.Button(self.generalFrame, textvariable = self.selectText, 
-			command = self.toggleAll, highlightbackground = self.background)
+		self.selectButton = Tk.Button(self.buttonFrame, textvariable = self.selectText, 
+			command = self.toggleAll, highlightbackground = self.background,pady = 0)
 
-		self.selectButton.pack(side =Tk.RIGHT)
+		self.selectButton.pack(side = Tk.LEFT)
 
 		# FAN ARRAY - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.fanArrayFrame = Tk.Frame(self, bg = self.background)
@@ -153,8 +113,7 @@ class SlaveDisplay(Tk.Frame):
 			self.fans.append(FanDisplay(self.fanArrayFrame, i, 
 				self.setSelection))
 		
-		self.master.create_window((0,0), window = self, anchor = 'w', width = 781)
-		self.pack(fill = Tk.X, side = Tk.TOP)
+		#self.pack(fill = Tk.X, side = Tk.TOP)
 
 		# OLD VALUES: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			# Keep track of old values to 
@@ -179,13 +138,6 @@ class SlaveDisplay(Tk.Frame):
 		self.setStatus(slave.status, True)
 		# End __init__ =========================================================
 
-	def setName(self, newName): # ==========================================
-		# ABOUT: Update name.
-		# PARAMETERS: 
-		# - newName: new name.
-
-		self.nameVar.set(newName)
-
 	def setStatus(self, newStatus, redundant = False): # =======================
 		# ABOUT: Update status.
 		# PARAMETERS: 
@@ -198,15 +150,11 @@ class SlaveDisplay(Tk.Frame):
 		else:
 			self.status = newStatus
 
-		self.statusVar.set(Slave.translate(newStatus))
-
 		if newStatus == Slave.CONNECTED:
-			self.statusLabel.configure(fg = "green", bg = "#1eaa08")
 			self.setActiveFans(self.activeFans)
 			self.selectButton.configure(state = Tk.NORMAL)
 
 		elif newStatus == Slave.DISCONNECTED:
-			self.statusLabel.configure(fg = "red", bg = "#6b0303")
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
 			# Reset lists:
@@ -215,7 +163,6 @@ class SlaveDisplay(Tk.Frame):
 				self.oldDCs[i] = -1
 
 		elif newStatus == Slave.KNOWN:
-			self.statusLabel.configure(fg = "blue", bg = "#b7c3ff")
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
 			# Reset lists:
@@ -226,7 +173,6 @@ class SlaveDisplay(Tk.Frame):
 		elif newStatus == Slave.AVAILABLE:
 			self.selectText.set("Connect")
 			self.selectButton.configure(state = Tk.NORMAL)
-			self.statusLabel.configure(fg = "#1e8eff", bg = "#0e397f")
 			self.setActiveFans(0)
 			# Reset lists:
 			for i in range(self.maxFans):
@@ -234,13 +180,6 @@ class SlaveDisplay(Tk.Frame):
 				self.oldDCs[i] = -1
 
 		# End setStatus ========================================================
-
-	def setMAC(self, newMAC): # ================================================
-		# ABOUT: Update MAC.
-		# PARAMETERS: 
-		# - MAC: new MAC address.
-
-		self.macVar.set(newMAC)
 
 	def setExchange(self, newExchange): # ======================================
 		# ABOUT: Update exchange index.
@@ -255,13 +194,6 @@ class SlaveDisplay(Tk.Frame):
 		# - newMISOIndex: new MISO index.
 
 		self.misoIndexVar.set(newMISOIndex)
-
-	def setIP(self, newIP): # ==================================================
-		# ABOUT: Update IP address.
-		# PARAMETERS: 
-		# - newExchange: new IP address
-
-		self.ipVar.set(newIP)
 
 	def setRPM(self, rpm, fan): # ==============================================
 		# ABOUT: Update RPM of one fan.
@@ -293,10 +225,6 @@ class SlaveDisplay(Tk.Frame):
 		# ABOUT: Update activeFans value
 		# PARAMETERS:
 		# - newActiveFans: new value for activeFans
-
-		# Update display:
-		self.activeFansVar.set("Active Fans: {}/{}".\
-			format(newActiveFans, self.maxFans))
 
 		# Update fan array display:
 		for fan in self.fans:
@@ -538,8 +466,6 @@ class FCInterface(Tk.Frame):
 		self.main = Tk.Frame(self)
 		self.main.pack(fill = Tk.BOTH, expand = True)
 
-
-
 		# MAIN DISPLAY ---------------------------------------------------------
 
 		# Main display frame ..................................................
@@ -652,11 +578,14 @@ class FCInterface(Tk.Frame):
 		self.slaveListContainer = Tk.Frame(self.main)
 		self.slaveListContainer.pack(fill = Tk.X, expand = False)
 
-
 		# Slave list frame .....................................................
 		self.slaveListFrame = Tk.Label(self.slaveListContainer,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
 		self.slaveListFrame.pack(fill = Tk.X, expand = False)
+
+		# Slave display frame ..................................................
+		self.slaveDisplayFrame = Tk.Frame(self.slaveListFrame)
+		self.slaveDisplayFrame.pack(fill = Tk.X, expand = False)
 
 		# List of Slaves .......................................................
 
@@ -692,11 +621,17 @@ class FCInterface(Tk.Frame):
 		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
 		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
 
+		# Save previous selection:
+		self.oldSelection = None
+
+		# Bind command:
+		self.slaveList.bind('<Double-1>', self._slaveListMethod)
+
 		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
 
 		
 		# TERMINAL -------------------------------------------------------------
-		self.terminalContainerFrame = Tk.Frame(self, relief = Tk.GROOVE, 
+		self.terminalContainerFrame = Tk.Frame(self.main, relief = Tk.GROOVE, 
 		borderwidth = 1, bg = self.background)
 		self.terminalContainerFrame.pack(fill = Tk.X, expand = False, anchor = 's')
 
@@ -956,13 +891,14 @@ class FCInterface(Tk.Frame):
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler(self.slaveList) 
+		self.profiler = Profiler.Profiler(self.slaveList,self.slaveDisplayFrame) 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
 		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(self.profiler, 
+			self.slaveDisplayFrame,
 			self.slaveList, 
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
@@ -1194,6 +1130,9 @@ class FCInterface(Tk.Frame):
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 			self.slaveListContainer.configure(height = 1)
+			if self.oldSelection != None:
+				self.slaves[self.oldSelection].slaveDisplay.pack_forget()
+				self.slaveDisplayFrame.configure(height = 1)
 
 	def _plotToggle(self): # ===================================================
 		# ABOUT: Hide and show plot
@@ -1212,6 +1151,17 @@ class FCInterface(Tk.Frame):
 		# ABOUT: To be bound to shutdownButton
 
 		self.printMain("WARNING: SHUTDOWN BUTTON NOT YET IMPLEMENTED", "E")
+
+	def _slaveListMethod(self, event): # =======================================
+		# ABOUT: Handle selections on SlaveList
+
+		# Unpack previous selection:
+		if self.oldSelection != None:
+			self.slaves[self.oldSelection].slaveDisplay.pack_forget()
+		if len(self.slaveList.selection()) > 0:
+			self.oldSelection = self.slaveList.item(self.slaveList.selection()[0], "values")[1]
+			self.slaves[self.oldSelection].slaveDisplay.pack()
+
 
 	def _send(self): # =========================================================
 		# ABOUT: Send a message to the MOSI queue of applicable Slaves

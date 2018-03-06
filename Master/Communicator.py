@@ -51,7 +51,7 @@ VERSION = "Asymmetrical 1"
 
 class Communicator:
 
-    def __init__(self, profiler, display, bcupdate, ltupdate):
+    def __init__(self, profiler, smaster, display, bcupdate, ltupdate):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
@@ -70,6 +70,7 @@ class Communicator:
             self.display = display
             self.bcupdate = bcupdate
             self.ltupdate = ltupdate
+            self.smaster = smaster
 
             # Profiler:
             self.profiler = profiler
@@ -411,6 +412,7 @@ class Communicator:
                             name = random.choice(names.coolNames),
                             mac = mac,              # MAC address
                             status = Slave.AVAILABLE,   # Status
+                            master = self.smaster,
                             display = self.display,
                             activeFans = 21,
                             maxFans = 21,

@@ -88,7 +88,7 @@ class Profiler:
 	# ABOUT: This module holds all "variable" data that should be kept in nonvo-
 	# latile storage.
 
-	def __init__(self, display):
+	def __init__(self, display, smaster):
 		# ABOUT: Constructor for class Profiler.
 
 		# Administrative data --------------------------------------------------
@@ -119,11 +119,11 @@ class Profiler:
 		""" ALEX'S """
 		self.slaves["00:80:e1:38:00:2a"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:38:00:2a", status = Slave.KNOWN, 
-			display = display, maxFans = 21,  activeFans = 21)
+			master = smaster, display = display, maxFans = 21,  activeFans = 21)
 
 		self.slaves["00:80:e1:45:00:46"] = Slave.Slave(name = random.choice(names.coolNames), 
 			mac = "00:80:e1:45:00:46", status = Slave.KNOWN, 
-			display = display, maxFans = 21,  activeFans = 21)
+			master = smaster, display = display, maxFans = 21,  activeFans = 21)
 
 		
 		""" BASEMENT WIND TUNNEL:
