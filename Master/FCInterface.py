@@ -542,22 +542,119 @@ class FCInterface(Tk.Frame):
 
 
 
+		# MAIN DISPLAY ---------------------------------------------------------
+
+		# Main display frame ..................................................
+		self.mainDisplayFrame = Tk.Frame(
+			self.main, height = 100, bg = '#212121')
+
+		self.mainDisplayFrame.pack(
+			fill = Tk.BOTH, expand = True, side = Tk.TOP)
+
+		# CONFIGURATION --------------------------------------------------------
+
+		# Settings container:
+		self.settingsContainer = Tk.Frame(self.mainDisplayFrame,
+			bg = self.background)
+		self.settingsContainer.pack(
+			fill =Tk.Y, side = Tk.LEFT, expand = False,)
+
+		# Settings frame:
+		self.settingsFrame = Tk.Frame(self.settingsContainer,
+			bg = self.background, width = 500,
+			borderwidth = 1, relief = Tk.RIDGE)
+
+		#self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
+		# Comment this to start w/ widget hidden
+
+
+		# Settings Label:
+		self.settingsLabelFrame = Tk.Frame(self.settingsFrame,
+			bg = self.background)
+		self.settingsLabelFrame.pack(fill = Tk.X, expand = False)
+
+		self.settingsLabel = Tk.Label(self.settingsLabelFrame,
+			bg = self.background, text = "Settings [Unimplemented]")
+		self.settingsLabel.pack(side = Tk.LEFT)
+
 		# ARRAY ----------------------------------------------------------------
-
-		# Array frame ..........................................................
-		self.bigDisplayFrame = Tk.Frame(self.main, relief = Tk.RIDGE, 
-			borderwidth = 2, height = 100, bg = 'black')
-
-		# Pack array frame and canvas ..........................................
-		self.bigDisplayFrame.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
-		#self.arrayCanvas.pack(fill = Tk.X, expand = True)
-
 		# Array canvas .........................................................
-		self.arrayCanvas = Tk.Canvas(self.bigDisplayFrame, height = 300, 
+		self.arrayCanvas = Tk.Canvas(self.mainDisplayFrame, height = 300, 
 			bg = 'darkgray',highlightthickness=0)
 
+		# LIVE PLOT ------------------------------------------------------------
+
+		# Plot container .......................................................
+		self.plotContainer = Tk.Frame(self.main)
+		self.plotContainer.pack(fill = Tk.X, expand = False)
+
+		# Plot frame ...........................................................
+		self.plotFrame = Tk.Frame(self.plotContainer,
+			bg = self.background, borderwidth = 1, relief = Tk.GROOVE, padx = 10)
+		#self.plotFrame.pack(fill = Tk.X, expand = False)
+		# Comment this to start w/ widget hidden
+
+		# Plot controls ........................................................
+		self.plotControlFrame = Tk.Frame(self.plotFrame, 
+			background = self.background)
+		self.plotControlFrame.pack(fill = Tk.X, expand = False)
+
+		# Variable 1:
+		self.plotVar1 = Tk.IntVar()
+
+		self.plotOption1 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 1", variable = self.plotVar1, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption1.pack(side = Tk.LEFT)
+
+		# Variable 2:
+		self.plotVar2 = Tk.IntVar()
+
+		self.plotOption2 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 2", variable = self.plotVar2, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption2.pack(side = Tk.LEFT)
+
+		# Variable 3:
+		self.plotVar3 = Tk.IntVar()
+
+		self.plotOption3 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 3", variable = self.plotVar3, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption3.pack(side = Tk.LEFT)
+
+		# Variable 4:
+		self.plotVar4 = Tk.IntVar()
+
+		self.plotOption4 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 4", variable = self.plotVar4, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption4.pack(side = Tk.LEFT)
+
+
+		self.plotSaveButton = Tk.Button(self.plotControlFrame, text = 'Save', 
+			highlightbackground = self.background, padx = 10, 
+			state = Tk.DISABLED)
+		self.plotSaveButton.pack(side = Tk.RIGHT)
+
+		# Plot placeholder .....................................................
+		self.plot = Tk.Frame(self.plotFrame, height = 100, bg = 'white')
+		self.plot.pack(fill = Tk.X, expand = False, anchor = 's')
+		# Comment this to start w/ widget hidden
+
+		self.plotLabel = Tk.Label(self.plot, height = 5,
+			text = "[Fancy plot will go here]", font = 'TkFixedFont', fg = 'gray')
+		self.plotLabel.pack()
+
+		# SLAVE LIST -----------------------------------------------------------
+
+		# Slave list container .................................................
+		self.slaveListContainer = Tk.Frame(self.main)
+		self.slaveListContainer.pack(fill = Tk.X, expand = False)
+
+
 		# Slave list frame .....................................................
-		self.slaveListFrame = Tk.Label(self.main,
+		self.slaveListFrame = Tk.Label(self.slaveListContainer,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
 		self.slaveListFrame.pack(fill = Tk.X, expand = False)
 
@@ -565,7 +662,7 @@ class FCInterface(Tk.Frame):
 
 		# Create list:
 		self.slaveList = ttk.Treeview(self.slaveListFrame, 
-			selectmode="extended", height = 5)
+			selectmode="browse", height = 5)
 		self.slaveList["columns"] = \
 			("Name","MAC","Status","IP","Out","In","Fans")
 
@@ -611,6 +708,18 @@ class FCInterface(Tk.Frame):
 
 		self.slaveList.insert('', 'end', None, 
 			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'K')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
+
+		self.slaveList.insert('', 'end', None, 
+			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
 
 		self.slaveList.insert('', 'end', None, 
 			values = ("Doods", "[0:1:2d]", "DOODLED", "0.0.0.0", "1", "2", "0"), tags = 'A')
@@ -665,7 +774,7 @@ class FCInterface(Tk.Frame):
 			text ="Auto-scroll", variable = self.autoscrollVar, 
 			bg = self.background)
 
-		self.terminalControlFrame.pack(fill = Tk.BOTH)
+		self.terminalControlFrame.pack(fill = Tk.X)
 
 		# Debug checkbox:
 		self.debugVar = Tk.IntVar()
@@ -697,6 +806,16 @@ class FCInterface(Tk.Frame):
 
 		self.controlFrame.pack(fill = Tk.X, expand = False)
 
+		# SETTINGS TOGGLE ......................................................
+		self.settingsToggleVar = Tk.IntVar()
+		self.settingsToggleVar.set(0)
+
+		self.settingsToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Settings", variable = self.settingsToggleVar, 
+			bg = self.background, command = self._settingsToggle)
+
+		self.settingsToggle.pack(side = Tk.LEFT)
+
 		# TERMINAL TOGGLE ......................................................
 		self.terminalToggleVar = Tk.IntVar()
 		self.terminalToggleVar.set(0)
@@ -717,12 +836,22 @@ class FCInterface(Tk.Frame):
 
 		self.slaveListToggle.pack(side = Tk.LEFT)
 
+		# LIVE PLOTTING TOGGLE .................................................
+		self.plotToggleVar = Tk.IntVar()
+		self.plotToggleVar.set(0)
+
+		self.plotToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Plot", variable = self.plotToggleVar, 
+			bg = self.background, command = self._plotToggle)
+
+		self.plotToggle.pack(side = Tk.LEFT)
+
 		# ARRAY CONTROL ........................................................
 
 		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
 			bg = self.background)
 
-		self.arrayControlFrame.pack()
+		self.arrayControlFrame.pack(expand = False)
 
 		self.selectedCommand = Tk.StringVar()
 		self.selectedCommand.set("Set Duty Cycle")
@@ -756,7 +885,7 @@ class FCInterface(Tk.Frame):
 
 		# Select All button:
 		self.selectedAll = False
-		self.selectAllButton = Tk.Button(self.controlFrame, 
+		self.selectAllButton = Tk.Button(self.arrayControlFrame, 
 			highlightbackground = self.background, text = "Select All", 
 			command = self.selectAllSlaves)
 
@@ -1061,6 +1190,18 @@ class FCInterface(Tk.Frame):
 		elif newValue == "Chase RPM":
 			self.commandLabelText.set("RPM: ")
 
+	def _settingsToggle(self): # ===============================================
+		# ABOUT: Hide and show settings
+
+		# Check variable:
+		if self.settingsToggleVar.get() == 1:
+			# Build settings:
+			self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
+		else:
+			# Hide settings:
+			self.settingsFrame.pack_forget()
+			self.settingsContainer.configure(width = 1)	
+
 	def _terminalToggle(self): # ===============================================
 		# ABOUT: Hide and show the terminal
 
@@ -1080,11 +1221,23 @@ class FCInterface(Tk.Frame):
 		# Check variable:
 		if self.slaveListToggleVar.get() == 1:
 			# Build slaveList:
-			self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
+			self.slaveListFrame.pack(fill = Tk.X, expand = False)
 		else:
 			# Hide slaveList:
-			self.slaveList.pack_forget()
-			self.slaveListFrame.configure(height = 1)
+			self.slaveListFrame.pack_forget()
+			self.slaveListContainer.configure(height = 1)
+
+	def _plotToggle(self): # ===================================================
+		# ABOUT: Hide and show plot
+
+		# Check variable:
+		if self.plotToggleVar.get() == 1:
+			# Build plot:
+			self.plotFrame.pack(fill = Tk.X, expand = False, anchor = 's')
+		else:
+			# Hide plot:
+			self.plotFrame.pack_forget()
+			self.plotContainer.configure(height = 1)
 
 
 	def _shutdownButton(self): # ===============================================
