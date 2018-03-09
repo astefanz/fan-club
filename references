@@ -1,0 +1,15 @@
+SOME NOTEWORTHY REFERENCES:
+
+
+=== ON MULTITHREADING & OPTIMIZATION:
+
+https://docs.python.org/3/library/profile.html
+
+http://www.numpy.org/
+
+https://stackoverflow.com/questions/19884275/understanding-performance-limitations-of-the-tkinter-canvas
+
+
+=== ON PLOTTING SOLUTIONS:
+
+https://hardsoftlucid.wordpress.com/various-stuff/realtime-plotting/
