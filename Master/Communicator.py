@@ -51,25 +51,26 @@ VERSION = "Asymmetrical 1"
 
 class Communicator:
 
-    def __init__(self, profiler, interface, bcupdate, ltupdate):
+    def __init__(self, profiler, smaster, display, bcupdate, ltupdate):
         #   \-----------------------------------------------------------/
         #   Interface methods
         # ABOUT: Constructor for class Communicator.
 
         try:
 
+
             # INITIALIZE DATA MEMBERS ==============================================
 
             # Output queues:
             self.mainQueue = Queue.Queue(profiler.mainQueueSize)
-            self.slaveQueue = Queue.Queue(profiler.slaveQueueSize)
 
             self.printM("Initializing Communicator instance")
 
             # Interface:
-            self.interface = interface
+            self.display = display
             self.bcupdate = bcupdate
             self.ltupdate = ltupdate
+            self.smaster = smaster
 
             # Profiler:
             self.profiler = profiler
@@ -125,7 +126,7 @@ class Communicator:
 
             # Bind socket to "nothing" (Broadcast on all interfaces and let system 
             # assign port number):
-            self.broadcastSocket.bind(("192.168.1.129", 0))
+            self.broadcastSocket.bind(("", 0))
 
             self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
@@ -203,7 +204,7 @@ class Communicator:
                 self.slaves[mac].thread.setDaemon(True)
                 self.slaves[mac].thread.start()
 
-            self.printM("\tCommunicator initialized", "G")
+            self.printM("Communicator ready", "G")
 
         except Exception as e: # Print uncaught exceptions
             self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
@@ -221,7 +222,8 @@ class Communicator:
 
             broadcastSocketPortCopy = self.broadcastSocketPort # Thread safety
 
-            self.printM("Broadcast thread started w/ period of {} second(s)"\
+            self.printM("[BT] Broadcast thread started w/ period of {} "\
+                "second(s)"\
                 .format(broadcastPeriod), "G")
 
             count = 0
@@ -263,9 +265,9 @@ class Communicator:
             the listenerSocket and respond accordingly.
         """
 
-        try:
+        try:    
 
-            self.printM("Listener thread started. Waiting.", "G")
+            self.printM("[LT] Listener thread started. Waiting.", "G")
 
             while(True):
                 self.ltupdate()
@@ -293,7 +295,7 @@ class Communicator:
 
                     # Verify password:
                     if messageSplitted[1] != self.password:
-                        raise ValueError("Wrong password ({})".\
+                        raise ValueError("Wrong password received ({})".\
                             format(messageSplitted[1]))
 
                     # Attempt conversion into corresponding containers:
@@ -339,7 +341,7 @@ class Communicator:
 
                     # If the given message is invalid, discard it and move on:
 
-                    self.printM("Error: \"{}\"\n\tObtained when parsing \"\
+                    self.printM("[LT ]Error: \"{}\"\n\tObtained when parsing \"\
                         {}\" from {}. (Message discarded)"\
                     .format(e, messageReceived, senderAddress), "W")
 
@@ -410,7 +412,8 @@ class Communicator:
                             name = random.choice(names.coolNames),
                             mac = mac,              # MAC address
                             status = Slave.AVAILABLE,   # Status
-                            interface = self.interface,
+                            master = self.smaster,
+                            display = self.display,
                             activeFans = 21,
                             maxFans = 21,
                             ip = senderAddress[0],  # IP address
@@ -439,7 +442,7 @@ class Communicator:
                     self.slavesLock.release()
 
         except Exception as e: # Print uncaught exceptions
-            self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
+            self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
                 format(traceback.format_exc()), "E")
 
         self.ltupdate("R")
@@ -464,7 +467,8 @@ class Communicator:
         try:
 
             # Setup: ===========================================================
-            self.printS(self.slaves[targetMAC], "Slave thread started", "G")
+            self.printM("[{}] Slave thread started".\
+                format(self.slaves[targetMAC].mac), "G")
 
             # Get reference to Slave: ------------------------------------------
             slave = self.slaves[targetMAC]
@@ -488,8 +492,10 @@ class Communicator:
                 # method expects a value in seconds.
             slave.mosiS.bind(('', 0))
 
-            self.printS(slave, "Sockets set up successfully: \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
-                format(slave.misoS.getsockname(), slave.mosiS.getsockname()), "G")
+            self.printM("[{}] Sockets set up successfully: \
+             \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
+                format(slave.mac,
+                    slave.misoS.getsockname(), slave.mosiS.getsockname()))
 
             # HSK message: -----------------------------------------------------
 
@@ -520,7 +526,7 @@ class Communicator:
                 # Acquire:
                 slave.lock.acquire()
                 # DEBUG DEACTV
-                #self.printS(slave, "Slave lock acquired", "D")
+                ## print "Slave lock acquired"
 
                 try:
 
@@ -528,7 +534,7 @@ class Communicator:
                     if slave.status == Slave.KNOWN: # = = = = = = = = = = = = = 
 
                         # If the Slave is known, try to secure a connection:
-                        self.printS(slave, "Attempting handshake")
+                        # print "Attempting handshake"
 
                         # Check for signs of life w/ HSK message:
                         self._send(MHSK, slave, 1, True)
@@ -538,16 +544,16 @@ class Communicator:
 
                         # Check reply:
                         if reply != None and reply[1] == "SHSK":
-                            self.printS(slave, "Processed reply: {}".format(reply), "G")
-                            self.printS(slave, "Handshake confirmed", "G")
+                            # print "Processed reply: {}".format(reply), "G"
+                            # print "Handshake confirmed"
 
                             # Mark as CONNECTED and get to work:
                             slave.setStatus(Slave.CONNECTED)
 
                         else:
                             # If there was an error, restart attempt:
-                            self.printS(slave, 
-                                "Missed handshake. Retrying.", "W")
+                            # print
+                            #   "Missed handshake. Retrying."
                             # Set Slave to disconnected:
                             slave.setStatus(Slave.DISCONNECTED) 
                                 # NOTE: This call also resets exchange index.
@@ -561,7 +567,7 @@ class Communicator:
                         # its connection need be maintained.
 
                         #DEBUG DEACTV
-                        #self.printS(slave, "[On positive state]", "D")
+                        ## print "[On positive state]"
 
                         # Check queue for message:
                         try:  
@@ -579,14 +585,14 @@ class Communicator:
                             self._send(message, slave, 4)
 
                             # DEBUG: 
-                            print "Sent: {}".format(message)
+                            # print "Sent: {}".format(message)
 
                         # Get reply:
                         reply = self._receive(slave)
 
                         # Check reply: -----------------------------------------
                         if reply != None:
-                            self.printS(slave, "Processed reply: {}".format(reply), "G")
+                            # print "Processed reply: {}".format(reply)
 
                             # Restore timeout counter after success:
                             timeouts = 0
@@ -607,7 +613,7 @@ class Communicator:
                             if message != None:
                                 # If a message was sent and no reply was 
                                 # received, resend it:
-                                self.printS(slave, "Timed out. Resending", "W")
+                                # print "Timed out. Resending"
                                 # Resend message:
                                 self._send(message, slave, 4)
                                 # Increment timeout counter:
@@ -616,19 +622,16 @@ class Communicator:
                             if timeouts < self.profiler.maxTimeouts:
                                 # If there have not been enough timeouts to con-
                                 # sider the connection compromised, continue.
-                                self.printS(slave, "Reply missed ({}/{})".\
-                                    format(timeouts, 
-                                        self.profiler.maxTimeouts), "W")
+                                # print "Reply missed ({}/{})".
+                                #   format(timeouts, 
+                                #       self.profiler.maxTimeouts)
 
                                 # Restart loop:
                                 continue;
 
                             else:
-                                self.printS(slave, 
-                                    "Too many missed replies. "+\
-                                    "Slave disconnected ({}/{})".\
-                                    format(timeouts, 
-                                        self.profiler.maxTimeouts), "E")
+                                self.printM("[{}] Slave timed out".\
+                                    format(slave.mac), "W")
 
                                 # Terminate connection: ........................
 
@@ -657,8 +660,8 @@ class Communicator:
                         slave.setExchange(0)
 
                         # DEBUG DEACTIV
-                        #self.printS(slave, "[Inactive status: {}]".\
-                        #   format(slave.status), "D")
+                        ## print "[Inactive status: {}]".
+                        #   format(slave.status)
 
                         # Wait arbitrary amount (say, comms period):
                         try:
@@ -672,7 +675,7 @@ class Communicator:
 
                 finally:
                     # DEBUG DEACTV
-                    #self.printS(slave, "Slave lock released", "D")
+                    ## print "Slave lock released", "D"
                     # Guarantee release of Slave-specific lock:
 
                     try:
@@ -684,8 +687,8 @@ class Communicator:
 
 
         except Exception as e: # Print uncaught exceptions
-            self.printS(slave, "UNCAUGHT EXCEPTION: \"{}\"".\
-               format(traceback.format_exc()), "E")
+            self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
+               format(slave.mac, traceback.format_exc()), "E")
 
         finally:
 
@@ -695,7 +698,8 @@ class Communicator:
                 pass
 
         
-        self.printS(slave, "ROUTINE TERMINATED", "E")
+        self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
+            format(slave.mac, traceback.format_exc()), "E")
         # End _slaveRoutine  # # # # # # # # # # # #  # # # # # # # # # # # # # 
 
     # # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -728,8 +732,8 @@ class Communicator:
                 (slave.ip, slave.mosiP))
 
         # Notify user:
-        self.printS(slave, "Sent \"{}\" to {} {} time(s)".\
-            format(outgoing, (slave.ip, slave.mosiP), repeat))
+        # print "Sent \"{}\" to {} {} time(s)".
+        #   format(outgoing, (slave.ip, slave.mosiP), repeat))
 
         # End _send # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -757,14 +761,14 @@ class Communicator:
                 # Increment counter: -------------------------------------------
                 count += 1
                 # DEBUG DEACTV
-                #self.printS(slave, "Receiving...({})".format(count), "D")
+                ## print "Receiving...({})".format(count), "D"
 
                 # Receive message: ---------------------------------------------
                 message, sender = slave.misoS.recvfrom(
                     self.profiler.maxLength)
 
                 # DEBUG DEACTV
-                #self.printS(slave, "Received: \"{}\" from {}".\
+                ## print "Received: \"{}\" from {}".
                  #   format(message, sender), "D")
 
                 try:
@@ -776,8 +780,8 @@ class Communicator:
 
                     if index <= slave.misoIndex:
                         # Bad index. Discard message:
-                        self.printS(slave, "Bad index: ({})".\
-                            format(index), "D")
+                        # print "Bad index: ({})".
+                        #   format(index), "D"
 
                         # Discard message:
                         continue
@@ -800,9 +804,9 @@ class Communicator:
                         output = (index, splitted[1], splitted[2], splitted[3])
 
                     else:
-                        self.printS(slave,\
-                         "ERROR: Unrecognized split amount ({}) on: {}".\
-                         format(len(splitted), str(splitted)), "E")
+                        # print
+                        #"ERROR: Unrecognized split amount ({}) on: {}".\
+                        #format(len(splitted), str(splitted)), "E")
                         return None
                         
                     # Update MISO index:
@@ -810,32 +814,32 @@ class Communicator:
 
                     # Return splitted message: ---------------------------------
                     # DEBUG DEACTV
-                    #self.printS(slave, "Returning {}".format(output), "D")
+                    ## print "Returning {}".format(output), "D"
                     return output
 
                 except (ValueError, IndexError, TypeError) as e:
                     # Handle potential Exceptions from format mismatches:
 
-                    self.printS(slave, "Bad message: \"{}\"".\
-                            format(e), "W")
+                    # print "Bad message: \"{}\"".
+                    #       format(e), "W")
 
                     if not indexMatch:
                         # If the correct index has not yet been found, keep lo-
                         # oking:
 
                         # DEBUG DEACTV
-                        #self.printS(slave, "Retrying receive", "D")
+                        ## print "Retrying receive", "D"
 
                         continue;
                     else:
                         # If the matching message is broken, exit w/ error code
                         # (None)
-                        self.printS(slave, 
-                            "WARNING: Broken message with matching index: " +\
-                            "\n\t Raw: \"{}\"" +\
-                            "\n\t Splitted: {}" +\
-                            "\n\t Error: \"{}\"".\
-                            format(message, splitted, e), "E")
+                        # print
+                        #   "WARNING: Broken message with matching index: " +\
+                        #   "\n\t Raw: \"{}\"" +\
+                        #   "\n\t Splitted: {}" +\
+                        #   "\n\t Error: \"{}\"".\
+                        #   format(message, splitted, e), "E")
 
                         return None
 
@@ -843,7 +847,7 @@ class Communicator:
 
         # Handle exceptions: ---------------------------------------------------
         except socket.timeout: 
-            self.printS(slave, "Timed out.", "D")
+            # print "Timed out.", "D"
             return None
 
         

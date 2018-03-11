@@ -47,26 +47,34 @@ BUSY = 2
 
 # AUXILIARY DEFINITIONS ########################################################
 
-def translate(statusCode): # ===================================================
+def translate(statusCode, short = False): # ====================================
 	# ABOUT: Translate an integer status code to a String.
 	# PARAMETERS:
 	# - statusCode: int, status code to translate.
+	# - short: bool, whether to give corresponding single-char version.
 	# RAISES:
 	# - ValueError if given argument is not a valid status code
 
+	result = ""
+
 	if statusCode == DISCONNECTED:
-		return "DISCONNECTED"
+		result = "DISCONNECTED"
 	elif statusCode == AVAILABLE:
-		return "AVAILABLE"
+		result = "AVAILABLE"
 	elif statusCode == KNOWN:
-		return "KNOWN"
+		result = "KNOWN"
 	elif statusCode == CONNECTED:
-		return "CONNECTED"
+		result = "CONNECTED"
 	elif statusCode == BUSY:
-		return "BUSY"
+		result = "BUSY"
 	else:
 		raise ValueError("Slave.translate got nonexistent statusCode! ({})".\
 			format(statusCode))
+
+	if short:
+		return result[0]
+	else:
+		return result
 
 	# End translate # ==========================================================
 
@@ -76,7 +84,7 @@ class Slave:
 	# ABOUT: Representation of connected Slave model, primarily a container with
 	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, name, mac, status, interface, maxFans, activeFans,
+	def __init__(self, name, mac, status, master, display, maxFans, activeFans,
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None,
 		thread = None):
 		# ABOUT: Constructor for class Slave.
@@ -130,36 +138,44 @@ class Slave:
 		self.lock = threading.Lock()
 		self.mosiQueue = Queue.Queue(1)
 
-		self.slaveDisplay = FCI.SlaveDisplay(
-			interface, self)
-
-		# Set active fans:
-		self.setActiveFans(activeFans)
+		self.slaveDisplay = FCI.SlaveDisplay(master, self)
 
 		self.setRPM = self.slaveDisplay.setRPM
 		self.setDC = self.slaveDisplay.setDC
 
+		# Add self to display (ttk Treeview)
+		# NOTE: If time allows, add layer of abstraction. (You wish.)
+		self.display = display
+		self.iid = self.display.insert('', 'end', 
+			values = (self.name, self.mac, translate(self.status),
+			 self.ip, self.activeFans), tag = translate(self.status, True))
 
 	def setName(self, newName): # ==========================================
 		# ABOUT: Update name.
 		# PARAMETERS: 
 		# - newName: new name.
-
 		self.name = newName
-		self.slaveDisplay.setName(newName)
+
+		self.updateList()
+
 
 	def setStatus(self, newStatus): # ==========================================
 		# ABOUT: Update status.
 		# PARAMETERS: 
 		# - newStatus: code of the new status.
 
-		self.status = newStatus
-		
-		if newStatus == DISCONNECTED:
-			self.setExchange(0)
-			self.setMISOIndex(0)
+		if self.status == newStatus:
+			return
+		else: 
+			self.status = newStatus
+			
+			if newStatus == DISCONNECTED:
+				self.setExchange(0)
+				self.setMISOIndex(0)
+				self.setActiveFans(0)
 
-		self.slaveDisplay.setStatus(newStatus)
+			self.slaveDisplay.setStatus(newStatus)
+			self.updateList(newStatus)
 
 		# End setStatus ========================================================
 
@@ -169,7 +185,8 @@ class Slave:
 		# - MAC: new MAC address.
 
 		self.mac = newMAC
-		self.slaveDisplay.setMAC(newMAC)
+
+		self.updateList()
 
 	def setExchange(self, newExchange): # ======================================
 		# ABOUT: Update exchange index.
@@ -177,7 +194,8 @@ class Slave:
 		# - newExchange: new exchange index.
 
 		self.exchange = newExchange
-		self.slaveDisplay.setExchange("E: " + str(newExchange))
+
+		self.updateList()
 
 	def setIP(self, newIP): # ==================================================
 		# ABOUT: Update IP address.
@@ -185,7 +203,20 @@ class Slave:
 		# - newExchange: new IP address
 
 		self.ip = newIP
-		self.slaveDisplay.setIP(newIP)
+
+		self.updateList()
+
+	def updateList(self, newStatus = None): # ==================================
+		# ABOUT: Update items in Slave list
+		if newStatus == None:
+			self.display.item(self.iid, 
+				values = [self.name, self.mac, translate(self.status),
+				 self.ip, self.activeFans])
+		else:
+			self.display.item(self.iid, 
+				values = [self.name, self.mac, translate(self.status),
+				 self.ip, self.activeFans], tag = translate(self.status ,True))
+
 
 	def setActiveFans(self, newActiveFans): # ==================================
 		# ABOUT: Update activeFans value
@@ -193,16 +224,15 @@ class Slave:
 		# - newActiveFans: new value for activeFans
 		self.activeFans = newActiveFans
 		self.slaveDisplay.setActiveFans(newActiveFans)
+		self.updateList()
 
 	def incrementExchange(self):
 		# ABOUT: Increment exchange index by 1.
 		self.exchange += 1
-		self.slaveDisplay.setExchange("E: " + str(self.exchange))
 
 	def incrementMISOIndex(self):
 		# ABOUT: Increment misoIndex index by 1.
 		self.misoIndex += 1
-		self.slaveDisplay.setMISOIndex("I: " + str(self.misoIndex))
 
 	def setMISOIndex(self, newMISOIndex): # ======================================
 		# ABOUT: Update misoIndex index.
@@ -210,6 +240,5 @@ class Slave:
 		# - newmisoIndex: new misoIndex index.
 
 		self.misoIndex = newMISOIndex
-		self.slaveDisplay.setMISOIndex("I: " + str(newMISOIndex))
 
 

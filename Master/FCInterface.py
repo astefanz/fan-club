@@ -73,76 +73,36 @@ class SlaveDisplay(Tk.Frame):
 		# GENERAL INFORMATION - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 		self.generalFrame = Tk.Frame(self, bg = self.background)
-		self.generalFrame.pack(fill = Tk.X)
-
-		# ......................................................................
-		self.nameVar = Tk.StringVar()
-		self.nameVar.set('- "' + slave.name + '"')
-		self.nameLabel = Tk.Label(self.generalFrame, textvariable = self.nameVar,
-			fg = "black", relief = Tk.SUNKEN, bd = 1, font = 'TkFixedFont 12 bold',
-			bg = "white")
-		self.nameLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.macVar = Tk.StringVar()
-		self.macVar.set(" ["+slave.mac+"] ")
-
-		self.macLabel = Tk.Label(self.generalFrame, textvariable = self.macVar, 
-			fg = "blue",relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.macLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.statusVar = Tk.StringVar()
-		self.statusVar.set(Slave.translate(slave.status))
-
-		self.statusLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.statusVar, font = 'TkFixedFont 12 bold',
-			bg = "white", relief = Tk.SUNKEN, bd = 1)
-		self.statusLabel.pack(side = Tk.LEFT)
-
-		# ......................................................................
-		self.ipVar = Tk.StringVar()
-		self.ipVar.set("IP: [NONE]")
-
-		self.ipLabel = Tk.Label(self.generalFrame, textvariable = self.ipVar,
-			bg = "white", relief = Tk.SUNKEN, bd = 1)
-		self.ipLabel.pack(side = Tk.LEFT)
+		self.generalFrame.pack(fill = Tk.Y, side = Tk.LEFT)
 
 		# ......................................................................
 		self.exchangeVar = Tk.StringVar()
 		self.exchangeVar.set("O: 0")
 		self.exchangeLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.exchangeLabel.pack(side = Tk.LEFT)
+			bg = "white", font = 'TkFixedFont 8')
+		self.exchangeLabel.pack(side = Tk.TOP, anchor = 'w',fill = Tk.X, expand =True)
 
 		# ......................................................................
 		self.misoIndexVar = Tk.StringVar()
 		self.misoIndexVar.set("I: 0")
 		self.misoIndexLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.misoIndexVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.misoIndexLabel.pack(side = Tk.LEFT)
+			bg = "white", font = 'TkFixedFont 8')
+		self.misoIndexLabel.pack(side = Tk.TOP, anchor = 'w', fill = Tk.X, expand =True)
 
 		# ......................................................................
-		self.activeFansVar = Tk.StringVar()
-		self.activeFansVar.set("Active Fans: {}/{}".\
-			format(slave.activeFans, slave.maxFans))
-		self.activeFansLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.activeFansVar, relief = Tk.SUNKEN, bd = 1,
-			bg = "white")
-		self.activeFansLabel.pack(side = Tk.LEFT)
+		self.buttonFrame = Tk.Frame(self)
+		self.buttonFrame.pack(side = Tk.RIGHT)
 
-		# ......................................................................
 		self.toggled = False
 		self.selectText = Tk.StringVar()
 
 		self.selectText.set("Select")
-		self.selectButton = Tk.Button(self.generalFrame, textvariable = self.selectText, 
-			command = self.toggleAll, highlightbackground = self.background)
+		self.selectButton = Tk.Button(self.buttonFrame, textvariable = self.selectText, 
+			command = self.toggleAll, highlightbackground = self.background,pady = 0)
 
-		self.selectButton.pack(side =Tk.RIGHT)
+		self.selectButton.pack(side = Tk.LEFT)
 
 		# FAN ARRAY - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		self.fanArrayFrame = Tk.Frame(self, bg = self.background)
@@ -153,8 +113,7 @@ class SlaveDisplay(Tk.Frame):
 			self.fans.append(FanDisplay(self.fanArrayFrame, i, 
 				self.setSelection))
 		
-		self.master.create_window((0,0), window = self, anchor = 'w', width = 781)
-		self.pack(fill = Tk.X, side = Tk.TOP)
+		#self.pack(fill = Tk.X, side = Tk.TOP)
 
 		# OLD VALUES: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			# Keep track of old values to 
@@ -179,13 +138,6 @@ class SlaveDisplay(Tk.Frame):
 		self.setStatus(slave.status, True)
 		# End __init__ =========================================================
 
-	def setName(self, newName): # ==========================================
-		# ABOUT: Update name.
-		# PARAMETERS: 
-		# - newName: new name.
-
-		self.nameVar.set(newName)
-
 	def setStatus(self, newStatus, redundant = False): # =======================
 		# ABOUT: Update status.
 		# PARAMETERS: 
@@ -198,15 +150,11 @@ class SlaveDisplay(Tk.Frame):
 		else:
 			self.status = newStatus
 
-		self.statusVar.set(Slave.translate(newStatus))
-
 		if newStatus == Slave.CONNECTED:
-			self.statusLabel.configure(fg = "green", bg = "#1eaa08")
 			self.setActiveFans(self.activeFans)
 			self.selectButton.configure(state = Tk.NORMAL)
 
 		elif newStatus == Slave.DISCONNECTED:
-			self.statusLabel.configure(fg = "red", bg = "#6b0303")
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
 			# Reset lists:
@@ -215,7 +163,6 @@ class SlaveDisplay(Tk.Frame):
 				self.oldDCs[i] = -1
 
 		elif newStatus == Slave.KNOWN:
-			self.statusLabel.configure(fg = "blue", bg = "#b7c3ff")
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
 			# Reset lists:
@@ -226,7 +173,6 @@ class SlaveDisplay(Tk.Frame):
 		elif newStatus == Slave.AVAILABLE:
 			self.selectText.set("Connect")
 			self.selectButton.configure(state = Tk.NORMAL)
-			self.statusLabel.configure(fg = "#1e8eff", bg = "#0e397f")
 			self.setActiveFans(0)
 			# Reset lists:
 			for i in range(self.maxFans):
@@ -234,13 +180,6 @@ class SlaveDisplay(Tk.Frame):
 				self.oldDCs[i] = -1
 
 		# End setStatus ========================================================
-
-	def setMAC(self, newMAC): # ================================================
-		# ABOUT: Update MAC.
-		# PARAMETERS: 
-		# - MAC: new MAC address.
-
-		self.macVar.set(newMAC)
 
 	def setExchange(self, newExchange): # ======================================
 		# ABOUT: Update exchange index.
@@ -255,13 +194,6 @@ class SlaveDisplay(Tk.Frame):
 		# - newMISOIndex: new MISO index.
 
 		self.misoIndexVar.set(newMISOIndex)
-
-	def setIP(self, newIP): # ==================================================
-		# ABOUT: Update IP address.
-		# PARAMETERS: 
-		# - newExchange: new IP address
-
-		self.ipVar.set(newIP)
 
 	def setRPM(self, rpm, fan): # ==============================================
 		# ABOUT: Update RPM of one fan.
@@ -293,10 +225,6 @@ class SlaveDisplay(Tk.Frame):
 		# ABOUT: Update activeFans value
 		# PARAMETERS:
 		# - newActiveFans: new value for activeFans
-
-		# Update display:
-		self.activeFansVar.set("Active Fans: {}/{}".\
-			format(newActiveFans, self.maxFans))
 
 		# Update fan array display:
 		for fan in self.fans:
@@ -496,8 +424,6 @@ class FanDisplay(Tk.Frame):
 
 		# End setStatus ========================================================
 
-
-
 ## CLASS DEFINITION ############################################################
 
 class FCInterface(Tk.Frame):      
@@ -506,7 +432,6 @@ class FCInterface(Tk.Frame):
 		Tk.Frame.__init__(self, master)
 
 		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = = 
-
 
 		# Deactivate resizing:
 		#self.master.resizable(False,False)
@@ -523,111 +448,222 @@ class FCInterface(Tk.Frame):
 
 		# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
+		# SHUTDOWN -------------------------------------------------------------
+
+		# Shutdown button frame:
+		self.shutdownButtonFrame = Tk.Frame(self, relief = Tk.RIDGE, 
+			borderwidth = 1)
+		self.shutdownButtonFrame.pack(
+			side = Tk.TOP, fill = Tk.X, expand = False)
+
+		# Shutdown button:
+		self.shutdownButton = Tk.Button(self.shutdownButtonFrame,
+			highlightbackground = "#890c0c", text = "SHUTDOWN",
+			command = self._shutdownButton, font = 'TkFixedFont 17 bold ')
+		self.shutdownButton.pack(fill = Tk.X)
+
+		# MAIN FRAME -----------------------------------------------------------
+		self.main = Tk.Frame(self)
+		self.main.pack(fill = Tk.BOTH, expand = True)
+
+		# MAIN DISPLAY ---------------------------------------------------------
+
+		# Main display frame ..................................................
+		self.mainDisplayFrame = Tk.Frame(
+			self.main, height = 100, bg = '#212121')
+
+		self.mainDisplayFrame.pack(
+			fill = Tk.BOTH, expand = True, side = Tk.TOP)
+
+		# SETTINGS -------------------------------------------------------------
+
+		# Settings container:
+		self.settingsContainer = Tk.Frame(self.mainDisplayFrame,
+			bg = self.background)
+		self.settingsContainer.pack(
+			fill =Tk.Y, side = Tk.LEFT, expand = False,)
+
+		# Settings frame:
+		self.settingsFrame = Tk.Frame(self.settingsContainer,
+			bg = self.background, width = 500,
+			borderwidth = 1, relief = Tk.RIDGE)
+
+		#self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
+		# Comment this to start w/ widget hidden
+
+
+		# Settings Label:
+		self.settingsLabelFrame = Tk.Frame(self.settingsFrame,
+			bg = self.background)
+		self.settingsLabelFrame.pack(fill = Tk.X, expand = False)
+
+		self.settingsLabel = Tk.Label(self.settingsLabelFrame,
+			bg = self.background, text = "Settings [Unimplemented]")
+		self.settingsLabel.pack(side = Tk.LEFT)
+
 		# ARRAY ----------------------------------------------------------------
 
-		# Array frame ..........................................................
-		self.arrayFrame = Tk.Frame(self, relief = Tk.RIDGE, 
-			borderwidth = 2, width = 1500, height = 100)
+		# Array Frame ..........................................................
+		self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
+			relief = Tk.SUNKEN, borderwidth = 3)
+		self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
 
-		# Array canvas .........................................................
-		self.arrayCanvas = Tk.Canvas(self.arrayFrame, height = 300, 
-			bg = 'darkgray',highlightthickness=0)
+		# LIVE PLOT ------------------------------------------------------------
 
-		# Array frame label frame ..............................................
-		self.arrayFrameLabelFrame = Tk.Label(self.arrayFrame,
+		# Plot container .......................................................
+		self.plotContainer = Tk.Frame(self.main)
+		self.plotContainer.pack(fill = Tk.X, expand = False)
+
+		# Plot frame ...........................................................
+		self.plotFrame = Tk.Frame(self.plotContainer,
+			bg = self.background, borderwidth = 1, relief = Tk.GROOVE, padx = 10)
+		#self.plotFrame.pack(fill = Tk.X, expand = False)
+		# Comment this to start w/ widget hidden
+
+		# Plot controls ........................................................
+		self.plotControlFrame = Tk.Frame(self.plotFrame, 
+			background = self.background)
+		self.plotControlFrame.pack(fill = Tk.X, expand = False)
+
+		# Variable 1:
+		self.plotVar1 = Tk.IntVar()
+
+		self.plotOption1 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 1", variable = self.plotVar1, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption1.pack(side = Tk.LEFT)
+
+		# Variable 2:
+		self.plotVar2 = Tk.IntVar()
+
+		self.plotOption2 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 2", variable = self.plotVar2, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption2.pack(side = Tk.LEFT)
+
+		# Variable 3:
+		self.plotVar3 = Tk.IntVar()
+
+		self.plotOption3 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 3", variable = self.plotVar3, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption3.pack(side = Tk.LEFT)
+
+		# Variable 4:
+		self.plotVar4 = Tk.IntVar()
+
+		self.plotOption4 = Tk.Checkbutton(self.plotControlFrame, 
+			text ="Variable 4", variable = self.plotVar4, 
+			bg = self.background, state = Tk.DISABLED)
+		self.plotOption4.pack(side = Tk.LEFT)
+
+
+		self.plotSaveButton = Tk.Button(self.plotControlFrame, text = 'Save', 
+			highlightbackground = self.background, padx = 10, 
+			state = Tk.DISABLED)
+		self.plotSaveButton.pack(side = Tk.RIGHT)
+
+		# Plot placeholder .....................................................
+		self.plot = Tk.Frame(self.plotFrame, height = 100, bg = 'white')
+		self.plot.pack(fill = Tk.X, expand = False, anchor = 's')
+		# Comment this to start w/ widget hidden
+
+		self.plotLabel = Tk.Label(self.plot, height = 5,
+			text = "[Fancy plot will go here]", font = 'TkFixedFont', fg = 'gray')
+		self.plotLabel.pack()
+
+		# SLAVE LIST -----------------------------------------------------------
+
+		# Slave list container .................................................
+		self.slaveListContainer = Tk.Frame(self.main)
+		self.slaveListContainer.pack(fill = Tk.X, expand = False)
+
+		# Slave list frame .....................................................
+		self.slaveListFrame = Tk.Label(self.slaveListContainer,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
+		self.slaveListFrame.pack(fill = Tk.X, expand = False)
 
-		# Shutdown button ......................................................
-		self.shutdownButtonFrame = Tk.Frame(self.arrayFrameLabelFrame, 
-			relief = Tk.SUNKEN, borderwidth = 1)
+		# Slave display frame ..................................................
+		self.slaveDisplayFrame = Tk.Frame(self.slaveListFrame)
+		self.slaveDisplayFrame.pack(fill = Tk.X, expand = False)
 
-		self.shutdownButton = Tk.Button(self.shutdownButtonFrame, 
-			highlightbackground = "#890c0c", text = "SHUT DOWN", 
-			command = self._shutdownButton)
+		# List of Slaves .......................................................
 
-		self.shutdownButtonFrame.pack(side = Tk.RIGHT)
-		self.shutdownButton.pack()
+		# Create list:
+		self.slaveList = ttk.Treeview(self.slaveListFrame, 
+			selectmode="browse", height = 5)
+		self.slaveList["columns"] = \
+			("Name","MAC","Status","IP","Fans")
 
-		# Array frame label ....................................................
-		self.arrayFrameLabel = Tk.Label(self.arrayFrameLabelFrame, 
-			text = "Slaves", bg = self.background, anchor = Tk.CENTER)
+		# Create columns:
+		self.slaveList.column('#0', width = 20, stretch = False)
+		self.slaveList.column("Name", width = 50)
+		self.slaveList.column("MAC", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Status", width = 50, 
+			anchor = "center")
+		self.slaveList.column("IP", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Fans", width = 50, stretch = False, 
+			anchor = "center")
+
+		# Configure column headings:
+		self.slaveList.heading("Name", text = "Name")
+		self.slaveList.heading("MAC", text = "MAC")
+		self.slaveList.heading("Status", text = "Status")
+		self.slaveList.heading("IP", text = "IP")
+		self.slaveList.heading("Fans", text = "Fans")
+
+		# Configure tags:
+		self.slaveList.tag_configure("C", background= '#d1ffcc', foreground = '#0e4707', font = 'TkFixedFont 12 ') # Connected
+		self.slaveList.tag_configure("B", background= '#ccdeff', foreground ='#1b2d4f', font = 'TkFixedFont 12 ') # Busy
+		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
+		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
+		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
+
+		# Save previous selection:
+		self.oldSelection = None
+
+		# Bind command:
+		self.slaveList.bind('<Double-1>', self._slaveListMethod)
+
+		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
+
 		
-		self.arrayFrameLabel.pack()
-		self.arrayFrameLabelFrame.pack(fill = Tk.BOTH)
-
-		# Array scrollbar ......................................................
-
-		self.arrayScrollbar = Tk.Scrollbar(self.arrayFrame)
-		self.arrayScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.arrayScrollbar.config(command=self.arrayCanvas.yview)
-		self.arrayCanvas.config(yscrollcommand = self.arrayScrollbar.set)
-		self.arrayCanvas.configure(scrollregion=(0,0,1500,1200))
-
-
-		# Pack array frame and canvas ..........................................
-		self.arrayFrame.pack(fill = Tk.X)
-
-		self.arrayCanvas.pack(fill = Tk.X, expand = True)
-		self.arrayCanvas.pack_propagate(False)
-
-		# CONTROL --------------------------------------------------------------
-		self.controlFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			 bg=self.background)
-
-		# ARRAY CONTROL ........................................................
-
-		self.controlContainer = Tk.Frame(self.controlFrame, 
-			bg = self.background)
-
-		self.selectedCommand = Tk.StringVar()
-		self.selectedCommand.set("Set Duty Cycle")
-		self.commandMenu = Tk.OptionMenu(self.controlContainer, 
-			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
-			command = self._changeCommandMenu)
-
-		self.commandLabelText = Tk.StringVar()
-		self.commandLabelText.set("DC: ")
-		self.commandLabel = Tk.Label(self.controlContainer, 
-			textvariable = self.commandLabelText, background = self.background)
-
-		self.commandMenu.configure(highlightbackground = self.background)
-		self.commandMenu.configure(background = self.background)
-
-		self.commandMenu.pack(side = Tk.LEFT)
-		self.commandLabel.pack(side = Tk.LEFT)
-
-		validateC = self.register(self._validateN)
-		self.commandEntry = Tk.Entry(self.controlContainer, 
-			highlightbackground = self.background,
-			width = 7, validate = 'key', validatecommand = \
-				(validateC, '%S', '%s', '%d'))
-		self.commandEntry.pack(side = Tk.LEFT)
-
-		self.sendButton = Tk.Button(self.controlContainer, 
-			highlightbackground = self.background, text = "Send",
-			command = self._send)
-
-		self.sendButton.pack(side = Tk.LEFT)
-
-
-
-		self.selectedAll = False
-		self.selectAllButton = Tk.Button(self.controlFrame, 
-			highlightbackground = self.background, text = "Select All", 
-			command = self.selectAllSlaves)
-
-		self.selectAllButton.pack(side = Tk.RIGHT)
-
-		self.controlContainer.pack()
-		self.controlFrame.pack(fill = Tk.X, expand = False)
-
 		# TERMINAL -------------------------------------------------------------
-		self.terminalFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
+		self.terminalContainerFrame = Tk.Frame(self.main, relief = Tk.GROOVE, 
+		borderwidth = 1, bg = self.background)
+		self.terminalContainerFrame.pack(fill = Tk.X, expand = False, anchor = 's')
+
+		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background)
+		#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+		# Comment out to not start w/ hidden terminal by default
 
-		self.terminal = ttk.Notebook(self.terminalFrame)
-
-		self.terminal.pack(fill = Tk.BOTH, expand = True)
+		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+		self.mainTerminal = ttk.Frame(self.terminalFrame)
+		self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
+		self.mainTLock = threading.Lock()
+		self.mainTText = Tk.Text(self.mainTerminal, height = 10, width = 120, 
+			fg = "#424242", bg=self.background, font = ('TkFixedFont'),
+			selectbackground = "#cecece",
+			state = Tk.DISABLED)
+		self.mainTScrollbar = Tk.Scrollbar(self.mainTerminal)
+		self.mainTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
+		self.mainTScrollbar.config(command=self.mainTText.yview)
+		self.mainTText.config(yscrollcommand = self.mainTScrollbar.set)
+		self.mainTText.bind("<1>", 
+			lambda event: self.mainTText.focus_set())
+		self.mainTText.pack(fill =Tk.BOTH, expand = True)
+		# Configure tags:
+		self.mainTText.tag_config("S")
+		self.mainTText.tag_config("G", foreground = "#168e07")
+		self.mainTText.tag_config(\
+			"W", underline = 1, foreground = "orange")
+		self.mainTText.tag_config(\
+			"E", underline = 1, foreground = "red", background = "#510000")
+		self.mainTText.tag_config(\
+			"D", foreground = self.debugColor)
 		
 		# TERMINAL CONTROL FRAME ...............................................
 
@@ -641,7 +677,7 @@ class FCInterface(Tk.Frame):
 			text ="Auto-scroll", variable = self.autoscrollVar, 
 			bg = self.background)
 
-		self.terminalControlFrame.pack(fill = Tk.BOTH)
+		self.terminalControlFrame.pack(fill = Tk.X)
 
 		# Debug checkbox:
 		self.debugVar = Tk.IntVar()
@@ -658,6 +694,117 @@ class FCInterface(Tk.Frame):
 			text ="Terminal output", variable = self.terminalVar, 
 			bg = self.background)
 
+		# TERMINAL SETUP:
+
+		self.autoscrollButton.pack(side = Tk.LEFT)
+		self.debugButton.pack(side = Tk.LEFT)
+		self.terminalButton.pack(side = Tk.LEFT)
+		self.autoscrollButton.select()
+
+
+		# CONTROL --------------------------------------------------------------
+		self.controlFrame = Tk.Frame(self, 
+			relief = Tk.GROOVE, borderwidth = 1,
+			bg=self.background)
+
+		self.controlFrame.pack(fill = Tk.X, expand = False)
+
+		# SETTINGS TOGGLE ......................................................
+		self.settingsToggleVar = Tk.IntVar()
+		self.settingsToggleVar.set(0)
+
+		self.settingsToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Settings", variable = self.settingsToggleVar, 
+			bg = self.background, command = self._settingsToggle)
+
+		self.settingsToggle.pack(side = Tk.LEFT)
+
+		# TERMINAL TOGGLE ......................................................
+		self.terminalToggleVar = Tk.IntVar()
+		self.terminalToggleVar.set(0)
+
+		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Terminal", variable = self.terminalToggleVar, 
+			bg = self.background, command = self._terminalToggle)
+
+		self.terminalToggle.pack(side = Tk.LEFT)
+
+		# SLAVE LIST TOGGLE ....................................................
+		self.slaveListToggleVar = Tk.IntVar()
+		self.slaveListToggleVar.set(1)
+
+		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="List", variable = self.slaveListToggleVar, 
+			bg = self.background, command = self._slaveListToggle)
+
+		self.slaveListToggle.pack(side = Tk.LEFT)
+
+		# LIVE PLOTTING TOGGLE .................................................
+		self.plotToggleVar = Tk.IntVar()
+		self.plotToggleVar.set(0)
+
+		self.plotToggle = Tk.Checkbutton(self.controlFrame, 
+			text ="Plot", variable = self.plotToggleVar, 
+			bg = self.background, command = self._plotToggle)
+
+		self.plotToggle.pack(side = Tk.LEFT)
+
+		# ARRAY CONTROL ........................................................
+
+		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
+			bg = self.background)
+
+		self.arrayControlFrame.pack(expand = False)
+
+		self.selectedCommand = Tk.StringVar()
+		self.selectedCommand.set("Set Duty Cycle")
+		self.commandMenu = Tk.OptionMenu(self.arrayControlFrame, 
+			self.selectedCommand,"Set Duty Cycle", "Chase RPM", 
+			command = self._changeCommandMenu)
+
+		self.commandLabelText = Tk.StringVar()
+		self.commandLabelText.set("DC: ")
+		self.commandLabel = Tk.Label(self.arrayControlFrame, 
+			textvariable = self.commandLabelText, background = self.background)
+
+		self.commandMenu.configure(highlightbackground = self.background)
+		self.commandMenu.configure(background = self.background)
+
+		self.commandMenu.pack(side = Tk.LEFT)
+		self.commandLabel.pack(side = Tk.LEFT)
+
+		validateC = self.register(self._validateN)
+		self.commandEntry = Tk.Entry(self.arrayControlFrame, 
+			highlightbackground = self.background,
+			width = 7, validate = 'key', validatecommand = \
+				(validateC, '%S', '%s', '%d'))
+		self.commandEntry.pack(side = Tk.LEFT)
+
+		self.sendButton = Tk.Button(self.arrayControlFrame, 
+			highlightbackground = self.background, text = "Send",
+			command = self._send)
+
+		self.sendButton.pack(side = Tk.LEFT)
+
+		# Select All button:
+		self.selectedAll = False
+		self.selectAllButton = Tk.Button(self.arrayControlFrame, 
+			highlightbackground = self.background, text = "Select All", 
+			command = self.selectAllSlaves)
+
+		self.selectAllButton.pack(side = Tk.RIGHT)
+
+
+
+		# STATUS ---------------------------------------------------------------
+		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
+			 bg=self.background)
+
+		self.versionLabel = Tk.Label(self.statusFrame, text = "Version: " + version,
+			bg = self.background, fg = "#424242")
+		self.versionLabel.pack(side = Tk.RIGHT)
+
+		self.statusFrame.pack(fill = Tk.X, expand = False, side =Tk.BOTTOM, anchor = 's')
 
 		# THREAD ACTIVITY DISPLAYS .............................................
 
@@ -667,7 +814,7 @@ class FCInterface(Tk.Frame):
 		self.displayBLUE = "#4fa7ff"
 
 		# Connection status:
-		self.connectionStatusFrame = Tk.Frame(self.terminalControlFrame, 
+		self.connectionStatusFrame = Tk.Frame(self.statusFrame, 
 			bg = self.background, padx = 10)
 
 		self.connectionStatusFrame.pack(side = Tk.RIGHT)
@@ -681,7 +828,7 @@ class FCInterface(Tk.Frame):
 
 		# Label:
 		self.broadcastDisplayLabel = Tk.Label(self.broadcastDisplayFrame, 
-			text = "BC: ", background = self.background,)
+			text = "Broadcast: ", background = self.background,)
 		self.broadcastDisplayLabel.pack(side = Tk.LEFT)
 
 		# Display:
@@ -705,7 +852,7 @@ class FCInterface(Tk.Frame):
 
 		# Label:
 		self.listenerDisplayLabel = Tk.Label(self.listenerDisplayFrame, 
-			text = "LT: ", background = self.background,)
+			text = "Listener: ", background = self.background,)
 		self.listenerDisplayLabel.pack(side = Tk.LEFT)
 
 		# Display:
@@ -720,81 +867,7 @@ class FCInterface(Tk.Frame):
 		self.listenerGREEN = self.displayGREEN1
 		self.listenerBLUE = self.displayBLUE
 
-		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		self.mainTerminal = ttk.Frame(self.terminal)
-		self.mainTLock = threading.Lock()
-		self.mainTText = Tk.Text(self.mainTerminal, height = 10, width = 120, 
-			fg = "#424242", bg=self.background, font = ('TkFixedFont'),
-			selectbackground = "#cecece",
-			state = Tk.DISABLED)
-		self.mainTScrollbar = Tk.Scrollbar(self.mainTerminal)
-		self.mainTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.mainTScrollbar.config(command=self.mainTText.yview)
-		self.mainTText.config(yscrollcommand = self.mainTScrollbar.set)
-		self.mainTText.bind("<1>", 
-			lambda event: self.mainTText.focus_set())
-		self.mainTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.mainTText.tag_config("S")
-		self.mainTText.tag_config("G", foreground = "#168e07")
-		self.mainTText.tag_config(\
-			"W", underline = 1, foreground = "orange")
-		self.mainTText.tag_config(\
-			"E", underline = 1, foreground = "red", background = "#510000")
-		self.mainTText.tag_config(\
-			"D", foreground = self.debugColor)
-
-		# SLAVE TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		self.slavesTerminal = ttk.Frame(self.terminal)
-		self.slavesTLock = threading.Lock()
-		self.slavesTText = Tk.Text(self.slavesTerminal, height = 10, width = 120, 
-			fg = "black", bg= "white", font = ('TkFixedFont'),
-			selectbackground = "#f4f1be",
-			state = Tk.DISABLED)
-		self.slavesTScrollbar = Tk.Scrollbar(self.slavesTerminal)
-		self.slavesTScrollbar.pack(side = Tk.RIGHT, fill=Tk.Y)
-		self.slavesTScrollbar.config(command=self.slavesTText.yview)
-		self.slavesTText.config(yscrollcommand = self.slavesTScrollbar.set)
-		self.slavesTText.bind("<1>", 
-			lambda event: self.slavesTText.focus_set())
-		self.slavesTText.pack(fill =Tk.BOTH, expand = True)
-		# Configure tags:
-		self.slavesTText.tag_config("S")
-		self.slavesTText.tag_config("G", foreground = "#168e07")
-		self.slavesTText.tag_config(\
-			"W", underline = 1, foreground = "#e5780b")
-		self.slavesTText.tag_config(\
-			"E", underline = 1, foreground = "red", background = "#510000")
-		self.slavesTText.tag_config(\
-			"B", foreground = "blue")
-		self.slavesTText.tag_config(\
-			"D", foreground = self.debugColor)
-
-		# TERMINAL SETUP - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		self.terminal.add(self.mainTerminal, text = 'Main')
-		self.terminal.add(self.slavesTerminal, text = 'Slaves')
-
-		self.autoscrollButton.pack(side = Tk.LEFT)
-		self.debugButton.pack(side = Tk.LEFT)
-		self.terminalButton.pack(side = Tk.LEFT)
-		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
-		self.autoscrollButton.select()
-
-
-
-
-		# STATUS ---------------------------------------------------------------
-		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			 bg=self.background)
-
-		self.versionLabel = Tk.Label(self.statusFrame, text = "Version: " + version,
-			bg = self.background, fg = "#424242")
-		self.versionLabel.pack(side = Tk.RIGHT)
-
-		self.statusFrame.pack(fill = Tk.X, expand = False)
-
 		# PACK -----------------------------------------------------------------
-
 		self.pack(fill = Tk.BOTH, expand = True)
 
 		# Center starting place:
@@ -818,14 +891,15 @@ class FCInterface(Tk.Frame):
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler(self.arrayCanvas) 
+		self.profiler = Profiler.Profiler(self.slaveList,self.slaveDisplayFrame) 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
 		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(self.profiler, 
-			self.arrayCanvas, 
+			self.slaveDisplayFrame,
+			self.slaveList, 
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
@@ -834,15 +908,10 @@ class FCInterface(Tk.Frame):
 
 		# ----------------------------------------------------------------------
 		self._mainPrinterRoutine()
-
-		
-		# ----------------------------------------------------------------------
-		self._slavesPrinterRoutine()
-
 		# End constructor ==========================================================
 
 ## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-	
+
 	## PRINTER ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 	def _mainPrinterRoutine(self): # ===========================================
@@ -868,7 +937,8 @@ class FCInterface(Tk.Frame):
 
 					# Switch focus to this tab in case of errors of warnings:
 					if tag is "E":
-						self.terminal.select(0)
+						self.terminalToggleVar.set(1)
+						self._terminalToggle()
 
 					self.mainTText.config(state = Tk.NORMAL)
 						# Must change state to add text.
@@ -887,54 +957,6 @@ class FCInterface(Tk.Frame):
 
 		self.mainTText.after(100, self._mainPrinterRoutine)
 		# End _mainPrintRoutine ================================================
-
-	def _slavesPrinterRoutine(self): # =========================================
-		# ABOUT: Keep slaves terminal window updated w/ Communicator output. To
-		# be executed by slavesPrinterThread
-		#
-		
-			if self.terminalVar.get() == 0:
-				pass
-
-			else:
-				try:
-
-					# Fetch item from Communicator queue:
-					target, output, tag = self.communicator.slaveQueue.get_nowait()
-					# If there is an item, print it (otherwise, Empty exception is
-					# raised and handled)
-
-					# Check for debug tag:
-					if tag is "D" and self.debugVar.get() == 0:
-						# Do not print if the debug variable is set to 0
-						pass
-
-					# Switch focus to this tab in case of errors of warnings:
-					else:
-						if tag is "E":
-							self.terminal.select(1)
-
-						self.slavesTText.config(state = Tk.NORMAL)
-							# Must change state to add text.
-
-						# Print MAC address:
-						self.slavesTText.insert(Tk.END, "[" + target.mac + "] ", "B")
-
-						# Print text:
-						self.slavesTText.insert(Tk.END, output + "\n", tag)
-						self.slavesTText.config(state = Tk.DISABLED)
-
-						# Check for auto scroll:
-						if self.autoscrollVar.get() == 1:
-							self.slavesTText.see("end")
-
-				except Queue.Empty:
-					# If there is nothing to print, try again.
-					pass
-
-			self.mainTText.after(100, self._slavesPrinterRoutine)
-
-		# End _slavesPrinterRoutine ============================================
 
 	def listenerDisplayUpdate(self, code = "G"):
 		# ABOUT: Update listenerDisplay widget.
@@ -959,7 +981,7 @@ class FCInterface(Tk.Frame):
 			self.listenerDisplay.config(background = self.listenerBLUE)
 			self.listenerStatus = BLUE
 
-		else:
+		elif not code in ["R", "G", "B"]:
 			# Bad value. Raise exception:
 			raise ValueError("Bad listener status code \"{}\" \
 				expected GREEN or RED".format(code))
@@ -988,7 +1010,7 @@ class FCInterface(Tk.Frame):
 			# Switch to red:
 			self.broadcastDisplay.config(background = self.broadcastRED)
 
-		else:
+		elif not code in ["R", "G"]:
 			# Bad value. Raise exception:
 			raise ValueError("Bad broadcast status code \"{}\" \
 				expected GREEN or RED".format(code))
@@ -1017,7 +1039,8 @@ class FCInterface(Tk.Frame):
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
-				self.terminal.select(0)
+				self.terminalToggleVar.set(1)
+				self._terminalToggle()
 
 			self.mainTText.config(state = Tk.NORMAL)
 				# Must change state to add text.
@@ -1071,10 +1094,74 @@ class FCInterface(Tk.Frame):
 		elif newValue == "Chase RPM":
 			self.commandLabelText.set("RPM: ")
 
+	def _settingsToggle(self): # ===============================================
+		# ABOUT: Hide and show settings
+
+		# Check variable:
+		if self.settingsToggleVar.get() == 1:
+			# Build settings:
+			self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
+		else:
+			# Hide settings:
+			self.settingsFrame.pack_forget()
+			self.settingsContainer.configure(width = 1)	
+
+	def _terminalToggle(self): # ===============================================
+		# ABOUT: Hide and show the terminal
+
+		# Check variable:
+		if self.terminalToggleVar.get() == 1:
+			# Build terminal:
+			self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+			self.terminalVar.set(1)
+		else:
+			# Hide terminal:
+			self.terminalFrame.pack_forget()
+			self.terminalContainerFrame.configure(height = 1)
+
+	def _slaveListToggle(self): # ==============================================
+		# ABOUT: Hide and show the Slave list
+
+		# Check variable:
+		if self.slaveListToggleVar.get() == 1:
+			# Build slaveList:
+			self.slaveListFrame.pack(fill = Tk.X, expand = False)
+		else:
+			# Hide slaveList:
+			self.slaveListFrame.pack_forget()
+			self.slaveListContainer.configure(height = 1)
+			if self.oldSelection != None:
+				self.slaves[self.oldSelection].slaveDisplay.pack_forget()
+				self.slaveDisplayFrame.configure(height = 1)
+
+	def _plotToggle(self): # ===================================================
+		# ABOUT: Hide and show plot
+
+		# Check variable:
+		if self.plotToggleVar.get() == 1:
+			# Build plot:
+			self.plotFrame.pack(fill = Tk.X, expand = False, anchor = 's')
+		else:
+			# Hide plot:
+			self.plotFrame.pack_forget()
+			self.plotContainer.configure(height = 1)
+
+
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
 
 		self.printMain("WARNING: SHUTDOWN BUTTON NOT YET IMPLEMENTED", "E")
+
+	def _slaveListMethod(self, event): # =======================================
+		# ABOUT: Handle selections on SlaveList
+
+		# Unpack previous selection:
+		if self.oldSelection != None:
+			self.slaves[self.oldSelection].slaveDisplay.pack_forget()
+		if len(self.slaveList.selection()) > 0:
+			self.oldSelection = self.slaveList.item(self.slaveList.selection()[0], "values")[1]
+			self.slaves[self.oldSelection].slaveDisplay.pack()
+
 
 	def _send(self): # =========================================================
 		# ABOUT: Send a message to the MOSI queue of applicable Slaves
