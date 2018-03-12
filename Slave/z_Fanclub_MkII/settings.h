@@ -31,7 +31,7 @@
 //// GLOBAL CONSTANTS //////////////////////////////////////////////////////////
 // Time is precious, preprocessor.
 
-#define BAUD 230400// Serial baud rate
+#define BAUD 460800// Serial baud rate
 #define NUMFANS 21  // Number of fans for pinout
 #define BLINK_SLOW 0.5  // Long period of LED blinking (seconds) 
 #define BLINK_FAST 0.1 // Short period of LED blinking (seconds)
@@ -57,6 +57,7 @@
 #define MAX_RPM 11500
 #define MIN_RPM 1185
 #define MIN_DC 0.1
+#define PWM_FREQUENCY 25000
 
 
 #endif // SETTINGS_H

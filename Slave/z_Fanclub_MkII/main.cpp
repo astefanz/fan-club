@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"Assym. 17\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"Assym. 23\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 
@@ -83,6 +83,7 @@ int main(){ ////////////////////////////////////////////////////////////////////
         "\n\r|\t - DEF. FAN AMOUNT: %d"
         "\n\r|\t - DEF. COUNTER COUNTS: %d"
         "\n\r|\t - DEF. PULSES PER ROTATION: %d"
+        "\n\r|\t - DEF. PWM FREQUENCY: %d Hz"
         "\n\r|\t - DEF. MAX RPM: %d"
         "\n\r|\t - DEF. MIN RPM: %d"
         "\n\r|\t - DEF. MIN DUTY CYCLE: %0.2f%%"
@@ -96,6 +97,7 @@ int main(){ ////////////////////////////////////////////////////////////////////
         MAX_FANS,
         COUNTER_COUNTS,
         PULSES_PER_ROTATION,
+        PWM_FREQUENCY,
         MAX_RPM,
         MIN_RPM,
         MIN_DC*100.0);

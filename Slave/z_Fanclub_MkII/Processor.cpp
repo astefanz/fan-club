@@ -64,6 +64,7 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
     // Initialize fan array:
     for(int i = 0; i < MAX_FANS; i++){
         this->fanArray[i].setPins(pwmOut[i], tachIn[i], MAX_RPM, MIN_RPM);
+        this->fanArray[i].setPeriod(1000000/PWM_FREQUENCY);
 
     } // End fan array initialization loop
     pl;printf("\n\r[%08dms][p] fan array initialized",tm);pu;
@@ -113,7 +114,7 @@ void Processor::get(char* buffer){ // // // // // // // // // // // // // // //
      */
 
     // Set up placeholder: -----------------------------------------------------
-    static char placeholder[MAX_MESSAGE_LENGTH] = "SVER";// There will always be 
+    char placeholder[MAX_MESSAGE_LENGTH] = "SVER";// There will always be 
     // ^                                                // a message to be sent
     // |                                             // to Master.
     // |
@@ -229,9 +230,9 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
             } // End set all fans to zero
         } else{
             // Processor active, check for commands: ---------------------------
-
+            pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
             // Try to fetch a command from input queue:
-            osEvent fetchResult = this->inputQueue.get();
+            osEvent fetchResult = this->inputQueue.get(0 /*0ms timeout*/);
 
             // Check for success:
             if(fetchResult.status == osEventMail){ // ==========================
@@ -329,8 +330,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                              //\---------------/
                              // This expression will evaluate to 0 if the fan is
                              // set to 0, and nonzero (true) otherwise.
-                                pl;printf("\n\r[%08dms][P] Fan %d set",tm, i);pu;
                                 this->fanArray[i].write(dutyCycle);
+                                pl;printf("\n\r[%08dms][P] Fan %d set",tm, i);pu;
                             }
                         } // End assign duty cycles
 
@@ -378,6 +379,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 } // End check command -----------------------------------------
                 
             } // End command processing ========================================
+
+            pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
 
             // Update values: ==================================================
 
