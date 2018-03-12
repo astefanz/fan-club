@@ -65,6 +65,7 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
     for(int i = 0; i < MAX_FANS; i++){
         this->fanArray[i].setPins(pwmOut[i], tachIn[i], MAX_RPM, MIN_RPM);
         this->fanArray[i].setPeriod(1000000/PWM_FREQUENCY);
+            // Note: translate period from Hz to microseconds
 
     } // End fan array initialization loop
     pl;printf("\n\r[%08dms][p] fan array initialized",tm);pu;

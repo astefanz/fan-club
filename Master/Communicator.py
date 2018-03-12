@@ -46,6 +46,7 @@ import names
 
 
 VERSION = "Asymmetrical 1"
+FORCE_IP_ADDRESS = "192.168.1.129"
 
 ## CLASS DEFINITION ############################################################
 
@@ -126,7 +127,7 @@ class Communicator:
 
             # Bind socket to "nothing" (Broadcast on all interfaces and let system 
             # assign port number):
-            self.broadcastSocket.bind(("192.168.1.129", 0))
+            self.broadcastSocket.bind((FORCE_IP_ADDRESS, 0))
 
             self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
