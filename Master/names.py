@@ -1,7 +1,7 @@
 # RANDOM NAMES FOR FCMkII SLAVE MCU'S:
 
 # METAL GEAR SOLID CODENAMES ###################################################
-mgsCodenames = 
+mgsCodenames = \
 	[
 	"FOX HOUND",
 	"FOX",

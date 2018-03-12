@@ -606,7 +606,6 @@ class Communicator:
                                 for index in range(slave.activeFans):
                                     slave.setDC(float(dcs[index])*100, index)
                                     slave.setRPM(rpms[index], index)
-                                    print "setRPM({},{})".format(rpms[index], index)
 
                         else:
                             timeouts += 1

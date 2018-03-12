@@ -202,13 +202,10 @@ class SlaveDisplay(Tk.Frame):
 		# - fan: index of the fan to update
 
 		# Check old values and update only when there is a change:
-		print "setRPM called w/ {}...".format(rpm),
 		if self.oldRPMs[fan] != rpm:
 			self.fans[fan].setRPM(str(rpm) + ' R')
 			self.oldRPMs[fan] = rpm
-			print "updated"
 		else:
-			print "... passed"
 			pass
 
 	def setDC(self, dc, fan): # ================================================
