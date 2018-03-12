@@ -172,7 +172,7 @@ class Slave:
 			if newStatus == DISCONNECTED:
 				self.setExchange(0)
 				self.setMISOIndex(0)
-				self.setActiveFans(0)
+				self.setActiveFans(0, True)
 
 			self.slaveDisplay.setStatus(newStatus)
 			self.updateList(newStatus)
@@ -194,6 +194,7 @@ class Slave:
 		# - newExchange: new exchange index.
 
 		self.exchange = newExchange
+		self.slaveDisplay.setExchange(newExchange)
 
 		self.updateList()
 
@@ -218,21 +219,26 @@ class Slave:
 				 self.ip, self.activeFans], tag = translate(self.status ,True))
 
 
-	def setActiveFans(self, newActiveFans): # ==================================
+	def setActiveFans(self, newActiveFans, displayOnly = False): # =============
 		# ABOUT: Update activeFans value
 		# PARAMETERS:
 		# - newActiveFans: new value for activeFans
-		self.activeFans = newActiveFans
+		# - displayOnly: bool, whether to modify stored active fans variable or
+		#	to only deactivate fan displays.
+		if not displayOnly:
+			self.activeFans = newActiveFans
 		self.slaveDisplay.setActiveFans(newActiveFans)
 		self.updateList()
 
 	def incrementExchange(self):
 		# ABOUT: Increment exchange index by 1.
 		self.exchange += 1
+		self.slaveDisplay.setExchange(self.exchange)
 
 	def incrementMISOIndex(self):
 		# ABOUT: Increment misoIndex index by 1.
 		self.misoIndex += 1
+		self.slaveDisplay.setMISOIndex(self.misoIndex)
 
 	def setMISOIndex(self, newMISOIndex): # ======================================
 		# ABOUT: Update misoIndex index.
@@ -240,5 +246,6 @@ class Slave:
 		# - newmisoIndex: new misoIndex index.
 
 		self.misoIndex = newMISOIndex
+		self.slaveDisplay.setMISOIndex(newMISOIndex)
 
 

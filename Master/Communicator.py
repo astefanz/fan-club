@@ -126,7 +126,7 @@ class Communicator:
 
             # Bind socket to "nothing" (Broadcast on all interfaces and let system 
             # assign port number):
-            self.broadcastSocket.bind(("", 0))
+            self.broadcastSocket.bind(("192.168.1.129", 0))
 
             self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
@@ -602,10 +602,10 @@ class Communicator:
                                 # Update RPMs and DCs:
                                 dcs = reply[-1].split(',')
                                 rpms = reply[-2].split(',')
-
                                 for index in range(slave.activeFans):
                                     slave.setDC(float(dcs[index])*100, index)
                                     slave.setRPM(rpms[index], index)
+                                    print "setRPM({},{})".format(rpms[index], index)
 
                         else:
                             timeouts += 1

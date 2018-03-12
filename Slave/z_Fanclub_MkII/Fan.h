@@ -20,6 +20,9 @@
 // CUSTOM MODULES
 #include "Counter.h"
 
+// CHOOSE PINOUT:
+#define v2_7
+
 // AUXILIARY GLOBAL CONSTANTS //////////////////////////////////////////////////
 
 const int 
@@ -32,9 +35,6 @@ const bool DO_TEST = true,  // For testing fan activity upon initialization
            NO_DEBUG = false;
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
-
-// CHOOSE PINOUT:
-#define v2_8
 
 // VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
 #ifdef v2_8
