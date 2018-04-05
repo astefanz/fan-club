@@ -507,6 +507,70 @@ class FCInterface(Tk.Frame):
 			relief = Tk.SUNKEN, borderwidth = 3)
 		self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
 
+		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
+		self.tempDisplay = ttk.Treeview(self.arrayFrame, 
+			selectmode="none", height = 5)
+		self.tempDisplay["columns"] = \
+			("Name", "RPM 1", "RPM 2",  "RPM 3",  "RPM 4",  "RPM 5",  "RPM 6",  "RPM 7",  "RPM 8",  "RPM 9",  "RPM 10",  "RPM 11",  "RPM 12",  "RPM 13",  "RPM 14",  "RPM 15",  "RPM 16",  "RPM 17",  "RPM 18",  "RPM 19",  "RPM 20",  "RPM 21")
+
+		style = ttk.Style()
+		#style.configure(".", font=('Helvetica', 8), foreground="white")
+		style.configure("Treeview.Heading", font = 'Helvetica 10')
+
+		# Create columns:
+		self.tempDisplay.column('#0', width = 20, stretch = False)
+		self.tempDisplay.column("Name", width = 20)
+		self.tempDisplay.column("RPM 1", width = 20)
+		self.tempDisplay.column("RPM 2", width = 20)
+		self.tempDisplay.column("RPM 3", width = 20)
+		self.tempDisplay.column("RPM 4", width = 20)
+		self.tempDisplay.column("RPM 5", width = 20)
+		self.tempDisplay.column("RPM 6", width = 20)
+		self.tempDisplay.column("RPM 7", width = 20)
+		self.tempDisplay.column("RPM 8", width = 20)
+		self.tempDisplay.column("RPM 9", width = 20)
+		self.tempDisplay.column("RPM 10", width = 20)
+		self.tempDisplay.column("RPM 11", width = 20)
+		self.tempDisplay.column("RPM 12", width = 20)
+		self.tempDisplay.column("RPM 13", width = 20)
+		self.tempDisplay.column("RPM 14", width = 20)
+		self.tempDisplay.column("RPM 15", width = 20)
+		self.tempDisplay.column("RPM 16", width = 20)
+		self.tempDisplay.column("RPM 17", width = 20)
+		self.tempDisplay.column("RPM 18", width = 20)
+		self.tempDisplay.column("RPM 19", width = 20)
+		self.tempDisplay.column("RPM 20", width = 20)
+		self.tempDisplay.column("RPM 21", width = 20)
+
+		# Configure column headings:
+		self.tempDisplay.heading("Name", text = "Name")
+		self.tempDisplay.heading("RPM 1", text = "RPM 1")
+		self.tempDisplay.heading("RPM 2", text = "RPM 2")
+		self.tempDisplay.heading("RPM 3", text = "RPM 3")
+		self.tempDisplay.heading("RPM 4", text = "RPM 4")
+		self.tempDisplay.heading("RPM 5", text = "RPM 5")
+		self.tempDisplay.heading("RPM 6", text = "RPM 6")
+		self.tempDisplay.heading("RPM 7", text = "RPM 7")
+		self.tempDisplay.heading("RPM 8", text = "RPM 8")
+		self.tempDisplay.heading("RPM 9", text = "RPM 9")
+		self.tempDisplay.heading("RPM 10", text = "RPM 10")
+		self.tempDisplay.heading("RPM 11", text = "RPM 11")
+		self.tempDisplay.heading("RPM 12", text = "RPM 12")
+		self.tempDisplay.heading("RPM 13", text = "RPM 13")
+		self.tempDisplay.heading("RPM 14", text = "RPM 14")
+		self.tempDisplay.heading("RPM 15", text = "RPM 15")
+		self.tempDisplay.heading("RPM 16", text = "RPM 16")
+		self.tempDisplay.heading("RPM 17", text = "RPM 17")
+		self.tempDisplay.heading("RPM 18", text = "RPM 18")
+		self.tempDisplay.heading("RPM 19", text = "RPM 19")
+		self.tempDisplay.heading("RPM 20", text = "RPM 20")
+		self.tempDisplay.heading("RPM 21", text = "RPM 21")
+
+		# Configure tag:
+		self.tempDisplay.tag_configure("STD", font = 'TkFixedFont 7 ') # Connected
+
+		self.tempDisplay.pack(fill =Tk.BOTH, expand = True)
+
 		# LIVE PLOT ------------------------------------------------------------
 
 		# Plot container .......................................................
@@ -1232,7 +1296,6 @@ class FCInterface(Tk.Frame):
 		if sent:
 			# Erase text:
 			self.commandEntry.delete(0, Tk.END)
-
 
 
 

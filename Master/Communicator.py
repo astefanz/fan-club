@@ -72,6 +72,7 @@ class Communicator:
             self.bcupdate = bcupdate
             self.ltupdate = ltupdate
             self.smaster = smaster
+            #self.tdisplay = tdisplay
 
             # Profiler:
             self.profiler = profiler
@@ -415,6 +416,7 @@ class Communicator:
                             status = Slave.AVAILABLE,   # Status
                             master = self.smaster,
                             display = self.display,
+                            #tdisplay = self.tdisplay,
                             activeFans = 21,
                             maxFans = 21,
                             ip = senderAddress[0],  # IP address
