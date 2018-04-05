@@ -46,7 +46,8 @@ import names
 
 
 VERSION = "Asymmetrical 1"
-FORCE_IP_ADDRESS = "192.168.1.129"
+FORCE_IP_ADDRESS = ""
+    #= "192.168.1.129" # (Basement lab)
 
 ## CLASS DEFINITION ############################################################
 
