@@ -948,17 +948,18 @@ class Communicator:
 
 		# End add ==============================================================
 
-	def send(self, command, targetMAC): # ======================================
-		# ABOUT: Send a command to a given, connected Slave by adding to its MO-
-		# SI Queue. Notice 
+	def send(self, mac, command): # ============================================
+		# ABOUT: Send a command to a given connected Slave by adding to its MO-
+		# SI Queue.
+		#
+		# THROWS:
+		#	- Queue.Full if the Slave's MOSI queue is full.
+		#	- KeyError if the given MAC address does not match a Slave.
+		#	- ValueError if the given Slave is not connected.
 
-		# [NOT IMPLEMENTED]
-
-		pass
+		self.slaves[mac].mosiQueue.put_nowait(command)
+				
 		# End send =============================================================
-
-
-		# End shutdown =========================================================
 
 	def setBroadcastSwitch(self, newState): # ==================================
 		""" ABOUT: Set whether to send UDP broadcast. Parameter Switch is

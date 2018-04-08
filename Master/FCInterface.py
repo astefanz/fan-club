@@ -1279,7 +1279,7 @@ class FCInterface(Tk.Frame):
 						commandKeyword, \
 						self.slaves[mac].slaveDisplay.getSelection())
 
-					self.slaves[mac].mosiQueue.put_nowait(command)
+					self.communicator.send(mac, command)
 
 					# Deselect fans:
 					self.slaves[mac].slaveDisplay.deselectAll()
@@ -1288,7 +1288,8 @@ class FCInterface(Tk.Frame):
 					sent = True
 				except Queue.Full:
 					self.printS(self.slaves[mac], 
-						"Warning: Queue full. Could not send last message", "E")
+						"Warning: Outgoing command Queue full. "\
+						"Could not send last message", "E")
 
 		
 		# Check sentinel:
