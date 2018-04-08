@@ -37,6 +37,7 @@ import Queue
 import sys        # Exception handling
 import traceback  # More exception handling
 import random # Random names, boy
+import numpy	# Fast arrays and matrices
 
 import FCInterface
 import Profiler    # Custom representation of wind tunnel
@@ -624,11 +625,12 @@ class Communicator:
 							# Check if there are DCs and RPMs:
 							if len(reply) > 2:
 								# Update RPMs and DCs:
-								dcs = reply[-1].split(',')
-								rpms = reply[-2].split(',')
-								for index in range(slave.activeFans):
-									slave.setDC(float(dcs[index])*100, index)
-									slave.setRPM(rpms[index], index)
+								slave.setDCs(
+									numpy.array(
+										map(float,reply[-1].split(','))))
+								slave.setRPMs(
+									numpy.array(
+										map(int,reply[-2].split(','))))
 
 						else:
 							timeouts += 1

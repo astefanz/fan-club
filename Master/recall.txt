@@ -1,5 +1,0 @@
-FROM 4/7/2018:
-
-- Recall RIP profiler.slaves and profiler.slavesLock (check in FCInterface)
-- profiler.getSlaveList()
-

@@ -122,17 +122,23 @@ class Slave:
 		self.name = name + mac[-3:]
 		self.mac = mac
 		self.status = status
+		self.statusLock = threading.Lock()
 
 		self.maxFans = maxFans
 		self.activeFans = activeFans
+		self.activeFansLock = threading.Lock()
 
 		self.ip  = ip
+		self.ipLock = threading.Lock()
+
 		self.misoP = misoP
 		self.mosiP = mosiP
 		self.misoS = misoS
 		self.mosiS = mosiS
 		self.thread = thread
 		self.exchange = 0
+		self.exchangeLock = threading.Lock()
+
 		self.misoIndex = 0
 
 		self.lock = threading.Lock()
@@ -149,6 +155,36 @@ class Slave:
 		self.iid = self.display.insert('', 'end', 
 			values = (self.name, self.mac, translate(self.status),
 			 self.ip, self.activeFans), tag = translate(self.status, True))
+	
+		# End __init__ =================================================
+
+	def setRPMs(self, rpms): # =============================================
+		# ABOUT: Update RPM list.
+		
+		# NOTE: Provisional debug mode
+
+		print "Updated RPMs: {}".format(rpms)
+		
+		indx = 0
+		for rpm in rpms:
+			self.setRPM(rpm, indx)
+			indx += 1
+
+		# End setRPMs ==================================================
+
+	def setDCs(self, dcs): # ===============================================
+		# ABOUT: Update DC list.
+
+		# NOTE: Provisional debug mode
+
+		print "Updated DCs: {}".format(dcs)
+		
+		i = 0
+		for dc in dcs:
+			self.setDC(dc*100, i)
+			i += 1
+		
+		# End setDCs ===================================================
 
 	def setName(self, newName): # ==========================================
 		# ABOUT: Update name.
@@ -156,26 +192,29 @@ class Slave:
 		# - newName: new name.
 		self.name = newName
 
-		self.updateList()
-
-
 	def setStatus(self, newStatus): # ==========================================
 		# ABOUT: Update status.
 		# PARAMETERS: 
 		# - newStatus: code of the new status.
+		
+		try:
+			self.statusLock.acquire()
 
-		if self.status == newStatus:
-			return
-		else: 
-			self.status = newStatus
-			
-			if newStatus == DISCONNECTED:
-				self.setExchange(0)
-				self.setMISOIndex(0)
-				self.setActiveFans(0, True)
+			if self.status == newStatus:
+				return
+			else: 
+				self.status = newStatus
+				
+				if newStatus == DISCONNECTED:
+					self.setExchange(0)
+					self.setMISOIndex(0)
+					self.setActiveFans(0, True)
 
-			self.slaveDisplay.setStatus(newStatus)
-			self.updateList(newStatus)
+				self.slaveDisplay.setStatus(newStatus)
+
+		finally:
+			# Guarantee lock release:
+			self.statusLock.release()
 
 		# End setStatus ========================================================
 
