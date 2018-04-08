@@ -233,7 +233,6 @@ class SlaveDisplay(Tk.Frame):
 			else:
 				fan.setStatus(Fan.INACTIVE)
 
-
 	def toggleAll(self): # =====================================================
 		# ABOUT: Set all fans as selected or deselected (Alternate):
 
@@ -954,18 +953,20 @@ class FCInterface(Tk.Frame):
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler(self.slaveList,self.slaveDisplayFrame) 
+		self.profiler = Profiler.Profiler() 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
-		self.slaves = self.profiler.slaves
 
 		# Initialize Communicator ----------------------------------------------
-		self.communicator = Communicator.Communicator(self.profiler, 
+		self.communicator = Communicator.Communicator(
+			self.profiler.slaveList,
+			self.profiler, 
 			self.slaveDisplayFrame,
-			self.slaveList, 
+			self.slaveList,
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
+		self.slaves = self.communicator.slaves
 
 		# INITIALIZE UPDATING THREADS = = = = = = = = = = = = = = = = = = = = = 
 
@@ -1209,7 +1210,6 @@ class FCInterface(Tk.Frame):
 			self.plotFrame.pack_forget()
 			self.plotContainer.configure(height = 1)
 
-
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
 
@@ -1224,7 +1224,6 @@ class FCInterface(Tk.Frame):
 		if len(self.slaveList.selection()) > 0:
 			self.oldSelection = self.slaveList.item(self.slaveList.selection()[0], "values")[1]
 			self.slaves[self.oldSelection].slaveDisplay.pack()
-
 
 	def _send(self): # =========================================================
 		# ABOUT: Send a message to the MOSI queue of applicable Slaves
@@ -1296,8 +1295,6 @@ class FCInterface(Tk.Frame):
 		if sent:
 			# Erase text:
 			self.commandEntry.delete(0, Tk.END)
-
-
 
 ## INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
