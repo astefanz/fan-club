@@ -53,7 +53,7 @@ FORCE_IP_ADDRESS = ""
 
 class Communicator:
 
-	def __init__(self, slaveList, profiler, smaster, display, bcupdate, ltupdate):
+	def __init__(self, slaveList, profile, smaster, display, bcupdate, ltupdate):
 		# ABOUT: Constructor for class Communicator.
 
 		try:
@@ -61,7 +61,7 @@ class Communicator:
 			# INITIALIZE DATA MEMBERS =========================================
 
 			# Output queues:
-			self.mainQueue = Queue.Queue(profiler.mainQueueSize)
+			self.mainQueue = Queue.Queue(profile["mainQueueSize"])
 
 			self.printM("Initializing Communicator instance")
 
@@ -73,7 +73,7 @@ class Communicator:
 			#self.tdisplay = tdisplay
 
 			# Profiler:
-			self.profiler = profiler
+			self.profile = profile
 		
 			# Wind tunnel:
 			
@@ -98,15 +98,15 @@ class Communicator:
 					status = Slave.KNOWN,
 					display = self.display,
 					master = self.smaster,
-					maxFans = profiler.maxFans,
+					maxFans = self.profile["maxFans"],
 					activeFans = subList[2]
 					)
 
 			# Communications:
-			self.broadcastPeriodS = profiler.broadcastPeriodS
-			self.periodMS = profiler.periodMS
-			self.broadcastPort = profiler.broadcastPort
-			self.password = profiler.passcode
+			self.broadcastPeriodS = profile["broadcastPeriodS"]
+			self.periodMS = profile["periodMS"]
+			self.broadcastPort = profile["broadcastPort"]
+			self.password = profile["passcode"]
 
 			# Create a temporary socket to obtain Master's IP address for reference:
 			temp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -501,7 +501,7 @@ class Communicator:
 			# MISO:
 			slave.misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			slave.misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			slave.misoS.settimeout(self.profiler.masterTimeoutS)
+			slave.misoS.settimeout(self.profile["masterTimeoutS"])
 				# The communications period is defined in milliseconds. The 
 				# socket timeout should be one-fifth of said period, and this
 				# method expects a value in seconds.
@@ -510,7 +510,7 @@ class Communicator:
 			# MOSI:
 			slave.mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			slave.mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			slave.mosiS.settimeout(self.profiler.masterTimeoutS)
+			slave.mosiS.settimeout(self.profile["masterTimeoutS"])
 				# The communications period is defined in milliseconds. The 
 				# socket timeout should be one-fifth of said period, and this
 				# method expects a value in seconds.
@@ -526,16 +526,16 @@ class Communicator:
 			MHSK = "MHSK|{},{},{},S~{},{},{},{},{},{},{},{},{}".format(
 						slave.misoS.getsockname()[1], 
 						slave.mosiS.getsockname()[1], 
-						self.profiler.periodMS,
-						self.profiler.fanMode,
-						self.profiler.targetRelation[0],
-						self.profiler.targetRelation[1],
+						self.profile["periodMS"],
+						self.profile["fanMode"],
+						self.profile["targetRelation"][0],
+						self.profile["targetRelation"][1],
 						self.slaves[targetMAC].activeFans,
-						self.profiler.counterCounts,
-						self.profiler.pulsesPerRotation,
-						self.profiler.maxRPM,
-						self.profiler.minRPM,
-						self.profiler.minDC)
+						self.profile["counterCounts"],
+						self.profile["pulsesPerRotation"],
+						self.profile["maxRPM"],
+						self.profile["minRPM"],
+						self.profile["minDC"])
 
 			# Set up placeholders and sentinels: -------------------------------
 			slave.setExchange(0)
@@ -545,7 +545,7 @@ class Communicator:
 			# Slave loop: ======================================================
 			while(True):
 
-				time.sleep(self.profiler.interimS)
+				time.sleep(self.profile["interimS"])
 
 				# Acquire:
 				slave.lock.acquire()
@@ -642,12 +642,12 @@ class Communicator:
 								# Increment timeout counter:
 
 							# Check timeout counter: - - - - - - - - - - - - - -
-							if timeouts < self.profiler.maxTimeouts:
+							if timeouts < self.profile["maxTimeouts"]:
 								# If there have not been enough timeouts to con-
 								# sider the connection compromised, continue.
 								# print "Reply missed ({}/{})".
 								#   format(timeouts, 
-								#       self.profiler.maxTimeouts)
+								#       self.profile["maxTimeouts"])
 
 								# Restart loop:
 								continue;
@@ -788,7 +788,7 @@ class Communicator:
 
 				# Receive message: ---------------------------------------------
 				message, sender = slave.misoS.recvfrom(
-					self.profiler.maxLength)
+					self.profile["maxLength"])
 
 				# DEBUG DEACTV
 				## print "Received: \"{}\" from {}".

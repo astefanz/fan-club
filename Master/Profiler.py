@@ -90,27 +90,30 @@ class Profiler:
 
 	def __init__(self):
 		# ABOUT: Constructor for class Profiler.
+		
+		# Store profile information in dictionary:
+		self.profile = {}
 
 		# Administrative data --------------------------------------------------
-		self.name = "Alphatunnel"
-		self.description = "This is a test Profile"
+		self.profile["name"] = "Alphatunnel"
+		self.profile["description"] = "This is a test Profile"
 
 		# Communications -------------------------------------------------------
-		self.broadcastPort = STD_BROADCAST_PORT
-		self.broadcastPeriodS = STD_BROADCAST_PERIOD_S
-		self.periodMS = STD_PERIOD_MS
-		self.passcode = "good_luck"
-		self.maxLength = STD_MAX_LENGTH
-		self.maxTimeouts = STD_MAX_TIMEOUTS
-		self.masterTimeout = STD_MASTER_TIMEOUT_MS
-		self.masterTimeoutS = self.masterTimeout/1000.0
-		self.interim = STD_INTERIM_MS
-		self.interimS = self.interim/1000.0
+		self.profile["broadcastPort"] = STD_BROADCAST_PORT
+		self.profile["broadcastPeriodS"] = STD_BROADCAST_PERIOD_S
+		self.profile["periodMS"] = STD_PERIOD_MS
+		self.profile["passcode"] = "good_luck"
+		self.profile["maxLength"] = STD_MAX_LENGTH
+		self.profile["maxTimeouts"] = STD_MAX_TIMEOUTS
+		self.profile["masterTimeout"] = STD_MASTER_TIMEOUT_MS
+		self.profile["masterTimeoutS"] = self.profile["masterTimeout"]/1000.0
+		self.profile["interim"] = STD_INTERIM_MS
+		self.profile["interimS"] = self.profile["interim"]/1000.0
 
-		self.mainQueueSize = STD_MAIN_QUEUE_SIZE
-		self.slaveQueueSize = STD_SLAVE_QUEUE_SIZE
-		self.broadcastQueueSize = STD_BROADCAST_QUEUE_SIZE
-		self.listenerQueueSize = STD_LISTENER_QUEUE_SIZE
+		self.profile["mainQueueSize"] = STD_MAIN_QUEUE_SIZE
+		self.profile["slaveQueueSize"] = STD_SLAVE_QUEUE_SIZE
+		self.profile["broadcastQueueSize"] = STD_BROADCAST_QUEUE_SIZE
+		self.profile["listenerQueueSize"] = STD_LISTENER_QUEUE_SIZE
 
 		# Wind tunnel ----------------------------------------------------------
 		
@@ -143,17 +146,17 @@ class Profiler:
 		
 		# End Slave list ........................................................ 
 
-		self.dimensions = (0,0)
-		self.maxFans = DEFAULT_MAX_FANS
+		self.profile["dimensions"] = (0,0)
+		self.profile["maxFans"] =  DEFAULT_MAX_FANS
 
 		# Fan array ------------------------------------------------------------
-		self.fanModel = DEFAULT_FAN_MODEL
-		self.fanMode = SINGLE
-	 	self.targetRelation = DEFAULT_TARGET_RELATION
-		self.chaserTolerance = DEFAULT_CHASER_TOLERANCE
-		self.counterCounts = DEFAULT_COUNTER_COUNTS
-		self.counterTimeoutMS = DEFAULT_COUNTER_TIMEOUT_MS
-		self.pulsesPerRotation = DEFAULT_PULSES_PER_ROTATION
-		self.maxRPM = DEFAULT_MAX_RPM
-		self.minRPM = DEFAULT_MIN_RPM
-		self.minDC = DEFAULT_MIN_DC
+		self.profile["fanModel"] = DEFAULT_FAN_MODEL
+		self.profile["fanMode"]  = SINGLE
+	 	self.profile["targetRelation"]  = DEFAULT_TARGET_RELATION
+		self.profile["chaserTolerance"]  = DEFAULT_CHASER_TOLERANCE
+		self.profile["counterCounts"] = DEFAULT_COUNTER_COUNTS
+		self.profile["counterTimeoutMS"]  = DEFAULT_COUNTER_TIMEOUT_MS
+		self.profile["pulsesPerRotation"]  = DEFAULT_PULSES_PER_ROTATION
+		self.profile["maxRPM"]  = DEFAULT_MAX_RPM
+		self.profile["minRPM"]  = DEFAULT_MIN_RPM
+		self.profile["minDC"]  = DEFAULT_MIN_DC

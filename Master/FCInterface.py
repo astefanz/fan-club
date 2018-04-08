@@ -960,7 +960,7 @@ class FCInterface(Tk.Frame):
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(
 			self.profiler.slaveList,
-			self.profiler, 
+			self.profiler.profile, 
 			self.slaveDisplayFrame,
 			self.slaveList,
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
