@@ -53,6 +53,77 @@ RED = 0
 
 ## AUXILIARY CLASSES ###########################################################
 
+class SlaveInterface():
+	# ABOUT: Represent GUI-relevant Slave data in the Communicator module.
+	# Here each SlaveInterface instance corresponds to one Slave unit in the
+	# Communicator, whether connected or not.
+
+	def __init__(self, name, mac, status, activeFans, maxFans, # =========== 
+		master, communicator, period_ms, ip = None):
+		# ABOUT: Constructor for class SlaveInterface.
+
+		# Initialize "constant" attributes -----------------------------
+		
+		# Name:
+		self.name = name
+		# MAC Address:
+		self.mac = mac
+		
+		# Tkinter master:
+		self.master = master
+
+		# Communicator:
+		self.communicator = communicator
+	
+		# Refresh period:
+		self.period_ms = period_ms # (milliseconds)
+
+		# Initialize "variable" attributes -----------------------------
+		
+		# Status:
+		self.status = status
+		# Active fan count:
+		self.activeFans = activeFans
+		
+		# IP Address:
+		if ip == None:
+			self.ip = Tk.StringVar("None")
+		else:
+			self.ip = Tk.StringVar(ip)
+		
+		# Duty cycles:
+		self.dcs = []
+		for i in range(maxFans):
+			self.dcs.append(Tk.DoubleVar())
+
+		# RPM's:
+		self.rpms = []
+		for i in range(maxFans):
+			self.rpms.append(Tk.IntVar())
+
+		# Exchange index:
+		self.exchange = Tk.IntVar()
+		
+		# Start update method ------------------------------------------
+		self.update()
+
+		# End __init__ =================================================
+		
+	def update(self): # ====================================================
+		# ABOUT: Update this SlaveContainer instance. 
+		
+		# Fetch update:
+		self.communicator.check(self.mac)
+
+		# Check status
+
+		# Check values accordingly
+
+		# Schedule next update -----------------------------------------
+		self.master.after(self.period_ms, self.update)
+
+		# End update ===================================================
+
 class SlaveDisplay(Tk.Frame):
 
 	def __init__(self, master, slave): #

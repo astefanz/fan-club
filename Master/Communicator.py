@@ -29,15 +29,15 @@ This module handles low-level socket communications w/ Slave units.
 
 ## DEPENDENCIES ################################################################
 
-import socket     # Networking
-import threading  # Multitasking
-import thread     # thread.error
-import time       # Timing
+import socket     	# Networking
+import threading  	# Multitasking
+import thread     	# thread.error
+import time       	# Timing
 import Queue
-import sys        # Exception handling
-import traceback  # More exception handling
-import random # Random names, boy
-import numpy	# Fast arrays and matrices
+import sys        	# Exception handling
+import traceback  	# More exception handling
+import random		# Random names, boy
+import numpy		# Fast arrays and matrices
 
 import FCInterface
 import Profiler    # Custom representation of wind tunnel
@@ -46,7 +46,7 @@ import Fan
 import names
 
 
-VERSION = "Asymmetrical 1"
+VERSION = "Separate 0"
 FORCE_IP_ADDRESS = ""
 	#= "192.168.1.129" # (Basement lab)
 
@@ -54,54 +54,29 @@ FORCE_IP_ADDRESS = ""
 
 class Communicator:
 
-	def __init__(self, slaveList, profile, smaster, display, bcupdate, ltupdate):
+	def __init__(self, slaveList, profile, bcupdate, ltupdate): # ==============
 		# ABOUT: Constructor for class Communicator.
 
 		try:
 
-			# INITIALIZE DATA MEMBERS =========================================
+			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Output queues:
 			self.mainQueue = Queue.Queue(profile["mainQueueSize"])
+			self.newSlaveQueue = Queue.Queue()
 
 			self.printM("Initializing Communicator instance")
 
 			# Interface:
-			self.display = display
-			self.bcupdate = bcupdate
 			self.ltupdate = ltupdate
-			self.smaster = smaster
-			#self.tdisplay = tdisplay
+			self.bcupdate = bcupdate
 
 			# Profiler:
 			self.profile = profile
-		
-			# Wind tunnel:
 			
 			# Initialize Slave dictionary:
 			self.slaves = {}
 			self.slavesLock = threading.Lock()
-
-			# Initialize known Slaves -----------------------------------------
-			
-			# Loop over slaveList to instantiate any saved Slaves:
-			for subList in slaveList:
-				# NOTE: Here each sub list, if any, contains data to initialize
-				# known Slaves, in the following order:
-				#
-				# Index 0: Name (as a string)
-				# Index 1: MAC address (as a string)
-				# Index 2: Number of active fans (as an integer)
-
-				self.slaves[subList[1]] = Slave.Slave( # Use MAC as dict. key
-					name = subList[0],
-					mac = subList[1],
-					status = Slave.KNOWN,
-					display = self.display,
-					master = self.smaster,
-					maxFans = self.profile["maxFans"],
-					activeFans = subList[2]
-					)
 
 			# Communications:
 			self.broadcastPeriodS = profile["broadcastPeriodS"]
@@ -109,7 +84,7 @@ class Communicator:
 			self.broadcastPort = profile["broadcastPort"]
 			self.password = profile["passcode"]
 
-			# Create a temporary socket to obtain Master's IP address for reference:
+			# Create a temporary socket to obtain Master's IP address:
 			temp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			temp.connect(('192.0.0.8', 1027))
 			self.hostIP = temp.getsockname()[0]
@@ -117,18 +92,20 @@ class Communicator:
 
 			self.printM("\tHost IP: {}".format(self.hostIP))
 
-			# INITIALIZE MASTER SOCKETS ============================================
+			# INITIALIZE MASTER SOCKETS ========================================
 
-			# INITIALIZE LISTENER SOCKET -------------------------------------------
+			# INITIALIZE LISTENER SOCKET ---------------------------------------
 
 			# Create listener socket:
-			self.listenerSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			self.listenerSocket = socket.socket(
+				socket.AF_INET, socket.SOCK_DGRAM)
 
 
 			# Configure socket as "reusable" (in case of improper closure): 
-			self.listenerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.listenerSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-			# Bind socket to "nothing" (Broadcast on all interfaces and let system 
+			# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 			# assign port number):
 			self.listenerSocket.bind(("", 0))
 
@@ -137,18 +114,21 @@ class Communicator:
 
 			self.listenerPort = self.listenerSocket.getsockname()[1]
 
-			# INITIALIZE BROADCAST SOCKET ------------------------------------------
+			# INITIALIZE BROADCAST SOCKET --------------------------------------
 
 			# Create broadcast socket:
-			self.broadcastSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			self.broadcastSocket = socket.socket(
+				socket.AF_INET, socket.SOCK_DGRAM)
 
 			# Configure socket as "reusable" (in case of improper closure): 
-			self.broadcastSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.broadcastSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 			# Configure socket for broadcasting:
-			self.broadcastSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+			self.broadcastSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-			# Bind socket to "nothing" (Broadcast on all interfaces and let system 
+			# Bind socket to "nothing" (Broadcast on all interfaces and let OS 
 			# assign port number):
 			self.broadcastSocket.bind((FORCE_IP_ADDRESS, 0))
 
@@ -156,36 +136,15 @@ class Communicator:
 
 			self.printM("\tbroadcastSocket initialized on " + \
 				str(self.broadcastSocket.getsockname()))
+			
+			# SET UP MASTER THREADS ============================================
 
-
-			# INITIALIZE SPECIFIC SOCKET ------------------------------------------
-				# ABOUT: The sniper socket is to be used to contact known Slaves to
-				# secure a connection. See self._specificBroadcast() Method.
-
-			# Create socket:
-			self.specificSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-			# Configure socket for broadcasting:
-			self.specificSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-			# Configure socket as "reusable" (in case of improper closure): 
-			self.specificSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-			# Bind socket to "nothing":
-			self.specificSocket.bind(("", 0))
-
-			self.printM("\tspecificSocket initialized on " + \
-				str(self.specificSocket.getsockname()))
-
-
-			# SET UP MASTER THREADS ================================================
-
-			# INITIALIZE BROADCAST THREAD ------------------------------------------
+			# INITIALIZE BROADCAST THREAD --------------------------------------
 
 			# Configure sentinel value for broadcasts:
 			self.broadcastSwitch = True
-				# ABOUT: UDP broadcasts will be sent only when this switch is True
-			self.broadcastSwitchLock = threading.Lock() # for thread-safe access
+				# ABOUT: UDP broadcasts will be sent only when this is True
+			self.broadcastSwitchLock = threading.Lock() # thread-safe access
 
 			self.broadcastThread = threading.Thread(
 				name = "FCMkII_broadcast",
@@ -196,45 +155,56 @@ class Communicator:
 				)
 
 			# Set thread as daemon (background task for automatic closure):
-				# NOTE: A better approach, to be taken in future versions, is to use
-				# events and/or signals to trigger cleanup measures.
 			self.broadcastThread.setDaemon(True)
 
-			# INITIALIZE LISTENER THREAD -------------------------------------------
+			# INITIALIZE LISTENER THREAD ---------------------------------------
 
 			self.listenerThread =threading.Thread(
 				name = "FCMkII_listener",
 				target = self._listenerRoutine)
 
 			# Set thread as daemon (background task for automatic closure):
-				# NOTE: A better approach, to be taken in future versions, is to use
-				# events and/or signals to trigger cleanup measures.
 			self.listenerThread.setDaemon(True)
 
-			# START MASTER THREADS =================================================
+			# SET UP LIST OF KNOWN SLAVES  =====================================
 
+			# Loop over slaveList to instantiate any saved Slaves:
+			for subList in slaveList:
+				# NOTE: Here each sub list, if any, contains data to initialize
+				# known Slaves, in the following order:
+				#
+				# subList[0]: Name (as a string)
+				# subList[1]: MAC address (as a string)
+				# subList[2]: Number of active fans (as an integer)
+
+
+				self.slaves[subList[1]] = Slave.Slave( # Use MAC as dict. key
+					name = subList[0],
+					mac = subList[1],
+					status = Slave.DISCONNECTED,
+					maxFans = self.profile["maxFans"],
+					activeFans = subList[2],
+					routine = self._slaveRoutine,
+					routineArgs = (subList[1]),
+					misoQueueSize = profile["misoQueueSize"]
+					)
+				
+				# Add Slave to newSlaveQueue:
+				self.putNewSlave(sublist[1])
+
+			# START MASTER THREADS =============================================
 			self.listenerThread.start()
 			self.broadcastThread.start()
-
-			# START KNOWN SLAVE THREADS ============================================
-
-			for mac in self.slaves:
-				#self.printM("\tInitializing {}".format(mac), "G")
-
-				self.slaves[mac].setStatus(Slave.DISCONNECTED)
-				self.slaves[mac].thread = threading.Thread( 
-					target = self._slaveRoutine,
-					args = [mac])
-				self.slaves[mac].thread.setDaemon(True)
-				self.slaves[mac].thread.start()
-
+			
+			# DONE
 			self.printM("Communicator ready", "G")
-
+			
 		except Exception as e: # Print uncaught exceptions
-			self.printM("UNCAUGHT EXCEPTION: \"{}\"".\
+			self.printM("UNHANDLED EXCEPTION IN Communicator __init__: "\
+				"\"{}\"".\
 				format(traceback.format_exc()), "E")
 
-		# # END __init__() # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+		# End __init__ =========================================================
 
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 
@@ -276,7 +246,7 @@ class Communicator:
 					self.broadcastSwitchLock.release()
 
 		except Exception as e:
-			self.printM("[BT] UNCAUGHT EXCEPTION: \"{}\"".\
+			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
 		self.bcupdate("R")
@@ -297,23 +267,25 @@ class Communicator:
 				self.ltupdate()
 
 				# Wait for a message to arrive:
-				messageReceived, senderAddress = self.listenerSocket.recvfrom(256)
+				messageReceived, senderAddress = 
+					self.listenerSocket.recvfrom(256)
 
 				self.ltupdate("B")
-				""" NOTE: The message received from Slave, at this point, should ha-
-					ve the following form:
+				""" NOTE: The message received from Slave, at this point, 
+					should have the following form:
 
-						000000000|PASSWORD|SV:MA:CA:DD:RE:SS|SMISO|SMOSI| 
+						000000000|PASSWORD|SV:MA:CA:DD:RE:SS|SMISO|SMOSI|
 
-					Where SMISO and SMOSI are the Slave's MISO and MOSI port numb-
-					ers, respectively. Notice separator.
+					Where SMISO and SMOSI are the Slave's MISO and MOSI 
+					port numbers, respectively. Notice separators.
 				"""
 
 				messageSplitted = messageReceived.split("|")
-					# NOTE: messageSplitted is a list of strings, each of which is
-					# expected to contain a string as defined in the comment above.
+					# NOTE: messageSplitted is a list of strings, each of which
+					# is expected to contain a string as defined in the comment
+					# above.
 
-				# Validate message -------------------------------------------------
+				# Validate message ---------------------------------------------
 
 				try:
 
@@ -326,9 +298,9 @@ class Communicator:
 					misoPort = int(messageSplitted[3])
 					mosiPort = int(messageSplitted[4])
 					mac = messageSplitted[2]
-					# A ValueError will be raised if invalid port numbers are given
-					# and an IndexError will be raised if the given message yields 
-					# less than three strings when splitted.
+					# A ValueError will be raised if invalid port numbers are
+					# given and an IndexError will be raised if the given 
+					# message yields less than three strings when splitted.
 
 					# DEBUG DEACTV:
 					"""
@@ -367,104 +339,74 @@ class Communicator:
 
 					self.printM("[LT ]Error: \"{}\"\n\tObtained when parsing \"\
 						{}\" from {}. (Message discarded)"\
-					.format(e, messageReceived, senderAddress), "W")
+					.format(e, messageReceived, senderAddress), "E")
 
 					# Move on:
 					continue
 
-				# Check Slave against self.slaves and respond accordingly ----------
+				# Check Slave against self.slaves and respond accordingly ------
 					# (Message validation completed successfully by this point)
-				try:
-					# (NOTE: try/finally clause guarantees lock release)
+				
+				# Check if the Slave is known:
+				if(mac in self.slaves):
 
-					# Acquire lock:
-					self.slavesLock.acquire(False)
+					# If the MAC address is in the Slave dictionary, check its
+					# recorded status and proceed accordingly:
 
-					# Check if the Slave is known:
-					if(mac in self.slaves):
+					if self.slaves[mac].getStatus() == Slave.DISCONNECTED:
+						# If the Slave is recorded as DISCONNECTED but just res-
+						# ponded to a broadcast, update its status and mark it
+						# for automatic reconnection.
+						
+						# NOTE:  
+						#	DISCONNECTED Slaves were previously connected to
+						#   and later anomalously disconnected. Since have
+						#   been chosen by the user, they should be recon-
+						#   nected to automatically. Changing their state to
+						#	KNOWN will trigger a response from the corres-
+						#	ponding Slave thread to connect automatically.
 
-						# If the MAC address is in the Slave dictionary, check its re-
-						# corded status and proceed accordingly:
-						self.slaves[mac].lock.acquire()
-						try:
-							# Retrieve status for consecutive uses:
-							status = self.slaves[mac].status 
-
-							if (status == Slave.KNOWN or
-								status == Slave.DISCONNECTED):
-
-								# ABOUT: 
-								#
-								# - KNOWN Slaves have been approved by the user and
-								#   should be connected to automatically.
-								#
-								# - DISCONNECTED Slaves were previously connected to
-								#   and later anomalously disconnected. Since have
-								#   been chosen by the user, they should be recon-
-								#   nected to automatically.
-
-								# Update status and networking information:
-								self.slaves[mac].setIP(senderAddress[0])
-								self.slaves[mac].misoP = misoPort
-								self.slaves[mac].mosiP = mosiPort
-								self.slaves[mac].setStatus(Slave.KNOWN)
-
-						finally:
-
-							# Guarantee release of Slave-specific lock:
-							try:
-								self.slaves[mac].lock.release()
-							except thread.error:
-								pass
-
-
-
-					else:
-
-						# If the MAC address is not recorded, list this board as A-
-						# VAILABLE and move on. The user may choose to add it later:
-
-						# NOTE: Slaves that are not connected will have either port
-						# numbers or None as their "miso" and "mosi" attributes.
-						# When a connection is secured, these port numbers will be
-						# replaced by UDP sockets CONNECTED to said port numbers --
-						# notice: CONNECTED, not BINDED.
-
-						# Create a new Slave instance and store it:
-
-						self.slaves[mac] = Slave.Slave(
-							name = random.choice(names.coolNames),
-							mac = mac,              # MAC address
-							status = Slave.AVAILABLE,   # Status
-							master = self.smaster,
-							display = self.display,
-							#tdisplay = self.tdisplay,
-							activeFans = 21,
-							maxFans = 21,
-							ip = senderAddress[0],  # IP address
-							misoP = misoPort,   # Master in/Slave out port number
-							mosiP = mosiPort        # Slave in/Master out port number
+						# Update status and networking information:
+						self.slaves[mac].setStatus(
+							Slave.Known,
+							senderAddress[0],
+							misoPort,
+							mosiPort
 							)
 
-						# Add slave thread:
-						self.slaves[mac].thread = threading.Thread( 
-							target = self._slaveRoutine,
-							args = [mac])
-						self.slaves[mac].thread.setDaemon(True)
-						self.slaves[mac].thread.start()
+					else:
+						# All other statuses should be ignored for now.
+						pass
 
+				else:
+					# If the MAC address is not recorded, list this board as A-
+					# VAILABLE and move on. The user may choose to add it later:
 
-				finally:
+					# NOTE: Slaves that are not connected will have either port
+					# numbers or None as their "miso" and "mosi" attributes.
+					# When a connection is secured, these port numbers will be
+					# replaced by UDP sockets CONNECTED to said port numbers --
+					# notice these are CONNECTED to, not BINDED to, said port
+					# numbers.
 
-					# Guarantee release of general Slave lock:
-					self.slavesLock.acquire(False)
-						#                     ^ Non-blocking
-						#
-						# Note: if the lock was released within the "try" clause
-						# then this statement will prevent a threading exception
-						# when an attempt to release an unlocked lock is made.
-					
-					self.slavesLock.release()
+					# Create a new Slave instance and store it:
+
+					self.slaves[mac] = Slave.Slave( # Use MAC as dict. key
+						name = random.choice(names.coolNames),
+						mac = mac,
+						status = Slave.AVAILABLE,
+						maxFans = self.profile["maxFans"],
+						activeFans = self.profile["maxFans"],
+						routine = self._slaveRoutine,
+						routineArgs = (mac, ),
+						misoQueueSize = profile["misoQueueSize"]
+						ip = senderAddress[0],
+						misoP = misoPort,
+						mosiP = mosiPort
+						)
+			
+					# Add new Slave's information to newSlaveQueue:
+					self.putNewSlave(mac)
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
@@ -482,47 +424,46 @@ class Communicator:
 		# PARAMETERS:
 		# - targetMAC: String, MAC address of the Slave handled by
 		#   this thread.
-		# - mosiMasterPort: Int, port number of the MOSI socket in the particular 
-		#   connection handled by this thread. If the MOSI socket used by the 
-		#   Slave w/ targetMAC changes, this thread is to be replaced and will end 
-		#   automatically.
 		#
 		# NOTE: This current version is expected to run as daemon.
 
 		try:
 
-			# Setup: ===========================================================
+			# Setup ============================================================
 			self.printM("[{}] Slave thread started".\
-				format(self.slaves[targetMAC].mac), "G")
+				format(targetMAC, "G")
 
 			# Get reference to Slave: ------------------------------------------
 			slave = self.slaves[targetMAC]
 
-			# Set up sockets: --------------------------------------------------
+			# Set up sockets ---------------------------------------------------
 			# MISO:
-			slave.misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-			slave.misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			slave.misoS.settimeout(self.profile["masterTimeoutS"])
+			misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			misoS.settimeout(self.profile["masterTimeoutS"])
 				# The communications period is defined in milliseconds. The 
 				# socket timeout should be one-fifth of said period, and this
 				# method expects a value in seconds.
-			slave.misoS.bind(('', 0))
+			misoS.bind(('', 0))
 
 			# MOSI:
-			slave.mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-			slave.mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			slave.mosiS.settimeout(self.profile["masterTimeoutS"])
+			mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			mosiS.settimeout(self.profile["masterTimeoutS"])
 				# The communications period is defined in milliseconds. The 
 				# socket timeout should be one-fifth of said period, and this
 				# method expects a value in seconds.
-			slave.mosiS.bind(('', 0))
+			mosiS.bind(('', 0))
+			
+			# Assign sockets:
+			slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
 
 			self.printM("[{}] Sockets set up successfully: \
 			 \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
 				format(slave.mac,
 					slave.misoS.getsockname(), slave.mosiS.getsockname()))
 
-			# HSK message: -----------------------------------------------------
+			# HSK message ------------------------------------------------------
 
 			MHSK = "MHSK|{},{},{},S~{},{},{},{},{},{},{},{},{}".format(
 						slave.misoS.getsockname()[1], 
@@ -538,25 +479,25 @@ class Communicator:
 						self.profile["minRPM"],
 						self.profile["minDC"])
 
-			# Set up placeholders and sentinels: -------------------------------
-			slave.setExchange(0)
+			# Set up placeholders and sentinels --------------------------------
+			slave.resetIndices()
 			timeouts = 0
 			message = None
 
-			# Slave loop: ======================================================
+			# Slave loop =======================================================
 			while(True):
 
 				time.sleep(self.profile["interimS"])
 
-				# Acquire:
-				slave.lock.acquire()
-				# DEBUG DEACTV
-				## print "Slave lock acquired"
-
 				try:
 
+					# Acquire lock:
+					slave.acquire()
+					
+					status = slave.getStatus()
+
 					# Act according to Slave's state: 
-					if slave.status == Slave.KNOWN: # = = = = = = = = = = = = = 
+					if status == Slave.KNOWN: # = = = = = = = = = = = = = = = =
 
 						# If the Slave is known, try to secure a connection:
 						# print "Attempting handshake"
@@ -574,7 +515,7 @@ class Communicator:
 
 							# Mark as CONNECTED and get to work:
 							slave.setStatus(Slave.CONNECTED)
-
+							
 						else:
 							# If there was an error, restart attempt:
 							# print
@@ -582,7 +523,7 @@ class Communicator:
 							# Set Slave to disconnected:
 							slave.setStatus(Slave.DISCONNECTED) 
 								# NOTE: This call also resets exchange index.
-
+								
 
 					elif slave.status > 0: # = = = = = = = = = = = = = = = = = = 
 						# If the Slave's state is positive, it is online and 
@@ -595,18 +536,12 @@ class Communicator:
 						## print "[On positive state]"
 
 						# Check queue for message:
-						try:  
-							command = slave.mosiQueue.get_nowait()
-							slave.mosiQueue.task_done()
+						
+						command = slave.getMOSI()
+							
+						if command != None:
 							message = "MSTD|" + command
-
-						except Queue.Empty:
-							# Nothing to send:
-							message = None
-							pass
-
-						# Send message, if any:
-						if message != None:
+							# Send message, if any:
 							self._send(message, slave, 4)
 
 							# DEBUG: 
@@ -625,13 +560,25 @@ class Communicator:
 							# Check if there are DCs and RPMs:
 							if len(reply) > 2:
 								# Update RPMs and DCs:
-								slave.setDCs(
-									numpy.array(
-										map(float,reply[-1].split(','))))
-								slave.setRPMs(
-									numpy.array(
-										map(int,reply[-2].split(','))))
+								try:
+									slave.update(
+										Slave.VALUE_UPDATE,
+										(numpy.array(
+											map(float,reply[-1].split(','))),
+										numpy.array(
+											map(int,reply[-2].split(',')))
+										)
 
+							except Queue.Full:
+								# If there is no room for the queue, dismiss
+								# this update and warn the user:
+								
+								self.printM("[{}] WARNING: MISO Queue Full. "\
+									"GUI thread falling behind. "\
+									"Maybe the system "\
+									"is set to run too fast for "\
+									"its own good?".\
+									format(slave.mac), "E")
 						else:
 							timeouts += 1
 
@@ -652,11 +599,11 @@ class Communicator:
 								#       self.profile["maxTimeouts"])
 
 								# Restart loop:
-								continue;
+								pass
 
 							else:
 								self.printM("[{}] Slave timed out".\
-									format(slave.mac), "W")
+									format(targetMAC), "W")
 
 								# Terminate connection: ........................
 
@@ -670,7 +617,7 @@ class Communicator:
 								slave.setStatus(Slave.DISCONNECTED)
 
 								# Restart loop:
-								continue
+								pass
 
 								# End check timeout counter - - - - - - - - - - 
 
@@ -682,21 +629,7 @@ class Communicator:
 						# contacted, wait for its state to change.
 
 						# Reset index:
-						slave.setExchange(0)
-
-						# DEBUG DEACTIV
-						## print "[Inactive status: {}]".
-						#   format(slave.status)
-
-						# Wait arbitrary amount (say, comms period):
-						try:
-							slave.lock.release()
-						except thread.error:
-							pass
-
-						# Restart loop to check again:
-						continue
-
+						slave.resetIndices()
 
 				finally:
 					# DEBUG DEACTV
@@ -713,18 +646,10 @@ class Communicator:
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
-			   format(slave.mac, traceback.format_exc()), "E")
-
-		finally:
-
-			try:
-				slave.lock.release()
-			except thread.error:
-				pass
-
+			   format(targetMAC, traceback.format_exc()), "E")
 		
-		self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
-			format(slave.mac, traceback.format_exc()), "E")
+		self.printM("[{}] WARNING: BROKE OUT OF SLAVE LOOP".
+			format(targetMAC), "E")
 		# End _slaveRoutine  # # # # # # # # # # # #  # # # # # # # # # # # # # 
 
 	# # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -745,16 +670,17 @@ class Communicator:
 
 		if not hsk:
 			# Increment exchange index:
-			slave.incrementExchange()
+			slave.incrementMOSIIndex()
 		else:
 			# Set index to zero:
-			slave.setExchange(0)
+			slave.setMOSIIndex(0)
 
 		# Send message:
 		for i in range(repeat):
-			outgoing = "{}|{}".format(slave.exchange, message)
-			slave.mosiS.sendto(outgoing,
-				(slave.ip, slave.mosiP))
+			outgoing = "{}|{}".format(
+			slave.getMOSIIndex(), message)
+			slave._mosiSocket().sendto(outgoing,
+				(slave.ip, slave.getMOSIPort()))
 
 		# Notify user:
 		# print "Sent \"{}\" to {} {} time(s)".
@@ -789,7 +715,7 @@ class Communicator:
 				## print "Receiving...({})".format(count), "D"
 
 				# Receive message: ---------------------------------------------
-				message, sender = slave.misoS.recvfrom(
+				message, sender = slave._misoSocket().recvfrom(
 					self.profile["maxLength"])
 
 				# DEBUG DEACTV
@@ -803,7 +729,7 @@ class Communicator:
 					# Verify index:
 					index = int(splitted[0])
 
-					if index <= slave.misoIndex:
+					if index <= slave.getMISOIndex():
 						# Bad index. Discard message:
 						# print "Bad index: ({})".
 						#   format(index), "D"
@@ -875,10 +801,44 @@ class Communicator:
 			# print "Timed out.", "D"
 			return None
 
-		
-
-
 		# End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+	
+	def putNewSlave(self, mac): # ==============================================
+		# ABOUT: Add relevant information of a new Slave to the newSlaveQueue,
+		# for the interface module to access.
+		# RAISES:
+		#	- KeyError if the given MAC address is not found.
+		
+		# Add Slave to Queue:
+		self.newSlaveQueue.put_nowait((
+			self.slaves[mac].getName(),
+			mac,
+			self.slaves[mac].getStatus(),
+			self.slaves[mac].getMaxFans(),
+			self.slaves[mac].getActiveFans()
+			self.slaves[mac].getUpdate,
+			self.slaves[mac].setMOSI
+			))
+
+		# Done
+		return
+
+		# End putNewSlave ======================================================
+
+	def getNewSlave(self): # ===================================================
+		# ABOUT: Check if there is at least one "new Slave" in the newSlaveQueue
+		# and retrieve and return its value. The data, if any, will be formatted
+		# as a tuple of the following form:
+		# 		(Name, MAC_Address, Status, Max_Fans, Active_Fans)
+		# If the newSlaveQueue is empty, return None.
+
+		try:
+			return self.newSlaveQueue.get()
+
+		except Queue.Empty:
+			return None
+
+		# End getNewSlave ======================================================
 
 	def printM(self, output, tag = 'S'): # =====================================
 		# ABOUT: Print on corresponding GUI terminal screen by adding a message to
@@ -892,76 +852,33 @@ class Communicator:
 
 		# Place item in corresponding output Queue:
 		return self.mainQueue.put((output, tag))
+		
+		# End printM ===========================================================
 
-	def printS(self, mac, output, tag = 'S'): # ================================
-		# ABOUT: Print on corresponding GUI terminal screen by adding a message to
-		# this Communicator's corresponding output Queue.
-		# PARAMETERS:
-		# - mac: str, MAC address of Slave unit in question
-		# - output: str, string to be printed.
-		# - tag: str, single character for string formatting.
-		# RETURNS: bool, whether the placement of the message was successful.
-		# The given message will be added to the corresponding output Queue ONLY
-		# IF THERE IS AVAILABLE SPACE. Otherwise, the message will be discarded.
-		# Output Queue sizes are set in Profiler.
-
-		# Place item in corresponding output Queue:
-		try:
-			self.slaveQueue.put_nowait((mac, output, tag))
-			return True
-		except Queue.Full:
-			return False
-
-	# # INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
+	# # INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # 
+	
 	def add(self, targetMAC): # ================================================
 		# ABOUT: Mark a Slave on the network for connection. The given Slave 
 		# must be already listed and marked AVAILABLE. This method will mark it 
-		# as KNOWN, and the Listener Thread will add it automatically when it
-		# responds to the next broadcast.
+		# as KNOWN, and its corresponding handler thread will connect automati-
+		# cally.
 		# PARAMETERS:
 		# - targetMAC: String, MAC address of Slave to "add."
+		# RAISES:
+		# - Exception if targeted Slave is not AVAILABLE.
+		# - KeyError if targetMAC is not in Slave dictionary.
 
-		# Acquire lock:
-		self.slaves[targetMAC].lock.acquire()
-		try:
+		# Check status:
+		status = self.slaves[targetMAC].getStatus()
 
-			# Check status:
-			if self.slaves[targetMAC].status != Slave.AVAILABLE:
-				self.printM("ERROR: Tried to add a Slave w/ status other than \
-					AVAILABLE", "E")
+		if status == Slave.AVAILABLE:
+			self.slaves[targetMAC].setStatus(Slave.KNOWN)
 
-			else:
-				# If the board is AVAILABLE, set is as KNOWN:
-				self.slaves[targetMAC].setStatus(Slave.KNOWN)
-
-		finally:
-			self.slaves[targetMAC].lock.acquire(False)
-				#                                ^ Non-blocking
-				#
-				# Note: if the lock was released within the "try" clause
-				# then this statement will prevent a threading exception
-				# when an attempt to release an unlocked lock is made.
-			try:
-				self.slaves[targetMAC].lock.release()
-			except thread.error:
-					pass
-
+		else:
+			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
+				format(targetMAC, Slave.translate(status)))
 
 		# End add ==============================================================
-
-	def send(self, mac, command): # ============================================
-		# ABOUT: Send a command to a given connected Slave by adding to its MO-
-		# SI Queue.
-		#
-		# THROWS:
-		#	- Queue.Full if the Slave's MOSI queue is full.
-		#	- KeyError if the given MAC address does not match a Slave.
-		#	- ValueError if the given Slave is not connected.
-
-		self.slaves[mac].mosiQueue.put_nowait(command)
-				
-		# End send =============================================================
 
 	def setBroadcastSwitch(self, newState): # ==================================
 		""" ABOUT: Set whether to send UDP broadcast. Parameter Switch is
@@ -1012,4 +929,4 @@ if __name__ == "__main__":
 	print "VERSION = " + VERSION
 
 
-	print "NO TEST SUITE IMPLEMENTED. TERMINATING."
+	print "NO TEST SUITE IMPLEMENTED IN THIS VERSION. TERMINATING."

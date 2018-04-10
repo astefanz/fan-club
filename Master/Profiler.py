@@ -63,7 +63,7 @@ STD_MAIN_QUEUE_SIZE = 20
 STD_SLAVE_QUEUE_SIZE= 100
 STD_BROADCAST_QUEUE_SIZE = 2
 STD_LISTENER_QUEUE_SIZE = 3
-
+STD_MISO_QUEUE_SIZE = 4
 
 # FAN ARRAY:
 # NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
@@ -114,6 +114,7 @@ class Profiler:
 		self.profile["slaveQueueSize"] = STD_SLAVE_QUEUE_SIZE
 		self.profile["broadcastQueueSize"] = STD_BROADCAST_QUEUE_SIZE
 		self.profile["listenerQueueSize"] = STD_LISTENER_QUEUE_SIZE
+		self.profile["misoQueueSize"] = STD_MISO_QUEUE_SIZE
 
 		# Wind tunnel ----------------------------------------------------------
 		
