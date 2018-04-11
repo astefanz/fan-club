@@ -47,8 +47,8 @@ CONNECTED = 1
 
 # SLAVE UPDATE CODES:
 
-STATUS_CHANGE = False
-VALUE_UPDATE = True
+STATUS_CHANGE = 1
+VALUE_UPDATE = 0
 
 # AUXILIARY DEFINITIONS ########################################################
 
@@ -293,7 +293,8 @@ class Slave:
 		newStatus,
 		newIP = None,
 		newMISOP = None,
-		newMOSIP = None):
+		newMOSIP = None,
+		lock = True):
 		# ABOUT: Setter for status. (Uses full lock for thread-safety.)
 		# NOTE: This method will modify all attributes that correspond to the
 		# status change in question. Furthermore, this method is the only
@@ -307,6 +308,8 @@ class Slave:
 		# - newMISOP and newMOSIP: ints, new MISO and MOSI port numbers, res-
 		#	pectively. Required to set to AVAILABLE and KNOWN. (will be igno-
 		#	red otherwise). Default to None.
+		# - lock: bool, whether to acquire Slave lock (set to False if caller
+		#	already has lock. OTHERWISE DEADLOCK WILL ENSUE! 
 		# RAISES:
 		# - TypeError, ValueError, if newStatus is not int status code.
 		# - Queue.Full if update queue is full.
@@ -318,7 +321,8 @@ class Slave:
 
 		try:
 			# Acquire locks:
-			self.acquire()
+			if lock:
+				self.acquire()
 			
 			# Check for redundancy ---------------------------------------------
 			if self.status == newStatus:
@@ -329,7 +333,7 @@ class Slave:
 			# not.
 			elif newStatus == DISCONNECTED:
 				# When DISCONNECTED, remove connection-specific attributes.
-				self._setPorts(misoP = None, mosiP = None)
+				self._setPorts(None, None)
 				self._setIP(None)
 				self.resetIndices()
 			
@@ -337,15 +341,17 @@ class Slave:
 				# Reset indices and update IP address and port numbers:
 				
 				# Check for missing arguments:
-				if newIP == None:
+				if newIP == None and self.ip == None:
 					raise ValueError("Missing 'newIP' argument")
-				elif newMISOP == None:
+				elif newMISOP == None and self.misoP == None:
 					raise ValueError("Missing 'newMISOP' argument")
-				elif newMOSIP == None:
+				elif newMOSIP == None and self.mosiP == None:
 					raise ValueError("Missing 'newMOSIP' argument")
-					
-				self._setIP(newIP)
-				self._setPorts(newMISOP = newMISOP, newMOSIP = newMOSIP)
+				
+				if newIP != None:		
+					self._setIP(newIP)
+				if newMISOP != None:
+					self._setPorts(newMISOP, newMOSIP)
 					# NOTE: Argument validation will be performed here
 				
 				# Reset indices:
@@ -366,7 +372,8 @@ class Slave:
 			self.update(STATUS_CHANGE)
 
 		finally:
-			self.release()
+			if lock:
+				self.release()
 
 		# End setStatus ========================================================
 	
@@ -397,7 +404,7 @@ class Slave:
 
 		# End releaseSocketLock ================================================
 
-	def misoSocket(self): # ====================================================	
+	def _misoSocket(self): # ===================================================	
 		# ABOUT: Access MISO socket. 
 		# NOTE: ACQUIRE SOCKET LOCK BEFORE USING.
 		# NOTE: RETURNS DIRECT REFERENCE TO SOCKET OBJECT. ONLY ONE SOCKET MAY
@@ -795,7 +802,7 @@ class Slave:
 
 		# End _setIP ===========================================================
 
-	def _setPorts(newMISOP, newMOSIP): # =======================================
+	def _setPorts(self, newMISOP, newMOSIP): # =================================
 		# ABOUT: Set new MISO and MOSI port numbers.
 		# PARAMETERS:
 		# - newMISOP, newMOSIP: ints or None (both), port numbers to set.
@@ -806,7 +813,7 @@ class Slave:
 			self.portLock.acquire()
 
 			# Validate input:
-			if type(newMISOP) in (int, None) and \
+			if type(newMISOP) in (int, type(None)) and \
 				type(newMISOP) == type(newMOSIP):
 				# Both arguments have valid and equal types. Now check values:
 

@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"AC 3\"" # Reference for consecutive versions
+VERSION = "\"Elegant_Solution_0\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator

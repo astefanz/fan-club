@@ -42,9 +42,11 @@ import sys # Exception handling
 import Communicator
 import Slave
 import Profiler
-import Fan
 
 ## CONSTANT VALUES #############################################################      
+# FanDisplay status codes:
+ACTIVE = True
+INACTIVE = False
 
 # Broadcast status codes:
 GREEN = 1
@@ -79,8 +81,8 @@ class SlaveContainer:
 		#	MISO index			variable	StringVar
 		#	IP Address			variable	StringVar
 		#	....................................................................
-		#	Duty cycles			variables	List of DoubleVars
-		#	RPM's				variables	List of IntVars
+		#	Duty cycles			variables	List of FanContainers
+		#	RPM's				variables	List of FanContainers
 		# 	....................................................................
 		#	Update period (ms)	variable	int
 		# ----------------------------------------------------------------------
@@ -117,26 +119,27 @@ class SlaveContainer:
 		self.ip = Tk.StringVar()
 		self.ip.set(ip)
 		
-		# Duty cycles:
-		self.dcs = []
+		# FanContainers:
+		self.fans = []
 		for i in range(maxFans):
-			self.dcs.append(Tk.DoubleVar())
-			self.dcs[i].set(-1)	
-		# RPM's:
-		self.rpms = []
-		for i in range(maxFans):
-			self.rpms.append(Tk.IntVar())
-			self.rpms[i].set(-1)
+			self.fans.append(FanContainer(INACTIVE))
 
 		# Indices:
 		self.mosiIndex = Tk.StringVar()
-		self.mosiIndex.set(-1)
+		self.mosiIndex.set("RIP")
 		self.misoIndex = Tk.StringVar()
-		self.misoIndex.set(-1)
+		self.misoIndex.set("RIP")
 		
 		# MISO and MOSI queuing methods:
 		self.misoMethod = misoMethod
 		self.mosiMethod = mosiMethod
+
+		# Selection:
+		self.selection = ''
+		for i in range(maxFans):
+			self.selection += '0'
+
+		self.selected = 0
 
 		# Start update method ------------------------------------------
 		self.update()
@@ -163,20 +166,23 @@ class SlaveContainer:
 				if self.status == Slave.DISCONNECTED:
 					# Reset all connection variables:
 					self.ip.set("None")
-					self.mosiIndex.set("N")
-					self.misoIndex.set("N")
+					self.mosiIndex.set("RIP")
+					self.misoIndex.set("RIP")
 					
 					# Reset fan array information:
-					for dc in self.dcs:
-						dc.set(-1)
-					for rpm in self.rpms:
-						rpm.set(-1)
-				
+					for fan in self.fans:
+						fan.reset()
+						fan.active = False
+
 				else:
 					# Otherwise, update indices and IP:
 					self.mosiIndex.set(str(fetchedUpdate[2]))
 					self.misoIndex.set(str(fetchedUpdate[3]))
 					self.ip.set(fetchedUpdate[4])
+
+					# Update fan activity:
+					for fan in self.fans[:self.activeFans]:
+						fan.active = True
 
 			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
 				# Update indices and fan array values:
@@ -193,7 +199,7 @@ class SlaveContainer:
 					"SlaveContainer update method.".\
 					format(fetchedUpdate[0]),
 					"E")
-			
+
 			# Update slaveList -------------------------------------------------
 			if fetchedUpdate[0] == Slave.STATUS_CHANGE:
 				self.master.slaveList.item(self.slaveListIID, 
@@ -201,8 +207,9 @@ class SlaveContainer:
 						self.name, 
 						self.mac, 
 						self.statusStringVar.get(),
-				 		self.ip, 
-						self.activeFans]
+				 		self.ip.get(), 
+						self.activeFans],
+					tag = Slave.translate(self.status, True)
 					)
 			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
 
@@ -211,11 +218,10 @@ class SlaveContainer:
 						self.name, 
 						self.mac, 
 						self.statusStringVar.get(),
-				 		self.ip, 
-						self.activeFans],
-					tag = Slave.translate(self.status, True)
+				 		self.ip.get(), 
+						self.activeFans]
 					)
-
+			
 
 		else:
 			# Nothing to do for now.
@@ -243,20 +249,172 @@ class SlaveContainer:
 				self.dcs, 
 				self.rpms)
 
-		# end getAttributes ====================================================
+		# End getAttributes ====================================================
+
+	def select(self, fan = None, selection = True): # ==========================
+		# ABOUT: Select fan(s) (by setting them as selected or not selected.
+		# Will do nothing to fans set as "inactive."
+		# PARAMETERS:
+		# - fan: int, fan to set. Prints error to terminal upon indexing out of
+		# bounds. Defaults to None to affect all fans.
+		# - selection: whether to set fan to selected or not selected. Defaults
+		# to True (selected).
+		# RAISES:
+		# - IndexError if fan is out of bounds of fan array.
+
+		if fan == None:
+			# Select all active fans:
+			for i in self.activeFans:
+				self.fans[i].select(selection)
+				if selection:
+					self.selection[i] = '1'
+				else:
+					self.selection[i] = '0'
+
+			if selection:
+				self.selected = self.activeFans
+			else:
+				self.selected = 0
+					
+		elif fan < self.activeFans:
+			if selection and not self.fans[fan].selected:
+				# Selecting a deselected fan:
+				self.selected += 1
+				self.selection[fan] = '1'
+				self.fans[fan].select(True)
+				
+			elif not selection and self.fans[fan].selected:
+				# Deselecting a selected fan:
+				self.selected -= 1
+				self.selection[fan] = '0'
+				self.fans[fan].select(False)
+
+		# End select ===========================================================
+
+	def toggle(self, fan): # ===================================================
+		# ABOUT: Invert selection of a given fan.
+		# PARAMETERS:
+		# - fan: int, fan to toggle.
+		# RAISES:
+		# IndexError if fan index is out of bounds of fan array.
+
+		self.select(fan, not self.fans[fan].selected)
+		
+		# End toggle ===========================================================
+
+	def getSelection(self): # ==================================================
+		# ABOUT: Get this Slave's current "selection string"
+		# RETURNS:
+		# - str, selected fans as 1's and 0's.
+		
+		return self.selection 
+
+		# End getSelected ======================================================
+
+	def hasSelected(self): # ===================================================
+		# ABOUT: Get whether this Slave has at least one fan currently selected.
+		# RETURNS:
+		# - bool, whether this Slave has at least one fan currently selected.
+
+		return self.selected > 0
+
+		# End hasSelected ======================================================
 
 	# End SlaveContainer #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
-"""
+
+class FanContainer:
+	# ABOUT: To serve as a member of class SlaveContainer and hold data abo-
+	# ut a specific fan of a specific Slave's fan array.
+
+	def __init__(self, isActive): # ========================================
+		# ABOUT: Constructor for class FanContainer.
+		# PARAMETERS:
+		# - isActive: bool, whether this Fan is active.
+
+		# ATTRIBUTES:
+		# - Active (bool)
+		# - Selected (bool)
+		# - Duty Cycle (DoubleVar)
+		# - RPM (IntVar)
+		
+		self.active = isActive
+
+		self.selected = False
+
+		self.dc = Tk.DoubleVar()
+		self.dc.set(0)
+
+		self.rpm = Tk.IntVar()
+		self.rpm.set(0)
+
+		# End FanContainer constructor =====================================
+
+	def select(self, selected = True): # ===================================
+		# ABOUT: Set whether this fan is selected.
+		# PARAMETERS:
+		# - selected: bool, whether this fan is selected.
+		
+		self.selected = selected
+
+		# End select =======================================================
+
+	def isSelected(self): # ================================================
+		# ABOUT: Get whether this fan is selected (bool).
+		# RETURNS: 
+		# - bool, whether this fan is selected
+		
+		return self.selected
+
+		# End isSelected ===================================================
+
+	def getChar(self): # ===================================================
+		# ABOUT: Get selection character for this fan.
+		# RETURNS:
+		# - char (str of length 1), '1' if selected and '0' if not.
+
+		if selected:
+			return '1'
+		else:
+			return '0'
+
+		# End getChar ======================================================
+	
+	def isActive(self): # ==================================================
+		# ABOUT: Get whether this fan is active (bool).
+		# RETURNS:
+		# - bool, whether this fan is active.
+
+		return self.active
+
+		# End isActive =====================================================
+	
+	def reset(self): # =====================================================
+		# ABOUT: Reset fan values to defaults for not CONNECTED slaves.
+
+		self.dc.set(0)
+		self.rpm.set(0)
+
+		# End reset ========================================================
+
+	# End FanContainer #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+		
+
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, slave): #
+	def __init__(self, master, communicator,  maxFans): # ======================
+		# ABOUT: Constructor for class SlaveDisplay.
+		# PARAMETERS:
+		# - master: Tkinter container widget.
+		# - communicator: Communicator instance.
+		# - maxFans: maximum number of fans to be displayed.
 
 		self.background = "#d3d3d3"
-		self.mac = slave.mac
-		self.maxFans = slave.maxFans
-		self.activeFans = slave.activeFans
-		self.status = slave.status
-		self.slave = slave
+		self.target = None
+		self.maxFans = maxFans
+		self.activeFans = 0
+		self.status = Slave.DISCONNECTED
+		self.isPacked = False
+		self.communicator = communicator
 
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
@@ -271,19 +429,21 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.exchangeVar = Tk.StringVar()
-		self.exchangeVar.set("O: 0")
+		self.exchangeVar.set("RIP")
 		self.exchangeLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
 			bg = "white", font = 'TkFixedFont 8')
-		self.exchangeLabel.pack(side = Tk.TOP, anchor = 'w',fill = Tk.X, expand =True)
+		self.exchangeLabel.pack(side = Tk.TOP, 
+			anchor = 'w',fill = Tk.X, expand =True)
 
 		# ......................................................................
 		self.misoIndexVar = Tk.StringVar()
-		self.misoIndexVar.set("I: 0")
+		self.misoIndexVar.set("RIP")
 		self.misoIndexLabel = Tk.Label(self.generalFrame, 
 			textvariable = self.misoIndexVar, relief = Tk.SUNKEN, bd = 1,
 			bg = "white", font = 'TkFixedFont 8')
-		self.misoIndexLabel.pack(side = Tk.TOP, anchor = 'w', fill = Tk.X, expand =True)
+		self.misoIndexLabel.pack(side = Tk.TOP, 
+			anchor = 'w', fill = Tk.X, expand =True)
 
 		# ......................................................................
 		self.buttonFrame = Tk.Frame(self)
@@ -293,8 +453,10 @@ class SlaveDisplay(Tk.Frame):
 		self.selectText = Tk.StringVar()
 
 		self.selectText.set("Select")
-		self.selectButton = Tk.Button(self.buttonFrame, textvariable = self.selectText, 
-			command = self.toggleAll, highlightbackground = self.background,pady = 0)
+		self.selectButton = Tk.Button(
+			self.buttonFrame, textvariable = self.selectText, 
+			command = self.toggleAll, 
+			highlightbackground = self.background,pady = 0)
 
 		self.selectButton.pack(side = Tk.LEFT)
 
@@ -306,19 +468,6 @@ class SlaveDisplay(Tk.Frame):
 		for i in range(self.maxFans):
 			self.fans.append(FanDisplay(self.fanArrayFrame, i, 
 				self.setSelection))
-		
-		#self.pack(fill = Tk.X, side = Tk.TOP)
-
-		# OLD VALUES: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-			# Keep track of old values to 
-			# only update values that need updating...
-		self.oldRPMs = []
-		self.oldDCs = []
-
-		# Populate lists w/ placeholders:
-		for i in range(self.maxFans):
-			self.oldRPMs.append(-1)
-			self.oldDCs.append(-1)
 
 
 		# SELECTED FLAG - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -329,8 +478,30 @@ class SlaveDisplay(Tk.Frame):
 			self.selected.append("0")
 
 		# Run status-dependent routines:
-		self.setStatus(slave.status, True)
+		self.setStatus(self.status, True)
 		# End __init__ =========================================================
+
+	def setTarget(self, newTarget): # ==========================================
+		# ABOUT: Change target Slave to be displayed.
+		# PARAMETERS:
+		# - target: SlaveContainer instance to display.
+		
+		# Assign target:
+		self.target = newTarget
+
+		# Adjust status:
+		self.setStatus(self.target.status)
+
+		# Adjust fan array:
+		for i in range(self.target.activeFans):
+			self.fans[i].setTarget(self.target.fans[i])
+		
+		# Adjust indices:
+		self.misoIndexVar = self.target.misoIndex
+		self.mosiIndexVar = self.target.mosiIndex
+
+		# End setTarget ========================================================
+		
 
 	def setStatus(self, newStatus, redundant = False): # =======================
 		# ABOUT: Update status.
@@ -351,69 +522,17 @@ class SlaveDisplay(Tk.Frame):
 		elif newStatus == Slave.DISCONNECTED:
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
-			# Reset lists:
-			for i in range(self.maxFans):
-				self.oldRPMs[i] = -1
-				self.oldDCs[i] = -1
 
 		elif newStatus == Slave.KNOWN:
 			self.setActiveFans(0)
 			self.selectButton.configure(state = Tk.DISABLED)
-			# Reset lists:
-			for i in range(self.maxFans):
-				self.oldRPMs[i] = -1
-				self.oldDCs[i] = -1
 
 		elif newStatus == Slave.AVAILABLE:
 			self.selectText.set("Connect")
 			self.selectButton.configure(state = Tk.NORMAL)
 			self.setActiveFans(0)
-			# Reset lists:
-			for i in range(self.maxFans):
-				self.oldRPMs[i] = -1
-				self.oldDCs[i] = -1
 
 		# End setStatus ========================================================
-
-	def setExchange(self, newExchange): # ======================================
-		# ABOUT: Update exchange index.
-		# PARAMETERS: 
-		# - newExchange: new exchange index.
-
-		self.exchangeVar.set(newExchange)
-
-	def setMISOIndex(self, newMISOIndex): # ====================================
-		# ABOUT: Update MISO index.
-		# PARAMETERS: 
-		# - newMISOIndex: new MISO index.
-
-		self.misoIndexVar.set(newMISOIndex)
-
-	def setRPM(self, rpm, fan): # ==============================================
-		# ABOUT: Update RPM of one fan.
-		# PARAMETERS:
-		# - rpm: new RPM value
-		# - fan: index of the fan to update
-
-		# Check old values and update only when there is a change:
-		if self.oldRPMs[fan] != rpm:
-			self.fans[fan].setRPM(str(rpm) + ' R')
-			self.oldRPMs[fan] = rpm
-		else:
-			pass
-
-	def setDC(self, dc, fan): # ================================================
-		# ABOUT: Update DC of one fan.
-		# PARAMETERS:
-		# - dc: new DC value
-		# - fan: index of fan to update
-
-		# Check old values and update only when there is a change:
-		if self.oldDCs[fan] != dc:
-			self.fans[fan].setDC(str(dc) + '%')
-			self.oldDCs[fan] = dc
-		else:
-			pass
 
 	def setActiveFans(self, newActiveFans): # ==================================
 		# ABOUT: Update activeFans value
@@ -423,9 +542,11 @@ class SlaveDisplay(Tk.Frame):
 		# Update fan array display:
 		for fan in self.fans:
 			if fan.index < newActiveFans:
-				fan.setStatus(Fan.ACTIVE)
+				fan.setStatus(ACTIVE)
 			else:
-				fan.setStatus(Fan.INACTIVE)
+				fan.setStatus(INACTIVE)
+	
+	# End setActiveFans ========================================================
 
 	def toggleAll(self): # =====================================================
 		# ABOUT: Set all fans as selected or deselected (Alternate):
@@ -445,47 +566,40 @@ class SlaveDisplay(Tk.Frame):
 			self.toggled = not self.toggled
 
 		elif self.status == Slave.AVAILABLE:
-			self.slave.setStatus(Slave.KNOWN)
+			self.communicator.add(self.target.mac)
 			self.selectText.set("Select")
 
 	def selectAll(self): # =====================================================
 		# ABOUT: Set all fans as selected:
-		for fan in self.fans:
-			fan.select(None)
+		if self.target != None:
+			self.target.select()
 			self.selectText.set("Deselect")
 
-		self.toggled = True
+			self.toggled = True
 
 	def deselectAll(self): # ====================================================
 		# ABOUT: Set all fans as selected:
-		for fan in self.fans:
-			fan.deselect(None)
+		if self.target != None:
 			self.selectText.set("Select")
+			self.target.select(None, False)
+			self.toggled = False
 
-		self.toggled = False
-
-	def setSelection(self, selected, index): # =================================
+	def setSelection(self, index, selected): # =================================
 		# ABOUT: Set whether a fan in the array is selected:
 		# PARAMETERS:
 		# - selected: bool, whether the fan in question is selected.
 		# - index: int, index of the fan in question.
-
-		if selected:
-			self.selected[index] = '1'
-			self.selectionCount += 1
-		else:
-			self.selected[index] = '0'
-			self.selectionCount -= 1
+		
+		if self.target != None:
+			self.target.select(index, selected)
 
 	def getSelection(self): # ==================================================
 		# ABOUT: Get list of selected fans
 		# RETURNS:
 		# List of selected fans as string of 1's and 0's
-		result = ''
-		# DEBUG
-		for fan in self.selected:
-			result += fan
-		return result
+		
+		if self.target != None:
+			return self.target.getSelection()
 
 	def hasSelected(self): # ===================================================
 		# ABOUT: Get whether this Slave unit has fans selected, as a bool.
@@ -507,14 +621,15 @@ class FanDisplay(Tk.Frame):
 		self.dc = 0
 		self.index = index
 		self.selectMethod = selectMethod
-		self.status = Fan.ACTIVE
-
+		self.status = ACTIVE
+		
 		# SELECTION ------------------------------------------------------------
 		self.selected = False
 
 
 		# CONFIGURE FRAME = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-		Tk.Frame.__init__(self, master = master, bg = "white", width = size, height = size)
+		Tk.Frame.__init__(self, 
+			master = master, bg = "white", width = size, height = size)
 		self.config(relief = Tk.SUNKEN, borderwidth = 1)
 		self.bind('<Button-1>', self.toggle)
 
@@ -551,6 +666,30 @@ class FanDisplay(Tk.Frame):
 		# PACK = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		self.pack(side = Tk.LEFT)
 		self.pack_propagate(False)
+		
+
+	# End FanDisplay constructor ===============================================
+
+	def setTarget(self, newTarget): # ==========================================
+		# ABOUT: Change this FanDisplay's target.
+		# PARAMETERS:
+		# - newTarget: FanContainer to display.
+
+		# Assign target:
+		self.target = newTarget
+		# Check activiy:
+		self.setStatus(self.target.isActive())
+		# Set variables:
+		self.dcDisplay.config(textvariable = self.target.dc)
+		self.rpmDisplay.config(textvariable = self.target.rpm)
+
+		# Set selection:
+		if self.target.isSelected():
+			self.select(None)
+		else:
+			self.deselect(None)
+
+		# End setTarget ========================================================
 
 	def toggle(self, event): # =================================================
 		# ABOUT: To be activated on click. Toggles fan selection.
@@ -561,7 +700,7 @@ class FanDisplay(Tk.Frame):
 	
 	def select(self, event): # =================================================
 		# ABOUT: Set this fan as selected.
-		if not self.selected and self.status == Fan.ACTIVE: 
+		if not self.selected and self.status == ACTIVE: 
 			self.selected =  True
 			self.rpmDisplay.configure(bg = "orange")
 			self.dcDisplay.configure(bg = "orange")
@@ -579,11 +718,10 @@ class FanDisplay(Tk.Frame):
 
 	def setStatus(self, newStatus): # ==========================================
 		# ABOUT: Set the status of this fan. Inactive fans cannot be selected.
-
 		# Check for redundancy:
 		if self.status != newStatus:
 			# Check new status:
-			if newStatus == Fan.ACTIVE:
+			if newStatus == ACTIVE:
 				# Set style of an active fan:
 				self.dcDisplay.configure(background = 'white')
 				self.dcDisplay.bind('<Button-1>', self.toggle)
@@ -595,7 +733,7 @@ class FanDisplay(Tk.Frame):
 
 				self.status = newStatus
 
-			elif newStatus == Fan.INACTIVE:
+			elif newStatus == INACTIVE:
 				# Set style of an inactive fan:
 				self.dcDisplay.configure(background = '#141414')
 				self.dcDisplay.unbind('<Button-1>')
@@ -618,7 +756,7 @@ class FanDisplay(Tk.Frame):
 			pass
 
 		# End setStatus ========================================================
-"""
+
 ## CLASS DEFINITION ############################################################
 
 class FCInterface(Tk.Frame):      
@@ -1165,6 +1303,12 @@ class FCInterface(Tk.Frame):
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
 		self.slaves = self.communicator.slaves
+		
+		# Initialize SlaveDisplay (requires Communicator):
+		self.slaveDisplay = SlaveDisplay(
+			self.slaveDisplayFrame, 
+			self.communicator, 
+			self.profiler.profile["maxFans"])
 
 		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 
@@ -1245,7 +1389,7 @@ class FCInterface(Tk.Frame):
 						ip = fetched[5],
 						misoMethod = fetched[6],
 						mosiMethod = fetched[7],
-						master = self.main,
+						master = self,
 						period_ms = 100,
 						slaveListIID = 	self.slaveList.insert(
 							'', 'end', 
@@ -1442,11 +1586,12 @@ class FCInterface(Tk.Frame):
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 			self.slaveListContainer.configure(height = 1)
-			"""
+			
 			if self.oldSelection != None:
-				self.slaves[self.oldSelection].slaveDisplay.pack_forget()
+				self.slaveDisplay.pack_forget()
 				self.slaveDisplayFrame.configure(height = 1)
-			"""
+				self.slaveDisplay.isPacked = False
+		
 	def _plotToggle(self): # ===================================================
 		# ABOUT: Hide and show plot
 
@@ -1466,14 +1611,18 @@ class FCInterface(Tk.Frame):
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList
-		"""
-		# Unpack previous selection:
-		if self.oldSelection != None:
-			self.slaves[self.oldSelection].slaveDisplay.pack_forget()
-		if len(self.slaveList.selection()) > 0:
-			self.oldSelection = self.slaveList.item(self.slaveList.selection()[0], "values")[1]
-			self.slaves[self.oldSelection].slaveDisplay.pack()
-		"""
+		
+		currentSelection = self.slaveList.item(
+			self.slaveList.selection()[0],"values")[1]
+
+		if self.oldSelection != currentSelection:
+			self.slaveDisplay.setTarget(self.slaveContainers[currentSelection])
+			self.oldSelection = currentSelection
+
+		if not self.slaveDisplay.isPacked:
+			self.slaveDisplay.pack()
+			self.slaveDisplay.isPacked = True
+	
 	def _send(self): # =========================================================
 		# ABOUT: Send a message to the MOSI queue of applicable Slaves
 
@@ -1519,28 +1668,29 @@ class FCInterface(Tk.Frame):
 
 		# Set sentinel for whether this message was sent:
 		sent = False
-		"""
-		for mac in self.slaves:
-			if self.slaves[mac].slaveDisplay.hasSelected():
+		
+		for mac in self.slaveContainers:
+			if self.slaveContainers[mac].hasSelected():
 				# If it has at least one fan selected, add this to its queue:
 				try:
 					command = "{}~{}".format(
 						commandKeyword, \
-						self.slaves[mac].slaveDisplay.getSelection())
+						self.slaveContainers[mac].getSelection())
 
 					self.communicator.send(mac, command)
 
 					# Deselect fans:
-					self.slaves[mac].slaveDisplay.deselectAll()
+					self.slaveContainers[mac].select(None, False)
 
 					# Update sentinel:
 					sent = True
 				except Queue.Full:
-					self.printS(self.slaves[mac], 
+					self.printMain( "[{}] "\
 						"Warning: Outgoing command Queue full. "\
-						"Could not send last message", "E")
+						"Could not send last message".\
+						format(mac), "E")
 
-		"""
+		
 		# Check sentinel:
 		if sent:
 			# Erase text:

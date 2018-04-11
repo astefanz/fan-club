@@ -368,7 +368,7 @@ class Communicator:
 
 						# Update status and networking information:
 						self.slaves[mac].setStatus(
-							Slave.Known,
+							Slave.KNOWN,
 							senderAddress[0],
 							misoPort,
 							mosiPort
@@ -399,7 +399,7 @@ class Communicator:
 						activeFans = self.profile["maxFans"],
 						routine = self._slaveRoutine,
 						routineArgs = (mac, ),
-						misoQueueSize = profile["misoQueueSize"],
+						misoQueueSize = self.profile["misoQueueSize"],
 						ip = senderAddress[0],
 						misoP = misoPort,
 						mosiP = mosiPort
@@ -486,7 +486,6 @@ class Communicator:
 
 			# Slave loop =======================================================
 			while(True):
-
 				time.sleep(self.profile["interimS"])
 
 				try:
@@ -514,14 +513,14 @@ class Communicator:
 							# print "Handshake confirmed"
 
 							# Mark as CONNECTED and get to work:
-							slave.setStatus(Slave.CONNECTED)
+							slave.setStatus(Slave.CONNECTED, lock = False)
 							
 						else:
 							# If there was an error, restart attempt:
 							# print
 							#   "Missed handshake. Retrying."
 							# Set Slave to disconnected:
-							slave.setStatus(Slave.DISCONNECTED) 
+							slave.setStatus(Slave.DISCONNECTED, lock = False) 
 								# NOTE: This call also resets exchange index.
 								
 
@@ -614,7 +613,8 @@ class Communicator:
 								timeouts = 0
 
 								# Update Slave status:
-								slave.setStatus(Slave.DISCONNECTED)
+								slave.setStatus(
+									Slave.DISCONNECTED, lock = False)
 
 								# Restart loop:
 								pass
