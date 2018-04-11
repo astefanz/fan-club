@@ -185,12 +185,12 @@ class Communicator:
 					maxFans = self.profile["maxFans"],
 					activeFans = subList[2],
 					routine = self._slaveRoutine,
-					routineArgs = (subList[1]),
+					routineArgs = (subList[1],),
 					misoQueueSize = profile["misoQueueSize"]
 					)
 				
 				# Add Slave to newSlaveQueue:
-				self.putNewSlave(sublist[1])
+				self.putNewSlave(subList[1])
 
 			# START MASTER THREADS =============================================
 			self.listenerThread.start()
@@ -267,7 +267,7 @@ class Communicator:
 				self.ltupdate()
 
 				# Wait for a message to arrive:
-				messageReceived, senderAddress = 
+				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
 
 				self.ltupdate("B")
@@ -399,7 +399,7 @@ class Communicator:
 						activeFans = self.profile["maxFans"],
 						routine = self._slaveRoutine,
 						routineArgs = (mac, ),
-						misoQueueSize = profile["misoQueueSize"]
+						misoQueueSize = profile["misoQueueSize"],
 						ip = senderAddress[0],
 						misoP = misoPort,
 						mosiP = mosiPort
@@ -416,7 +416,7 @@ class Communicator:
 				
 		# End _listenerRoutine =================================================
 
-	def _slaveRoutine(self, targetMAC): # # # # # # # # # # # # # # # # # # # # 
+	def _slaveRoutine(self, targetMAC, target): # # # # # # # # # # # # # # # # 
 		# ABOUT: This method is meant to run on a Slave's communication-handling
 		# thread. It handles sending and receiving messages through its MISO and
 		# MOSI sockets, at a pace dictated by the Communicator instance's given
@@ -424,17 +424,17 @@ class Communicator:
 		# PARAMETERS:
 		# - targetMAC: String, MAC address of the Slave handled by
 		#   this thread.
-		#
+		# - target: Slave controlled by this thread
 		# NOTE: This current version is expected to run as daemon.
 
 		try:
 
 			# Setup ============================================================
 			self.printM("[{}] Slave thread started".\
-				format(targetMAC, "G")
+				format(targetMAC, "G"))
 
 			# Get reference to Slave: ------------------------------------------
-			slave = self.slaves[targetMAC]
+			slave = target
 
 			# Set up sockets ---------------------------------------------------
 			# MISO:
@@ -567,18 +567,18 @@ class Communicator:
 											map(float,reply[-1].split(','))),
 										numpy.array(
 											map(int,reply[-2].split(',')))
-										)
+										))
 
-							except Queue.Full:
-								# If there is no room for the queue, dismiss
-								# this update and warn the user:
-								
-								self.printM("[{}] WARNING: MISO Queue Full. "\
-									"GUI thread falling behind. "\
-									"Maybe the system "\
-									"is set to run too fast for "\
-									"its own good?".\
-									format(slave.mac), "E")
+								except Queue.Full:
+									# If there is no room for the queue, dismiss
+									# this update and warn the user:
+									
+									self.printM("[{}] WARNING: MISO Queue Full. "\
+										"GUI thread falling behind. "\
+										"Maybe the system "\
+										"is set to run too fast for "\
+										"its own good?".\
+										format(slave.mac), "E")
 						else:
 							timeouts += 1
 
@@ -815,8 +815,9 @@ class Communicator:
 			mac,
 			self.slaves[mac].getStatus(),
 			self.slaves[mac].getMaxFans(),
-			self.slaves[mac].getActiveFans()
-			self.slaves[mac].getUpdate,
+			self.slaves[mac].getActiveFans(),
+			self.slaves[mac].getIP(),
+			self.slaves[mac].getUpdate, # NOTE: Here the method itself is passed.
 			self.slaves[mac].setMOSI
 			))
 
@@ -829,11 +830,14 @@ class Communicator:
 		# ABOUT: Check if there is at least one "new Slave" in the newSlaveQueue
 		# and retrieve and return its value. The data, if any, will be formatted
 		# as a tuple of the following form:
-		# 		(Name, MAC_Address, Status, Max_Fans, Active_Fans)
+		# 
+		# (Name, MAC_Address, Status, Max_Fans, Active_Fans, 
+		#	IP, getUpdate, setMOSI)
+		#
 		# If the newSlaveQueue is empty, return None.
 
 		try:
-			return self.newSlaveQueue.get()
+			return self.newSlaveQueue.get(False)
 
 		except Queue.Empty:
 			return None

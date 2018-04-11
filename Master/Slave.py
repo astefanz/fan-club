@@ -30,6 +30,7 @@ OOP representation of Slave units.
 ## DEPENDENCIES ################################################################
 import Fan       			 # Fan representation
 import Queue      # Communication between threads
+import socket
 import threading   # Thread-safe access
 import FCInterface as FCI
 
@@ -133,9 +134,9 @@ class Slave:
 		elif type(status) is not int:
 			raise TypeError(
 				"Attribute 'status' must be int, not {}".format(type(status)))
-		elif newStatus not in (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE):
-			raise ValueError("Argument 'newStatus' must be valid status code "\
-				"(not {})".format(newStatus))
+		elif status not in (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE):
+			raise ValueError("Argument 'status' must be valid status code "\
+				"(not {})".format(status))
 		elif type(maxFans) is not int:
 			raise TypeError(
 				"Attribute 'maxFans' must be int, not {}".\
@@ -144,10 +145,10 @@ class Slave:
 			raise TypeError(
 				"Attribute 'activeFans' must be int, not {}".\
 				format(type(activeFans)))
-		elif type(thread) is not threading.Thread:
+		elif type(routine) is not type(self.getMAC):
 			raise TypeError(
-				"Attribute 'thread' must be threading.Thread, not {}".\
-				format(type(thread)))
+				"Attribute 'routine' must be function, not {}".\
+				format(type(routine)))
 		elif type(misoQueueSize) is not int:
 			raise TypeError(
 				"Attribute 'misoQueueSize' must be int, not {}".\
@@ -228,7 +229,7 @@ class Slave:
 		# Handler thread:
 		self.thread = threading.Thread(
 			target = routine,
-			args = routineArgs
+			args = routineArgs + (self,)
 			)
 		self.thread.setDaemon(True)
 		self.thread.start()
@@ -674,6 +675,26 @@ class Slave:
 
 		# End getMOSI ==========================================================
 	
+	def getIP(self): # =========================================================
+		# ABOUT: Get Slave's IP address, if any.
+		# RETURNS:
+		# - str if IP address currently exists, None otherwise.
+		# NOTE: Blocks for thread-safety.
+
+		try:
+			self.ipLock.acquire()
+			
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.ip
+
+			# Notice lock will be released by finally clause
+			return placeholder
+
+		finally:
+			self.ipLock.release()
+
+		# End getIP ============================================================
+
 
 	def update(self, updateType, arrayValues = None):
 		# ABOUT: Store "update" in MISO queue for interface to retrieve.
@@ -785,7 +806,7 @@ class Slave:
 			self.portLock.acquire()
 
 			# Validate input:
-			if type(newMISOP) in (int, None) and 
+			if type(newMISOP) in (int, None) and \
 				type(newMISOP) == type(newMOSIP):
 				# Both arguments have valid and equal types. Now check values:
 

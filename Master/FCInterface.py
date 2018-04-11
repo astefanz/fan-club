@@ -37,6 +37,7 @@ import threading
 import Queue
 import time
 import traceback
+import sys # Exception handling
 
 import Communicator
 import Slave
@@ -53,14 +54,36 @@ RED = 0
 
 ## AUXILIARY CLASSES ###########################################################
 
-class SlaveInterface():
+class SlaveContainer:
 	# ABOUT: Represent GUI-relevant Slave data in the Communicator module.
 	# Here each SlaveInterface instance corresponds to one Slave unit in the
 	# Communicator, whether connected or not.
 
-	def __init__(self, name, mac, status, activeFans, maxFans, # =========== 
-		master, communicator, period_ms, ip = None):
-		# ABOUT: Constructor for class SlaveInterface.
+	def __init__(self, # =======================================================
+		name, mac, status, maxFans, activeFans, ip, misoMethod, mosiMethod,
+		master, period_ms, slaveListIID):
+		# ABOUT: Constructor for class SlaveContainer.
+
+		# ATTRIBUTE SUMMARY ----------------------------------------------------
+		#
+		#	ATTRIBUTE			KIND		DATA TYPE		
+		#	--------------------------------------------------------------------
+		#	Name				constant	str	
+		#	MAC Address			constant	str
+		#	Status				variable	int w/ changes in updater and SVar
+		#   ....................................................................
+		#	Max fans			constant	int
+		#	Active fans			constant	int	
+		#	....................................................................
+		#	MOSI index			variable	StringVar
+		#	MISO index			variable	StringVar
+		#	IP Address			variable	StringVar
+		#	....................................................................
+		#	Duty cycles			variables	List of DoubleVars
+		#	RPM's				variables	List of IntVars
+		# 	....................................................................
+		#	Update period (ms)	variable	int
+		# ----------------------------------------------------------------------
 
 		# Initialize "constant" attributes -----------------------------
 		
@@ -69,12 +92,18 @@ class SlaveInterface():
 		# MAC Address:
 		self.mac = mac
 		
+		# Max fans:
+		self.maxFans = maxFans
+		
+		# Active fans:
+		self.activeFans = activeFans
+		
 		# Tkinter master:
 		self.master = master
 
-		# Communicator:
-		self.communicator = communicator
-	
+		# TKinter slaveList IID:
+		self.slaveListIID = slaveListIID
+
 		# Refresh period:
 		self.period_ms = period_ms # (milliseconds)
 
@@ -82,28 +111,33 @@ class SlaveInterface():
 		
 		# Status:
 		self.status = status
-		# Active fan count:
-		self.activeFans = activeFans
-		
+		self.statusStringVar = Tk.StringVar()
+		self.statusStringVar.set(Slave.translate(status))	
 		# IP Address:
-		if ip == None:
-			self.ip = Tk.StringVar("None")
-		else:
-			self.ip = Tk.StringVar(ip)
+		self.ip = Tk.StringVar()
+		self.ip.set(ip)
 		
 		# Duty cycles:
 		self.dcs = []
 		for i in range(maxFans):
 			self.dcs.append(Tk.DoubleVar())
-
+			self.dcs[i].set(-1)	
 		# RPM's:
 		self.rpms = []
 		for i in range(maxFans):
 			self.rpms.append(Tk.IntVar())
+			self.rpms[i].set(-1)
 
-		# Exchange index:
-		self.exchange = Tk.IntVar()
+		# Indices:
+		self.mosiIndex = Tk.StringVar()
+		self.mosiIndex.set(-1)
+		self.misoIndex = Tk.StringVar()
+		self.misoIndex.set(-1)
 		
+		# MISO and MOSI queuing methods:
+		self.misoMethod = misoMethod
+		self.mosiMethod = mosiMethod
+
 		# Start update method ------------------------------------------
 		self.update()
 
@@ -113,17 +147,106 @@ class SlaveInterface():
 		# ABOUT: Update this SlaveContainer instance. 
 		
 		# Fetch update:
-		self.communicator.check(self.mac)
+		fetchedUpdate  = self.misoMethod()	
+		
+		# Check if an update was fetched
+		if fetchedUpdate != None:
+			
+			# Check update type:
+			if fetchedUpdate[0] == Slave.STATUS_CHANGE:
+				
+				# Update status:
+				self.status = fetchedUpdate[1]
+				self.statusStringVar.set(Slave.translate(fetchedUpdate[1]))
 
-		# Check status
+				# Check for disconnection:
+				if self.status == Slave.DISCONNECTED:
+					# Reset all connection variables:
+					self.ip.set("None")
+					self.mosiIndex.set("N")
+					self.misoIndex.set("N")
+					
+					# Reset fan array information:
+					for dc in self.dcs:
+						dc.set(-1)
+					for rpm in self.rpms:
+						rpm.set(-1)
+				
+				else:
+					# Otherwise, update indices and IP:
+					self.mosiIndex.set(str(fetchedUpdate[2]))
+					self.misoIndex.set(str(fetchedUpdate[3]))
+					self.ip.set(fetchedUpdate[4])
 
-		# Check values accordingly
+			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
+				# Update indices and fan array values:
+				self.mosiIndex.set(str(fetchedUpdate[1]))
+				self.misoIndex.set(str(fetchedUpdate[2]))
+				
+				# Update fan array values:
+				for i in range(self.activeFans):
+					self.dcs[i].set(fetchedUpdate[3][0][i])
+					self.rpms[i].set(fetchedUpdate[3][1][i])
 
-		# Schedule next update -----------------------------------------
+			else:
+				self.printMain("ERROR: Unrecognized update code {} in "\
+					"SlaveContainer update method.".\
+					format(fetchedUpdate[0]),
+					"E")
+			
+			# Update slaveList -------------------------------------------------
+			if fetchedUpdate[0] == Slave.STATUS_CHANGE:
+				self.master.slaveList.item(self.slaveListIID, 
+					values = [
+						self.name, 
+						self.mac, 
+						self.statusStringVar.get(),
+				 		self.ip, 
+						self.activeFans]
+					)
+			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
+
+				self.master.slaveList.item(self.slaveListIID, 
+					values = [
+						self.name, 
+						self.mac, 
+						self.statusStringVar.get(),
+				 		self.ip, 
+						self.activeFans],
+					tag = Slave.translate(self.status, True)
+					)
+
+
+		else:
+			# Nothing to do for now.
+			pass
+
+		# Schedule next update -------------------------------------------------
 		self.master.after(self.period_ms, self.update)
 
-		# End update ===================================================
+		# End update ===========================================================
 
+	def getAttributes(self): # =================================================
+		# ABOUT: Get a tuple containing all the relevant attributes of this Sla-
+		# ve container (either str or int for constant variables or StringVar, 
+		# IntVar or DoubleVar for variables)
+
+		return (self.name, 
+				self.mac, 
+				self.status, 
+				self.statusStringVar, 
+				self.mosiIndex,
+				self.misoIndex,
+				self.maxFans, 
+				self.activeFans,
+				self.ip, 
+				self.dcs, 
+				self.rpms)
+
+		# end getAttributes ====================================================
+
+	# End SlaveContainer #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+"""
 class SlaveDisplay(Tk.Frame):
 
 	def __init__(self, master, slave): #
@@ -364,10 +487,13 @@ class SlaveDisplay(Tk.Frame):
 			result += fan
 		return result
 
-	def hasSelected(self): # =====================================================
+	def hasSelected(self): # ===================================================
 		# ABOUT: Get whether this Slave unit has fans selected, as a bool.
 		# RETURNS: bool, whether at least one fan is selected.
 		return self.selectionCount > 0
+
+
+	# End SlaveDisplay #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 class FanDisplay(Tk.Frame):
 	# ABOUT: Graphically represent each fan
@@ -492,7 +618,7 @@ class FanDisplay(Tk.Frame):
 			pass
 
 		# End setStatus ========================================================
-
+"""
 ## CLASS DEFINITION ############################################################
 
 class FCInterface(Tk.Frame):      
@@ -1018,7 +1144,7 @@ class FCInterface(Tk.Frame):
 		self.printMain("Fan Club MkII Interface initialized", "G")
 
 
-		# INITIALIZE MEMBERS = = = = = = = = = = = = = = = = = = = = = = = = = =
+		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 		# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -1027,27 +1153,28 @@ class FCInterface(Tk.Frame):
 		self.profiler = Profiler.Profiler() 
 		self.printMain("Profiler initialized", "G")
 		print "Profiler ready"
+		
+		# Initialize Slave data structure --------------------------------------
+		self.slaveContainers = {}
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(
 			self.profiler.slaveList,
 			self.profiler.profile, 
-			self.slaveDisplayFrame,
-			self.slaveList,
 			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
 		self.printMain("Communicator initialized", "G")
 		print "Communicator ready"
 		self.slaves = self.communicator.slaves
 
-		# INITIALIZE UPDATING THREADS = = = = = = = = = = = = = = = = = = = = = 
+		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 
 		# ----------------------------------------------------------------------
 		self._mainPrinterRoutine()
-		# End constructor ==========================================================
+		
+		self._newSlaveChecker()
+		# End constructor ======================================================
 
-## THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-	## PRINTER ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+## UPDATE ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 	def _mainPrinterRoutine(self): # ===========================================
 		# ABOUT: Keep main terminal window updated w/ Communicator output. To be
@@ -1092,6 +1219,56 @@ class FCInterface(Tk.Frame):
 
 		self.mainTText.after(100, self._mainPrinterRoutine)
 		# End _mainPrintRoutine ================================================
+
+	def _newSlaveChecker(self): # ===================================
+		# ABOUT: Check periodically for the addition of new Slaves.
+		# PARAMETERS: 
+		# - period_ms: int, milliseconds before next call using TKinter's after.
+
+		# Check for new Slaves:
+		fetched = self.communicator.getNewSlave()
+		try:
+			if fetched == None:
+				# Nothing to do here
+				pass
+			else:
+				# Slave fetched. Add it to the interface:
+
+				# Create new SlaveContainer:
+				newSlaveContainer = \
+					SlaveContainer(
+						name = fetched[0],
+						mac = fetched[1],
+						status = fetched[2],
+						maxFans = fetched[3],
+						activeFans = fetched[4],
+						ip = fetched[5],
+						misoMethod = fetched[6],
+						mosiMethod = fetched[7],
+						master = self.main,
+						period_ms = 100,
+						slaveListIID = 	self.slaveList.insert(
+							'', 'end', 
+							values = (
+							fetched[0], # name 
+							fetched[1], # MAC 
+							Slave.translate(fetched[2]), # Status as str
+							fetched[5],	 # IP as str
+							fetched[4]), # Active fans as int 
+							tag = Slave.translate(fetched[2], True))
+										#        \------/ Status (int)
+					)
+				
+				# Add to Slave dictionary:
+				self.slaveContainers[fetched[1]] = newSlaveContainer
+			
+			# Schedule next call -----------------------------------------------
+			self.main.after(100, self._newSlaveChecker)
+
+		except Exception as e: # Print uncaught exceptions
+			self.printMain("[NS] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+		# End _newSlaveChecker =================================================
 
 	def listenerDisplayUpdate(self, code = "G"):
 		# ABOUT: Update listenerDisplay widget.
@@ -1265,10 +1442,11 @@ class FCInterface(Tk.Frame):
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 			self.slaveListContainer.configure(height = 1)
+			"""
 			if self.oldSelection != None:
 				self.slaves[self.oldSelection].slaveDisplay.pack_forget()
 				self.slaveDisplayFrame.configure(height = 1)
-
+			"""
 	def _plotToggle(self): # ===================================================
 		# ABOUT: Hide and show plot
 
@@ -1288,14 +1466,14 @@ class FCInterface(Tk.Frame):
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList
-
+		"""
 		# Unpack previous selection:
 		if self.oldSelection != None:
 			self.slaves[self.oldSelection].slaveDisplay.pack_forget()
 		if len(self.slaveList.selection()) > 0:
 			self.oldSelection = self.slaveList.item(self.slaveList.selection()[0], "values")[1]
 			self.slaves[self.oldSelection].slaveDisplay.pack()
-
+		"""
 	def _send(self): # =========================================================
 		# ABOUT: Send a message to the MOSI queue of applicable Slaves
 
@@ -1341,7 +1519,7 @@ class FCInterface(Tk.Frame):
 
 		# Set sentinel for whether this message was sent:
 		sent = False
-
+		"""
 		for mac in self.slaves:
 			if self.slaves[mac].slaveDisplay.hasSelected():
 				# If it has at least one fan selected, add this to its queue:
@@ -1362,7 +1540,7 @@ class FCInterface(Tk.Frame):
 						"Warning: Outgoing command Queue full. "\
 						"Could not send last message", "E")
 
-		
+		"""
 		# Check sentinel:
 		if sent:
 			# Erase text:
@@ -1373,7 +1551,7 @@ class FCInterface(Tk.Frame):
 	def selectAllSlaves(self): # ===============================================
 		# ABOUT: To be bound to the "Select All" button (selects all fans in all
 		# Slaves)
-
+		"""
 		if not self.selectedAll:
 			for mac in self.slaves:
 				self.slaves[mac].slaveDisplay.selectAll()
@@ -1385,7 +1563,7 @@ class FCInterface(Tk.Frame):
 
 		self.selectedAll = not self.selectedAll
 
-
+		"""
 
 
 
