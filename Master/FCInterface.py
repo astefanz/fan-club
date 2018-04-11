@@ -149,83 +149,88 @@ class SlaveContainer:
 	def update(self): # ====================================================
 		# ABOUT: Update this SlaveContainer instance. 
 		
-		# Fetch update:
-		fetchedUpdate  = self.misoMethod()	
-		
-		# Check if an update was fetched
-		if fetchedUpdate != None:
+		try:
+			# Fetch update:
+			fetchedUpdate  = self.misoMethod()	
 			
-			# Check update type:
-			if fetchedUpdate[0] == Slave.STATUS_CHANGE:
+			# Check if an update was fetched
+			if fetchedUpdate != None:
 				
-				# Update status:
-				self.status = fetchedUpdate[1]
-				self.statusStringVar.set(Slave.translate(fetchedUpdate[1]))
-
-				# Check for disconnection:
-				if self.status == Slave.DISCONNECTED:
-					# Reset all connection variables:
-					self.ip.set("None")
-					self.mosiIndex.set("RIP")
-					self.misoIndex.set("RIP")
+				# Check update type:
+				if fetchedUpdate[0] == Slave.STATUS_CHANGE:
 					
-					# Reset fan array information:
-					for fan in self.fans:
-						fan.reset()
-						fan.active = False
+					# Update status:
+					self.status = fetchedUpdate[1]
+					self.statusStringVar.set(Slave.translate(fetchedUpdate[1]))
+
+					# Check for disconnection:
+					if self.status == Slave.DISCONNECTED:
+						# Reset all connection variables:
+						self.ip.set("None")
+						self.mosiIndex.set("RIP")
+						self.misoIndex.set("RIP")
+						
+						# Reset fan array information:
+						for fan in self.fans:
+							fan.reset()
+							fan.active = False
+
+					else:
+						# Otherwise, update indices and IP:
+						self.mosiIndex.set(str(fetchedUpdate[2]))
+						self.misoIndex.set(str(fetchedUpdate[3]))
+						self.ip.set(fetchedUpdate[4])
+
+						# Update fan activity:
+						for fan in self.fans[:self.activeFans]:
+							fan.active = True
+
+				elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
+					# Update indices and fan array values:
+					self.mosiIndex.set(str(fetchedUpdate[1]))
+					self.misoIndex.set(str(fetchedUpdate[2]))
+					
+					# Update fan array values:
+					for i in range(self.activeFans):
+						self.fans[i].dc.set(fetchedUpdate[3][0][i])
+						self.fans[i].rpm.set(fetchedUpdate[3][1][i])
 
 				else:
-					# Otherwise, update indices and IP:
-					self.mosiIndex.set(str(fetchedUpdate[2]))
-					self.misoIndex.set(str(fetchedUpdate[3]))
-					self.ip.set(fetchedUpdate[4])
+					self.printMain("ERROR: Unrecognized update code {} in "\
+						"SlaveContainer update method.".\
+						format(fetchedUpdate[0]),
+						"E")
 
-					# Update fan activity:
-					for fan in self.fans[:self.activeFans]:
-						fan.active = True
+				# Update slaveList -------------------------------------------------
+				if fetchedUpdate[0] == Slave.STATUS_CHANGE:
+					self.master.slaveList.item(self.slaveListIID, 
+						values = [
+							self.name, 
+							self.mac, 
+							self.statusStringVar.get(),
+							self.ip.get(), 
+							self.activeFans],
+						tag = Slave.translate(self.status, True)
+						)
+				elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
 
-			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
-				# Update indices and fan array values:
-				self.mosiIndex.set(str(fetchedUpdate[1]))
-				self.misoIndex.set(str(fetchedUpdate[2]))
+					self.master.slaveList.item(self.slaveListIID, 
+						values = [
+							self.name, 
+							self.mac, 
+							self.statusStringVar.get(),
+							self.ip.get(), 
+							self.activeFans]
+						)
 				
-				# Update fan array values:
-				for i in range(self.activeFans):
-					self.dcs[i].set(fetchedUpdate[3][0][i])
-					self.rpms[i].set(fetchedUpdate[3][1][i])
 
 			else:
-				self.printMain("ERROR: Unrecognized update code {} in "\
-					"SlaveContainer update method.".\
-					format(fetchedUpdate[0]),
-					"E")
-
-			# Update slaveList -------------------------------------------------
-			if fetchedUpdate[0] == Slave.STATUS_CHANGE:
-				self.master.slaveList.item(self.slaveListIID, 
-					values = [
-						self.name, 
-						self.mac, 
-						self.statusStringVar.get(),
-				 		self.ip.get(), 
-						self.activeFans],
-					tag = Slave.translate(self.status, True)
-					)
-			elif fetchedUpdate[0] == Slave.VALUE_UPDATE:
-
-				self.master.slaveList.item(self.slaveListIID, 
-					values = [
-						self.name, 
-						self.mac, 
-						self.statusStringVar.get(),
-				 		self.ip.get(), 
-						self.activeFans]
-					)
-			
-
-		else:
-			# Nothing to do for now.
-			pass
+				# Nothing to do for now.
+				pass
+		
+		except Exception as e:
+			self.master.printMain("[SU][{}] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(self.mac, traceback.format_exc()), "E")
 
 		# Schedule next update -------------------------------------------------
 		self.master.after(self.period_ms, self.update)
@@ -428,19 +433,15 @@ class SlaveDisplay(Tk.Frame):
 		self.generalFrame.pack(fill = Tk.Y, side = Tk.LEFT)
 
 		# ......................................................................
-		self.exchangeVar = Tk.StringVar()
-		self.exchangeVar.set("RIP")
-		self.exchangeLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.exchangeVar, relief = Tk.SUNKEN, bd = 1,
+		self.mosiIndexLabel = Tk.Label(self.generalFrame, 
+			text = "RIP", relief = Tk.SUNKEN, bd = 1,
 			bg = "white", font = 'TkFixedFont 8')
-		self.exchangeLabel.pack(side = Tk.TOP, 
+		self.mosiIndexLabel.pack(side = Tk.TOP, 
 			anchor = 'w',fill = Tk.X, expand =True)
 
 		# ......................................................................
-		self.misoIndexVar = Tk.StringVar()
-		self.misoIndexVar.set("RIP")
 		self.misoIndexLabel = Tk.Label(self.generalFrame, 
-			textvariable = self.misoIndexVar, relief = Tk.SUNKEN, bd = 1,
+			text = "RIP", relief = Tk.SUNKEN, bd = 1,
 			bg = "white", font = 'TkFixedFont 8')
 		self.misoIndexLabel.pack(side = Tk.TOP, 
 			anchor = 'w', fill = Tk.X, expand =True)
@@ -490,15 +491,15 @@ class SlaveDisplay(Tk.Frame):
 		self.target = newTarget
 
 		# Adjust status:
-		self.setStatus(self.target.status)
+		self.setStatus(self.target.status, True)
 
 		# Adjust fan array:
 		for i in range(self.target.activeFans):
 			self.fans[i].setTarget(self.target.fans[i])
 		
 		# Adjust indices:
-		self.misoIndexVar = self.target.misoIndex
-		self.mosiIndexVar = self.target.mosiIndex
+		self.misoIndexLabel.config(textvariable =  self.target.misoIndex)
+		self.mosiIndexLabel.config(textvariable = self.target.mosiIndex)
 
 		# End setTarget ========================================================
 		

@@ -33,5 +33,5 @@ import Fan
 
 print "Initializing"
 interface = FCI.FCInterface(VERSION) 
-print "Done w/ constructors"  
+print "Done w/ constructors" 
 interface.mainloop()
