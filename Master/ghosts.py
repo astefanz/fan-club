@@ -37,7 +37,7 @@ import sys        	# Exception handling
 import traceback  	# More exception handling
 import random		# Random names, boy
 import numpy		# Fast arrays and matrices
-
+import resource
 
 class GhostSlave:
 	# NEEDS:
@@ -69,7 +69,7 @@ class GhostSlave:
 		# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 		# assign port number):
 		self.ls.bind(("", 0))
-		print self.ls.getsockname()
+		#print self.ls.getsockname()
 
 		## RECEIVER
 		self.rs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)				  
@@ -78,7 +78,7 @@ class GhostSlave:
 		# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 		# assign port number):
 		self.rs.bind(("", 0))
-		print self.rs.getsockname()
+		#print self.rs.getsockname()
 
 		## SENDER
 		self.ss = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)				  
@@ -87,7 +87,7 @@ class GhostSlave:
 		# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 		# assign port number):
 		self.ss.bind(("", 0))
-		print self.ss.getsockname()
+		#print self.ss.getsockname()
 		
 		
 		# Synchronization:
@@ -184,6 +184,10 @@ class GhostSlave:
 
 # RUN THIS BAD BOY:
 
+resource.setrlimit(
+	resource.RLIMIT_NOFILE, 
+	(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+	))
 numT = int(raw_input("Number of GhostSlaves? "))
 gs = []
 
