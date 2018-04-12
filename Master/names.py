@@ -88,13 +88,16 @@ coolNames = [
 	"Mohar",
 	"Carol",
 	"Jann",
+	"Nathan",
 	"Guggenheim",
 	"Karman",
 	"Firestone",
 	"Feynman",
-	"Reza",
+	"Reza Stark",
 	"Avery",
 	"Mark",
+	"Matilda",
+	"Doughboy",
 
 	# WindShape -------
 	"Guillaume",
@@ -144,15 +147,11 @@ coolNames = [
 	"Oscar",
 
 	# Memes ----------
-	"Saitama",
-	"Mazinger Z",
 	"Luffy",
 	"Zoro",
-	"Sanji",
 	"Chopper",
 	"Charizard",
 	"Qwilfish",
-	"Ezio",
 	"Kenway",
 	"Jackdaw",
 	"Cortana",
@@ -169,6 +168,8 @@ coolNames = [
 	"Robertz",
 	"Global Warming",
 	"Boardy McBoardface",
+	"Hercules",
+	"Iron Man"
 
 	"Master Chief"
 ]
