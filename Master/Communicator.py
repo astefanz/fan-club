@@ -89,7 +89,7 @@ class Communicator:
 			temp.connect(('192.0.0.8', 1027))
 			self.hostIP = temp.getsockname()[0]
 			temp.close()
-
+			
 			self.printM("\tHost IP: {}".format(self.hostIP))
 
 			# INITIALIZE MASTER SOCKETS ========================================

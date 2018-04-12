@@ -44,7 +44,12 @@ import Communicator
 import Slave
 import Profiler
 
-## CONSTANT VALUES #############################################################      
+## CONSTANT VALUES #############################################################    
+
+# Selection change codes:
+INCREASE = True
+DECREASE = False
+
 # FanDisplay status codes:
 ACTIVE = True
 INACTIVE = False
@@ -152,6 +157,19 @@ class SlaveContainer:
 		self.slaveDisplay = None
 		self.moduleDisplay = None
 
+		# Increment slave count:
+		self.master.totalSlaves += 1
+		self.master.totalSlavesVar.set(self.master.totalSlaves)
+
+		self.master.statusInts[self.status] += 1
+		self.master.statusVars[self.status].set(
+			self.master.statusInts[self.status])
+		
+		if self.status == Slave.AVAILABLE and not \
+			self.master.connectAllButtonPacked:
+			self.master.connectAllButton.pack(side = Tk.RIGHT)
+			self.master.connectAllButtonPacked = True
+		
 		# Start update method ------------------------------------------
 		self.update()
 
@@ -171,8 +189,33 @@ class SlaveContainer:
 				if fetchedUpdate[0] == Slave.STATUS_CHANGE:
 					
 					# Update status:
+				
+
+					# Remove old status:
+					self.master.statusInts[self.status] -= 1
+					self.master.statusVars[self.status].set(
+						self.master.statusInts[self.status])
+
+					# Check AVAILABLE:
+					if self.status == Slave.AVAILABLE and \
+						self.master.statusInts[Slave.AVAILABLE] == 0:
+						self.master.connectAllButton.pack_forget()
+						self.master.connectAllButtonPacked = False
+
+					elif fetchedUpdate[1] == Slave.AVAILABLE and not \
+						self.master.connectAllButtonPacked:
+
+						self.master.connectAllButton.pack(
+							side = Tk.RIGHT)
+						self.master.connectAllButtonPacked = True
+				
+					# Add new status:
 					self.status = fetchedUpdate[1]
 					self.statusStringVar.set(Slave.translate(fetchedUpdate[1]))
+
+					self.master.statusInts[self.status] += 1
+					self.master.statusVars[self.status].set(
+						self.master.statusInts[self.status])
 
 					# Check for disconnection:
 					if self.status == Slave.DISCONNECTED:
@@ -428,6 +471,22 @@ class FanContainer:
 			if self.fanDisplay != None:
 				self.fanDisplay.select(True)
 			self.selected = selected
+
+			# Update selected Fans counter:
+			self.slaveContainer.master.selectedFans += 1
+			self.slaveContainer.master.selectedFansVar.set(
+				self.slaveContainer.master.selectedFans)
+
+			# Update selected Slaves counter:
+			if self.slaveContainer.selected == 1:
+				# (i.e if this is the first Fan to be selected, then this
+				# SlaveContainer has been, until now, being counted as not
+				# selected.)
+
+				self.slaveContainer.master.selectedSlaves +=1
+				self.slaveContainer.master.selectedSlavesVar.set(
+					self.slaveContainer.master.selectedSlaves)
+
 		elif not selected and self.selected:
 			#              \--------------/ <-- Avoid redundant deselections
 			self.selectionChar = '0'
@@ -437,6 +496,21 @@ class FanContainer:
 			if self.fanDisplay != None:
 				self.fanDisplay.deselect(True)
 			self.selected = selected
+
+			# Update total counter:
+			self.slaveContainer.master.selectedFans -= 1
+			self.slaveContainer.master.selectedFansVar.set(
+				self.slaveContainer.master.selectedFans)
+
+			# Update selected Slaves counter:
+			if self.slaveContainer.selected == 0:
+				# (i.e if this is the last Fan to be deselected, then this
+				# SlaveContainer has been, until now, being counted as
+				# selected.)
+
+				self.slaveContainer.master.selectedSlaves -=1
+				self.slaveContainer.master.selectedSlavesVar.set(
+					self.slaveContainer.master.selectedSlaves)
 		# End select =======================================================
 
 	def deselect(self): # ==================================================
@@ -535,7 +609,7 @@ class SlaveDisplay(Tk.Frame):
 		self.nameLabel = Tk.Label(self.topFrame,
 			text = "", relief = Tk.SUNKEN, bd = 1,
 			bg = self.background, font = ('TkFixedFont', 12, 'bold'),
-			padx = 5, width = 14)
+			padx = 5, width = 20)
 		self.nameLabel.pack(side = Tk.LEFT, 
 			anchor = 'w',fill = Tk.X, expand = False)
 
@@ -1369,6 +1443,18 @@ class FCInterface(Tk.Frame):
 
 		self.keepSelectionButton.pack(side = Tk.LEFT)
 
+		# Connect All button:
+		self.connectAllButtonFrame = Tk.Frame(
+			self.arrayControlFrame,
+			bg = self.background
+			)
+		self.connectAllButtonFrame.pack(side = Tk.RIGHT)
+
+		self.connectAllButtonPacked = False
+		self.connectAllButton = Tk.Button(self.connectAllButtonFrame, 
+			highlightbackground = self.background, text = "Add All", 
+			command = self._connectAllSlaves)
+
 		# Deselect All button:
 		self.deselectAllButton = Tk.Button(self.arrayControlFrame, 
 			highlightbackground = self.background, text = "Deselect All", 
@@ -1384,6 +1470,7 @@ class FCInterface(Tk.Frame):
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
 
+
 		# STATUS ---------------------------------------------------------------
 		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background)
@@ -1392,7 +1479,219 @@ class FCInterface(Tk.Frame):
 			bg = self.background, fg = "#424242")
 		self.versionLabel.pack(side = Tk.RIGHT)
 
-		self.statusFrame.pack(fill = Tk.X, expand = False, side =Tk.BOTTOM, anchor = 's')
+		self.statusFrame.pack(
+			fill = Tk.X, expand = False, side =Tk.BOTTOM, anchor = 's')
+
+
+		# TRACKED VARIABLES ....................................................
+
+		# Slave counter variables:
+		self.totalSlaves = 0
+		self.totalSlavesVar = Tk.IntVar()
+		self.totalSlavesVar.set(0)
+
+		self.statusVars = {}
+		self.statusInts = {}
+
+		self.statusInts[Slave.CONNECTED] = 0
+		self.statusVars[Slave.CONNECTED] = Tk.IntVar()
+
+		self.statusInts[Slave.DISCONNECTED] = 0
+		self.statusVars[Slave.DISCONNECTED] = Tk.IntVar()
+
+		self.statusInts[Slave.KNOWN] = 0
+		self.statusVars[Slave.KNOWN] = Tk.IntVar()
+
+		self.statusInts[Slave.AVAILABLE] = 0
+		self.statusVars[Slave.AVAILABLE] = Tk.IntVar()
+
+		# Slave count labels:
+
+		self.slaveCounterPaddedFrame = Tk.Frame(
+			self.statusFrame,
+			bg = self.background,
+			pady = 3
+			)
+
+		self.slaveCounterPaddedFrame.pack(side = Tk.LEFT)
+
+		self.slaveCounterFrame = Tk.Frame(
+			self.slaveCounterPaddedFrame,
+			bg = self.background,
+			relief = Tk.SUNKEN,
+			bd = 1,
+			pady = 0	)
+		self.slaveCounterFrame.pack(side = Tk.LEFT)
+
+		# Total Slaves:
+		self.totalSlavesLabel = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			text = "Total: ",
+			font = ('TkDefaultFont', '10')
+			)
+		self.totalSlavesLabel.pack(side = Tk.LEFT)
+
+		self.totalSlavesCounter = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			width = 3, anchor = "e",
+			textvariable = self.totalSlavesVar,
+			font = ('TkFixedFont', '10')
+			)
+		self.totalSlavesCounter.pack(side = Tk.LEFT)
+
+		# Connected Slaves:
+		self.connectedSlavesLabel = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			text = "Cn: ",
+			fg = "#168e07",
+			font = ('TkDefaultFont', '10')
+			)
+		self.connectedSlavesLabel.pack(side = Tk.LEFT)
+
+		self.connectedSlavesCounter = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			width = 3, anchor = "e",
+			textvariable = self.statusVars[Slave.CONNECTED],
+			font = ('TkFixedFont', '10'),
+			fg = "#168e07"
+			)
+		self.connectedSlavesCounter.pack(side = Tk.LEFT)
+		
+		# Disconnected Slaves:
+		self.disconnectedSlavesLabel = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			fg = "#510000",
+			text = "Dc: ",
+			font = ('TkDefaultFont', '10')
+			)
+		self.disconnectedSlavesLabel.pack(side = Tk.LEFT)
+
+		self.disconnectedSlavesCounter = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			fg = "#510000",
+			width = 3, anchor = "e",
+			textvariable = self.statusVars[Slave.DISCONNECTED],
+			font = ('TkFixedFont', '10')
+			)
+		self.disconnectedSlavesCounter.pack(side = Tk.LEFT)
+
+		# Known Slaves:
+		self.knownSlavesLabel = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			text = "Kn: ",
+			fg = 'orange',
+			font = ('TkDefaultFont', '10')
+			)
+		self.knownSlavesLabel.pack(side = Tk.LEFT)
+
+		self.knownSlavesCounter = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			width = 3, anchor = "e",
+			textvariable = self.statusVars[Slave.KNOWN],
+			font = ('TkFixedFont', '10'),
+			fg = 'orange'
+			)
+		self.knownSlavesCounter.pack(side = Tk.LEFT)
+		
+		# Available Slaves:
+		self.availableSlavesLabel = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			text = "Av: ",
+			fg = 'darkgray',
+			font = ('TkDefaultFont', '10')
+			)
+		self.availableSlavesLabel.pack(side = Tk.LEFT)
+
+		self.availableSlavesCounter = Tk.Label(
+			self.slaveCounterFrame,
+			bg = self.background,
+			width = 3, anchor = "e",
+			textvariable = self.statusVars[Slave.AVAILABLE],
+			font = ('TkFixedFont', '10'),
+			fg = 'darkgray'
+			)
+		self.availableSlavesCounter.pack(side = Tk.LEFT)
+
+
+		# Selection counter variables:
+		self.selectedSlaves = 0
+		self.selectedSlavesVar = Tk.IntVar()
+		self.selectedSlavesVar.set(0)
+
+		self.selectedFans = 0
+		self.selectedFansVar = Tk.IntVar()
+		self.selectedFansVar.set(0)
+
+
+		self.selectionCounterFrame = Tk.Frame(
+			self.slaveCounterPaddedFrame,
+			bg = self.background,
+			relief = Tk.SUNKEN,
+			bd = 1,
+			pady = 0	)
+		self.selectionCounterFrame.pack(side = Tk.LEFT)
+
+		"""
+		# Label:
+		self.selectionCounterLabel = Tk.Label(
+			self.selectionCounterFrame,
+			bg = self.background,
+			text = "Selected: ",
+			fg = 'black',
+			font = ('TkDefaultFont', '10')
+			)
+		self.selectionCounterLabel.pack(side = Tk.LEFT)
+		"""
+
+
+		# Selected Slaves:
+		self.selectedSlavesLabel = Tk.Label(
+			self.selectionCounterFrame,
+			bg = self.background,
+			text = "Selected M: ",
+			fg = 'black',
+			font = ('TkDefaultFont', '10')
+			)
+		self.selectedSlavesLabel.pack(side = Tk.LEFT)
+
+		self.selectedSlavesCounter = Tk.Label(
+			self.selectionCounterFrame,
+			bg = self.background,
+			width = 3, anchor = "e",
+			textvariable = self.selectedSlavesVar,
+			font = ('TkFixedFont', '10'),
+			fg = 'orange'
+			)
+		self.selectedSlavesCounter.pack(side = Tk.LEFT)
+
+		# Selected Fans:
+		self.selectedFansLabel = Tk.Label(
+			self.selectionCounterFrame,
+			bg = self.background,
+			text = "Selected F: ",
+			fg = 'black',
+			font = ('TkDefaultFont', '10')
+			)
+		self.selectedFansLabel.pack(side = Tk.LEFT)
+
+		self.selectedFansCounter = Tk.Label(
+			self.selectionCounterFrame,
+			bg = self.background,
+			width = 5, anchor = "e",
+			textvariable = self.selectedFansVar,
+			font = ('TkFixedFont', '10'),
+			fg = 'orange'
+			)
+		self.selectedFansCounter.pack(side = Tk.LEFT)
 
 		# THREAD ACTIVITY DISPLAYS .............................................
 
@@ -1469,8 +1768,13 @@ class FCInterface(Tk.Frame):
 			(self.master.winfo_screenheight()/8)        \
 			)                                           \
 		)
-		
+		self.master.update() # Required to set minimum size	
 		self.printMain("Fan Club MkII Interface initialized", "G")
+
+	
+		# Set minimum size:
+		self.master.minsize(
+			self.master.winfo_width(), self.master.winfo_height())
 
 
 		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
@@ -1507,6 +1811,7 @@ class FCInterface(Tk.Frame):
 		self._mainPrinterRoutine()
 		
 		self._newSlaveChecker()
+
 		# End constructor ======================================================
 
 ## UPDATE ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1884,6 +2189,16 @@ class FCInterface(Tk.Frame):
 		except Exception as e:
 			self.printMain("[_send()] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
+
+	def _connectAllSlaves(self): # =============================================
+		# ABOUT: Connect to all AVAILABLE Slaves, if any.
+
+		# Loop over Slaves and add all AVAILABLE ones:
+		for mac in self.slaveContainers:
+			if self.slaveContainers[mac].status == Slave.AVAILABLE:
+				self.communicator.add(mac)
+
+		# End addAllSlaves =====================================================
 
 ## INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
