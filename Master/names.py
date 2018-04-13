@@ -169,7 +169,7 @@ coolNames = [
 	"Global Warming",
 	"Boardy McBoardface",
 	"Hercules",
-	"Iron Man"
+	"Iron Man",
 
 	"Master Chief"
 ]

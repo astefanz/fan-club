@@ -112,7 +112,7 @@ Communicator::Communicator():processor(),periodMS(TIMEOUT_MS),
 
     } // End Communicator::Communicator // // // // // // // // // // // // // /
      
-void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // / 
+void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
     /* ABOUT: Code to be executed by the broadcast listener thread.
      */ 
      
@@ -784,6 +784,9 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
                 // Notify user:
                 pl;printf("\n\r[%08dms][S] Status: NO_NETWORK", tm);pu;    
                 
+                // Reboot:
+                NVIC_SystemReset();
+
                 // Exit switch
                 break;
                 

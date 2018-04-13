@@ -66,6 +66,63 @@ def d():
 	print inspect.currentframe().f_back.f_lineno
 
 ## AUXILIARY CLASSES ###########################################################
+class MainGrid(Tk.Frame, object):
+	# ABOUT: 2D grid to represent fan array.
+
+	def __init__(self, master, m, n):
+		# ABOUT: Constructor for class MainGrid.
+		
+		# Call parent constructor (for class Canvas):
+		super(MainGrid, self).__init__(
+			master
+			)
+		
+		# Assign member variables:
+		self.m = m
+		self.n = n
+			
+		# Build cavas:
+		self.canvas = Tk.Canvas(self)
+		#self.canvas.place(relx = .5, rely = .5, anchor = Tk.CENTER)
+		self.canvas.pack(fill = "none", expand = True)
+		
+		# Set a margin for grid edges to show:
+		self.margin = 5
+
+		# Initialize data representation:
+		# TODO: Create custom class for each fan
+		self.matrix = []
+		for i in range(m):
+			self.matrix.append([])
+			for j in range(n):
+				self.matrix[i].append(None)
+			
+		self.pack(fill = Tk.BOTH, expand = True)
+		# End MainGrid constructor =============================================
+		
+	def draw(self, l): # ===================================================
+		# ABOUT: Draw a grid in which each cell has side l.
+
+		# Initialize coordinates:
+		x, y = self.margin, self.margin
+
+		for i in range(self.m):
+			x = self.margin
+			for j in range(self.n):
+				# Draw rectangle ij:
+				self.matrix[i][j] = \
+					self.canvas.create_rectangle(
+					x,y, x+l,y+l,
+					)
+				x += l
+			y += l
+		
+		#self.canvas.config(
+		#	width = l*self.m + self.margin, height = l*self.n + self.margin)
+
+		# End draw =========================================================
+
+	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
 class SlaveContainer:
 	# ABOUT: Represent GUI-relevant Slave data in the Communicator module.
@@ -1086,6 +1143,8 @@ class FCInterface(Tk.Frame):
 			relief = Tk.SUNKEN, borderwidth = 3)
 		self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
 
+		self.mainGrid = MainGrid(self.arrayFrame, 36,36)
+
 		"""
 		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
 		self.tempDisplay = ttk.Treeview(self.arrayFrame, 
@@ -1473,9 +1532,10 @@ class FCInterface(Tk.Frame):
 
 		# STATUS ---------------------------------------------------------------
 		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
-			 bg=self.background)
+			 bg=self.background, height = 10)
 
-		self.versionLabel = Tk.Label(self.statusFrame, text = "Version: " + version,
+		self.versionLabel = Tk.Label(
+			self.statusFrame, text = "Version: " + version,
 			bg = self.background, fg = "#424242")
 		self.versionLabel.pack(side = Tk.RIGHT)
 
@@ -1756,7 +1816,6 @@ class FCInterface(Tk.Frame):
 
 		# PACK -----------------------------------------------------------------
 		self.pack(fill = Tk.BOTH, expand = True)
-
 		# Center starting place:
 		#                         Y-place
 		#                      X-place  |       
@@ -1775,7 +1834,9 @@ class FCInterface(Tk.Frame):
 		# Set minimum size:
 		self.master.minsize(
 			self.master.winfo_width(), self.master.winfo_height())
-
+		
+		# Draw Grid:
+		self.mainGrid.draw(self.mainGrid.winfo_height()/36)
 
 		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
