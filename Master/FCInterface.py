@@ -1066,10 +1066,7 @@ class FCInterface(Tk.Frame):
 	def __init__(self, version, master=None): # ================================
 		Tk.Frame.__init__(self, master)
 
-		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = = 
-
-		# Deactivate resizing:
-		#self.master.resizable(False,False)
+		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = =
 
 		# Set title:
 		self.master.title("Fan Club MkII [ALPHA]")
@@ -1107,43 +1104,17 @@ class FCInterface(Tk.Frame):
 		self.mainDisplayFrame = Tk.Frame(
 			self.main, height = 100, bg = '#212121')
 
-		self.mainDisplayFrame.pack(
-			fill = Tk.BOTH, expand = True, side = Tk.TOP)
-
-		# SETTINGS -------------------------------------------------------------
-
-		# Settings container:
-		self.settingsContainer = Tk.Frame(self.mainDisplayFrame,
-			bg = self.background)
-		self.settingsContainer.pack(
-			fill =Tk.Y, side = Tk.LEFT, expand = False,)
-
-		# Settings frame:
-		self.settingsFrame = Tk.Frame(self.settingsContainer,
-			bg = self.background, width = 500,
-			borderwidth = 1, relief = Tk.RIDGE)
-
-		#self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
-		# Comment this to start w/ widget hidden
-
-
-		# Settings Label:
-		self.settingsLabelFrame = Tk.Frame(self.settingsFrame,
-			bg = self.background)
-		self.settingsLabelFrame.pack(fill = Tk.X, expand = False)
-
-		self.settingsLabel = Tk.Label(self.settingsLabelFrame,
-			bg = self.background, text = "Settings [Unimplemented]")
-		self.settingsLabel.pack(side = Tk.LEFT)
+		#self.mainDisplayFrame.pack(
+			#fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
 		# ARRAY ----------------------------------------------------------------
 
 		# Array Frame ..........................................................
 		self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
 			relief = Tk.SUNKEN, borderwidth = 3)
-		self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
-
-		self.mainGrid = MainGrid(self.arrayFrame, 36,36)
+		#self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
+		
+		#self.mainGrid = MainGrid(self.arrayFrame, 36,36)
 
 		"""
 		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
@@ -1340,7 +1311,7 @@ class FCInterface(Tk.Frame):
 
 		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background)
-		#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 		# Comment out to not start w/ hidden terminal by default
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -1412,34 +1383,25 @@ class FCInterface(Tk.Frame):
 
 		self.controlFrame.pack(fill = Tk.X, expand = False)
 
-		# SETTINGS TOGGLE ......................................................
-		self.settingsToggleVar = Tk.IntVar()
-		self.settingsToggleVar.set(0)
-
-		self.settingsToggle = Tk.Checkbutton(self.controlFrame, 
-			text ="Settings", variable = self.settingsToggleVar, 
-			bg = self.background, command = self._settingsToggle)
-
-		self.settingsToggle.pack(side = Tk.LEFT)
-
 		# TERMINAL TOGGLE ......................................................
 		self.terminalToggleVar = Tk.IntVar()
-		self.terminalToggleVar.set(0)
+		self.terminalToggleVar.set(1)
 
 		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
 			text ="Terminal", variable = self.terminalToggleVar, 
 			bg = self.background, command = self._terminalToggle)
-
+		self.terminalToggle.config( state = Tk.DISABLED)
 		self.terminalToggle.pack(side = Tk.LEFT)
 
 		# SLAVE LIST TOGGLE ....................................................
 		self.slaveListToggleVar = Tk.IntVar()
 		self.slaveListToggleVar.set(1)
 
-		self.slaveListToggle = Tk.Checkbutton(self.controlFrame, 
+		self.slaveListToggle = Tk.Checkbutton(self.controlFrame,
 			text ="List", variable = self.slaveListToggleVar, 
 			bg = self.background, command = self._slaveListToggle)
 
+		self.slaveListToggle.config( state = Tk.DISABLED)
 		self.slaveListToggle.pack(side = Tk.LEFT)
 
 		# LIVE PLOTTING TOGGLE .................................................
@@ -1450,7 +1412,7 @@ class FCInterface(Tk.Frame):
 			text ="Plot", variable = self.plotToggleVar, 
 			bg = self.background, command = self._plotToggle)
 
-		self.plotToggle.pack(side = Tk.LEFT)
+		#self.plotToggle.pack(side = Tk.LEFT)
 
 		# ARRAY CONTROL ........................................................
 
@@ -1822,6 +1784,19 @@ class FCInterface(Tk.Frame):
 		#                    Height  |  |
 		#                  Width  |  |  |
 		#                      |  |  |  |
+		
+		self.master.geometry('+%d+%d' % ( \
+			(self.master.winfo_screenwidth()/5),      \
+			(self.master.winfo_screenheight()/8)        \
+			)                                           \
+		)
+		self.master.update() # Required to set minimum size	
+		self.printMain("Fan Club MkII Interface initialized", "G")
+		
+		# Deactivate resizing:
+		self.master.resizable(False,False)
+
+		"""
 		self.master.geometry('%dx%d+%d+%d' % (960, 630, \
 			(self.master.winfo_screenwidth()/5),      \
 			(self.master.winfo_screenheight()/8)        \
@@ -1829,14 +1804,14 @@ class FCInterface(Tk.Frame):
 		)
 		self.master.update() # Required to set minimum size	
 		self.printMain("Fan Club MkII Interface initialized", "G")
-
+		"""
 	
 		# Set minimum size:
 		self.master.minsize(
 			self.master.winfo_width(), self.master.winfo_height())
 		
 		# Draw Grid:
-		self.mainGrid.draw(self.mainGrid.winfo_height()/36)
+		#self.mainGrid.draw(self.mainGrid.winfo_height()/36)
 
 		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
 		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -1865,7 +1840,7 @@ class FCInterface(Tk.Frame):
 			self.slaveDisplayFrame, 
 			self.communicator, 
 			self.profiler.profile["maxFans"])
-
+		self.slaveDisplay.pack()
 		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 
 		# ----------------------------------------------------------------------
