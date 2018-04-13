@@ -39,6 +39,7 @@ import time
 import traceback
 import sys # Exception handling
 import inspect # get line number for debugging
+import numpy as np
 
 import Communicator
 import Slave
@@ -131,7 +132,7 @@ class SlaveContainer:
 
 	def __init__(self, # =======================================================
 		name, mac, status, maxFans, activeFans, ip, misoMethod, mosiMethod,
-		master, period_ms, slaveListIID):
+		master, period_ms, slaveListIID, index):
 		# ABOUT: Constructor for class SlaveContainer.
 
 		# ATTRIBUTE SUMMARY ----------------------------------------------------
@@ -141,6 +142,7 @@ class SlaveContainer:
 		#	Name				constant	str	
 		#	MAC Address			constant	str
 		#	Status				variable	int w/ changes in updater and SVar
+		#   Index				constant	int
 		#   ....................................................................
 		#	Max fans			constant	int
 		#	Active fans			constant	int	
@@ -162,6 +164,9 @@ class SlaveContainer:
 		# MAC Address:
 		self.mac = mac
 		
+		# Index:
+		self.index = index
+
 		# Max fans:
 		self.maxFans = maxFans
 		
@@ -316,6 +321,7 @@ class SlaveContainer:
 				if fetchedUpdate[0] == Slave.STATUS_CHANGE:
 					self.master.slaveList.item(self.slaveListIID, 
 						values = [
+							self.index,
 							self.name, 
 							self.mac, 
 							self.statusStringVar.get(),
@@ -327,6 +333,7 @@ class SlaveContainer:
 
 					self.master.slaveList.item(self.slaveListIID, 
 						values = [
+							self.index,
 							self.name, 
 							self.mac, 
 							self.statusStringVar.get(),
@@ -345,7 +352,7 @@ class SlaveContainer:
 		
 		except Exception as e:
 			self.master.printMain("[SU][{}] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(self.mac, traceback.format_exc()), "E")
+				format(self.index, traceback.format_exc()), "E")
 
 		# Schedule next update -------------------------------------------------
 		self.master.after(self.period_ms, self.update)
@@ -385,7 +392,8 @@ class SlaveContainer:
 				self.activeFans,
 				self.ip, 
 				self.dcs, 
-				self.rpms)
+				self.rpms,
+				self.index)
 
 		# End getAttributes ====================================================
 
@@ -647,7 +655,7 @@ class SlaveDisplay(Tk.Frame):
 		self.status = Slave.DISCONNECTED
 		self.isPacked = False
 		self.communicator = communicator
-
+		
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
 		self.config(bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
@@ -663,8 +671,16 @@ class SlaveDisplay(Tk.Frame):
 		self.topFrame.pack(fill = Tk.X, side = Tk.TOP)
 		
 		# ......................................................................
+		self.indexLabel = Tk.Label(self.topFrame,
+			text = "[INDEX]", relief = Tk.SUNKEN, bd = 1,
+			bg = self.background, font = ('TkFixedFont', 12, 'bold'),
+			padx = 5, width = 6)
+		self.indexLabel.pack(side = Tk.LEFT, 
+			anchor = 'w',fill = Tk.X, expand = False)
+
+		# ......................................................................
 		self.nameLabel = Tk.Label(self.topFrame,
-			text = "", relief = Tk.SUNKEN, bd = 1,
+			text = "[NAME]", relief = Tk.SUNKEN, bd = 1,
 			bg = self.background, font = ('TkFixedFont', 12, 'bold'),
 			padx = 5, width = 20)
 		self.nameLabel.pack(side = Tk.LEFT, 
@@ -672,7 +688,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# ......................................................................
 		self.macLabel = Tk.Label(self.topFrame,
-			text = " ",relief = Tk.SUNKEN, bd = 1,
+			text = "[MAC]",relief = Tk.SUNKEN, bd = 1,
 			bg = self.background, font = ('TkFixedFont', 12),
 			padx = 5, width = 18)
 		self.macLabel.pack(side = Tk.LEFT, 
@@ -805,6 +821,9 @@ class SlaveDisplay(Tk.Frame):
 		# Assign target:
 		self.target = newTarget
 		self.target.setSlaveDisplay(self)
+		
+		# Adjust index:
+		self.indexLabel.config(text = self.target.index)
 
 		# Adjust name:
 		self.nameLabel.config(text = self.target.name)
@@ -957,6 +976,7 @@ class FanDisplay(Tk.Frame):
 		self.pack(side = Tk.LEFT)
 		self.pack_propagate(False)
 		
+		self.setStatus(INACTIVE)
 
 	# End FanDisplay constructor ===============================================
 
@@ -1267,10 +1287,11 @@ class FCInterface(Tk.Frame):
 		self.slaveList = ttk.Treeview(self.slaveListFrame, 
 			selectmode="browse", height = 5)
 		self.slaveList["columns"] = \
-			("Name","MAC","Status","IP","Fans")
+			("Index", "Name","MAC","Status","IP","Fans")
 
 		# Create columns:
 		self.slaveList.column('#0', width = 20, stretch = False)
+		self.slaveList.column("Index", width = 20, anchor = "center")
 		self.slaveList.column("Name", width = 50)
 		self.slaveList.column("MAC", width = 50, 
 			anchor = "center")
@@ -1282,6 +1303,7 @@ class FCInterface(Tk.Frame):
 			anchor = "center")
 
 		# Configure column headings:
+		self.slaveList.heading("Index", text = "Index")
 		self.slaveList.heading("Name", text = "Name")
 		self.slaveList.heading("MAC", text = "MAC")
 		self.slaveList.heading("Status", text = "Status")
@@ -1824,7 +1846,7 @@ class FCInterface(Tk.Frame):
 		print "Profiler ready"
 		
 		# Initialize Slave data structure --------------------------------------
-		self.slaveContainers = {}
+		self.slaveContainers = np.empty(0, dtype = object)
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(
@@ -1926,17 +1948,23 @@ class FCInterface(Tk.Frame):
 						slaveListIID = 	self.slaveList.insert(
 							'', 'end', 
 							values = (
+							fetched[8],
 							fetched[0], # name 
 							fetched[1], # MAC 
 							Slave.translate(fetched[2]), # Status as str
 							fetched[5],	 # IP as str
 							fetched[4]), # Active fans as int 
-							tag = Slave.translate(fetched[2], True))
+							tag = Slave.translate(fetched[2], True)),
 										#        \------/ Status (int)
+						index = fetched[8]
 					)
 				
 				# Add to Slave dictionary:
-				self.slaveContainers[fetched[1]] = newSlaveContainer
+				self.slaveContainers = \
+					np.concatenate((
+						self.slaveContainers, 
+						(newSlaveContainer,)
+						))
 			
 			# Schedule next call -----------------------------------------------
 			self.main.after(100, self._newSlaveChecker)
@@ -2145,10 +2173,11 @@ class FCInterface(Tk.Frame):
 		# ABOUT: Handle selections on SlaveList
 		
 		currentSelection = self.slaveList.item(
-			self.slaveList.selection()[0],"values")[1]
+			self.slaveList.selection()[0],"values")[0]
 
 		if self.oldSelection != currentSelection:
-			self.slaveDisplay.setTarget(self.slaveContainers[currentSelection])
+			self.slaveDisplay.setTarget(
+				self.slaveContainers[int(currentSelection)])
 			self.oldSelection = currentSelection
 
 		if not self.slaveDisplay.isPacked:
@@ -2196,18 +2225,18 @@ class FCInterface(Tk.Frame):
 			# Set sentinel for whether this message was sent:
 			sent = False
 
-			for mac in self.slaveContainers:
+			for slaveContainer in self.slaveContainers:
 
-				if self.slaveContainers[mac].hasSelected():
+				if slaveContainer.hasSelected():
 					# If it has at least one fan selected, add this to its queue:
 					try:
 						command = "{}~{}".format(
 							commandKeyword, \
-							self.slaveContainers[mac].getSelection())
-						self.slaveContainers[mac].mosiMethod(command, False)
-						# Deselect fans:
+							slaveContainer.getSelection())
+						slaveContainer.mosiMethod(command, False)
+						# Deselect fans if instructed to do so:
 						if not self.keepSelectionVar.get():
-							self.slaveContainers[mac].select(None, False)
+							slaveContainer.select(None, False)
 						# Update sentinel:
 						sent = True
 						
@@ -2215,7 +2244,7 @@ class FCInterface(Tk.Frame):
 						self.printMain( "[{}] "\
 							"Warning: Outgoing command Queue full. "\
 							"Could not send message".\
-							format(mac), "E")
+							format(slaveContainer.index), "E")
 
 			# Check sentinel:
 			if sent:
@@ -2230,9 +2259,9 @@ class FCInterface(Tk.Frame):
 		# ABOUT: Connect to all AVAILABLE Slaves, if any.
 
 		# Loop over Slaves and add all AVAILABLE ones:
-		for mac in self.slaveContainers:
-			if self.slaveContainers[mac].status == Slave.AVAILABLE:
-				self.communicator.add(mac)
+		for slaveContainer in self.slaveContainers:
+			if slaveContainer.status == Slave.AVAILABLE:
+				self.communicator.add(slaveContainer.index)
 
 		# End addAllSlaves =====================================================
 
@@ -2242,16 +2271,16 @@ class FCInterface(Tk.Frame):
 		# ABOUT: To be bound to the "Select All" button (selects all fans in all
 		# Slaves)
 		
-		for mac in self.slaveContainers:
-			self.slaveContainers[mac].selectAll()
+		for slaveContainer in self.slaveContainers:
+			slaveContainer.selectAll()
 		# End selectAllSlaves ==================================================
 
 	def deselectAllSlaves(self): # =============================================
 		# ABOUT: To be bound to the "Deselect All" button (deselects all fans 
 		# in all Slaves)
 		
-		for mac in self.slaveContainers:
-			self.slaveContainers[mac].deselectAll()
+		for slaveContainer in self.slaveContainers:
+			slaveContainer.deselectAll()
 		
 		# End deselectAllSlaves ================================================
 

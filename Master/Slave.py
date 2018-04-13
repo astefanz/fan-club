@@ -88,7 +88,7 @@ class Slave:
 	# no behavior besides that of its components, such as Locks.
 
 	def __init__(self, name, mac, status, maxFans, activeFans, routine, 
-		routineArgs, misoQueueSize,
+		routineArgs, misoQueueSize, index,
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None):
 		# ABOUT: Constructor for class Slave.
 	
@@ -153,6 +153,10 @@ class Slave:
 			raise TypeError(
 				"Attribute 'misoQueueSize' must be int, not {}".\
 				format(type(misoQueueSize)))
+		elif type(index) is not int:
+			raise TypeError(
+				"Attribute 'index' must be int, not {}".\
+				format(type(index)))
 		elif type(ip) not in (str, type(None)):
 			raise TypeError(
 				"Attribute 'ip' must be str or None, not {}".\
@@ -193,6 +197,9 @@ class Slave:
 		self.status = status
 		self.statusLock = threading.Lock()
 		
+		# Index:
+		self.index = index
+
 		# Communications-specific ..............................................
 		
 		# IP address:
@@ -253,6 +260,13 @@ class Slave:
 		return self.mac
 
 		# End getMAC ===========================================================
+
+	def getIndex(self): # ======================================================
+		# ABOUT: Get this Slave's index.
+
+		return self.index
+		
+		# End getIndex =========================================================
 	
 	def getActiveFans(self): # =================================================
 		# ABOUT: Getter for this Slave's active fan count.

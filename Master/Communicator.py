@@ -37,7 +37,7 @@ import Queue
 import sys        	# Exception handling
 import traceback  	# More exception handling
 import random		# Random names, boy
-import numpy		# Fast arrays and matrices
+import numpy as np	# Fast arrays and matrices
 
 import FCInterface
 import Profiler    # Custom representation of wind tunnel
@@ -74,8 +74,7 @@ class Communicator:
 			# Profiler:
 			self.profile = profile
 			
-			# Initialize Slave dictionary:
-			self.slaves = {}
+			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
 
 			# Communications:
@@ -167,30 +166,37 @@ class Communicator:
 			self.listenerThread.setDaemon(True)
 
 			# SET UP LIST OF KNOWN SLAVES  =====================================
+			# NOTE: This list will be a Numpy array of Slave objects.
+
+			# Create a numpy array for storage:
+			self.slaves = np.empty(len(slaveList), object)
+				# Create an empty numpy array of objects w/ space for as many
+				# Slave units as there are in slaveList
 
 			# Loop over slaveList to instantiate any saved Slaves:
-			for subList in slaveList:
+			for index in range(len(slaveList)):
 				# NOTE: Here each sub list, if any, contains data to initialize
 				# known Slaves, in the following order:
 				#
-				# subList[0]: Name (as a string)
-				# subList[1]: MAC address (as a string)
-				# subList[2]: Number of active fans (as an integer)
-
-
-				self.slaves[subList[1]] = Slave.Slave( # Use MAC as dict. key
-					name = subList[0],
-					mac = subList[1],
+				# [0]: Name (as a string)
+				# [1]: MAC address (as a string)
+				# [2]: Number of active fans (as an integer)
+				
+				self.slaves[index] = \
+					Slave.Slave(
+					name = slaveList[index][0],
+					mac = slaveList[index][1],
 					status = Slave.DISCONNECTED,
 					maxFans = self.profile["maxFans"],
-					activeFans = subList[2],
+					activeFans = slaveList[index][2],
 					routine = self._slaveRoutine,
-					routineArgs = (subList[1],),
-					misoQueueSize = profile["misoQueueSize"]
+					routineArgs = (index,),
+					misoQueueSize = profile["misoQueueSize"],
+					index = index
 					)
-				
+
 				# Add Slave to newSlaveQueue:
-				self.putNewSlave(subList[1])
+				self.putNewSlave(index)
 
 			# START MASTER THREADS =============================================
 			self.listenerThread.start()
@@ -346,14 +352,20 @@ class Communicator:
 
 				# Check Slave against self.slaves and respond accordingly ------
 					# (Message validation completed successfully by this point)
-				
-				# Check if the Slave is known:
-				if(mac in self.slaves):
+				index = None
+				for slave in self.slaves:
+					if slave.getMAC() == mac:
+						index = slave.getIndex()
+						break
 
-					# If the MAC address is in the Slave dictionary, check its
+
+				# Check if the Slave is known:
+				if index != None :
+
+					# If the index is in the Slave dictionary, check its
 					# recorded status and proceed accordingly:
 
-					if self.slaves[mac].getStatus() == Slave.DISCONNECTED:
+					if self.slaves[index].getStatus() == Slave.DISCONNECTED:
 						# If the Slave is recorded as DISCONNECTED but just res-
 						# ponded to a broadcast, update its status and mark it
 						# for automatic reconnection.
@@ -367,7 +379,7 @@ class Communicator:
 						#	ponding Slave thread to connect automatically.
 
 						# Update status and networking information:
-						self.slaves[mac].setStatus(
+						self.slaves[index].setStatus(
 							Slave.KNOWN,
 							senderAddress[0],
 							misoPort,
@@ -379,6 +391,8 @@ class Communicator:
 						pass
 
 				else:
+					index = len(self.slaves)
+
 					# If the MAC address is not recorded, list this board as A-
 					# VAILABLE and move on. The user may choose to add it later:
 
@@ -388,25 +402,42 @@ class Communicator:
 					# replaced by UDP sockets CONNECTED to said port numbers --
 					# notice these are CONNECTED to, not BINDED to, said port
 					# numbers.
-
+					
 					# Create a new Slave instance and store it:
+					
+					# The numpy.concatenate function returns a new array that
+					# arises from concatenating the two give "array_like"
+					# objects. The resulting array will use REFERENCES to the
+					# same objects to which the original ones refer. This means
+					# we can replace self.slaves for the result and effectively
+					# keep the same array with the same objects plus the added
+					# slave Instance.
 
-					self.slaves[mac] = Slave.Slave( # Use MAC as dict. key
-						name = random.choice(names.coolNames),
-						mac = mac,
-						status = Slave.AVAILABLE,
-						maxFans = self.profile["maxFans"],
-						activeFans = self.profile["maxFans"],
-						routine = self._slaveRoutine,
-						routineArgs = (mac, ),
-						misoQueueSize = self.profile["misoQueueSize"],
-						ip = senderAddress[0],
-						misoP = misoPort,
-						mosiP = mosiPort
-						)
+					# NOTE: Since numpy.concatenate takes "array_like" objects,
+					# the newly instantiated Slave is passed as a member of a
+					# singleton (1 element) tuple.
+
+					self.slaves = np.concatenate(
+							(self.slaves,
+							(Slave.Slave(
+							name = random.choice(names.coolNames),
+							mac = mac,
+							status = Slave.AVAILABLE,
+							maxFans = self.profile["maxFans"],
+							activeFans = self.profile["maxFans"],
+							routine = self._slaveRoutine,
+							routineArgs = (index, ),
+							misoQueueSize = self.profile["misoQueueSize"],
+							ip = senderAddress[0],
+							misoP = misoPort,
+							mosiP = mosiPort,
+							index = index
+							),
+							))
+					)
 			
 					# Add new Slave's information to newSlaveQueue:
-					self.putNewSlave(mac)
+					self.putNewSlave(index)
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
@@ -416,22 +447,22 @@ class Communicator:
 				
 		# End _listenerRoutine =================================================
 
-	def _slaveRoutine(self, targetMAC, target): # # # # # # # # # # # # # # # # 
+	def _slaveRoutine(self, targetIndex, target): # # # # # # # # # # # # # # # # 
 		# ABOUT: This method is meant to run on a Slave's communication-handling
 		# thread. It handles sending and receiving messages through its MISO and
 		# MOSI sockets, at a pace dictated by the Communicator instance's given
 		# period. 
 		# PARAMETERS:
-		# - targetMAC: String, MAC address of the Slave handled by
-		#   this thread.
+		# - targetIndex: int, index of the Slave handled
 		# - target: Slave controlled by this thread
 		# NOTE: This current version is expected to run as daemon.
 
 		try:
-
+			
 			# Setup ============================================================
+
 			self.printM("[{}] Slave thread started".\
-				format(targetMAC, "G"))
+				format(targetIndex, "G"))
 
 			# Get reference to Slave: ------------------------------------------
 			slave = target
@@ -460,19 +491,20 @@ class Communicator:
 
 			self.printM("[{}] Sockets set up successfully: \
 			 \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
-				format(slave.mac,
-					slave.misoS.getsockname(), slave.mosiS.getsockname()))
+				format(targetIndex,
+					slave._misoSocket().getsockname(), 
+					slave._mosiSocket().getsockname()))
 
 			# HSK message ------------------------------------------------------
 
 			MHSK = "MHSK|{},{},{},S~{},{},{},{},{},{},{},{},{}".format(
-						slave.misoS.getsockname()[1], 
-						slave.mosiS.getsockname()[1], 
+						slave._misoSocket().getsockname()[1], 
+						slave._mosiSocket().getsockname()[1], 
 						self.profile["periodMS"],
 						self.profile["fanMode"],
 						self.profile["targetRelation"][0],
 						self.profile["targetRelation"][1],
-						self.slaves[targetMAC].activeFans,
+						self.slaves[targetIndex].activeFans,
 						self.profile["counterCounts"],
 						self.profile["pulsesPerRotation"],
 						self.profile["maxRPM"],
@@ -562,9 +594,9 @@ class Communicator:
 								try:
 									slave.update(
 										Slave.VALUE_UPDATE,
-										(numpy.array(
+										(np.array(
 											map(float,reply[-1].split(','))),
-										numpy.array(
+										np.array(
 											map(int,reply[-2].split(',')))
 										))
 
@@ -573,11 +605,8 @@ class Communicator:
 									# this update and warn the user:
 									
 									self.printM("[{}] WARNING: MISO Queue Full. "\
-										"GUI thread falling behind. "\
-										"Maybe the system "\
-										"is set to run too fast for "\
-										"its own good?".\
-										format(slave.mac), "E")
+										"GUI thread falling behind. ".\
+										format(slave.getMAC()), "E")
 						else:
 							timeouts += 1
 
@@ -602,7 +631,7 @@ class Communicator:
 
 							else:
 								self.printM("[{}] Slave timed out".\
-									format(targetMAC), "W")
+									format(targetIndex), "W")
 
 								# Terminate connection: ........................
 
@@ -646,10 +675,10 @@ class Communicator:
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
-			   format(targetMAC, traceback.format_exc()), "E")
+			   format(targetIndex, traceback.format_exc()), "E")
 		
 		self.printM("[{}] WARNING: BROKE OUT OF SLAVE LOOP".
-			format(targetMAC), "E")
+			format(targetIndex), "E")
 		# End _slaveRoutine  # # # # # # # # # # # #  # # # # # # # # # # # # # 
 
 	# # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -803,7 +832,7 @@ class Communicator:
 
 		# End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 	
-	def putNewSlave(self, mac): # ==============================================
+	def putNewSlave(self, index): # ============================================
 		# ABOUT: Add relevant information of a new Slave to the newSlaveQueue,
 		# for the interface module to access.
 		# RAISES:
@@ -811,14 +840,15 @@ class Communicator:
 		
 		# Add Slave to Queue:
 		self.newSlaveQueue.put_nowait((
-			self.slaves[mac].getName(),
-			mac,
-			self.slaves[mac].getStatus(),
-			self.slaves[mac].getMaxFans(),
-			self.slaves[mac].getActiveFans(),
-			self.slaves[mac].getIP(),
-			self.slaves[mac].getUpdate, # NOTE: Here the method itself is passed.
-			self.slaves[mac].setMOSI
+			self.slaves[index].getName(),
+			self.slaves[index].getMAC(),
+			self.slaves[index].getStatus(),
+			self.slaves[index].getMaxFans(),
+			self.slaves[index].getActiveFans(),
+			self.slaves[index].getIP(),
+			self.slaves[index].getUpdate, # NOTE: Here the method itself is passed.
+			self.slaves[index].setMOSI,
+			index
 			))
 
 		# Done
@@ -861,26 +891,26 @@ class Communicator:
 
 	# # INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # 
 	
-	def add(self, targetMAC): # ================================================
+	def add(self, targetIndex): # ==============================================
 		# ABOUT: Mark a Slave on the network for connection. The given Slave 
 		# must be already listed and marked AVAILABLE. This method will mark it 
 		# as KNOWN, and its corresponding handler thread will connect automati-
 		# cally.
 		# PARAMETERS:
-		# - targetMAC: String, MAC address of Slave to "add."
+		# - targetIndex: int, index of Slave to "add."
 		# RAISES:
 		# - Exception if targeted Slave is not AVAILABLE.
-		# - KeyError if targetMAC is not in Slave dictionary.
+		# - KeyError if targetIndex is not listed.
 
 		# Check status:
-		status = self.slaves[targetMAC].getStatus()
+		status = self.slaves[targetIndex].getStatus()
 
 		if status == Slave.AVAILABLE:
-			self.slaves[targetMAC].setStatus(Slave.KNOWN)
+			self.slaves[targetIndex].setStatus(Slave.KNOWN)
 
 		else:
 			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
-				format(targetMAC, Slave.translate(status)))
+				format(targetIndex, Slave.translate(status)))
 
 		# End add ==============================================================
 
