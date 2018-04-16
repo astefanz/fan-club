@@ -49,6 +49,8 @@ SINGLE = 1
 DOUBLE = 2
 
 # DEFAULT CONFIGURATION ========================================================
+
+PROFILE_NAME = "[ALPHA]"
 	
 # COMMUNICATIONS:
 STD_BROADCAST_PORT  = 65000
@@ -58,12 +60,14 @@ STD_MASTER_TIMEOUT_MS= 400
 STD_INTERIM_MS = 50
 STD_MAX_LENGTH = 512
 STD_MAX_TIMEOUTS = 4
+STD_PRINTER_PERIOD_S = STD_PERIOD_MS*2/1000.0
 
 STD_MAIN_QUEUE_SIZE = 20
 STD_SLAVE_QUEUE_SIZE= 100
 STD_BROADCAST_QUEUE_SIZE = 2
 STD_LISTENER_QUEUE_SIZE = 3
 STD_MISO_QUEUE_SIZE = 4
+STD_PRINTER_QUEUE_SIZE = 3
 
 # FAN ARRAY:
 # NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
@@ -95,7 +99,7 @@ class Profiler:
 		self.profile = {}
 
 		# Administrative data --------------------------------------------------
-		self.profile["name"] = "Alphatunnel"
+		self.profile["name"] = PROFILE_NAME
 		self.profile["description"] = "This is a test Profile"
 
 		# Communications -------------------------------------------------------
@@ -109,20 +113,22 @@ class Profiler:
 		self.profile["masterTimeoutS"] = self.profile["masterTimeout"]/1000.0
 		self.profile["interim"] = STD_INTERIM_MS
 		self.profile["interimS"] = self.profile["interim"]/1000.0
+		self.profile["printerPeriodS"] = STD_PRINTER_PERIOD_S
 
 		self.profile["mainQueueSize"] = STD_MAIN_QUEUE_SIZE
 		self.profile["slaveQueueSize"] = STD_SLAVE_QUEUE_SIZE
 		self.profile["broadcastQueueSize"] = STD_BROADCAST_QUEUE_SIZE
 		self.profile["listenerQueueSize"] = STD_LISTENER_QUEUE_SIZE
 		self.profile["misoQueueSize"] = STD_MISO_QUEUE_SIZE
+		self.profile["printerQueueSize"] = STD_PRINTER_QUEUE_SIZE
 
 		# Wind tunnel ----------------------------------------------------------
 		
 		# Slave list ...........................................................
-		self.slaveList = [
+		self.slaveList = []
 		
 		# ALEX'S
-		
+		"""		
 			[
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:38:00:2a",				# MAC
@@ -134,8 +140,8 @@ class Profiler:
 				"00:80:e1:45:00:46",				# MAC 
 				 21									# Active fans
 			]
-
-		]
+		"""
+		#]
 		""" BASEMENT WIND TUNNEL:
 
 			[

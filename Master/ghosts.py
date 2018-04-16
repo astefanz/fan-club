@@ -164,17 +164,19 @@ class GhostSlave:
 			if self.connected:
 				time.sleep(self.period_ms/1000.0)
 				# Fake DCs:
-				fdc = ''
+
 				frpm = ''
+				fdc = ''
 				for i in range(21):
-					fdc += str(random.randint(0,100)) + ","
+					
 					frpm += str(random.randint(0,11500)) + ","
+					fdc += str(random.randint(0,100)) + ","
 
 				for i in range(3):
 
 					self.ss.sendto(
 						"{}|SSTD|{}|{}".\
-								format(self.mosiI, fdc[:-1], frpm[:-1]),
+								format(self.mosiI,frpm[:-1],fdc[:-1]),
 						(self.masterIP, self.masterPort)
 					)
 

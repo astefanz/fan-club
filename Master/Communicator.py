@@ -42,7 +42,7 @@ import numpy as np	# Fast arrays and matrices
 import FCInterface
 import Profiler    # Custom representation of wind tunnel
 import Slave
-import Fan
+import Printer
 import names
 
 
@@ -54,7 +54,7 @@ FORCE_IP_ADDRESS = ""
 
 class Communicator:
 
-	def __init__(self, slaveList, profile, bcupdate, ltupdate): # ==============
+	def __init__(self, slaveList, profile): # ==================================
 		# ABOUT: Constructor for class Communicator.
 
 		try:
@@ -66,10 +66,6 @@ class Communicator:
 			self.newSlaveQueue = Queue.Queue()
 
 			self.printM("Initializing Communicator instance")
-
-			# Interface:
-			self.ltupdate = ltupdate
-			self.bcupdate = bcupdate
 
 			# Profiler:
 			self.profile = profile
@@ -172,7 +168,6 @@ class Communicator:
 			self.slaves = np.empty(len(slaveList), object)
 				# Create an empty numpy array of objects w/ space for as many
 				# Slave units as there are in slaveList
-
 			# Loop over slaveList to instantiate any saved Slaves:
 			for index in range(len(slaveList)):
 				# NOTE: Here each sub list, if any, contains data to initialize
@@ -244,8 +239,6 @@ class Communicator:
 						self.broadcastSocket.sendto(broadcastMessage, 
 							("<broadcast>", 65000))
 
-					# Blink broadcast display:
-					self.bcupdate()
 
 				finally:
 					# Guarantee lock release:
@@ -255,7 +248,6 @@ class Communicator:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
-		self.bcupdate("R")
 
 		# End _broadcastRoutine ================================================
 
@@ -270,13 +262,11 @@ class Communicator:
 			self.printM("[LT] Listener thread started. Waiting.", "G")
 
 			while(True):
-				self.ltupdate()
 
 				# Wait for a message to arrive:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
 
-				self.ltupdate("B")
 				""" NOTE: The message received from Slave, at this point, 
 					should have the following form:
 
@@ -441,10 +431,7 @@ class Communicator:
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")
-
-		self.ltupdate("R")
-				
+				format(traceback.format_exc()), "E")	
 		# End _listenerRoutine =================================================
 
 	def _slaveRoutine(self, targetIndex, target): # # # # # # # # # # # # # # # # 
@@ -592,20 +579,25 @@ class Communicator:
 							if len(reply) > 2:
 								# Update RPMs and DCs:
 								try:
+									# Set up data placeholder as a tuple:
+									
 									slave.update(
 										Slave.VALUE_UPDATE,
-										(np.array(
-											map(float,reply[-1].split(','))),
-										np.array(
-											map(int,reply[-2].split(',')))
+										(
+											np.array(
+												map(int,reply[-2].split(',')))
+											,
+											np.array(
+												map(float,reply[-1].split(',')))
 										))
+										# FORM: (RPMs, DCs)
 
 								except Queue.Full:
 									# If there is no room for the queue, dismiss
 									# this update and warn the user:
 									
-									self.printM("[{}] WARNING: MISO Queue Full. "\
-										"GUI thread falling behind. ".\
+									self.printM("[{}] WARNING: MISO Queue Full."\
+										" GUI thread falling behind. ".\
 										format(slave.getMAC()), "E")
 						else:
 							timeouts += 1
@@ -951,7 +943,23 @@ class Communicator:
 
 		# End getBroadcastSwitch() =============================================
 
+	def isBroadcastThreadAlive(self): # ========================================
+		# ABOUT: Check whether the broadcast thread is alive.
+		# RETURNS:
+		# - bool: whether the broadcast thread is alive.
 
+		return self.broadcastThread.isAlive()
+
+		# End isBroadcastThreadAlive ===========================================
+
+	def isListenerThreadAlive(self): # =========================================
+		# ABOUT: Check whether the listener thread is alive.
+		# RETURNS:
+		# - bool: whether the listener thread is alive.
+
+		return self.listenerThread.isAlive()
+
+		# End isListenerThreadAlive ============================================
 
 
 

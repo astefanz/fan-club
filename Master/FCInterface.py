@@ -31,6 +31,8 @@ User interface module
 ## DEPENDENCIES ################################################################
 
 import Tkinter as Tk # GUI
+import tkFileDialog 
+import tkMessageBox
 import tkFont
 import ttk # "Notebooks"
 import threading
@@ -42,8 +44,9 @@ import inspect # get line number for debugging
 import numpy as np
 
 import Communicator
-import Slave
 import Profiler
+import Printer
+import Slave
 
 ## CONSTANT VALUES #############################################################    
 
@@ -308,13 +311,25 @@ class SlaveContainer:
 					
 					# Update fan array values:
 					for i in range(self.activeFans):
-						self.fans[i].dc.set(fetchedUpdate[3][0][i])
-						self.fans[i].rpm.set(fetchedUpdate[3][1][i])
-
+						self.fans[i].rpm.set(fetchedUpdate[3][0][i])
+						self.fans[i].dc.set(fetchedUpdate[3][1][i])
+					
+					# Update Printer (if it is active):
+					try:
+						if self.master.printer.getStatus() == Printer.ON:
+							self.master.printer.put(
+								self.index,
+								(fetchedUpdate[3][0], fetchedUpdate[3][1])
+							)
+						else:
+							format(self.master.printer.status)
+					except Queue.Full:
+						pass
 				else:
-					self.printMain("ERROR: Unrecognized update code {} in "\
-						"SlaveContainer update method.".\
-						format(fetchedUpdate[0]),
+					self.master.\
+						printMain("ERROR: Unrecognized update code {} in "\
+						"SlaveContainer ({}) update method.".\
+						format(fetchedUpdate[0], self.index),
 						"E")
 
 				# Update slaveList ---------------------------------------------
@@ -1090,6 +1105,7 @@ class FCInterface(Tk.Frame):
 
 		# Set title:
 		self.master.title("Fan Club MkII [ALPHA]")
+		self.master.iconbitmap('ct.icns')
 
 		# Set background:
 		self.background = "#e2e2e2"
@@ -1135,6 +1151,14 @@ class FCInterface(Tk.Frame):
 		#self.arrayFrame.pack(fill =Tk.BOTH, expand = True)
 		
 		#self.mainGrid = MainGrid(self.arrayFrame, 36,36)
+		
+		# SLAVE DISPLAY --------------------------------------------------------
+		# Slave display frame ..................................................
+		self.slaveDisplayFrame = Tk.Frame(self.main,
+			bg = self.background,
+			bd = 1,
+			relief = Tk.GROOVE)
+		self.slaveDisplayFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False)
 
 		"""
 		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
@@ -1202,7 +1226,7 @@ class FCInterface(Tk.Frame):
 		self.tempDisplay.pack(fill =Tk.BOTH, expand = True)
 		"""
 		# LIVE PLOT ------------------------------------------------------------
-
+		"""
 		# Plot container .......................................................
 		self.plotContainer = Tk.Frame(self.main)
 		self.plotContainer.pack(fill = Tk.X, expand = False)
@@ -1264,22 +1288,17 @@ class FCInterface(Tk.Frame):
 		self.plotLabel = Tk.Label(self.plot, height = 5,
 			text = "[Fancy plot will go here]", font = 'TkFixedFont', fg = 'gray')
 		self.plotLabel.pack()
-
+		"""
 		# SLAVE LIST -----------------------------------------------------------
 
 		# Slave list container .................................................
 		self.slaveListContainer = Tk.Frame(self.main)
-		self.slaveListContainer.pack(fill = Tk.X, expand = False)
+		self.slaveListContainer.pack(fill = Tk.BOTH, expand = True)
 
 		# Slave list frame .....................................................
 		self.slaveListFrame = Tk.Label(self.slaveListContainer,
 			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
-		self.slaveListFrame.pack(fill = Tk.X, expand = False)
-
-		# Slave display frame ..................................................
-		self.slaveDisplayFrame = Tk.Frame(self.slaveListFrame,
-			bg = self.background)
-		self.slaveDisplayFrame.pack(fill = Tk.X, expand = False)
+		#self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
 
 		# List of Slaves .......................................................
 
@@ -1323,17 +1342,16 @@ class FCInterface(Tk.Frame):
 		# Bind command:
 		self.slaveList.bind('<Double-1>', self._slaveListMethod)
 
-		self.slaveList.pack(fill = Tk.X, expand = False, anchor = 's')
+		self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
 
 		
 		# TERMINAL -------------------------------------------------------------
-		self.terminalContainerFrame = Tk.Frame(self.main, relief = Tk.GROOVE, 
-		borderwidth = 1, bg = self.background)
+		self.terminalContainerFrame = Tk.Frame(self.main, bg = self.background)
 		self.terminalContainerFrame.pack(fill = Tk.X, expand = False, anchor = 's')
 
 		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
-			bg = self.background)
-		self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
+			bg = self.background, bd = 1, relief = Tk.GROOVE)
+		#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 		# Comment out to not start w/ hidden terminal by default
 
 		# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -1406,36 +1424,37 @@ class FCInterface(Tk.Frame):
 		self.controlFrame.pack(fill = Tk.X, expand = False)
 
 		# TERMINAL TOGGLE ......................................................
-		self.terminalToggleVar = Tk.IntVar()
-		self.terminalToggleVar.set(1)
+		self.terminalToggleVar = Tk.BooleanVar()
+		self.terminalToggleVar.set(False)
 
 		self.terminalToggle = Tk.Checkbutton(self.controlFrame, 
 			text ="Terminal", variable = self.terminalToggleVar, 
 			bg = self.background, command = self._terminalToggle)
-		self.terminalToggle.config( state = Tk.DISABLED)
+		self.terminalToggle.config( state = Tk.NORMAL)
 		self.terminalToggle.pack(side = Tk.LEFT)
 
 		# SLAVE LIST TOGGLE ....................................................
-		self.slaveListToggleVar = Tk.IntVar()
-		self.slaveListToggleVar.set(1)
+		self.slaveListToggleVar = Tk.BooleanVar()
+		self.slaveListToggleVar.set(False)
 
 		self.slaveListToggle = Tk.Checkbutton(self.controlFrame,
 			text ="List", variable = self.slaveListToggleVar, 
 			bg = self.background, command = self._slaveListToggle)
 
-		self.slaveListToggle.config( state = Tk.DISABLED)
+		self.slaveListToggle.config( state = Tk.NORMAL)
 		self.slaveListToggle.pack(side = Tk.LEFT)
 
-		# LIVE PLOTTING TOGGLE .................................................
-		self.plotToggleVar = Tk.IntVar()
-		self.plotToggleVar.set(0)
+		# SLAVE DISPLAY TOGGLE ..................................................
+		self.slaveDisplayToggleVar = Tk.BooleanVar()
+		self.slaveDisplayToggleVar.set(False)
 
-		self.plotToggle = Tk.Checkbutton(self.controlFrame, 
-			text ="Plot", variable = self.plotToggleVar, 
-			bg = self.background, command = self._plotToggle)
+		self.slaveListToggle = Tk.Checkbutton(self.controlFrame,
+			text ="Display", variable = self.slaveDisplayToggleVar, 
+			bg = self.background, command = self._slaveDisplayToggle)
 
-		#self.plotToggle.pack(side = Tk.LEFT)
-
+		self.slaveListToggle.config( state = Tk.NORMAL)
+		self.slaveListToggle.pack(side = Tk.LEFT)
+		
 		# ARRAY CONTROL ........................................................
 
 		self.arrayControlFrame = Tk.Frame(self.controlFrame, 
@@ -1485,7 +1504,7 @@ class FCInterface(Tk.Frame):
 			bg = self.background)
 
 		self.keepSelectionButton.pack(side = Tk.LEFT)
-
+		
 		# Connect All button:
 		self.connectAllButtonFrame = Tk.Frame(
 			self.arrayControlFrame,
@@ -1512,12 +1531,66 @@ class FCInterface(Tk.Frame):
 
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
+		# PRINTING -------------------------------------------------------------
+		self.printFrame = Tk.Frame(self, 
+			relief = Tk.GROOVE, borderwidth = 1,
+			bg=self.background)
 
+		self.printFrame.pack(fill = Tk.X, expand = False)
+	
+		# Print target (file) label:
+		self.printTargetLabel = Tk.Label(self.printFrame,
+			background = self.background,
+			text = "Record data to: "
+			)
+
+		self.printTargetLabel.pack(side = Tk.LEFT)
+
+		# Print target text field:
+		self.printTargetEntry = Tk.Entry(self.printFrame, 
+			highlightbackground = self.background,
+			width = 20)
+		self.printTargetEntry.pack(side = Tk.LEFT)
+ 
+
+		# printTarget button:
+		self.fileName = None
+
+		self.printTargetButton = Tk.Button(self.printFrame, 
+			highlightbackground = self.background, text = "...", 
+			command = self._printTargetButtonRoutine)
+
+		self.printTargetButton.pack(side = Tk.LEFT)
+
+		# Print padding:
+		self.printPadding = Tk.Frame(self.printFrame,
+			bg = self.background,
+			width = 20
+			)
+		self.printPadding.pack(side = Tk.LEFT)
+
+		# printStartStop button:
+		self.printStartStopButton = Tk.Button(self.printFrame, 
+			highlightbackground = self.background, text = "Start Data Capture", 
+		 	command = self._printButtonRoutine,
+			)
+
+		self.printStartStopButton.pack(side = Tk.LEFT)
+		
+		"""
+		#  printPause
+		self.printPauseButton = Tk.Button(self.printFrame, 
+			highlightbackground = self.background, text = "Pause", 
+		 	command = self._printButtonRoutine,
+			)
+
+		self.printPauseButton.pack(side = Tk.LEFT)
+		"""
 
 		# STATUS ---------------------------------------------------------------
 		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background, height = 10)
-
+			
 		self.versionLabel = Tk.Label(
 			self.statusFrame, text = "Version: " + version,
 			bg = self.background, fg = "#424242")
@@ -1525,7 +1598,6 @@ class FCInterface(Tk.Frame):
 
 		self.statusFrame.pack(
 			fill = Tk.X, expand = False, side =Tk.BOTTOM, anchor = 's')
-
 
 		# TRACKED VARIABLES ....................................................
 
@@ -1798,6 +1870,43 @@ class FCInterface(Tk.Frame):
 		self.listenerGREEN = self.displayGREEN1
 		self.listenerBLUE = self.displayBLUE
 
+		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
+		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+		# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+		# Initialize Profiler --------------------------------------------------
+		self.profiler = Profiler.Profiler() 
+		self.printMain("Profiler initialized", "G")
+		print "Profiler ready"
+		
+		# Initialize Slave data structure --------------------------------------
+		self.slaveContainers = np.empty(0, dtype = object)
+
+		# Initialize Printer ---------------------------------------------------
+		self.printer = Printer.Printer(
+			queueSize = self.profiler.profile["printerQueueSize"],
+			fanMode = self.profiler.profile["fanMode"]
+		)
+
+		# Initialize Communicator ----------------------------------------------
+		self.communicator = Communicator.Communicator(
+			self.profiler.slaveList,
+			self.profiler.profile
+			)
+		self.printMain("Communicator initialized", "G")
+		print "Communicator ready"
+		
+		# Initialize SlaveDisplay (requires Communicator):
+		self.slaveDisplay = SlaveDisplay(
+			self.slaveDisplayFrame, 
+			self.communicator, 
+			self.profiler.profile["maxFans"])
+		
+		
+		#self.slaveDisplay.pack()
+		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
+
 		# PACK -----------------------------------------------------------------
 		self.pack(fill = Tk.BOTH, expand = True)
 		# Center starting place:
@@ -1812,11 +1921,11 @@ class FCInterface(Tk.Frame):
 			(self.master.winfo_screenheight()/8)        \
 			)                                           \
 		)
-		self.master.update() # Required to set minimum size	
+		self.master.update_idletasks() # Required to set minimum size	
 		self.printMain("Fan Club MkII Interface initialized", "G")
 		
 		# Deactivate resizing:
-		self.master.resizable(False,False)
+		self.master.resizable(True, True)
 
 		"""
 		self.master.geometry('%dx%d+%d+%d' % (960, 630, \
@@ -1828,47 +1937,60 @@ class FCInterface(Tk.Frame):
 		self.printMain("Fan Club MkII Interface initialized", "G")
 		"""
 	
-		# Set minimum size:
-		self.master.minsize(
-			self.master.winfo_width(), self.master.winfo_height())
+		# DETERMINE MINIMUM SIZES:
+		self.master.withdraw()
+		# When only the essential "bars" are packed:
+		self.masterMinimumSize = \
+			(self.master.winfo_width(),self.master.winfo_height())
+
+		# When only the slave display is packed:
+		self.slaveDisplayToggleVar.set(True)
+		self._slaveDisplayToggle(False)
+		self.master.update_idletasks() # Required to set minimum size	
+		self.slaveDisplayMinimumSize = \
+			(self.master.winfo_width(),self.master.winfo_height())
 		
+		# When the slave list is packed:	
+		self.slaveDisplayToggleVar.set(False)
+		self._slaveDisplayToggle(False)
+		self.slaveListToggleVar.set(True)
+		self._slaveListToggle(False)
+		
+		self.master.update_idletasks() # Required to set minimum size	
+		self.slaveListMinimumSize = \
+			(self.master.winfo_width(),self.master.winfo_height())
+
+		# When the terminal is packed:	
+		self.slaveDisplayToggleVar.set(False)
+		self._slaveDisplayToggle(False)
+		self.slaveListToggleVar.set(False)
+		self._slaveListToggle(False)
+		self.terminalToggleVar.set(True)
+		self._terminalToggle(False)
+		
+		self.master.update_idletasks() # Required to set minimum size	
+		self.terminalMinimumSize = \
+			(self.master.winfo_width(),self.master.winfo_height())
+
+		# Pack widgets after determining minimum size:
+		self.slaveDisplayToggleVar.set(True)
+		self._slaveDisplayToggle()
+		self.slaveListToggleVar.set(True)
+		self._slaveListToggle()
+		self.terminalToggleVar.set(False)
+		self._terminalToggle()
+		
+		self.master.update_idletasks()
+		self.master.deiconify()
+
 		# Draw Grid:
 		#self.mainGrid.draw(self.mainGrid.winfo_height()/36)
 
-		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
-		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-		# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-
-		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler() 
-		self.printMain("Profiler initialized", "G")
-		print "Profiler ready"
-		
-		# Initialize Slave data structure --------------------------------------
-		self.slaveContainers = np.empty(0, dtype = object)
-
-		# Initialize Communicator ----------------------------------------------
-		self.communicator = Communicator.Communicator(
-			self.profiler.slaveList,
-			self.profiler.profile, 
-			self.broadcastDisplayUpdate, self.listenerDisplayUpdate)
-		self.printMain("Communicator initialized", "G")
-		print "Communicator ready"
-		self.slaves = self.communicator.slaves
-		
-		# Initialize SlaveDisplay (requires Communicator):
-		self.slaveDisplay = SlaveDisplay(
-			self.slaveDisplayFrame, 
-			self.communicator, 
-			self.profiler.profile["maxFans"])
-		self.slaveDisplay.pack()
-		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
-
 		# ----------------------------------------------------------------------
-		self._mainPrinterRoutine()
-		
+		self._mainPrinterRoutine()	
 		self._newSlaveChecker()
+		self._broadcastThreadChecker()
+		self._listenerThreadChecker()
 
 		# End constructor ======================================================
 
@@ -1881,13 +2003,17 @@ class FCInterface(Tk.Frame):
 			pass
 
 		else: 
+
+			# COMMUNICATOR QUEUE
+
 			try: # NOTE: Use try/finally to guarantee lock release.
 
 				# Fetch item from Communicator queue:
-				output, tag = self.communicator.mainQueue.get_nowait()
+				output, tag = self.printer.mainQueue.get_nowait()
+
 				# If there is an item, print it (otherwise, Empty exception is
 				# raised and handled)
-
+				
 				# Check for debug tag:
 				if tag is "D" and self.debugVar.get() == 0:
 					# Do not print if the debug variable is set to 0
@@ -1897,7 +2023,7 @@ class FCInterface(Tk.Frame):
 
 					# Switch focus to this tab in case of errors of warnings:
 					if tag is "E":
-						self.terminalToggleVar.set(1)
+						self.terminalToggleVar.set(True)
 						self._terminalToggle()
 
 					self.mainTText.config(state = Tk.NORMAL)
@@ -1913,7 +2039,39 @@ class FCInterface(Tk.Frame):
 				# If there is nothing to print, try again.
 				pass
 
+			# PRINTER QUEUE
 
+			try: # NOTE: Use try/finally to guarantee lock release.
+
+				# Fetch item from Communicator queue:
+				output, tag = self.communicator.mainQueue.get_nowait()
+				# If there is an item, print it (otherwise, Empty exception is
+				# raised and handled)
+				
+				# Check for debug tag:
+				if tag is "D" and self.debugVar.get() == 0:
+					# Do not print if the debug variable is set to 0
+					pass
+
+				else:
+
+					# Switch focus to this tab in case of errors of warnings:
+					if tag is "E":
+						self.terminalToggleVar.set(True)
+						self._terminalToggle()
+
+					self.mainTText.config(state = Tk.NORMAL)
+						# Must change state to add text.
+					self.mainTText.insert(Tk.END, output + "\n", tag)
+					self.mainTText.config(state = Tk.DISABLED)
+
+					# Check for auto scroll:
+					if self.autoscrollVar.get() == 1:
+						self.mainTText.see("end")
+
+			except Queue.Empty:
+				# If there is nothing to print, try again.
+				pass
 
 		self.mainTText.after(100, self._mainPrinterRoutine)
 		# End _mainPrintRoutine ================================================
@@ -1959,12 +2117,19 @@ class FCInterface(Tk.Frame):
 						index = fetched[8]
 					)
 				
-				# Add to Slave dictionary:
+				# Add to SlaveContainer array:
 				self.slaveContainers = \
 					np.concatenate((
 						self.slaveContainers, 
 						(newSlaveContainer,)
 						))
+
+				# Add to Printer's list:
+				self.printer.add(
+					mac = fetched[1], # MAC
+					index = fetched[8], # Index
+					activeFans = fetched[4], # Active fans
+				)
 			
 			# Schedule next call -----------------------------------------------
 			self.main.after(100, self._newSlaveChecker)
@@ -1972,7 +2137,48 @@ class FCInterface(Tk.Frame):
 		except Exception as e: # Print uncaught exceptions
 			self.printMain("[NS] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
+			self.main.after(100, self._newSlaveChecker)
 		# End _newSlaveChecker =================================================
+
+	def _broadcastThreadChecker(self): # =======================================
+		# ABOUT: Check whether the communicator's broadcast thread is alive and
+		# update the corresponding GUI display. 
+		# NOTE: This is a "periodic" method, in that it will schedule a future
+		# call to itself using Tkinter's "after" method.
+
+		# Check thread:
+		if self.communicator.isBroadcastThreadAlive():
+			# Use update method to alternate between greens:
+			self.broadcastDisplayUpdate()	
+		
+		else:
+			# Use update method to set red color:
+			self.broadcastDisplayUpdate("R")
+
+		# Schedule future call:
+		self.after(1000, self._broadcastThreadChecker)
+
+		# End _broadcastThreadChecker ==========================================
+
+	def _listenerThreadChecker(self): # ========================================
+		# ABOUT: Check whether the communicator's listener thread is alive and
+		# update the corresponding GUI display. 
+		# NOTE: This is a "periodic" method, in that it will schedule a future
+		# call to itself using Tkinter's "after" method.
+
+		# Check thread:
+		if self.communicator.isListenerThreadAlive():
+			# Use update method to alternate between greens:
+			self.listenerDisplayUpdate()	
+		
+		else:
+			# Use update method to set red color:
+			self.listenerDisplayUpdate("R")
+
+		# Schedule future call:
+		self.after(1000, self._listenerThreadChecker)
+
+		# End _listenerThreadChecker ===========================================
 
 	def listenerDisplayUpdate(self, code = "G"):
 		# ABOUT: Update listenerDisplay widget.
@@ -1986,6 +2192,12 @@ class FCInterface(Tk.Frame):
 			# Set status to green:
 			self.listenerDisplay.config(background = self.listenerGREEN)
 			self.listenerStatus = GREEN
+
+		elif code == "G":
+			# Set status to alternate green:
+			self.listenerDisplay.config(background = self.broadcastGREEN2)
+			self.listenerStatus = GREEN2
+			
 
 		elif code == "R" and self.listenerStatus != RED:
 			# Switch to red:
@@ -2055,7 +2267,7 @@ class FCInterface(Tk.Frame):
 
 			# Switch focus to this tab in case of errors of warnings:
 			if tag is "E":
-				self.terminalToggleVar.set(1)
+				self.terminalToggleVar.set(True)
 				self._terminalToggle()
 
 			self.mainTText.config(state = Tk.NORMAL)
@@ -2072,6 +2284,143 @@ class FCInterface(Tk.Frame):
 			self.mainTLock.release()
 
 		# End printMain ========================================================
+
+	def _printTargetButtonRoutine(self): # =====================================
+		# ABOUT: To be used by file name button. 
+		# Sets file name and stops Printer.
+		try:
+			# Deactivate print button to prevent timing conflicts:
+			self.printButton.config(state = Tk.DISABLED)
+			
+			# Proceed in accordance w/ Printer status:
+			if self.printer.getStatus() == Printer.OFF:
+				# If the printer is off, choose a file name.
+				previousFileName = self.fileName
+				self.fileName = tkFileDialog.asksaveasfilename(
+					initialdir = ".",
+					title = "Choose log file",
+					filetypes = (("Text files","*.txt"),("CSV files", "*.csv"),
+						("All files","*.*")),
+					initialfile = "FTrial on {}.txt".format(
+						time.strftime(
+							"[%a,%m;%d;%Y][%H;%M;%S]", time.localtime())
+						),
+					)
+
+				# Validate given file name:
+				if self.fileName == '':
+					# The user cancelled the request. Keep old value:
+					self.fileName = previousFileName
+
+				elif '.' not in self.fileName:
+					# If the file name has no extension, print out an error
+					# and keep old value:
+					self.fileName = self.fileName + ".txt"
+
+					tkMessageBox.showinfo(
+						"File Extension Assumed", 
+						"No extension specified. (.csv, .txt...)\n"\
+						".txt has been assumed.")
+	
+			elif self.printer.getStatus() in (Printer.ON, Printer.PAUSED):
+				# If the printer is active (whether printing or paused),
+				# deactivate it.
+					
+				# Deactivate printer:
+				self.printer.stop()
+				
+				# Update buttons:
+				self.printButton.config(text = "Print")
+				self.printTargetButton.config(text = "Set File")
+
+			else:
+				# Unrecognized printer status (wot)
+				raise RuntimeError("Unrecognized Printer status {} (wot)".\
+					format(self.printer.getStatus()))
+		except Exception as e:
+			self.printMain("[printTargetButton] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		finally:
+			# Reactivate print button:
+			self.printButton.config(state = Tk.NORMAL)
+
+		# End _printTargetButtonRoutine ========================================
+
+	def _printButtonRoutine(self): # ===========================================
+		# ABOUT: To be used by Printer button. Starts, pauses and resumes,
+		# Printer.
+		try:
+			# Deactivate print target button to prevent timing conflicts:
+			self.printTargetButton.config(state = Tk.DISABLED) 
+				# NOTE: Will be reactivated in finally clause below.
+
+			# Check state of printer:
+			if self.printer.getStatus() == Printer.OFF:
+				# If the printer is not active, activate it:
+						
+				# Fetch file name:
+				if self.fileName == None:
+					# If the user assigned no file name, assign a standard one:
+					self.fileName = "./FTrial on {}.txt".format(
+						time.strftime(
+							"[%a,%m;%d;%Y][%H;%M;%S]", time.localtime())
+						)
+				
+				# Start printer:
+				self.printer.start(
+					fileName = self.fileName,
+					profileName = self.profiler.profile["name"],
+					maxFans = self.profiler.profile["maxFans"],
+					periodS = self.profiler.profile["printerPeriodS"]
+				)
+
+				# Modify buttons:
+					# Set print button to "pause" and print target button to 
+					# "stop":
+
+				# Check if the change was successful:
+				if self.printer.getStatus() == Printer.ON:
+					self.printButton.config(text = "Pause")
+					self.printTargetButton.config(text = "Stop")
+
+			elif self.printer.getStatus() == Printer.ON:
+				# If the printer is active, this button behaves as a "pause" 
+				# button
+				
+				# Pause printer
+				self.printer.toggle()
+					# NOTE: Printer status will be set to Printer.PAUSED
+
+				# Change button to "Resume" (if change was successful)
+				if self.printer.getStatus() == Printer.PAUSED:
+					self.printButton.config(text = "Resume")
+
+			elif self.printer.getStatus() == Printer.PAUSED:
+				# If the printer is paused, this button behaves as a "resume"
+				# button
+				
+				# Resume printer:
+				self.printer.toggle()
+					# NOTE: Printer status will be set to Printer.ON
+
+				# Change button to "Pause" (if change was successful)
+				if self.printer.getStatus() == Printer.ON:
+					self.printButton.config(text = "Pause")
+			
+			else: 
+				# Unrecognized printer status (Wot)
+				raise RuntimeError("Unrecognized Printer status {} (wot)".\
+					format(self.printer.getStatus()))
+			
+		except Exception as e:
+			self.printMain("[printButton] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		finally:
+			# Reactivate printTargetButton:
+			self.printTargetButton.config(state = Tk.NORMAL)
+		# End _printButtonRoutine ==============================================
 
 	def _validateN(self, newCharacter, textBeforeCall, action): # ==============
 		# ABOUT: To be used by TkInter to validate text in "Send" Entry.
@@ -2110,23 +2459,15 @@ class FCInterface(Tk.Frame):
 		elif newValue == "Chase RPM":
 			self.commandLabelText.set("RPM: ")
 
-	def _settingsToggle(self): # ===============================================
-		# ABOUT: Hide and show settings
-
-		# Check variable:
-		if self.settingsToggleVar.get() == 1:
-			# Build settings:
-			self.settingsFrame.pack(fill =Tk.BOTH, expand = True)
-		else:
-			# Hide settings:
-			self.settingsFrame.pack_forget()
-			self.settingsContainer.configure(width = 1)	
-
-	def _terminalToggle(self): # ===============================================
+	def _terminalToggle(self, updateMinSize = True): # =========================
 		# ABOUT: Hide and show the terminal
 
+		# Update geometry:
+		if updateMinSize:
+			self._updateMinSize()
+		
 		# Check variable:
-		if self.terminalToggleVar.get() == 1:
+		if self.terminalToggleVar.get():
 			# Build terminal:
 			self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 			self.terminalVar.set(1)
@@ -2135,34 +2476,72 @@ class FCInterface(Tk.Frame):
 			self.terminalFrame.pack_forget()
 			self.terminalContainerFrame.configure(height = 1)
 
-	def _slaveListToggle(self): # ==============================================
+	def _slaveListToggle(self, updateMinSize = True): # ========================
 		# ABOUT: Hide and show the Slave list
 
+		# Update geometry:
+		if updateMinSize:
+			self._updateMinSize()
+
 		# Check variable:
-		if self.slaveListToggleVar.get() == 1:
+		if self.slaveListToggleVar.get():
 			# Build slaveList:
-			self.slaveListFrame.pack(fill = Tk.X, expand = False)
+			self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
 		else:
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 			self.slaveListContainer.configure(height = 1)
-			
-			if self.oldSelection != None:
-				self.slaveDisplay.pack_forget()
-				self.slaveDisplayFrame.configure(height = 1)
-				self.slaveDisplay.isPacked = False
 		
-	def _plotToggle(self): # ===================================================
-		# ABOUT: Hide and show plot
+	def _slaveDisplayToggle(self, updateMinSize = True): # =====================
+		# ABOUT: Hide and show the Slave list
+
+		# Update geometry:
+		if updateMinSize:
+			self._updateMinSize()
 
 		# Check variable:
-		if self.plotToggleVar.get() == 1:
-			# Build plot:
-			self.plotFrame.pack(fill = Tk.X, expand = False, anchor = 's')
+		if self.slaveDisplayToggleVar.get():
+			self.slaveDisplay.pack()
+			self.slaveDisplay.isPacked = True
 		else:
-			# Hide plot:
-			self.plotFrame.pack_forget()
-			self.plotContainer.configure(height = 1)
+			self.slaveDisplay.pack_forget()
+			self.slaveDisplayFrame.configure(height = 1)
+			self.slaveDisplay.isPacked = False
+
+	def _updateMinSize(self): # =================================================
+		# ABOUT: Check whether the current window size is enough for the current
+		# widget configuration and update geometry and minimum size accordingly.
+		# (Relies on the minimums set during configuration.)
+
+		# Determine required minimum size:
+			# NOTE: Add the minimum size requirement of each currently activated
+			# widget.
+		
+		baseReqY = self.masterMinimumSize[1]
+		totalReqY = baseReqY
+
+		if self.slaveDisplayToggleVar.get():
+			totalReqY += self.slaveDisplayMinimumSize[1] - baseReqY
+		if self.slaveListToggleVar.get():
+			totalReqY += self.slaveListMinimumSize[1] - baseReqY
+		if self.terminalToggleVar.get():
+			totalReqY += self.terminalMinimumSize[1] - baseReqY
+
+
+		self.master.update_idletasks()
+		# Update minimum size:
+		self.master.minsize(
+			self.masterMinimumSize[0],
+			totalReqY
+		)
+
+		# Check against current size:
+		if self.master.winfo_width() < self.masterMinimumSize[0] or\
+			self.master.winfo_height() < totalReqY:
+			self.master.update_idletasks()
+			# Reset geometry to allow for automatic window resizing:
+			self.winfo_toplevel().wm_geometry("")
+		return
 
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
@@ -2171,7 +2550,12 @@ class FCInterface(Tk.Frame):
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList
-		
+	
+		# Ensure the list is not empty:
+		if self.totalSlaves == 0:
+			# If there are no Slaves, there is nothing to select
+			return
+
 		currentSelection = self.slaveList.item(
 			self.slaveList.selection()[0],"values")[0]
 
@@ -2182,6 +2566,7 @@ class FCInterface(Tk.Frame):
 
 		if not self.slaveDisplay.isPacked:
 			self.slaveDisplay.pack()
+			self.slaveDisplayToggleVar.set(True)
 			self.slaveDisplay.isPacked = True
 	
 	def _send(self): # =========================================================
