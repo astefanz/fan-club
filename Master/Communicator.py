@@ -58,7 +58,7 @@ class Communicator:
 		# ABOUT: Constructor for class Communicator.
 
 		try:
-
+			
 			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Output queues:
@@ -86,7 +86,14 @@ class Communicator:
 			temp.close()
 			
 			self.printM("\tHost IP: {}".format(self.hostIP))
-
+			
+			"""
+			# Use resource library to get OS to give extra sockets, for good
+			# measure:
+			resource.setrlimit(resource.RLIMIT_NOFILE, 
+				(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+			"""
+			
 			# INITIALIZE MASTER SOCKETS ========================================
 
 			# INITIALIZE LISTENER SOCKET ---------------------------------------
@@ -449,7 +456,7 @@ class Communicator:
 			# Setup ============================================================
 
 			self.printM("[{}] Slave thread started".\
-				format(targetIndex, "G"))
+				format(targetIndex + 1, "G"))
 
 			# Get reference to Slave: ------------------------------------------
 			slave = target
@@ -478,7 +485,7 @@ class Communicator:
 
 			self.printM("[{}] Sockets set up successfully: \
 			 \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
-				format(targetIndex,
+				format(targetIndex + 1,
 					slave._misoSocket().getsockname(), 
 					slave._mosiSocket().getsockname()))
 
@@ -623,7 +630,7 @@ class Communicator:
 
 							else:
 								self.printM("[{}] Slave timed out".\
-									format(targetIndex), "W")
+									format(targetIndex + 1), "W")
 
 								# Terminate connection: ........................
 
@@ -649,7 +656,7 @@ class Communicator:
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
 
-						# Reset index:
+						# Reset exchange indices:
 						slave.resetIndices()
 
 				finally:
@@ -667,10 +674,10 @@ class Communicator:
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
-			   format(targetIndex, traceback.format_exc()), "E")
+			   format(targetIndex + 1, traceback.format_exc()), "E")
 		
 		self.printM("[{}] WARNING: BROKE OUT OF SLAVE LOOP".
-			format(targetIndex), "E")
+			format(targetIndex + 1), "E")
 		# End _slaveRoutine  # # # # # # # # # # # #  # # # # # # # # # # # # # 
 
 	# # AUXILIARY METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -902,7 +909,7 @@ class Communicator:
 
 		else:
 			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
-				format(targetIndex, Slave.translate(status)))
+				format(targetIndex + 1, Slave.translate(status)))
 
 		# End add ==============================================================
 

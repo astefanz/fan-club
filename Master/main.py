@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"Elegant_Solution_0\"" # Reference for consecutive versions
+VERSION = "\"ES1\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator
@@ -31,7 +31,5 @@ import Fan
 
 #### MAIN ######################################################################       
 
-print "Initializing"
 interface = FCI.FCInterface(VERSION) 
-print "Done w/ constructors" 
 interface.mainloop()

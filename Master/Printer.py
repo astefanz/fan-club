@@ -130,23 +130,6 @@ class Printer:
 			else:
 				fanModeStr = "[unspecified]"
 
-			# Check if the file already exists:
-			fileExists = False
-			try:
-				temp = open(fileName)	# IOError will be raised if the file 
-				fileExists = True	 	# cannot be found.
-				temp.close()
-			except IOError:
-				pass
-			
-			# Determine mode in which to open file:
-			if fileExists and not append or not fileExists:
-				# If this is a new file or a preexisting file to be overwritten,
-				# use 'w':
-				mode = 'w'
-			else:
-				# Otherwise, use append:
-				mode = 'a'
 			# MAIN LOOP --------------------------------------------------------
 			with open(fileName, 'w') as f:
 				# File setup ...................................................
@@ -167,20 +150,15 @@ class Printer:
 				f.write("MAC Addresses of each index: \n\t")
 				for slave in self.slaves[:-1]:
 					f.write("{}: {} |".\
-						format(slave[0], slave[1])) 
+						format(slave[0] + 1, slave[1])) 
 				f.write("{}: {}\n".\
 					format(self.slaves[-1][0], self.slaves[-1][1]))
 
 				# Third line:
-				f.write(
-					"NOTE: The following timestamps are formatted as "\
-					"\"seconds since the epoch.\"\n")
-
-				# Fourth line:
-				f.write(
-				"-------------------------------------------------------------"\
-				"-------------------------------------------------------------"\
-				"\n")
+				f.write("NOTE: Columns headers are formatted as FAN#-MODULE#\n")
+				
+				# Fourth line (blank):
+				f.write("\n")
 				
 				# Headers (fifth line):
 				f.write("Time (s),")
@@ -196,15 +174,15 @@ class Printer:
 				for slave in self.slaves:
 					for fan in range(slave[2]):
 
-						f.write("RPM {}:{},".format(fan + 1, slave[0]))
+						f.write("RPM {}-{},".format(fan + 1, slave[0] + 1))
 				# Write DC headers:
 				for slave in self.slaves:
 					for fan in range(slave[2]):
-						f.write("DC {}:{},".format(fan + 1, slave[0]))
+						f.write("DC {}-{}".format(fan + 1, slave[0] + 1))
 						# Check if this is not the last fan of the last slave,
 						# in which case a comma must be added:
-						if (fan < slave[2] - 1) \
-							and (slave[0] != self.slaves[-1][0]):
+						if not ((fan == slave[2] - 1) \
+							and (slave[0] == self.slaves[-1][0])):
 							f.write(',')
 
 				# Move to next line:
@@ -223,10 +201,6 @@ class Printer:
 						if self.stopFlag:
 							# Break out of loop and stop thread:
 							break
-						elif self.getStatus() == PAUSED:
-							# Skip cycles while pause == True:
-							continue
-						
 						# Set up placeholders:
 						rpms = ''
 						dcs = ''
@@ -262,7 +236,6 @@ class Printer:
 								# Loop over all DC's:
 								for dc in fetched[1]:
 									dcs += str(dc) + ','
-
 							except Queue.Empty:
 								# If the Queue is empty, fill portion w/ NaN:
 								
@@ -440,38 +413,6 @@ class Printer:
 		
 		# End start ============================================================
 	
-	def toggle(self): # ========================================================
-		# ABOUT: Alternate between pause/resume on printer thread.
-		try:
-			print "at toggle"
-			self.statusLock.acquire()
-			print "statuslock acqd"
-			# NOTE: This lock will be released by finally clause below.
-
-			# Check if the thread is running:
-			if self.status == OFF:
-				raise RuntimeError(
-					"Tried to toggle inactive Printer")
-			elif self.status == PAUSED:
-				# Pause thread if active:
-				self._setStatus(ON, False)
-				return
-
-			else:
-				# Reactivate thread if paused:
-				self._setStatus(PAUSED, False)
-				return
-
-		except Exception as e:
-
-			self.printM("[PT][toggle] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")
-
-		finally:
-			self.statusLock.release()
-
-		# End pause ============================================================
-
 	def stop(self): # ==========================================================
 		# ABOUT: Terminate the current printer thread.
 		try:

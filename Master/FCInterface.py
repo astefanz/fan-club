@@ -30,7 +30,7 @@ User interface module
 
 ## DEPENDENCIES ################################################################
 
-import Tkinter as Tk # GUI
+from mttkinter import mtTkinter as Tk # GUI
 import tkFileDialog 
 import tkMessageBox
 import tkFont
@@ -39,6 +39,7 @@ import threading
 import Queue
 import time
 import traceback
+import os # Get current working directory & check file names
 import sys # Exception handling
 import inspect # get line number for debugging
 import numpy as np
@@ -64,6 +65,14 @@ GREEN2 = 2
 BLUE = 3
 RED = 0
 
+# Printer file name status codes:
+BADEXT = -1
+EMPTY = 0
+NODOT = 1
+REPEATED = 2
+NORMAL = 3
+RESTORE = 4
+
 # AUXILIARY DEBUG PRINT:
 db = 0
 def d():
@@ -73,9 +82,11 @@ def d():
 class MainGrid(Tk.Frame, object):
 	# ABOUT: 2D grid to represent fan array.
 
-	def __init__(self, master, m, n):
+	def __init__(self, master, m, n, ms):
 		# ABOUT: Constructor for class MainGrid.
 		
+		self.ms = ms
+
 		# Call parent constructor (for class Canvas):
 		super(MainGrid, self).__init__(
 			master
@@ -92,6 +103,9 @@ class MainGrid(Tk.Frame, object):
 		
 		# Set a margin for grid edges to show:
 		self.margin = 5
+		
+		# Set IID dictionary:
+		self.iids = {}
 
 		# Initialize data representation:
 		# TODO: Create custom class for each fan
@@ -114,18 +128,32 @@ class MainGrid(Tk.Frame, object):
 			x = self.margin
 			for j in range(self.n):
 				# Draw rectangle ij:
-				self.matrix[i][j] = \
+				iid = \
 					self.canvas.create_rectangle(
-					x,y, x+l,y+l,
-					)
+					x,y, x+l,y+l, fill = 'white')
+				self.matrix[i][j] = iid
+				self.iids[iid] = (i,j)
+				self.canvas\
+					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
 				x += l
 			y += l
 		
-		#self.canvas.config(
-		#	width = l*self.m + self.margin, height = l*self.n + self.margin)
+		self.canvas.config(
+			width = l*self.n + self.margin, height = l*self.m + self.margin)
 
 		# End draw =========================================================
 
+	def _onClick(self, event):
+			
+		rect = self.canvas.find_closest(
+			self.canvas.canvasx(event.x), 
+			self.canvas.canvasy(event.y))[0]
+		
+		i, j = self.iids[rect]
+
+
+		self.ms.slaveContainers[i].fans[j].select()
+	
 	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
 class SlaveContainer:
@@ -204,7 +232,7 @@ class SlaveContainer:
 		# FanContainers:
 		self.fans = []
 		for i in range(maxFans):
-			self.fans.append(FanContainer(INACTIVE, self))
+			self.fans.append(FanContainer(INACTIVE, self, i))
 
 		# Indices:
 		self.mosiIndex = Tk.StringVar()
@@ -313,7 +341,16 @@ class SlaveContainer:
 					for i in range(self.activeFans):
 						self.fans[i].rpm.set(fetchedUpdate[3][0][i])
 						self.fans[i].dc.set(fetchedUpdate[3][1][i])
-					
+						# Grid:
+						"""
+						self.master.grid.canvas.itemconfig(
+							self.\
+							master.grid.matrix[self.index]\
+							[i],
+							fill = '#{0}{0}{0}'.format(hex(fetchedUpdate[3][0][i]*255/11500)[2:-1])
+							)
+						
+						"""
 					# Update Printer (if it is active):
 					try:
 						if self.master.printer.getStatus() == Printer.ON:
@@ -329,14 +366,14 @@ class SlaveContainer:
 					self.master.\
 						printMain("ERROR: Unrecognized update code {} in "\
 						"SlaveContainer ({}) update method.".\
-						format(fetchedUpdate[0], self.index),
+						format(fetchedUpdate[0], self.index + 1),
 						"E")
 
 				# Update slaveList ---------------------------------------------
 				if fetchedUpdate[0] == Slave.STATUS_CHANGE:
 					self.master.slaveList.item(self.slaveListIID, 
 						values = [
-							self.index,
+							self.index + 1,
 							self.name, 
 							self.mac, 
 							self.statusStringVar.get(),
@@ -348,7 +385,7 @@ class SlaveContainer:
 
 					self.master.slaveList.item(self.slaveListIID, 
 						values = [
-							self.index,
+							self.index + 1,
 							self.name, 
 							self.mac, 
 							self.statusStringVar.get(),
@@ -367,10 +404,10 @@ class SlaveContainer:
 		
 		except Exception as e:
 			self.master.printMain("[SU][{}] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(self.index, traceback.format_exc()), "E")
+				format(self.index + 1, traceback.format_exc()), "E")
 
 		# Schedule next update -------------------------------------------------
-		self.master.after(self.period_ms, self.update)
+		self.master.after(90, self.update)
 
 		# End update ===========================================================
 	
@@ -427,7 +464,7 @@ class SlaveContainer:
 			# No selection for disconnected boards
 			return
 
-		if fan == None:
+		if fan is None:
 			# Select all active fans:
 			for fan in self.fans:
 				if fan.selected != selection:
@@ -493,7 +530,7 @@ class FanContainer:
 	# ABOUT: To serve as a member of class SlaveContainer and hold data abo-
 	# ut a specific fan of a specific Slave's fan array.
 
-	def __init__(self, isActive, slaveContainer): # ============================
+	def __init__(self, isActive, slaveContainer, index): # ==================
 		# ABOUT: Constructor for class FanContainer.
 		# PARAMETERS:
 		# - isActive: bool, whether this Fan is active.
@@ -507,7 +544,7 @@ class FanContainer:
 		
 		self.active = isActive
 		self.slaveContainer = slaveContainer
-
+		self.index = index
 		self.selected = False
 		self.selectionChar = '0'
 
@@ -566,6 +603,13 @@ class FanContainer:
 				self.slaveContainer.master.selectedSlaves +=1
 				self.slaveContainer.master.selectedSlavesVar.set(
 					self.slaveContainer.master.selectedSlaves)
+			# Grid (temp):
+			"""
+			self.slaveContainer.master.grid.canvas.itemconfig(
+				self.slaveContainer.\
+					master.grid.matrix[self.slaveContainer.index][self.index],
+				fill = 'orange')
+			"""		
 
 		elif not selected and self.selected:
 			#              \--------------/ <-- Avoid redundant deselections
@@ -591,6 +635,14 @@ class FanContainer:
 				self.slaveContainer.master.selectedSlaves -=1
 				self.slaveContainer.master.selectedSlavesVar.set(
 					self.slaveContainer.master.selectedSlaves)
+	
+			#  Grid (temp):
+			"""
+			self.slaveContainer.master.grid.canvas.itemconfig(
+				self.slaveContainer.\
+					master.grid.matrix[self.slaveContainer.index][self.index],
+				fill = 'white')
+			"""
 		# End select =======================================================
 
 	def deselect(self): # ==================================================
@@ -633,7 +685,14 @@ class FanContainer:
 			self.active = False
 			if self.fanDisplay != None:
 				self.fanDisplay.setStatus(INACTIVE)
-
+			
+			# Grid (temp):
+			"""
+			self.slaveContainer.master.grid.canvas.itemconfig(
+				self.slaveContainer.\
+					master.grid.matrix[self.slaveContainer.index][self.index],
+				fill = 'black')
+			"""
 	def isActive(self): # ==================================================
 		# ABOUT: Get whether this fan is active (bool).
 		# RETURNS:
@@ -838,7 +897,7 @@ class SlaveDisplay(Tk.Frame):
 		self.target.setSlaveDisplay(self)
 		
 		# Adjust index:
-		self.indexLabel.config(text = self.target.index)
+		self.indexLabel.config(text = self.target.index + 1)
 
 		# Adjust name:
 		self.nameLabel.config(text = self.target.name)
@@ -894,7 +953,6 @@ class SlaveDisplay(Tk.Frame):
 		elif newStatus == Slave.KNOWN:
 			self.selectAllButton.configure(state = Tk.DISABLED)
 			self.deselectAllButton.configure(state = Tk.DISABLED)
-
 			self.connectButton.configure(state = Tk.DISABLED)
 			self.showConnectButton()
 
@@ -927,7 +985,8 @@ class SlaveDisplay(Tk.Frame):
 		# ABOUT: Connect to AVAILABLE Slave.
 
 		if self.status == Slave.AVAILABLE:
-			self.communicator.add(self.target.mac)
+			self.communicator.add(self.target.index
+			)
 
 	def selectAll(self): # =====================================================
 		# ABOUT: Set all fans as selected:
@@ -1152,14 +1211,6 @@ class FCInterface(Tk.Frame):
 		
 		#self.mainGrid = MainGrid(self.arrayFrame, 36,36)
 		
-		# SLAVE DISPLAY --------------------------------------------------------
-		# Slave display frame ..................................................
-		self.slaveDisplayFrame = Tk.Frame(self.main,
-			bg = self.background,
-			bd = 1,
-			relief = Tk.GROOVE)
-		self.slaveDisplayFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False)
-
 		"""
 		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
 		self.tempDisplay = ttk.Treeview(self.arrayFrame, 
@@ -1289,65 +1340,10 @@ class FCInterface(Tk.Frame):
 			text = "[Fancy plot will go here]", font = 'TkFixedFont', fg = 'gray')
 		self.plotLabel.pack()
 		"""
-		# SLAVE LIST -----------------------------------------------------------
-
-		# Slave list container .................................................
-		self.slaveListContainer = Tk.Frame(self.main)
-		self.slaveListContainer.pack(fill = Tk.BOTH, expand = True)
-
-		# Slave list frame .....................................................
-		self.slaveListFrame = Tk.Label(self.slaveListContainer,
-			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
-		#self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
-
-		# List of Slaves .......................................................
-
-		# Create list:
-		self.slaveList = ttk.Treeview(self.slaveListFrame, 
-			selectmode="browse", height = 5)
-		self.slaveList["columns"] = \
-			("Index", "Name","MAC","Status","IP","Fans")
-
-		# Create columns:
-		self.slaveList.column('#0', width = 20, stretch = False)
-		self.slaveList.column("Index", width = 20, anchor = "center")
-		self.slaveList.column("Name", width = 50)
-		self.slaveList.column("MAC", width = 50, 
-			anchor = "center")
-		self.slaveList.column("Status", width = 50, 
-			anchor = "center")
-		self.slaveList.column("IP", width = 50, 
-			anchor = "center")
-		self.slaveList.column("Fans", width = 50, stretch = False, 
-			anchor = "center")
-
-		# Configure column headings:
-		self.slaveList.heading("Index", text = "Index")
-		self.slaveList.heading("Name", text = "Name")
-		self.slaveList.heading("MAC", text = "MAC")
-		self.slaveList.heading("Status", text = "Status")
-		self.slaveList.heading("IP", text = "IP")
-		self.slaveList.heading("Fans", text = "Fans")
-
-		# Configure tags:
-		self.slaveList.tag_configure("C", background= '#d1ffcc', foreground = '#0e4707', font = 'TkFixedFont 12 ') # Connected
-		self.slaveList.tag_configure("B", background= '#ccdeff', foreground ='#1b2d4f', font = 'TkFixedFont 12 ') # Busy
-		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
-		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
-		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
-
-		# Save previous selection:
-		self.oldSelection = None
-
-		# Bind command:
-		self.slaveList.bind('<Double-1>', self._slaveListMethod)
-
-		self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
-
-		
 		# TERMINAL -------------------------------------------------------------
 		self.terminalContainerFrame = Tk.Frame(self.main, bg = self.background)
-		self.terminalContainerFrame.pack(fill = Tk.X, expand = False, anchor = 's')
+		self.terminalContainerFrame.pack(
+			side = Tk.BOTTOM, fill = Tk.X, expand = False, anchor = 's')
 
 		self.terminalFrame = Tk.Frame(self.terminalContainerFrame,
 			bg = self.background, bd = 1, relief = Tk.GROOVE)
@@ -1358,7 +1354,7 @@ class FCInterface(Tk.Frame):
 		self.mainTerminal = ttk.Frame(self.terminalFrame)
 		self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
 		self.mainTLock = threading.Lock()
-		self.mainTText = Tk.Text(self.mainTerminal, height = 10, width = 120, 
+		self.mainTText = Tk.Text(self.mainTerminal, height = 10, 
 			fg = "#424242", bg=self.background, font = ('TkFixedFont'),
 			selectbackground = "#cecece",
 			state = Tk.DISABLED)
@@ -1415,6 +1411,72 @@ class FCInterface(Tk.Frame):
 		self.terminalButton.pack(side = Tk.LEFT)
 		self.autoscrollButton.select()
 
+		# SLAVE LIST -----------------------------------------------------------
+
+		# Slave list container .................................................
+		self.slaveListContainer = Tk.Frame(self.main)
+		self.slaveListContainer.pack(
+			side = Tk.BOTTOM, fill = Tk.BOTH, expand = True, anchor = 's')
+
+		# Slave list frame .....................................................
+		self.slaveListFrame = Tk.Label(self.slaveListContainer,
+			bg = self.background, borderwidth = 1, relief = Tk.GROOVE)
+		#self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
+
+		# List of Slaves .......................................................
+
+		# Create list:
+		self.slaveList = ttk.Treeview(self.slaveListFrame, 
+			selectmode="browse", height = 5)
+		self.slaveList["columns"] = \
+			("Index", "Name","MAC","Status","IP","Fans")
+
+		# Create columns:
+		self.slaveList.column('#0', width = 20, stretch = False)
+		self.slaveList.column("Index", width = 20, anchor = "center")
+		self.slaveList.column("Name", width = 50)
+		self.slaveList.column("MAC", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Status", width = 50, 
+			anchor = "center")
+		self.slaveList.column("IP", width = 50, 
+			anchor = "center")
+		self.slaveList.column("Fans", width = 50, stretch = False, 
+			anchor = "center")
+
+		# Configure column headings:
+		self.slaveList.heading("Index", text = "Index")
+		self.slaveList.heading("Name", text = "Name")
+		self.slaveList.heading("MAC", text = "MAC")
+		self.slaveList.heading("Status", text = "Status")
+		self.slaveList.heading("IP", text = "IP")
+		self.slaveList.heading("Fans", text = "Fans")
+
+		# Configure tags:
+		self.slaveList.tag_configure("C", background= '#d1ffcc', foreground = '#0e4707', font = 'TkFixedFont 12 ') # Connected
+		self.slaveList.tag_configure("B", background= '#ccdeff', foreground ='#1b2d4f', font = 'TkFixedFont 12 ') # Busy
+		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
+		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
+		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
+
+		# Save previous selection:
+		self.oldSelection = None
+
+		# Bind command:
+		self.slaveList.bind('<Double-1>', self._slaveListMethod)
+
+		self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
+
+		
+		# SLAVE DISPLAY --------------------------------------------------------
+		# Slave display frame ..................................................
+		self.slaveDisplayFrame = Tk.Frame(self.main,
+			bg = self.background,
+			bd = 1,
+			relief = Tk.GROOVE)
+		self.slaveDisplayFrame.pack(
+			side = Tk.BOTTOM, fill = Tk.X, expand = False, anchor = 's')
+
 
 		# CONTROL --------------------------------------------------------------
 		self.controlFrame = Tk.Frame(self, 
@@ -1448,12 +1510,12 @@ class FCInterface(Tk.Frame):
 		self.slaveDisplayToggleVar = Tk.BooleanVar()
 		self.slaveDisplayToggleVar.set(False)
 
-		self.slaveListToggle = Tk.Checkbutton(self.controlFrame,
+		self.slaveDisplayToggle = Tk.Checkbutton(self.controlFrame,
 			text ="Display", variable = self.slaveDisplayToggleVar, 
 			bg = self.background, command = self._slaveDisplayToggle)
 
-		self.slaveListToggle.config( state = Tk.NORMAL)
-		self.slaveListToggle.pack(side = Tk.LEFT)
+		self.slaveDisplayToggle.config( state = Tk.NORMAL)
+		self.slaveDisplayToggle.pack(side = Tk.LEFT)
 		
 		# ARRAY CONTROL ........................................................
 
@@ -1532,12 +1594,46 @@ class FCInterface(Tk.Frame):
 		self.selectAllButton.pack(side = Tk.RIGHT)
 
 		# PRINTING -------------------------------------------------------------
-		self.printFrame = Tk.Frame(self, 
+		self.printContainerFrame = Tk.Frame(self, 
 			relief = Tk.GROOVE, borderwidth = 1,
 			bg=self.background)
 
-		self.printFrame.pack(fill = Tk.X, expand = False)
-	
+		self.printContainerFrame.pack(fill = Tk.X, expand = False)
+
+		self.printFrame = Tk.Frame(self.printContainerFrame,
+			bg = self.background)
+		self.printFrame.pack(anchor = 'c')
+		
+		# Print timer:
+		self.printTimerVar = Tk.StringVar()
+		self.printTimerVar.set("00:00:00s")
+
+		self.printTimerSeconds = 0
+		self.printTimerMinutes = 0
+		self.printTimerHours = 0
+		self.printTimerStopFlag = False
+
+		self.printTimerLabel = Tk.Label(
+			self.printFrame,
+			bg = self.background,
+			bd = 1,
+			relief = Tk.SUNKEN,
+			font = ('TkFixedFont', '12'),
+			width = 12,
+			padx = 4,
+			textvariable = self.printTimerVar
+		)
+
+		self.printTimerLabel.pack(side = Tk.RIGHT)
+
+
+		self.printTimerPadding = Tk.Frame(
+			self.printFrame,
+			width = 20,
+			bg = self.background
+		)
+		self.printTimerPadding.pack(side = Tk.RIGHT, expand = False)
+
 		# Print target (file) label:
 		self.printTargetLabel = Tk.Label(self.printFrame,
 			background = self.background,
@@ -1547,33 +1643,62 @@ class FCInterface(Tk.Frame):
 		self.printTargetLabel.pack(side = Tk.LEFT)
 
 		# Print target text field:
+
+		self.entryRedBG = "#ffc1c1"
+		self.entryOrangeBG = "#ffd8b2"
+		self.entryWhiteBG = "white"
+
+		self.printTargetVar = Tk.StringVar()
+		self.printTargetVar.trace('w', self._fileNameEntryCheck)
+
 		self.printTargetEntry = Tk.Entry(self.printFrame, 
 			highlightbackground = self.background,
-			width = 20)
+			width = 17, bg = self.entryRedBG,
+			textvariable = self.printTargetVar)
 		self.printTargetEntry.pack(side = Tk.LEFT)
  
+ 		self.printTargetStatus = EMPTY
 
 		# printTarget button:
-		self.fileName = None
-
 		self.printTargetButton = Tk.Button(self.printFrame, 
 			highlightbackground = self.background, text = "...", 
 			command = self._printTargetButtonRoutine)
 
 		self.printTargetButton.pack(side = Tk.LEFT)
-
+		
 		# Print padding:
-		self.printPadding = Tk.Frame(self.printFrame,
+		self.printPadding2 = Tk.Frame(self.printFrame,
+			bg = self.background,
+			width = 5
+			)
+		self.printPadding2.pack(side = Tk.LEFT)
+		
+		# printTarget feedback:
+		self.printTargetFeedbackLabel = Tk.Label(
+			self.printFrame,
+			bg = self.background,
+			text = '(No filename)',
+			fg = 'darkgray',
+			anchor = 'w',
+			width = 12
+			)
+		self.printTargetFeedbackLabel.pack(side = Tk.LEFT)
+	
+		# Print padding:
+		self.printPadding1 = Tk.Frame(self.printFrame,
 			bg = self.background,
 			width = 20
 			)
-		self.printPadding.pack(side = Tk.LEFT)
+		self.printPadding1.pack(side = Tk.LEFT)
 
 		# printStartStop button:
 		self.printStartStopButton = Tk.Button(self.printFrame, 
-			highlightbackground = self.background, text = "Start Data Capture", 
+			highlightbackground = self.background, text = "Start Recording",
+			width = 12,
 		 	command = self._printButtonRoutine,
 			)
+
+		self.printStartStopButton.config(state = Tk.DISABLED)
 
 		self.printStartStopButton.pack(side = Tk.LEFT)
 		
@@ -1878,7 +2003,6 @@ class FCInterface(Tk.Frame):
 		# Initialize Profiler --------------------------------------------------
 		self.profiler = Profiler.Profiler() 
 		self.printMain("Profiler initialized", "G")
-		print "Profiler ready"
 		
 		# Initialize Slave data structure --------------------------------------
 		self.slaveContainers = np.empty(0, dtype = object)
@@ -1895,7 +2019,6 @@ class FCInterface(Tk.Frame):
 			self.profiler.profile
 			)
 		self.printMain("Communicator initialized", "G")
-		print "Communicator ready"
 		
 		# Initialize SlaveDisplay (requires Communicator):
 		self.slaveDisplay = SlaveDisplay(
@@ -1991,8 +2114,20 @@ class FCInterface(Tk.Frame):
 		self._newSlaveChecker()
 		self._broadcastThreadChecker()
 		self._listenerThreadChecker()
+		
 
-		# End constructor ======================================================
+		# Focus on the main window:
+		self.master.lift()
+		
+		# Initialize grid (temp)
+		"""
+		self.popup = Tk.Toplevel()
+		self.grid = MainGrid(self.popup, 80, 21, self)
+		self.grid.draw(10
+		)
+		"""
+
+		# End FCInterface Constructor ==========================================
 
 ## UPDATE ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -2084,7 +2219,7 @@ class FCInterface(Tk.Frame):
 		# Check for new Slaves:
 		fetched = self.communicator.getNewSlave()
 		try:
-			if fetched == None:
+			if fetched is None:
 				# Nothing to do here
 				pass
 			else:
@@ -2106,7 +2241,7 @@ class FCInterface(Tk.Frame):
 						slaveListIID = 	self.slaveList.insert(
 							'', 'end', 
 							values = (
-							fetched[8],
+							fetched[8] + 1,
 							fetched[0], # name 
 							fetched[1], # MAC 
 							Slave.translate(fetched[2]), # Status as str
@@ -2285,54 +2420,70 @@ class FCInterface(Tk.Frame):
 
 		# End printMain ========================================================
 
+	def _printTimerRoutine(self): # ============================================
+		# ABOUT: Update the Printer timer periodically for as long as it is
+		# active. This method is meant to be called by whatever component acti-
+		# vates the Printer (i.e starts printing).
+
+		# Check Printer status:
+		if not self.printTimerStopFlag:
+			# Update timer label
+			self.printTimerSeconds += 1
+
+			if self.printTimerSeconds >= 60:
+				self.printTimerSeconds = 0
+				self.printTimerMinutes += 1
+
+				if self.printTimerMinutes >= 60:
+					self.printTimerMinutes = 0
+					self.printTimerHours += 1
+					
+					if self.printTimerHours >= 99:
+						self.printTimerHours = 99
+			
+			self.printTimerVar.set("{:02d}:{:02d}:{:02d}s".format(
+				self.printTimerHours,
+				self.printTimerMinutes,
+				self.printTimerSeconds))
+
+			self.after(1000, self._printTimerRoutine)
+
+		else:
+			# Reset timer label and end chain of calls:
+			self.printTimerVar.set("00:00:00s")
+			return
+
+
+		# End _printTimerRoutine ===============================================
+
 	def _printTargetButtonRoutine(self): # =====================================
 		# ABOUT: To be used by file name button. 
 		# Sets file name and stops Printer.
 		try:
-			# Deactivate print button to prevent timing conflicts:
-			self.printButton.config(state = Tk.DISABLED)
 			
 			# Proceed in accordance w/ Printer status:
 			if self.printer.getStatus() == Printer.OFF:
 				# If the printer is off, choose a file name.
-				previousFileName = self.fileName
-				self.fileName = tkFileDialog.asksaveasfilename(
-					initialdir = ".",
-					title = "Choose log file",
+
+				# Disable print button while choosing file:
+				self.printStartStopButton.config(state = Tk.DISABLED)
+
+				self.printTargetVar.set(tkFileDialog.asksaveasfilename(
+					initialdir = os.getcwd(), # Get current working directory
+					title = "Choose file",
 					filetypes = (("Text files","*.txt"),("CSV files", "*.csv"),
-						("All files","*.*")),
-					initialfile = "FTrial on {}.txt".format(
-						time.strftime(
-							"[%a,%m;%d;%Y][%H;%M;%S]", time.localtime())
-						),
-					)
+						("All files","*.*"))
+					))
+				
+				# Set the visibility to the right end of the file name:
+				self.printTargetEntry.xview_moveto(1)
 
-				# Validate given file name:
-				if self.fileName == '':
-					# The user cancelled the request. Keep old value:
-					self.fileName = previousFileName
-
-				elif '.' not in self.fileName:
-					# If the file name has no extension, print out an error
-					# and keep old value:
-					self.fileName = self.fileName + ".txt"
-
-					tkMessageBox.showinfo(
-						"File Extension Assumed", 
-						"No extension specified. (.csv, .txt...)\n"\
-						".txt has been assumed.")
-	
 			elif self.printer.getStatus() in (Printer.ON, Printer.PAUSED):
 				# If the printer is active (whether printing or paused),
 				# deactivate it.
 					
-				# Deactivate printer:
-				self.printer.stop()
-				
-				# Update buttons:
-				self.printButton.config(text = "Print")
-				self.printTargetButton.config(text = "Set File")
-
+				raise RuntimeError("Cannot use target file specifier while "\
+					"printing")
 			else:
 				# Unrecognized printer status (wot)
 				raise RuntimeError("Unrecognized Printer status {} (wot)".\
@@ -2341,73 +2492,72 @@ class FCInterface(Tk.Frame):
 			self.printMain("[printTargetButton] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
-		finally:
-			# Reactivate print button:
-			self.printButton.config(state = Tk.NORMAL)
-
 		# End _printTargetButtonRoutine ========================================
 
 	def _printButtonRoutine(self): # ===========================================
-		# ABOUT: To be used by Printer button. Starts, pauses and resumes,
+		# ABOUT: To be used by Printer Start/Stop button. Starts and stops 
 		# Printer.
 		try:
 			# Deactivate print target button to prevent timing conflicts:
 			self.printTargetButton.config(state = Tk.DISABLED) 
-				# NOTE: Will be reactivated in finally clause below.
+
 
 			# Check state of printer:
 			if self.printer.getStatus() == Printer.OFF:
 				# If the printer is not active, activate it:
-						
-				# Fetch file name:
-				if self.fileName == None:
-					# If the user assigned no file name, assign a standard one:
-					self.fileName = "./FTrial on {}.txt".format(
-						time.strftime(
-							"[%a,%m;%d;%Y][%H;%M;%S]", time.localtime())
-						)
 				
+				# Fetch file name:
+				fetchedFileName = self.printTargetVar.get()
+
+				# Validate statuses:
+				if self.printTargetStatus in (EMPTY, BADEXT):
+					raise RuntimeError("Cannot print to file with target file "\
+						"status code {}".format(self.printTargetStatus))
+
+				elif self.printTargetStatus == NODOT:
+					# Add extension:
+					fetchedFileName += ".txt"
+
 				# Start printer:
 				self.printer.start(
-					fileName = self.fileName,
+					fileName = fetchedFileName,
 					profileName = self.profiler.profile["name"],
 					maxFans = self.profiler.profile["maxFans"],
 					periodS = self.profiler.profile["printerPeriodS"]
 				)
 
-				# Modify buttons:
-					# Set print button to "pause" and print target button to 
-					# "stop":
+				# Modify buttons upon successful printer startup:
 
 				# Check if the change was successful:
 				if self.printer.getStatus() == Printer.ON:
-					self.printButton.config(text = "Pause")
-					self.printTargetButton.config(text = "Stop")
+					self.printStartStopButton.config(text = "Stop Recording")
+					
+					# Start timer:
+					self._printTimerRoutine()
+				else:
+					# Reactivate printTargetButton (upon init. failure)
+					self.printTargetButton.config(state = Tk.NORMAL)
 
 			elif self.printer.getStatus() == Printer.ON:
-				# If the printer is active, this button behaves as a "pause" 
-				# button
+				# If the printer is active, shut it down
 				
-				# Pause printer
-				self.printer.toggle()
-					# NOTE: Printer status will be set to Printer.PAUSED
+				# Deactivate Printer-related components while shutdown completes:
+				self.printTargetButton.config(state = Tk.DISABLED)
+				self.printStartStopButton.config(state = Tk.DISABLED)
+				self.printTargetEntry.config(state = Tk.DISABLED)
+				self.printTargetFeedbackLabel.config(text = "Stopping...")
+				self.printTimerLabel.config(state = Tk.DISABLED)
+				self.printTimerStopFlag = True
 
-				# Change button to "Resume" (if change was successful)
-				if self.printer.getStatus() == Printer.PAUSED:
-					self.printButton.config(text = "Resume")
+				# Stop Printer. Use short-lived thread to keep GUI responsive:
+				temp = threading.Thread(target = self.printer.stop)
+				temp.setDaemon(True)
+				temp.start() # Will end on its own
 
-			elif self.printer.getStatus() == Printer.PAUSED:
-				# If the printer is paused, this button behaves as a "resume"
-				# button
-				
-				# Resume printer:
-				self.printer.toggle()
-					# NOTE: Printer status will be set to Printer.ON
-
-				# Change button to "Pause" (if change was successful)
-				if self.printer.getStatus() == Printer.ON:
-					self.printButton.config(text = "Pause")
-			
+				# Start "check" routine to restore interface once Printer is
+				# done shutting down:
+				self._printStopRoutine()
+					
 			else: 
 				# Unrecognized printer status (Wot)
 				raise RuntimeError("Unrecognized Printer status {} (wot)".\
@@ -2417,10 +2567,30 @@ class FCInterface(Tk.Frame):
 			self.printMain("[printButton] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
-		finally:
-			# Reactivate printTargetButton:
-			self.printTargetButton.config(state = Tk.NORMAL)
 		# End _printButtonRoutine ==============================================
+
+	def _printStopRoutine(self): # ===========================================
+		# ABOUT: Schedules itself for future calls until the Printer module is
+		# done terminating. When the Printer module is done, restores buttons
+		# and fields.
+
+		# Check Printer status:
+		if self.printer.getStatus() == Printer.OFF:
+			# Restore buttons 
+			self.printStartStopButton.config(text = "Start Recording")
+			self.printTargetEntry.config(state = Tk.NORMAL)
+			self.printTargetButton.config(state = Tk.NORMAL)
+			self.printTimerLabel.config(state = Tk.NORMAL)
+			self.printTargetStatus = RESTORE
+				# "Modify" targetFileVar to fire its trace callback:
+			self.printTargetVar.set(self.printTargetVar.get())
+			
+
+		else:
+			# Schedule future call to check again:
+			self.after(200, self._printStopRoutine)
+
+		# End _printerStopRoutine ==============================================
 
 	def _validateN(self, newCharacter, textBeforeCall, action): # ==============
 		# ABOUT: To be used by TkInter to validate text in "Send" Entry.
@@ -2491,7 +2661,7 @@ class FCInterface(Tk.Frame):
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 			self.slaveListContainer.configure(height = 1)
-		
+
 	def _slaveDisplayToggle(self, updateMinSize = True): # =====================
 		# ABOUT: Hide and show the Slave list
 
@@ -2518,10 +2688,14 @@ class FCInterface(Tk.Frame):
 			# widget.
 		
 		baseReqY = self.masterMinimumSize[1]
+		baseReqX = self.masterMinimumSize[0]
 		totalReqY = baseReqY
+		totalReqX = baseReqX
+		
 
 		if self.slaveDisplayToggleVar.get():
 			totalReqY += self.slaveDisplayMinimumSize[1] - baseReqY
+			totalReqX += self.slaveDisplayMinimumSize[0] - baseReqX
 		if self.slaveListToggleVar.get():
 			totalReqY += self.slaveListMinimumSize[1] - baseReqY
 		if self.terminalToggleVar.get():
@@ -2531,7 +2705,7 @@ class FCInterface(Tk.Frame):
 		self.master.update_idletasks()
 		# Update minimum size:
 		self.master.minsize(
-			self.masterMinimumSize[0],
+			totalReqX,
 			totalReqY
 		)
 
@@ -2561,7 +2735,9 @@ class FCInterface(Tk.Frame):
 
 		if self.oldSelection != currentSelection:
 			self.slaveDisplay.setTarget(
-				self.slaveContainers[int(currentSelection)])
+				self.slaveContainers[int(currentSelection) - 1])
+				#                                          \--/
+				#                 Compensate displacement <-/
 			self.oldSelection = currentSelection
 
 		if not self.slaveDisplay.isPacked:
@@ -2629,7 +2805,7 @@ class FCInterface(Tk.Frame):
 						self.printMain( "[{}] "\
 							"Warning: Outgoing command Queue full. "\
 							"Could not send message".\
-							format(slaveContainer.index), "E")
+							format(slaveContainer.index + 1), "E")
 
 			# Check sentinel:
 			if sent:
@@ -2640,7 +2816,7 @@ class FCInterface(Tk.Frame):
 			self.printMain("[_send()] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
-	def _connectAllSlaves(self): # =============================================
+	def _connectAllSlaves(self): # =========================================
 		# ABOUT: Connect to all AVAILABLE Slaves, if any.
 
 		# Loop over Slaves and add all AVAILABLE ones:
@@ -2648,7 +2824,78 @@ class FCInterface(Tk.Frame):
 			if slaveContainer.status == Slave.AVAILABLE:
 				self.communicator.add(slaveContainer.index)
 
-		# End addAllSlaves =====================================================
+		# End addAllSlaves =============================================
+	
+	def _fileNameEntryCheck(self, *args): # ====================================
+		# ABOUT: Validate the file name entered.
+		# Get file name:
+		prospectiveFileName = self.printTargetVar.get()
+		# Set sentinel:
+		normal = True
+	
+		# Check file name:
+		if prospectiveFileName == '' and self.printTargetStatus != EMPTY:
+			#                           \-----------------------------/
+			#								Avoid redundant changes
+			# Can't print:
+			self.printStartStopButton.config(state = Tk.DISABLED)
+			self.printTargetEntry.config(bg = self.entryRedBG)
+			self.printTargetFeedbackLabel.config(text = "(No filename)")
+			self.printTargetStatus = EMPTY
+
+			# Done
+			return
+
+		elif '.' not in prospectiveFileName:
+			# No extension. Assume .txt and warn:
+			normal = False
+			
+			if self.printTargetStatus != NODOT:
+
+				self.printTargetEntry.config(bg = self.entryWhiteBG)
+				self.printTargetFeedbackLabel.config(text = '(.txt assumed)')
+				self.printStartStopButton.config(state = Tk.NORMAL)
+
+				self.printTargetStatus = NODOT
+
+				prospectiveFileName += ".txt"
+
+		elif prospectiveFileName.split('.')[-1] == '':
+			# Invalid extension:
+			normal = False
+
+			if self.printTargetStatus != BADEXT:
+
+				self.printStartStopButton.config(state = Tk.DISABLED)
+				self.printTargetEntry.config(bg = self.entryRedBG)
+				self.printTargetFeedbackLabel.config(text = "(Bad extension)")
+
+				self.printTargetStatus = BADEXT
+
+		# Check for repetition
+		if os.path.isfile(prospectiveFileName) and \
+			self.printTargetStatus != REPEATED:
+			# Change color and warn:
+			self.printTargetEntry.config(bg = self.entryOrangeBG)
+			self.printTargetFeedbackLabel.config(text = 'FILE EXISTS')
+			self.printStartStopButton.config(state = Tk.NORMAL)
+
+			self.printTargetStatus = REPEATED
+
+		elif normal and self.printTargetStatus != NORMAL:
+			# If this block of code is reached, then the prospective filename is
+			# - Not empty
+			# - Not missing an extension, and
+			# - Not repeated
+		
+			# Therefore, mark it as NORMAL:
+			self.printTargetEntry.config(bg = self.entryWhiteBG)
+			self.printTargetFeedbackLabel.config(text = '')
+			self.printStartStopButton.config(state = Tk.NORMAL)
+
+			self.printTargetStatus = NORMAL
+
+		# End _fileNameEntryCheck ==============================================
 
 ## INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

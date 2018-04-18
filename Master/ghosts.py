@@ -94,7 +94,7 @@ class GhostSlave:
 		self.commsLock = threading.Lock()
 		self.masterIP = ''
 		self.masterPort = 0
-		self.period_ms = 1000
+		self.periodMS = 100
 		self.connected = False
 
 		# Fire up them' threads:
@@ -119,7 +119,8 @@ class GhostSlave:
 			self.ss.getsockname()[1],
 			self.rs.getsockname()[1]),
 			self.mbAddress)
-
+		
+		self.dc = 0.0
 		print "[{}] Ghost reporting".format(self.mac)
 		# End __init__ ---------------------------------------------------------
 
@@ -150,7 +151,11 @@ class GhostSlave:
 					self.misoI += 1
 				
 				self.connected = True
-
+			
+			elif splitted[1] == "MSTD":
+				ss = splitted[2].split("~")
+				self.dc = float(ss[1])
+				
 			else:
 				pass
 			
@@ -162,23 +167,25 @@ class GhostSlave:
 		
 		while(True):
 			if self.connected:
-				time.sleep(self.period_ms/1000.0)
+				time.sleep(self.periodMS/1000.0)
 				# Fake DCs:
 
 				frpm = ''
 				fdc = ''
 				for i in range(21):
 					
-					frpm += str(random.randint(0,11500)) + ","
-					fdc += str(random.randint(0,100)) + ","
+					#frpm += str(random.randint(0,11500)) + ","
+					#fdc += str(random.randint(0,100)) + ","
 
+					frpm += str(int(self.dc*11500)) + ","
+					fdc += str(self.dc*100) + ","
 				for i in range(3):
-
-					self.ss.sendto(
-						"{}|SSTD|{}|{}".\
-								format(self.mosiI,frpm[:-1],fdc[:-1]),
+					m = "{}|SSTD|{}|{}".\
+						format(self.mosiI,frpm[:-1],fdc[:-1])
+					self.ss.sendto(m,
 						(self.masterIP, self.masterPort)
 					)
+					print m
 
 					self.mosiI += 1
 				
