@@ -366,7 +366,7 @@ class Printer:
 		# ABOUT: Start the printer thread.
 		try:
 			# Validate input:
-			if type(fileName) is not str:
+			if type(fileName) not in (str, unicode):
 				raise TypeError("Argument 'fileName' must be of type str, "\
 					"not {}".format(type(fileName)))
 			elif type(profileName) is not str:
