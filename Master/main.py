@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"ES1\"" # Reference for consecutive versions
+VERSION = "\"ES2\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import Communicator

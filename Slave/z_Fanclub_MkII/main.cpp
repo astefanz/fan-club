@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"N.E Reboot\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"Single T 6\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 

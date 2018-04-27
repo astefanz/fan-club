@@ -125,9 +125,16 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 
     while(true){ // Listener routine loop ======================================
         
-        // Wait standard timeout time to allow other threads to act: - - - - - -
-        Thread::wait(TIMEOUT_MS);
-        
+        // Wait a certain time in accordance to current comm status: - - - - - -
+		/*
+		this->configurationLock.lock();
+		Thread::wait(this->getStatus() == CONNECTED? 
+			this->periodMS:
+			TIMEOUT_MS);
+       
+	  	this->configurationLock.unlock();
+		*/
+		Thread::wait(TIMEOUT_MS);
         // Receive data: - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         int bytesReceived = this->slaveListener.recvfrom(
             &masterBroadcast,
@@ -140,7 +147,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
             // Socket timed out. Increment and check timeout counters.
 
             // Increment corresponding timeout: - - - - - - - - - - - - - - - - 
-            if(this->status == CONNECTED){
+            if(this->getStatus() == CONNECTED){
                 // Connected to Master. Increment Master timeouts:
                 this->masterTimeouts++;
 
@@ -174,12 +181,9 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
                     pl;printf("\n\r[%08dms][L] NT THRESHOLD (%d/%d) REBOOTING",
                         tm, this->networkTimeouts, MAX_NETWORK_TIMEOUTS);pu;
                     
-                    // Arbitrary wait for printing to finish:
-                    wait_ms(1);
+                  	// Set status to NO_NETWORK:
+					this->_setStatus(NO_NETWORK);
 
-                    // Reboot:
-                    NVIC_SystemReset();
-                    
                 } // End check threshold.
             } 
 
@@ -193,9 +197,13 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
                 "\n\r[%08dms][C] UNRECOGNIZED NETWORK ERROR. WILL REBOOT: "
                 "\n\r\t\"%s\""
                 ,tm, this->_interpret(bytesReceived));pu;
-
+			
+            pl;printf(
+                "\n\r[%08dms][C][REDN] UNRECOGNIZED NETWORK ERROR. WILL REBOOT: "
+                "\n\r\t\"%s\""
+                ,tm, this->_interpret(bytesReceived));pu;
             // Arbitrary wait for printing to finish:
-            wait_ms(1);
+            wait_ms(10);
 
             // Reboot:
             NVIC_SystemReset();
@@ -250,7 +258,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
                     masterListenerPort);pu;
                     
                 // Blink green LED: - - - - - - - - - - - - - - - - - - - - - - 
-                for(int i = 0; i < (this->status == CONNECTED? 0:1); i++){
+                for(int i = 0; i < (this->getStatus() == CONNECTED? 0:1); i++){
                     this->green = !this->green;
                     Thread::wait(0.050);
                     this->green = !this->green;
@@ -281,7 +289,7 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
     // Thread loop =============================================================
     while(true){
         // Check status = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-        if(this->status == CONNECTED){
+        if(this->getStatus() == CONNECTED){
             // Connected. Send update to Master.
 
             // [TODO: Error-checking queue]
@@ -427,7 +435,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                 if(ptr == NULL){
                     // Error while splitting.
                     pl;printf(
-                        "\n\r[%08dms][C] HS2 ERROR. NULL configuration."
+                        "\n\r[%08dms][C] HSK ERROR. NULL configuration."
                         ,tm);pu;
 
                     // Discard progress and restart:
@@ -440,6 +448,9 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     continue;
 
                 }
+
+				// Reactivate processor:
+				this->processor.setStatus(ACTIVE);
                 
                 // Send command to processor: ..................................
                 bool success = this->processor.process(ptr);
@@ -449,8 +460,17 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     // If there was a failure in the configuration, terminate 
                     // the attempt:
                     pl;printf(
-                        "\n\r[%08dms][C] HS2 error at processor. "
+                        "\n\r[%08dms][C] HSK error at processor. "
                         "Handshake aborted",tm);pu;
+
+					// Discard progress:
+					this->_setStatus(NO_MASTER);
+
+					// Release configuration lock:
+					this->configurationLock.unlock();
+
+					// Restart loop:
+					continue;
 
                 }else{
                     // Success. 
@@ -472,14 +492,14 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
                     } // End check success .....................................
 
-            }else if(this->status == CONNECTED and // - - - - - - - - - - - - - 
+            }else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
                 !strcmp(receivedKeyword, "MVER")){
 
                 // Verification message. Not compatible w/ this version.
                 pl;printf(
                     "\n\r[%08dms][C] WARNING: MVER obsolete",tm);pu;
 
-            }else if(this->status == CONNECTED and // - - - - - - - - - - - - - 
+            }else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
                 !strcmp(receivedKeyword, "MSTD")){
                 // Standard command message. Send command to Processor.
 
@@ -489,7 +509,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                 // Send command to Processor:
                 this->processor.process(receivedCommand);
 
-            }else if(this->status == CONNECTED and // - - - - - - - - - - - - - 
+            }else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
                 !strcmp(receivedKeyword, "MRIP")){
 
                 pl;printf(
@@ -505,7 +525,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
                     " before setup",tm);pu;
 
                 // Reset index if waiting for HSK:
-                if(this->status == NO_MASTER){
+                if(this->getStatus() == NO_MASTER){
                     this->exchangeIndex = 0;
                 } // End reset index
 
@@ -635,7 +655,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
         else if((*receivedIndex <= *currentIndex) or (ptr == NULL)){
             // Bad index:
             pl;printf("\n\r[%08dms][R] Bad recv'd index (%d): expected %d",tm,
-                ptr == NULL? 0 : *receivedIndex, *currentIndex);pu;
+                ptr == NULL? 0 : *receivedIndex, *currentIndex + 1);pu;
 
             // Restart loop:
             continue;
@@ -680,7 +700,7 @@ int Communicator::_receive( // // // // // // // // // // // // // // // // // /
         
 
         // Reset corresponding timeout: - - - - - - - - - - - - - - - - - - - - 
-        if(this->status == CONNECTED){
+        if(this->getStatus() == CONNECTED){
 
             // Increment Master timeouts:
             this->masterTimeouts = 0;
@@ -707,7 +727,10 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
     // The user using the MCU's LED's and used for multithread coordination.
     
     static  Ticker statusTicker; // For LED blinking
-    
+  
+	// Acquire lock: 
+	this->statusLock.lock();
+ 
     // Check current status for redundance: ------------------------------------
     if(this->status == newStatus){
         // Do nothing if the status modification is redundant:
@@ -729,7 +752,10 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
                     BLINK_SLOW);
                 // Set red:
                 this->red = true;
-                
+        
+				// Shut down Processor:
+				this->processor.setStatus(OFF);
+        
                 // Notify user:
                 pl;printf("\n\r[%08dms][S] Status: NO_MASTER",tm);pu;
             
@@ -780,10 +806,17 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
                 // Set red:
                 statusTicker.attach(callback(this, &Communicator::_blinkRed),
                     BLINK_FAST);
+        
+				// Shut down Processor:
+				this->processor.setStatus(OFF);	
                     
                 // Notify user:
                 pl;printf("\n\r[%08dms][S] Status: NO_NETWORK", tm);pu;    
-                
+               
+                pl;printf("\n\r[%08dms][S][REDN] Status: NO_NETWORK", tm);pu;    
+				// Give system time to print:
+				wait_ms(1);
+
                 // Reboot:
                 NVIC_SystemReset();
 
@@ -825,10 +858,32 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
     
     } // End check status ------------------------------------------------------
     
+	// Release status lock:
+	this->statusLock.unlock();
+
     // Return control: ---------------------------------------------------------
     return;
       
     } // End Communicator::_setStatus // // // // // // // // // // // // // // // /
+
+int Communicator::getStatus(void){
+
+		// Acquire lock:
+		this->statusLock.lock();
+
+		// Store value in placeholder to release lock before returning:
+		int8_t status = this->status;
+
+		// Release lock:
+		this->statusLock.unlock();
+
+		// Return fetched value
+		return status;
+
+		// NOTE: "Look-then-leap" risk of status changing between unlock and 
+		// return?
+		
+	} // End Communicator::getStatus // // // // // // // // // // // // // // /
 
 void Communicator::_blinkRed(){ // // // // // // // // // // // // // // // // 
     // About: Alternate status of red USR LED. To be used by _setStatus.

@@ -38,7 +38,7 @@
 
 // COMMUNICATIONS //////////////////////////////////////////////////////////////
 #define BROADCAST_PORT 65000
-#define TIMEOUT_MS 1000
+#define TIMEOUT_MS 500
 #define PASSWORD "good_luck"
 #define SMISO 60000
 #define SMOSI 60001
@@ -50,8 +50,8 @@
 // DEFAULT FAN ARRAY VALUES ////////////////////////////////////////////////////
 #define MAX_FANS 21
 #define FAN_MODE 1
-#define TARGET_RELATION_0 1
-#define TARGET_RELATION_1 0
+#define TARGET_RELATION_0 1.0
+#define TARGET_RELATION_1 0.0
 #define COUNTER_COUNTS 1
 #define PULSES_PER_ROTATION 2
 #define MAX_RPM 11500

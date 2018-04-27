@@ -109,6 +109,10 @@ private:
         /* ABOUT: Set the current connection status, which will be displayed to
          *  The user using the MCU's LED's.
          */
+
+	int getStatus(void);
+		/* ABOUT: Get current connection status in a thread-safe manner.
+		 */
         
     void _blinkRed();
         /* About: Alternate status of red USR LED. To be used by _setStatus.
@@ -149,8 +153,8 @@ private:
     Thread listenerThread, misoThread, mosiThread;
         // Use threads for communications
 
-    Mutex configurationLock; // Lock relevant threads when modifying values
-    
+    Mutex	configurationLock, // Lock relevant threads when modifying values
+			statusLock;
     DigitalOut red, green;
         // Use red and green LED's to convey connection status
     

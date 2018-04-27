@@ -39,6 +39,7 @@ import Slave
 import threading
 import Fan
 import names
+import numpy as np
 
 import random # Random names, boy
 
@@ -54,13 +55,10 @@ PROFILE_NAME = "[ALPHA]"
 	
 # COMMUNICATIONS:
 STD_BROADCAST_PORT  = 65000
-STD_BROADCAST_PERIOD_S = 1
-STD_PERIOD_MS = 500 # (millisecond(s))
-STD_MASTER_TIMEOUT_MS= 400
-STD_INTERIM_MS = 100
+STD_PERIOD_MS = 100 # (millisecond(s))
+STD_BROADCAST_PERIOD_MS = 1000
 STD_MAX_LENGTH = 512
 STD_MAX_TIMEOUTS = 4
-STD_PRINTER_PERIOD_S = STD_PERIOD_MS*2/1000.0
 
 STD_MAIN_QUEUE_SIZE = 20
 STD_SLAVE_QUEUE_SIZE= 100
@@ -104,21 +102,16 @@ class Profiler:
 
 		# Communications -------------------------------------------------------
 		self.profile["broadcastPort"] = STD_BROADCAST_PORT
-		self.profile["broadcastPeriodS"] = STD_BROADCAST_PERIOD_S
 		self.profile["periodMS"] = STD_PERIOD_MS
+		self.profile["broadcastPeriodMS"] = STD_BROADCAST_PERIOD_MS
+		self.profile["broadcastPeriodS"] = \
+			self.profile["broadcastPeriodMS"]/1000.0
+		self.profile["periodS"] = STD_PERIOD_MS/1000.0
 		self.profile["passcode"] = "good_luck"
 		self.profile["maxLength"] = STD_MAX_LENGTH
 		self.profile["maxTimeouts"] = STD_MAX_TIMEOUTS
-		self.profile["masterTimeout"] = STD_MASTER_TIMEOUT_MS
-		self.profile["masterTimeoutS"] = self.profile["masterTimeout"]/1000.0
-		self.profile["interim"] = STD_INTERIM_MS
-		self.profile["interimS"] = self.profile["interim"]/1000.0
-		self.profile["printerPeriodS"] = STD_PRINTER_PERIOD_S
 
 		self.profile["mainQueueSize"] = STD_MAIN_QUEUE_SIZE
-		self.profile["slaveQueueSize"] = STD_SLAVE_QUEUE_SIZE
-		self.profile["broadcastQueueSize"] = STD_BROADCAST_QUEUE_SIZE
-		self.profile["listenerQueueSize"] = STD_LISTENER_QUEUE_SIZE
 		self.profile["misoQueueSize"] = STD_MISO_QUEUE_SIZE
 		self.profile["printerQueueSize"] = STD_PRINTER_QUEUE_SIZE
 
@@ -132,13 +125,17 @@ class Profiler:
 			[
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:38:00:2a",				# MAC
-				21									# Active fans
+				21,									# Active fans
+				None,								# Grid placement
+				None								# Custom module grid
 			],
 	
 			[
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:45:00:46",				# MAC 
 				 21									# Active fans
+				 None,								# Grid placement
+				 None								# Custom module grid
 			]
 		"""
 		#]
@@ -153,8 +150,11 @@ class Profiler:
 		
 		# End Slave list ........................................................ 
 
-		self.profile["dimensions"] = (0,0)
+		self.profile["dimensions"] = (11,11)
 		self.profile["maxFans"] =  DEFAULT_MAX_FANS
+		self.profile["defaultModuleGrid"] = \
+			np.matrix(	[[1, 2, 3, 4],
+						[5, 6, 7, 8]])
 
 		# Fan array ------------------------------------------------------------
 		self.profile["fanModel"] = DEFAULT_FAN_MODEL

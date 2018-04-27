@@ -38,10 +38,9 @@
 extern const int  
 
     // STATUS CODES ------------------------------------------------------------
-    BUSY,           // Active and fully configured, but busy w/ another command
-    READY,          // Active, fully configured and ready to process commands
-    UNCONFIGURED,   // Active but not configured. Only PWM out & default RPM in
-    INACTIVE,       // Not active. Unable to process commands. Fans off.
+    CHASING,
+    ACTIVE,
+    OFF,
     
 
     // FAN MODES ---------------------------------------------------------------
@@ -115,7 +114,8 @@ private:
     uint8_t maxRPM;         // Maximum nominal RPM of fan model
     uint8_t minRPM;         // Minimum nominal nonzero RPM of fan model
     uint8_t minDC;          // Duty cycle corresponding to minRPM (nominal)
-    
+	uint32_t dataIndex;		// Index for new data
+
     // STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
     DigitalOut blue;    // Access to blue LED

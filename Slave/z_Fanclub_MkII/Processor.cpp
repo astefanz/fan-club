@@ -55,7 +55,9 @@ const char
 
 Processor::Processor(void): // // // // // // // // // // // // // // // // // /
     processorThread(osPriorityNormal, 32 * 1024 /*32K stack size*/),
-    activeFans(MAX_FANS), blue(LED2){
+    activeFans(MAX_FANS), blue(LED2),
+	dataIndex(0)
+	{
     /* ABOUT: Constructor for class Processor. Starts processor thread.
      */
 
@@ -136,7 +138,7 @@ void Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
         // Free space:
         this->outputQueue.free(fetchedReply);
-    } 
+    }
 
     // Store whatever is on the placeholder in the given buffer:
     strcpy(buffer, placeholder);
@@ -149,9 +151,6 @@ void Processor::start(void){
     // Start processor thread:
     this->processorThread.start(callback(this, 
         &Processor::_processorRoutine));
-        
-    // Set status:
-    this->setStatus(ACTIVE);
         
     }
 
@@ -167,7 +166,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
         // If this status change is redundant, ignore it:
         return;
     }
-
+	
     // Change status:
     switch(status){
         case CHASING: // Chasing target RPM ------------------------------------
@@ -197,14 +196,17 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
                 // LED off
             this->blinker.detach();
             this->blue = 0;
-            
+        	
+			// Reset data index:
+			this->dataIndex = 0;
+    
             break;
 
         default: // Unrecognized status code -----------------------------------
             // Print error message:
             pl;printf("\n\r[%08dms][P] ERROR: UNRECOGNIZED STATUS CODE %d", 
                 tm, status);pu;
-
+		
     }
 } // End setStatus // // // // // // // // // // // // // // // // // // // // /
 
@@ -384,12 +386,19 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
             pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
 
             // Update values: ==================================================
+            int n = 0; // Keep track of string index
+			
+			// Increment data index:
+			this->dataIndex++;
+			
+			// Print beginning of update message:	
+			n+= snprintf(updateBuffer, MAX_MESSAGE_LENGTH,"SSTD|%d|",
+				this->dataIndex);
 
             // Store RPM's: ----------------------------------------------------
-            int n = 0; // Keep track of string index
 
             // Store first RPM along w/ keyword and separator:
-            n = snprintf(updateBuffer, MAX_MESSAGE_LENGTH, "SSTD|%d", 
+            n += snprintf(updateBuffer + n, MAX_MESSAGE_LENGTH - n, "%d", 
                 this->fanArray[0].read());
 
             // Store other RPM's:

@@ -164,12 +164,14 @@ class GhostSlave:
 
 	def _senderR(self):
 		# Sender routine
-		
+
+		dataIndex = 0
 		while(True):
 			if self.connected:
-				time.sleep(self.periodMS/1000.0)
-				# Fake DCs:
-
+				print "will wait {}s".format(self.periodMS/1000.0)
+				time.sleep(float(self.periodMS)/1000.0)
+				dataIndex += 1
+				# Fake data:
 				frpm = ''
 				fdc = ''
 				for i in range(21):
@@ -178,10 +180,10 @@ class GhostSlave:
 					#fdc += str(random.randint(0,100)) + ","
 
 					frpm += str(int(self.dc*11500)) + ","
-					fdc += str(self.dc*100) + ","
+					fdc += str(self.dc) + ","
 				for i in range(3):
-					m = "{}|SSTD|{}|{}".\
-						format(self.mosiI,frpm[:-1],fdc[:-1])
+					m = "{}|SSTD|{}|{}|{}".\
+						format(self.mosiI,dataIndex,frpm[:-1],fdc[:-1])
 					self.ss.sendto(m,
 						(self.masterIP, self.masterPort)
 					)

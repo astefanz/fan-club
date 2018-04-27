@@ -60,7 +60,7 @@ class Communicator:
 		try:
 			
 			# INITIALIZE DATA MEMBERS ==========================================
-
+			
 			# Output queues:
 			self.mainQueue = Queue.Queue(profile["mainQueueSize"])
 			self.newSlaveQueue = Queue.Queue()
@@ -194,7 +194,8 @@ class Communicator:
 					routine = self._slaveRoutine,
 					routineArgs = (index,),
 					misoQueueSize = profile["misoQueueSize"],
-					index = index
+					index = index,
+					coordinates = slaveList[index][3]
 					)
 
 				# Add Slave to newSlaveQueue:
@@ -269,7 +270,6 @@ class Communicator:
 			self.printM("[LT] Listener thread started. Waiting.", "G")
 
 			while(True):
-
 				# Wait for a message to arrive:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
@@ -282,7 +282,6 @@ class Communicator:
 					Where SMISO and SMOSI are the Slave's MISO and MOSI 
 					port numbers, respectively. Notice separators.
 				"""
-
 				messageSplitted = messageReceived.split("|")
 					# NOTE: messageSplitted is a list of strings, each of which
 					# is expected to contain a string as defined in the comment
@@ -307,7 +306,7 @@ class Communicator:
 
 					# DEBUG DEACTV:
 					"""
-					self.printL("Parsed:\
+					self.printM("Parsed:\
 								\n\t\t Password: {}\
 								\n\t\t MAC: {}\
 								\n\t\t MMISO: {}\
@@ -318,7 +317,6 @@ class Communicator:
 								messageSplitted[3],
 								messageSplitted[4]))
 					"""
-
 					# Verify converted values:
 					if (misoPort <= 0 or misoPort > 65535):
 						# Raise a ValueError if a port number is invalid:
@@ -357,7 +355,7 @@ class Communicator:
 
 
 				# Check if the Slave is known:
-				if index != None :
+				if index is not None :
 
 					# If the index is in the Slave dictionary, check its
 					# recorded status and proceed accordingly:
@@ -428,7 +426,8 @@ class Communicator:
 							ip = senderAddress[0],
 							misoP = misoPort,
 							mosiP = mosiPort,
-							index = index
+							index = index,
+							coordinates = None
 							),
 							))
 					)
@@ -465,19 +464,13 @@ class Communicator:
 			# MISO:
 			misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			misoS.settimeout(self.profile["masterTimeoutS"])
-				# The communications period is defined in milliseconds. The 
-				# socket timeout should be one-fifth of said period, and this
-				# method expects a value in seconds.
+			misoS.settimeout(self.profile["periodS"]*2)
 			misoS.bind(('', 0))
 
 			# MOSI:
 			mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			mosiS.settimeout(self.profile["masterTimeoutS"])
-				# The communications period is defined in milliseconds. The 
-				# socket timeout should be one-fifth of said period, and this
-				# method expects a value in seconds.
+			mosiS.settimeout(self.profile["periodS"])
 			mosiS.bind(('', 0))
 			
 			# Assign sockets:
@@ -507,13 +500,14 @@ class Communicator:
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()
+			periodS = self.profile["periodS"]
 			timeouts = 0
+			totalTimeouts = 0
 			message = None
 
 			# Slave loop =======================================================
 			while(True):
-				time.sleep(self.profile["interimS"])
-
+				time.sleep(periodS)
 				try:
 
 					# Acquire lock:
@@ -534,7 +528,7 @@ class Communicator:
 						reply = self._receive(slave)
 
 						# Check reply:
-						if reply != None and reply[1] == "SHSK":
+						if reply is not None and reply[1] == "SHSK":
 							# print "Processed reply: {}".format(reply), "G"
 							# print "Handshake confirmed"
 
@@ -564,7 +558,7 @@ class Communicator:
 						
 						command = slave.getMOSI()
 							
-						if command != None:
+						if command is not None:
 							message = "MSTD|" + command
 							# Send message, if any:
 							self._send(message, slave, 4)
@@ -576,40 +570,53 @@ class Communicator:
 						reply = self._receive(slave)
 
 						# Check reply: -----------------------------------------
-						if reply != None:
+						if reply is not None:
 							# print "Processed reply: {}".format(reply)
 
 							# Restore timeout counter after success:
 							timeouts = 0
-
 							# Check if there are DCs and RPMs:
-							if len(reply) > 2:
-								# Update RPMs and DCs:
-								try:
-									# Set up data placeholder as a tuple:
-									
-									slave.update(
-										Slave.VALUE_UPDATE,
-										(
-											np.array(
-												map(int,reply[-2].split(',')))
-											,
-											np.array(
-												map(float,reply[-1].split(',')))
-										))
-										# FORM: (RPMs, DCs)
+							if reply[1] == "SSTD":
+								# Get data index:
+								receivedDataIndex = reply[2]
+							
+								# Check for redundant data:
+								if receivedDataIndex > slave.getDataIndex():
+									# If this data index is greater than the
+									# currently stored one, this data is new and
+									# should be updated:
 
-								except Queue.Full:
-									# If there is no room for the queue, dismiss
-									# this update and warn the user:
-									
-									self.printM("[{}] WARNING: MISO Queue Full."\
-										" GUI thread falling behind. ".\
+									# Update data index:
+									slave.setDataIndex(receivedDataIndex)
+
+									# Update RPMs and DCs:
+									try:
+										# Set up data placeholder as a tuple:
+										
+										slave.update(
+											Slave.VALUE_UPDATE,
+											(
+												np.array(
+													map(int,reply[-2].split(',')))
+												,
+												np.array(
+													map(float,reply[-1].split(',')))
+											),
+											totalTimeouts)
+											# FORM: (RPMs, DCs)
+
+									except Queue.Full:
+										# If there is no room for the queue, dismiss
+										# this update and warn the user:
+										
+										self.printM("[{}] WARNING: MISO Queue Full."\
+											" GUI thread falling behind. ".\
 										format(slave.getMAC()), "E")
 						else:
 							timeouts += 1
+							totalTimeouts += 1
 
-							if message != None:
+							if message is not None:
 								# If a message was sent and no reply was 
 								# received, resend it:
 								# print "Timed out. Resending"
@@ -639,6 +646,7 @@ class Communicator:
 
 								# Reset timeout counter:
 								timeouts = 0
+								totalTimeouts = 0
 
 								# Update Slave status:
 								slave.setStatus(
@@ -656,9 +664,7 @@ class Communicator:
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
 
-						# Reset exchange indices:
-						slave.resetIndices()
-
+						pass
 				finally:
 					# DEBUG DEACTV
 					## print "Slave lock released", "D"
@@ -781,7 +787,11 @@ class Communicator:
 
 					elif len(splitted) == 4:
 						output = (index, splitted[1], splitted[2], splitted[3])
-
+					
+					elif len(splitted) == 5:
+						output = (index, splitted[1], int(splitted[2]), splitted[3], 
+							splitted[4])
+						
 					else:
 						# print
 						#"ERROR: Unrecognized split amount ({}) on: {}".\
@@ -847,7 +857,8 @@ class Communicator:
 			self.slaves[index].getIP(),
 			self.slaves[index].getUpdate, # NOTE: Here the method itself is passed.
 			self.slaves[index].setMOSI,
-			index
+			index,
+			self.slaves[index].getCoordinates()
 			))
 
 		# Done
@@ -954,8 +965,13 @@ class Communicator:
 		# ABOUT: Check whether the broadcast thread is alive.
 		# RETURNS:
 		# - bool: whether the broadcast thread is alive.
+		
+		try:
+			return self.broadcastThread.isAlive()
 
-		return self.broadcastThread.isAlive()
+		except AttributeError:
+			# If the broadcastThread does not yet exist as an attribute...
+			return False
 
 		# End isBroadcastThreadAlive ===========================================
 
@@ -963,8 +979,13 @@ class Communicator:
 		# ABOUT: Check whether the listener thread is alive.
 		# RETURNS:
 		# - bool: whether the listener thread is alive.
+		
+		try:
+			return self.listenerThread.isAlive()
 
-		return self.listenerThread.isAlive()
+		except AttributeError:
+			# if the listenerThread does not yet exist as an attribute...
+			return False
 
 		# End isListenerThreadAlive ============================================
 

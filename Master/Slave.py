@@ -88,7 +88,7 @@ class Slave:
 	# no behavior besides that of its components, such as Locks.
 
 	def __init__(self, name, mac, status, maxFans, activeFans, routine, 
-		routineArgs, misoQueueSize, index,
+		routineArgs, misoQueueSize, index, coordinates = None,
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None):
 		# ABOUT: Constructor for class Slave.
 	
@@ -106,9 +106,11 @@ class Slave:
 		#   ....................................................................
 		#	Max fans			constant	Any (R.O)		Free (R.O)
 		#	Active fans			constant	Any (R.O)		Free (R.O)	
+		#	Coordinates			variable	FCI				Locked get/set
 		#	....................................................................
 		#	MOSI index			volatile	ST 				Locked get/set
 		#	MISO index			volatile	ST (_receive)	Locked get/set
+		#	Data index			volatile	ST (_receive)	Locked get/set
 		#	IP Address			variable	LT				Set w/ status (F.L)
 		#	MISO/MOSI Ports		variables	LT				Set w/ status (F.L)
 		#	MISO/MOSI Sockets	variables	ST				Full lock on set
@@ -157,6 +159,10 @@ class Slave:
 			raise TypeError(
 				"Attribute 'index' must be int, not {}".\
 				format(type(index)))
+		elif type(coordinates) not in (tuple, type(None)):
+			raise TypeError(
+				"Attribute 'coordinates' must be tuple or None, not {}".\
+				format(type(coordinates)))
 		elif type(ip) not in (str, type(None)):
 			raise TypeError(
 				"Attribute 'ip' must be str or None, not {}".\
@@ -192,13 +198,17 @@ class Slave:
 		# Fan numbers:
 		self.maxFans = maxFans
 		self.activeFans = activeFans
+		
+		# Index:
+		self.index = index
 
 		# Initialize variable attributes .......................................
 		self.status = status
 		self.statusLock = threading.Lock()
 		
-		# Index:
-		self.index = index
+		# Coordinates:
+		self.coordinates = coordinates
+		self.coordinatesLock = threading.Lock()
 
 		# Communications-specific ..............................................
 		
@@ -223,7 +233,11 @@ class Slave:
 		# MISO index:
 		self.misoIndex = 0
 		self.misoIndexLock = threading.Lock()
-		
+	
+		# Data index:
+		self.dataIndex = 0
+		self.dataIndexLock = threading.Lock()
+
 		# Initialize multithreading attributes .................................	
 		
 		# Threading lock:
@@ -349,7 +363,13 @@ class Slave:
 				# When DISCONNECTED, remove connection-specific attributes.
 				self._setPorts(None, None)
 				self._setIP(None)
+				
+				print "DEBUG: SLAVE {} DISCONNECTED W/ MISO INDEX {}".format(
+					self.mac, self.misoIndex)
+				
 				self.resetIndices()
+
+				
 			
 			elif newStatus == AVAILABLE or newStatus == KNOWN:
 				# Reset indices and update IP address and port numbers:
@@ -391,6 +411,61 @@ class Slave:
 
 		# End setStatus ========================================================
 	
+	def getCoordinates(self): # ================================================
+		# ABOUT: Get coordinates of this Slave.
+		# RETURNS:
+		# - Tuple of ints if there are coordinates assigned, None otherwise.
+		# NOTE: Thread-safe (blocks)
+		
+		try:
+			self.coordinatesLock.acquire()
+			
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.coordinates
+
+			# Lock will be released by finally clause
+			return placeholder
+
+		finally:
+			self.coordinatesLock.release()
+		
+		# End getCoordinates ===================================================
+
+	def setCoordinates(self, newCoordinates): # ================================
+		# ABOUT: Set coordinates.
+		# PARAMETERS:
+		# - newCoordinates: tuple of two nonnegative ints or None.
+		# NOTE: Thread-safe (blocks)
+		
+		# Validate input:
+		if type(newCoordinates) is tuple:
+			if len(newCoordinates) != 2:
+				raise ValueError("Tuple argument 'newCoordinates' must be of "\
+					"length 2, not {}".\
+					format(len(newCoordinates)))
+			elif type(newCoordinates[0]) is not int or type(newCoordinates[1])\
+				is not int:
+				raise TypeError("Argument 'newCoordinates' must be tuple of "\
+					"types int, int, not {}, {}".\
+					format(type(newCoordinates[0]), type(newCoordinates[1])))
+			elif newCoordinates[0] < 0 or newCoordinates[1] < 0:
+				raise ValueError("Argument 'newCoordinates' must be tuple of"\
+					" nonnegative integers, not {}".\
+						format(newCoordinates))
+		elif newCoordinates is not None:
+			raise TypeError("Argument 'newCoordinates' must be tuple of ints "\
+				"or None, not type {}".\
+				format(type(newCoordinates)))
+		try:
+			self.coordinatesLock.acquire()
+			
+			self.coordinates = newCoordinates
+
+		finally:
+			self.coordinatesLock.release()
+		
+		# End setCoordinates ===================================================
+
 	# METHODS FOR NETWORKING ATTRIBUTES ########################################
 
 	def acquireSocketLock(self, block = True): # ===============================
@@ -524,7 +599,60 @@ class Slave:
 			self.misoIndexLock.release()
 		
 		# End setMISOIndex =====================================================
+
+	def getDataIndex(self): # ==================================================
+		# ABOUT: Get current data index value.
+		# RETURNS: int, current data index value.
+		# NOTE: Thread-safe (blocks)
+
+		try:
+			self.dataIndexLock.acquire()
+
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.dataIndex
+
+			# Notice finally clause will release lock
+			return placeholder
+
+		finally:
+			self.dataIndexLock.release()
+
+		# End getDataIndex =====================================================
+
+	def incrementDataIndex(self): # ============================================
+		# ABOUT: Increment data index value (by 1).
+		# NOTE: Blocks for thread-safety.
 		
+		try:
+			self.misoDataLock.acquire()
+
+			self.dataIndex += 1
+
+		finally:
+			self.dataIndexLock.release()
+
+		# End incrementDataIndex ===============================================
+
+	def setDataIndex(self, newIndex): # ========================================
+		# ABOUT: Set data index to a given value.
+		# PARAMETERS:
+		# - newIndex: int, nonnegative new index value that may be zero.
+		# NOTE: Thread-safe (blocks)
+		
+		# Validate input:
+		if type(newIndex) is not int:
+			raise TypeError("Argument 'newIndex' must be of type int, not {}".\
+				format(type(newIndex)))
+
+		try:
+			self.dataIndexLock.acquire()
+			
+			self.dataIndex = newIndex
+
+		finally:
+			self.dataIndexLock.release()
+	
+		# End setDataIndex =====================================================
 	def getMOSIIndex(self): # ==================================================
 		# ABOUT: Get current MOSI index value.
 		# RETURNS: int, current MOSI index value.
@@ -586,13 +714,16 @@ class Slave:
 		try:
 			self.misoIndexLock.acquire()
 			self.mosiIndexLock.acquire()
+			self.dataIndexLock.acquire()
 
 			self.misoIndex = 0
 			self.mosiIndex = 0
+			self.dataIndex = 0
 
 		finally:
 			self.misoIndexLock.release()
 			self.mosiIndexLock.release()
+			self.dataIndexLock.release()
 
 		# End resetIndices =====================================================
 	
@@ -717,7 +848,7 @@ class Slave:
 		# End getIP ============================================================
 
 
-	def update(self, updateType, arrayValues = None):
+	def update(self, updateType, arrayValues = None, timeouts = None):
 		# ABOUT: Store "update" in MISO queue for interface to retrieve.
 		# PARAMETERS:
 		# - updateType: int, must be valid integer code.
@@ -745,21 +876,27 @@ class Slave:
 				self.getStatus(),	
 				self.getMOSIIndex(), 
 				self.getMISOIndex(),
-				self.getIP()
+				self.getIP(),
+				self.getDataIndex()
 				)
 			block = True
 
 		elif updateType is VALUE_UPDATE:
 			# Check given values:
-			if arrayValues == None:
+			if arrayValues is None:
 				raise ValueError("Missing argument 'arrayValues' "\
+					"which is necessary for VALUE_UPDATE")
+			elif timeouts is None:
+				raise ValueError("Missing argument 'timeouts' "\
 					"which is necessary for VALUE_UPDATE")
 
 			update = (
 				VALUE_UPDATE,
 				self.getMOSIIndex(), 
 				self.getMISOIndex(),
-				arrayValues
+				arrayValues,
+				self.getDataIndex(),
+				timeouts
 				)
 
 		else:
