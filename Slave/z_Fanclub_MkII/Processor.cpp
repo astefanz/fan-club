@@ -271,11 +271,12 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 switch(commandCode){
 
                     case WRITE: // Set fan duty cycles
+			{
                         pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
 
                         // Update status:
                         if (this->status == CHASING){
-                            // WRITE should overwrite CHASING when called 
+		      	    // WRITE should overwrite CHASING when called 
                             // (and vice versa)
                             this->setStatus(ACTIVE);
                         }
@@ -341,7 +342,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
 
                         break;
-
+			}
                     case CHASE: // Set a target RPM -- UNIMPLEMENTED ----------------------------------- *
 
                         // Update status:
