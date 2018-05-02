@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"Single T 6\"" // Finishing network tests
+#define FCII_VERSION "VERSION: \"OFFL 6\"" // Finishing network tests
 
 // ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
 
@@ -41,20 +41,47 @@
 #include "settings.h" // Global settings for FCMKII
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
+#include "mbed_stats.h"
+#include "mbed_mem_trace.h"
 
 
+#pragma import __use_two_region_memory
+
+void printHeapStats(uint8_t op, void *res, void *caller, ...){
+	
+  	mbed_stats_heap_t heapstats; 
+	mbed_stats_heap_get(&heapstats);
+	printf("\n\rCS: %d RS: %d AF: %d ",//AF: %lu", 
+		(heapstats.current_size)
+		,
+		(heapstats.reserved_size)
+		,
+		//(heapstats.alloc_cnt)
+		//,
+		(heapstats.alloc_fail_cnt)
+		);
+
+}
+
+void mainLoop(void){
+	Communicator communicator;
+	Thread::wait(osWaitForever);	
+}
 
 
 //// MAIN //////////////////////////////////////////////////////////////////////
 
+
+
 int main(){ ////////////////////////////////////////////////////////////////////
-    
+//mbed_mem_trace_set_callback(mbed_mem_trace_default_callback);    
+mbed_mem_trace_set_callback(printHeapStats);    
 // INITIALIZATION ==============================================================
 
     // Print information = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     printf(INIT); // (size: 1560)
     printf(FCII_VERSION);  
-    
+   
     printf("\n\r+--SETTINGS-------"
     "-------------------------------------------------------------+"
         // General:
@@ -107,25 +134,26 @@ int main(){ ////////////////////////////////////////////////////////////////////
         
     
     // Initialize modules = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-    
+
+
+
     T.start();
-    
-    Communicator communicator; // (Processor is initialized inside)
     
     pl
     printf("\n\r[%08dms][M] Done w/ initialization",tm);
     pu
-    
+   
+
 // MAIN LOOP ===================================================================
 
     //osThreadSetPriority(osThreadGetId(), osPriorityIdle);
         // Set the main thread's priority to be the lowest.
 // (See https://os.mbed.com/users/mzta/notebook/how-to-change-the-priority-of-the-mainmain-thread-/)
 
-    while(true){
-        Thread::wait(osWaitForever);
-    }
+	Thread mainThread(osPriorityNormal, 8*1024);
+	mainThread.start(&mainLoop);
 
+	Thread::wait(osWaitForever);
 
 // =============================================================================
 

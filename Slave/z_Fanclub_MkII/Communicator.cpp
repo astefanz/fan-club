@@ -26,16 +26,16 @@
 
 //// DEPENDENCIES //////////////////////////////////////////////////////////////
 #include "Communicator.h"
-
+#include "mbed_stats.h"
 //// CLASS INTERFACE ///////////////////////////////////////////////////////////
 
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
 
 Communicator::Communicator():processor(),periodMS(TIMEOUT_MS),
     exchangeIndex(0),networkTimeouts(0),masterTimeouts(0),
-    listenerThread(osPriorityNormal, 16 * 1024 /*16K stack size*/),
-    misoThread(osPriorityNormal, 32 * 1024 /*32K stack size*/),
-    mosiThread(osPriorityNormal, 32 * 1024 /*32K stack size*/),
+    listenerThread(osPriorityNormal,16 * 1024 /*16K stack size*/),
+    misoThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
+    mosiThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
     red(LED3), green(LED1)
     { // // // // // // // // // // // // // // // // // // // // // // // // //
     /* ABOUT: Constructor for class Communicator. Starts networking threads.

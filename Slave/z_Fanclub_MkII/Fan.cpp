@@ -110,7 +110,7 @@ Fan::Fan(){
 }
 
 Fan::Fan(PwmOut pwm, PinName tach, int p, int max, int min, bool test){
-    
+	
     pwmPin = new PwmOut(pwm);
     period = p;
     (*pwmPin).period_us(period);

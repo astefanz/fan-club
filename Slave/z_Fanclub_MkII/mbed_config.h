@@ -42,4 +42,10 @@
 // Macros
 #define UNITY_INCLUDE_CONFIG_H                           // defined by library:utest
 
+// USER-DEFINED (NOTE: Not overriden when using only Makefile w/o Mbed-CLI)
+#define MBED_MEM_TRACING_ENABLED 1					// USER defined (-A.S)
+#define MBED_HEAP_STATS_ENABLED 1
+#define MBED_STACK_STATS_ENABLED 1
+
 #endif
+

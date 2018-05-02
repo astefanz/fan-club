@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "Processor.h"
+#include "mbed_stats.h"
 
 //// CONSTANT DEFINITIONS //////////////////////////////////////////////////////
 
@@ -54,7 +55,7 @@ const char
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
 
 Processor::Processor(void): // // // // // // // // // // // // // // // // // /
-    processorThread(osPriorityNormal, 32 * 1024 /*32K stack size*/),
+    processorThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
     activeFans(MAX_FANS), blue(LED2),
 	dataIndex(0)
 	{
@@ -428,7 +429,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
             // Store update buffer in output queue: ----------------------------
 
             // Try to allocate space in output queue: --------------------------
-            command *allocatedCommand = this->outputQueue.alloc();
+            
+			command *allocatedCommand = this->outputQueue.alloc();
 
             // Check allocation: -----------------------------------------------
             if(allocatedCommand != NULL){ // Allocation successful:
