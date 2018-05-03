@@ -23,6 +23,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+
 //// ABOUT /////////////////////////////////////////////////////////////////////
 // This file defines global settings (constant values) so  they  may  be  easily
 // found and altered.
