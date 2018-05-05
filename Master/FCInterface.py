@@ -70,8 +70,9 @@ BADEXT = -1
 EMPTY = 0
 NODOT = 1
 REPEATED = 2
-NORMAL = 3
-RESTORE = 4
+NODOT_REPEATED = 3
+NORMAL = 4
+RESTORE = 5
 
 # AUXILIARY DEBUG PRINT:
 db = 0
@@ -1916,6 +1917,7 @@ class FCInterface(Tk.Frame):
 		self.printTargetVar = Tk.StringVar()
 		self.printTargetVar.trace('w', self._fileNameEntryCheck)
 
+
 		self.printTargetEntry = Tk.Entry(self.printFrame, 
 			highlightbackground = self.background,
 			width = 17, bg = self.entryRedBG,
@@ -2795,6 +2797,9 @@ class FCInterface(Tk.Frame):
 
 		else:
 			# Reset timer label and end chain of calls:
+			self.printTimerSeconds = 0
+			self.printTimerMinutes = 0
+			self.printTimerHours = 0
 			self.printTimerVar.set("00:00:00s")
 			return
 
@@ -2845,7 +2850,7 @@ class FCInterface(Tk.Frame):
 		try:
 			# Deactivate print target button to prevent timing conflicts:
 			self.printTargetButton.config(state = Tk.DISABLED) 
-
+			self.printTargetEntry.config(state=Tk.DISABLED)
 
 			# Check state of printer:
 			if self.printer.getStatus() == Printer.OFF:
@@ -2859,7 +2864,7 @@ class FCInterface(Tk.Frame):
 					raise RuntimeError("Cannot print to file with target file "\
 						"status code {}".format(self.printTargetStatus))
 
-				elif self.printTargetStatus == NODOT:
+				elif self.printTargetStatus in (NODOT, NODOT_REPEATED):
 					# Add extension:
 					fetchedFileName += ".txt"
 
@@ -2878,6 +2883,7 @@ class FCInterface(Tk.Frame):
 					self.printStartStopButton.config(text = "Stop Recording")
 					
 					# Start timer:
+					self.printTimerStopFlag = False
 					self._printTimerRoutine()
 				else:
 					# Reactivate printTargetButton (upon init. failure)
@@ -3200,10 +3206,9 @@ class FCInterface(Tk.Frame):
 				self.printTargetEntry.config(bg = self.entryWhiteBG)
 				self.printTargetFeedbackLabel.config(text = '(.txt assumed)')
 				self.printStartStopButton.config(state = Tk.NORMAL)
+				prospectiveFileName += ".txt"
 
 				self.printTargetStatus = NODOT
-
-				prospectiveFileName += ".txt"
 
 		elif prospectiveFileName.split('.')[-1] == '':
 			# Invalid extension:
@@ -3224,8 +3229,11 @@ class FCInterface(Tk.Frame):
 			self.printTargetEntry.config(bg = self.entryOrangeBG)
 			self.printTargetFeedbackLabel.config(text = 'FILE EXISTS')
 			self.printStartStopButton.config(state = Tk.NORMAL)
-
-			self.printTargetStatus = REPEATED
+			
+			if self.printTargetStatus == NODOT:
+				self.printTargetStatus = NODOT_REPEATED
+			else:
+				self.printTargetStatus = REPEATED
 
 		elif normal and self.printTargetStatus != NORMAL:
 			# If this block of code is reached, then the prospective filename is
