@@ -195,7 +195,9 @@ class Communicator:
 					routineArgs = (index,),
 					misoQueueSize = profile["misoQueueSize"],
 					index = index,
-					coordinates = slaveList[index][3]
+					coordinates = slaveList[index][3],
+					moduleDimensions = slaveList[index][4],
+					moduleAssignment = slaveList[index][5]
 					)
 
 				# Add Slave to newSlaveQueue:
@@ -427,7 +429,11 @@ class Communicator:
 							misoP = misoPort,
 							mosiP = mosiPort,
 							index = index,
-							coordinates = None
+							coordinates = None,
+							moduleDimensions = 
+								self.profile["defaultModuleDimensions"],
+							moduleAssignment = 
+								self.profile["defaultModuleAssignment"],
 							),
 							))
 					)

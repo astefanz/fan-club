@@ -46,7 +46,6 @@ def d():
 	print inspect.currentframe().f_back.f_lineno
 # Printer status codes:
 ON = 1
-PAUSED = 0
 OFF = -1
 
 ## CLASS DEFINITION ############################################################

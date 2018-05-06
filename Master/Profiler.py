@@ -121,24 +121,26 @@ class Profiler:
 		# Wind tunnel ----------------------------------------------------------
 		
 		# Slave list ...........................................................
-		self.slaveList = []
+		self.slaveList = [	
 		
 		# ALEX'S
-		"""		
-			[
+			(
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:38:00:2a",				# MAC
 				21,									# Active fans
 				None,								# Grid placement
-				None								# Custom module grid
-			],
-	
+				(3,3),								# Module dimensions
+				"1,2,3,4,5,6,7,8,9"					# Module assignment
+			),
+		]	
+		"""		
 			[
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:45:00:46",				# MAC 
 				 21									# Active fans
 				 None,								# Grid placement
-				 None								# Custom module grid
+				(1,1),								# Module dimensions
+				''									# Module assignment
 			]
 		"""
 		#]
@@ -148,6 +150,8 @@ class Profiler:
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:2f:00:1d",				# MAC 
 				 21									# Active fans
+				(1,1),								# Module dimensions
+				''									# Module assignment
 			]
 		"""
 		
@@ -167,7 +171,7 @@ class Profiler:
 		self.profile["maxRPM"]  = DEFAULT_MAX_RPM
 		self.profile["minRPM"]  = DEFAULT_MIN_RPM
 		self.profile["minDC"]  = DEFAULT_MIN_DC
-                
-                self.profile["defaultModuleDimensions"] = DEFAULT_MODULE_DIMENSIONS
-                self.profile["defaultModuleAssignment"] = \
+		
+		self.profile["defaultModuleDimensions"] = DEFAULT_MODULE_DIMENSIONS
+		self.profile["defaultModuleAssignment"] = \
                     DEFAULT_MODULE_ASSIGNMENT

@@ -87,7 +87,7 @@ class Grid(Tk.Frame, object):
 		# ABOUT: Constructor for class MainGrid.
 
 		# Call parent constructor (for class Frame):
-		super(MainGrid, self).__init__(master)
+		super(Grid, self).__init__(master)
 		
 		# Assign member variables:
 		self.rows = rows
@@ -109,15 +109,9 @@ class Grid(Tk.Frame, object):
 
 		# Initialize data representation:
 		# TODO: Create custom class for each fan
-		self.matrix = []
-		for i in range(m):
-			self.matrix.append([])
-			for j in range(n):
-				self.matrix[i].append([None, None])
-			
 		self.pack(fill = Tk.BOTH, expand = True)
 
-		self._draw(self.l)
+		self._draw(self.cellLength)
 		# End Grid constructor =================================================
 	
 	def _draw(self, l): # ======================================================
@@ -126,9 +120,9 @@ class Grid(Tk.Frame, object):
 		# Initialize coordinates:
 		x, y = self.margin, self.margin
 
-		for i in range(self.m):
+		for i in range(self.rows):
 			x = self.margin
-			for j in range(self.n):
+			for j in range(self.columns):
 				# Draw rectangle ij:
 				iid = \
 					self.canvas.create_rectangle(
@@ -285,162 +279,6 @@ class MainGrid(Tk.Frame, object):
 
 	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
-"""
-class ModuleGrid(Tk.Frame, object):
-	# ABOUT: 2D grid to represent fan array.
-
-	def __init__(self, master, rows, columns, cellLength, slave):
-		# ABOUT: Constructor for class MainGrid.
-	
-		self.slave = slave
-
-		# Call parent constructor (for class Frame):
-		super(MainGrid, self).__init__(master)
-		
-		# Assign member variables:
-		self.rows = rows
-		self.columns = columns
-		self.cellLength = cellLength
-			
-		# Build cavas:
-		self.canvas = Tk.Canvas(self)
-		#self.canvas.place(relx = .5, rely = .5, anchor = Tk.CENTER)
-		self.canvas.pack(fill = "none", expand = True)
-			# NOTE: The above is a workaround for centering
-		
-		# Set a margin for grid edges to show:
-		self.margin = 5
-		
-		# Set IID dictionary:
-		self.iids = {}
-
-		# Initialize data representation:
-		# TODO: Create custom class for each fan
-		self.matrix = []
-		for i in range(m):
-			self.matrix.append([])
-			for j in range(n):
-				self.matrix[i].append([None, None])
-			
-		self.pack(fill = Tk.BOTH, expand = True)
-
-		self._draw(self.l)
-		# End MainGrid constructor =============================================
-	
-	def linkFan(self, fan, row, column): # =====================================
-		# ABOUT: Link given fan to cell in given row and column, if possible.
-		
-		# Check if there was a previously linked fan:
-		if self.matrix[row][column] is not None:
-			# Unlink fan:
-			self.matrix[row][column].setGridCell(None)
-
-		# Set grid-to-fan link
-		self.matrix[row][column][1] = fan
-		
-		# Set fan-to-grid link
-		fan.setGridCell(self.matrix[row][column][0])
-			#           \-------------------------/
-			#             IID of linked grid cell	
-
-		# End linkFan ==========================================================
-
-	def linkSlave(self, slaveContainer): # =====================================
-		# ABOUT: Link given SlaveContainer to grid (must have valid coordinates)
-
-		# Verify:
-		if slave.coordinates is None:
-			raise TypeError("Argument 'coordinates' must not be None to allow "\
-				"linking")
-
-		# NOTE: Here the "coordinates" of a Slave are those of the fan
-		# at the top-left position of its module's grid.
-
-		for row in self.profiler.profile["defaultModuleGrid"]:
-			# Start at column 0 of row 1:
-			column = 0
-			for fanIndex in row:
-				if fanIndex != -1:
-					# (-1 implies empty cells)
-					self.linkFan(slaveContainer.\
-						fans[fanIndex], row, column)
-				
-				# Increment column number:
-				column += 1
-
-		# End linkSlave ========================================================
-
-	def select(self, iid, selected = True): # ==================================
-		# ABOUT: Set selection color of a given fan.
-
-		if selected:
-			self.canvas.itemconfig(iid, fill = 'orange')
-		else:
-			self.canvas.itemconfig(iid, fill = 'darkgray')
-
-	# Private methods ----------------------------------------------------------
-
-	def _draw(self, l): # ======================================================
-		# ABOUT: Draw a grid in which each cell has side l.
-
-		# Initialize coordinates:
-		x, y = self.margin, self.margin
-
-		for i in range(self.m):
-			x = self.margin
-			for j in range(self.n):
-				# Draw rectangle ij:
-				iid = \
-					self.canvas.create_rectangle(
-					x,y, x+l,y+l, fill = 'white')
-				self.matrix[i][j][0] = iid
-				self.iids[iid] = (i, j)
-				self.canvas\
-					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
-				x += l
-			y += l
-		
-		self.canvas.config(
-			width = l*self.columns + self.margin, 
-			height = l*self.rows + self.margin)
-		# End _draw ============================================================
-
-	def _linkAll(self): # ======================================================
-		# ABOUT: Traverse the entire list of Slaves and link all of those with
-		# grid coordinates.
-		
-		# Loop over list of Slaves:
-		for slaveContainer in self.ms.slaveContainers:
-			
-			# Check coordinates:
-			if slaveContainer.coordinates is not None:
-				# If it has coordinates, link its fans to their corresponding 
-				# grid cells, if possible:
-
-				self.linkSlave(slaveContainer)
-		# End _linkAll =========================================================
-
-	def _onClick(self, event):
-	
-		# Get selected rectangle:
-		rect = self.canvas.find_closest(
-			self.canvas.canvasx(event.x), 
-			self.canvas.canvasy(event.y))[0]
-		
-		i, j = self.iids[rect]
-
-		# Determine status of selected rectangle:
-		if self.matrix[i][j][1] is not None and \
-			self.matrix[i][j][1].isActive:
-			# If there is a fan linked, toggle its selection:
-			self.matrix[i][j][1].toggle()
-
-		else:
-			# Do nothing is the cell is empty
-			return
-
-	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-"""
 class SlaveContainer:
 	# ABOUT: Represent GUI-relevant Slave data in the Communicator module.
 	# Here each SlaveInterface instance corresponds to one Slave unit in the
@@ -998,12 +836,13 @@ class FanContainer:
 
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, communicator,  maxFans): # ======================
+	def __init__(self, master, communicator,  maxFans, printM): # ==============
 		# ABOUT: Constructor for class SlaveDisplay.
 		# PARAMETERS:
 		# - master: Tkinter container widget.
 		# - communicator: Communicator instance.
 		# - maxFans: maximum number of fans to be displayed.
+		# - printM: Method with which to print to main terminal.
 
 		self.background = "#d3d3d3"
 		self.target = None
@@ -1011,6 +850,7 @@ class SlaveDisplay(Tk.Frame):
 		self.status = Slave.DISCONNECTED
 		self.isPacked = False
 		self.communicator = communicator
+		self.printMain = printM
 		
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
@@ -1177,6 +1017,7 @@ class SlaveDisplay(Tk.Frame):
 			self.buttonFrame, 
 			state = Tk.DISABLED,
 			text = "Customize Module",
+			width = 15,
 			highlightbackground = self.background,
 			command = self._customizeModuleRoutine
 			)
@@ -1245,6 +1086,7 @@ class SlaveDisplay(Tk.Frame):
 
 		# Run status-dependent routines:
 		self.setStatus(self.status, True)
+		
 		# End __init__ =========================================================
 
 	def setTarget(self, newTarget): # ==========================================
@@ -1389,29 +1231,35 @@ class SlaveDisplay(Tk.Frame):
 					raise RuntimeError("Grid activation routine called while "\
 						"grid window placeholder is active.")
 
-				# Activate grid:
+				# Create pop-up window:
 				self.moduleWindow = Tk.Toplevel()
 				self.moduleWindow.protocol("WM_DELETE_WINDOW", 
 					self._deactivateModuleWindowRoutine)
+				
+				# Shift focus to pop-up window:
+				self.moduleWindow.lift()
+				self.moduleWindow.focus_force()
 
-				self.grid = Grid(
-					self.moduleWindow,
-					self.profiler.profile["dimensions"][0],
-					self.profiler.profile["dimensions"][1],
-					600/self.profiler.profile["dimensions"][0],
-					)
+				# Keep the user from using the main window before closing
+				# this one:
+				self.moduleWindow.grab_set()
+
+				self.moduleGridFrame = Tk.Frame(self.moduleWindow)
+				self.moduleGridFrame.pack(side = Tk.LEFT, fill = Tk.BOTH)
+
 			
-				# Update button format:
-				self.gridButton.config(text = "Deactivate Grid")
+
+				# Disable button until pop-up is closed:
+				self.customizeModuleButton.config(state = Tk.DISABLED)
 				
 				# Update sentinel:
-				self.isGridActive = True
+				self.isModuleWindowActive = True
 
 			else:
 				# If the grid is active, this method deactivates the grid:
 
 				# Error-check:
-				if self.gridWindow is  None:
+				if self.moduleWindow is  None:
 					raise RuntimeError("Grid deactivation routine called while "\
 						"grid window placeholder is inactive.")
 
@@ -1419,7 +1267,8 @@ class SlaveDisplay(Tk.Frame):
 				self._gridDeactivationRoutine()
 
 		except Exception as e: # Print uncaught exceptions
-			self.printMain("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+			self.printMain(
+				"[_customizeModuleRoutine]( UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
 		# End _customizeModuleRoutine  =========================================
@@ -1430,33 +1279,35 @@ class SlaveDisplay(Tk.Frame):
 		try:
 			
 			# Error-check:
-			if not self.isGridActive:
+			if not self.isModuleWindowActive:
 				raise RuntimeError("Grid deactivation routine called on "\
 					"inactive grid.")
 			# Disable button to avoid conflicts:
-			self.gridButton.config( state = Tk.DISABLED)
+			self.customizeModuleButton.config( state = Tk.DISABLED)
 
 			# Destroy grid:
 			self.grid.destroy()
 			self.grid = None
 
 			# Destroy popup window:
-			self.gridWindow.destroy()
-			self.gridWindow = None
+			self.moduleWindow.grab_release()
+			self.moduleWindow.destroy()
+			self.moduleWindow = None
 
 			# Update sentinel:
-			self.isGridActive = False
+			self.isModuleWindowActive = False
 
 			# Reconfigure button:
-			self.gridButton.config(
-				text = "Activate Grid",
+			self.customizeModuleButton.config(
+				text = "Customize Module",
 				state = Tk.NORMAL)
 			
 			# Done
 			return
 
 		except Exception as e: # Print uncaught exceptions
-			self.printMain("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+			self.printMain(
+				"[_deactivateModuleWindowRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 		# End _gridDeactivationRoutine =========================================
 	# End SlaveDisplay #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -1646,6 +1497,13 @@ class FCInterface(Tk.Frame):
 	def __init__(self, version, master=None): # ================================
 		Tk.Frame.__init__(self, master)
 
+		# Initialization order:
+		# 1. Build and display GUI
+		# 2. Load Profile
+		# 3. Start Communicator
+
+		# INITIALIZATION STEP 1: BUILD AND DISPLAY GUI #########################
+
 		# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = =
 
 		# Set title:
@@ -1763,136 +1621,6 @@ class FCInterface(Tk.Frame):
 		self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
 			relief = Tk.SUNKEN, borderwidth = 3)
 		
-		
-		"""
-		# TEMPORARY RPM LIST DISPLAY -------------------------------------------
-		self.tempDisplay = ttk.Treeview(self.arrayFrame, 
-			selectmode="none", height = 5)
-		self.tempDisplay["columns"] = \
-			("Name", "RPM 1", "RPM 2",  "RPM 3",  "RPM 4",  "RPM 5",  "RPM 6",  "RPM 7",  "RPM 8",  "RPM 9",  "RPM 10",  "RPM 11",  "RPM 12",  "RPM 13",  "RPM 14",  "RPM 15",  "RPM 16",  "RPM 17",  "RPM 18",  "RPM 19",  "RPM 20",  "RPM 21")
-
-		style = ttk.Style()
-		#style.configure(".", font=('Helvetica', 8), foreground="white")
-		style.configure("Treeview.Heading", font = 'Helvetica 10')
-
-		# Create columns:
-		self.tempDisplay.column('#0', width = 20, stretch = False)
-		self.tempDisplay.column("Name", width = 20)
-		self.tempDisplay.column("RPM 1", width = 20)
-		self.tempDisplay.column("RPM 2", width = 20)
-		self.tempDisplay.column("RPM 3", width = 20)
-		self.tempDisplay.column("RPM 4", width = 20)
-		self.tempDisplay.column("RPM 5", width = 20)
-		self.tempDisplay.column("RPM 6", width = 20)
-		self.tempDisplay.column("RPM 7", width = 20)
-		self.tempDisplay.column("RPM 8", width = 20)
-		self.tempDisplay.column("RPM 9", width = 20)
-		self.tempDisplay.column("RPM 10", width = 20)
-		self.tempDisplay.column("RPM 11", width = 20)
-		self.tempDisplay.column("RPM 12", width = 20)
-		self.tempDisplay.column("RPM 13", width = 20)
-		self.tempDisplay.column("RPM 14", width = 20)
-		self.tempDisplay.column("RPM 15", width = 20)
-		self.tempDisplay.column("RPM 16", width = 20)
-		self.tempDisplay.column("RPM 17", width = 20)
-		self.tempDisplay.column("RPM 18", width = 20)
-		self.tempDisplay.column("RPM 19", width = 20)
-		self.tempDisplay.column("RPM 20", width = 20)
-		self.tempDisplay.column("RPM 21", width = 20)
-
-		# Configure column headings:
-		self.tempDisplay.heading("Name", text = "Name")
-		self.tempDisplay.heading("RPM 1", text = "RPM 1")
-		self.tempDisplay.heading("RPM 2", text = "RPM 2")
-		self.tempDisplay.heading("RPM 3", text = "RPM 3")
-		self.tempDisplay.heading("RPM 4", text = "RPM 4")
-		self.tempDisplay.heading("RPM 5", text = "RPM 5")
-		self.tempDisplay.heading("RPM 6", text = "RPM 6")
-		self.tempDisplay.heading("RPM 7", text = "RPM 7")
-		self.tempDisplay.heading("RPM 8", text = "RPM 8")
-		self.tempDisplay.heading("RPM 9", text = "RPM 9")
-		self.tempDisplay.heading("RPM 10", text = "RPM 10")
-		self.tempDisplay.heading("RPM 11", text = "RPM 11")
-		self.tempDisplay.heading("RPM 12", text = "RPM 12")
-		self.tempDisplay.heading("RPM 13", text = "RPM 13")
-		self.tempDisplay.heading("RPM 14", text = "RPM 14")
-		self.tempDisplay.heading("RPM 15", text = "RPM 15")
-		self.tempDisplay.heading("RPM 16", text = "RPM 16")
-		self.tempDisplay.heading("RPM 17", text = "RPM 17")
-		self.tempDisplay.heading("RPM 18", text = "RPM 18")
-		self.tempDisplay.heading("RPM 19", text = "RPM 19")
-		self.tempDisplay.heading("RPM 20", text = "RPM 20")
-		self.tempDisplay.heading("RPM 21", text = "RPM 21")
-
-		# Configure tag:
-		self.tempDisplay.tag_configure("STD", font = 'TkFixedFont 7 ') # Connected
-
-		self.tempDisplay.pack(fill =Tk.BOTH, expand = True)
-		"""
-		# LIVE PLOT ------------------------------------------------------------
-		"""
-		# Plot container .......................................................
-		self.plotContainer = Tk.Frame(self.main)
-		self.plotContainer.pack(fill = Tk.X, expand = False)
-
-		# Plot frame ...........................................................
-		self.plotFrame = Tk.Frame(self.plotContainer,
-			bg = self.background, borderwidth = 1, relief = Tk.GROOVE, padx = 10)
-		#self.plotFrame.pack(fill = Tk.X, expand = False)
-		# Comment this to start w/ widget hidden
-
-		# Plot controls ........................................................
-		self.plotControlFrame = Tk.Frame(self.plotFrame, 
-			background = self.background)
-		self.plotControlFrame.pack(fill = Tk.X, expand = False)
-
-		# Variable 1:
-		self.plotVar1 = Tk.IntVar()
-
-		self.plotOption1 = Tk.Checkbutton(self.plotControlFrame, 
-			text ="Variable 1", variable = self.plotVar1, 
-			bg = self.background, state = Tk.DISABLED)
-		self.plotOption1.pack(side = Tk.LEFT)
-
-		# Variable 2:
-		self.plotVar2 = Tk.IntVar()
-
-		self.plotOption2 = Tk.Checkbutton(self.plotControlFrame, 
-			text ="Variable 2", variable = self.plotVar2, 
-			bg = self.background, state = Tk.DISABLED)
-		self.plotOption2.pack(side = Tk.LEFT)
-
-		# Variable 3:
-		self.plotVar3 = Tk.IntVar()
-
-		self.plotOption3 = Tk.Checkbutton(self.plotControlFrame, 
-			text ="Variable 3", variable = self.plotVar3, 
-			bg = self.background, state = Tk.DISABLED)
-		self.plotOption3.pack(side = Tk.LEFT)
-
-		# Variable 4:
-		self.plotVar4 = Tk.IntVar()
-
-		self.plotOption4 = Tk.Checkbutton(self.plotControlFrame, 
-			text ="Variable 4", variable = self.plotVar4, 
-			bg = self.background, state = Tk.DISABLED)
-		self.plotOption4.pack(side = Tk.LEFT)
-
-
-		self.plotSaveButton = Tk.Button(self.plotControlFrame, text = 'Save', 
-			highlightbackground = self.background, padx = 10, 
-			state = Tk.DISABLED)
-		self.plotSaveButton.pack(side = Tk.RIGHT)
-
-		# Plot placeholder .....................................................
-		self.plot = Tk.Frame(self.plotFrame, height = 100, bg = 'white')
-		self.plot.pack(fill = Tk.X, expand = False, anchor = 's')
-		# Comment this to start w/ widget hidden
-
-		self.plotLabel = Tk.Label(self.plot, height = 5,
-			text = "[Fancy plot will go here]", font = 'TkFixedFont', fg = 'gray')
-		self.plotLabel.pack()
-		"""
 		# TERMINAL -------------------------------------------------------------
 		self.terminalContainerFrame = Tk.Frame(self.main, bg = self.background)
 		self.terminalContainerFrame.pack(
@@ -2006,11 +1734,35 @@ class FCInterface(Tk.Frame):
 		self.slaveList.heading("Fans", text = "Fans")
 
 		# Configure tags:
-		self.slaveList.tag_configure("C", background= '#d1ffcc', foreground = '#0e4707', font = 'TkFixedFont 12 ') # Connected
-		self.slaveList.tag_configure("B", background= '#ccdeff', foreground ='#1b2d4f', font = 'TkFixedFont 12 ') # Busy
-		self.slaveList.tag_configure("D", background= '#ffd3d3', foreground ='#560e0e', font = 'TkFixedFont 12 bold')# Disconnected
-		self.slaveList.tag_configure("K", background= '#fffaba', foreground ='#44370b', font = 'TkFixedFont 12 bold') # Known
-		self.slaveList.tag_configure("A", background= '#ededed', foreground ='#666666', font = 'TkFixedFont 12 ') # Available
+		self.slaveList.tag_configure(
+			"C", 
+			background= '#d1ffcc', 
+			foreground = '#0e4707', 
+			font = 'TkFixedFont 12 ') # Connected
+		
+		self.slaveList.tag_configure(
+			"B", 
+			background= '#ccdeff', 
+			foreground ='#1b2d4f', 
+			font = 'TkFixedFont 12 ') # Busy
+
+		self.slaveList.tag_configure(
+		"D", 
+		background= '#ffd3d3', 
+		foreground ='#560e0e', 
+		font = 'TkFixedFont 12 bold')# Disconnected
+
+		self.slaveList.tag_configure(
+		"K",
+		background= '#fffaba',
+		foreground ='#44370b',
+		font = 'TkFixedFont 12 bold') # Known
+
+		self.slaveList.tag_configure(
+		"A", 
+		background= '#ededed', 
+		foreground ='#666666',
+		font = 'TkFixedFont 12 ') # Available
 
 		# Save previous selection:
 		self.oldSelection = None
@@ -2240,16 +1992,6 @@ class FCInterface(Tk.Frame):
 
 		self.printStartStopButton.pack(side = Tk.LEFT)
 		
-		"""
-		#  printPause
-		self.printPauseButton = Tk.Button(self.printFrame, 
-			highlightbackground = self.background, text = "Pause", 
-		 	command = self._printButtonRoutine,
-			)
-
-		self.printPauseButton.pack(side = Tk.LEFT)
-		"""
-
 		# STATUS ---------------------------------------------------------------
 		self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 			 bg=self.background, height = 10)
@@ -2419,24 +2161,11 @@ class FCInterface(Tk.Frame):
 			pady = 0	)
 		self.selectionCounterFrame.pack(side = Tk.LEFT)
 
-		"""
-		# Label:
-		self.selectionCounterLabel = Tk.Label(
-			self.selectionCounterFrame,
-			bg = self.background,
-			text = "Selected: ",
-			fg = 'black',
-			font = ('TkDefaultFont', '10')
-			)
-		self.selectionCounterLabel.pack(side = Tk.LEFT)
-		"""
-
-
 		# Selected Slaves:
 		self.selectedSlavesLabel = Tk.Label(
 			self.selectionCounterFrame,
 			bg = self.background,
-			text = "Selected M: ",
+			text = "Selected Modules: ",
 			fg = 'black',
 			font = ('TkDefaultFont', '10')
 			)
@@ -2456,7 +2185,7 @@ class FCInterface(Tk.Frame):
 		self.selectedFansLabel = Tk.Label(
 			self.selectionCounterFrame,
 			bg = self.background,
-			text = "Selected F: ",
+			text = "Selected Fans: ",
 			fg = 'black',
 			font = ('TkDefaultFont', '10')
 			)
@@ -2533,10 +2262,6 @@ class FCInterface(Tk.Frame):
 		self.listenerGREEN = self.displayGREEN1
 		self.listenerBLUE = self.displayBLUE
 
-		# INITIALIZE DATA MEMBERS = = = = = = = = = = = = = = = = = = = = = = = 
-		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-		# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-		 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 		# Initialize Profiler --------------------------------------------------
 		self.profiler = Profiler.Profiler() 
@@ -2562,13 +2287,10 @@ class FCInterface(Tk.Frame):
 		self.slaveDisplay = SlaveDisplay(
 			self.slaveDisplayFrame, 
 			self.communicator, 
-			self.profiler.profile["maxFans"])
-		
-		
-		#self.slaveDisplay.pack()
+			self.profiler.profile["maxFans"],
+			self.printMain)
 
-
-		# INITIALIZE UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
+		# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 
 		# PACK -----------------------------------------------------------------
 		self.pack(fill = Tk.BOTH, expand = True)
@@ -3099,9 +2821,7 @@ class FCInterface(Tk.Frame):
 				# Set the visibility to the right end of the file name:
 				self.printTargetEntry.xview_moveto(1)
 
-			elif self.printer.getStatus() in (Printer.ON, Printer.PAUSED):
-				# If the printer is active (whether printing or paused),
-				# deactivate it.
+			elif self.printer.getStatus() is Printer.ON:
 					
 				raise RuntimeError("Cannot use target file specifier while "\
 					"printing")

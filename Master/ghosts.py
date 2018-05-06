@@ -229,9 +229,7 @@ ls.close()
 for i in range(numT):
 	gs.append(GhostSlave(i, mba))
 	
-while(True):
-	pass
-
-
+raw_input("Press enter to exit")
+sys.exit()
 
 
