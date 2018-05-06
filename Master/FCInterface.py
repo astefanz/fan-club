@@ -81,12 +81,87 @@ def d():
 
 ## AUXILIARY CLASSES ###########################################################
 class Grid(Tk.Frame, object):
-	# ABOUT: Basic 2D grid.
+	# ABOUT: Basic 2D grid to be used as parent class.
 
-	def __init__(self, master, rows, columns, cellLength, ms):
+	def __init__(self, master, rows, columns, cellLength, margin = 5):
 		# ABOUT: Constructor for class MainGrid.
+
+		# Call parent constructor (for class Frame):
+		super(MainGrid, self).__init__(master)
 		
-		self.ms = ms
+		# Assign member variables:
+		self.rows = rows
+		self.columns = columns
+		self.cellLength = cellLength
+			
+		# Build cavas:
+		self.canvas = Tk.Canvas(self)
+		#self.canvas.place(relx = .5, rely = .5, anchor = Tk.CENTER)
+		self.canvas.pack(fill = "none", expand = True)
+			# NOTE: The above is a workaround for centering
+		
+		# Set a margin for grid edges to show:
+		self.margin = margin
+		
+		# Set IID dictionary:
+		self.iids = {}
+			# NOTE: Initialized by self._draw method
+
+		# Initialize data representation:
+		# TODO: Create custom class for each fan
+		self.matrix = []
+		for i in range(m):
+			self.matrix.append([])
+			for j in range(n):
+				self.matrix[i].append([None, None])
+			
+		self.pack(fill = Tk.BOTH, expand = True)
+
+		self._draw(self.l)
+		# End Grid constructor =================================================
+	
+	def _draw(self, l): # ======================================================
+		# ABOUT: Draw a grid in which each cell has side l.
+
+		# Initialize coordinates:
+		x, y = self.margin, self.margin
+
+		for i in range(self.m):
+			x = self.margin
+			for j in range(self.n):
+				# Draw rectangle ij:
+				iid = \
+					self.canvas.create_rectangle(
+					x,y, x+l,y+l, fill = 'white')
+				self.iids[iid] = (i, j)
+				self.canvas\
+					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
+				x += l
+			y += l
+		
+		self.canvas.config(
+			width = l*self.columns + self.margin, 
+			height = l*self.rows + self.margin)
+		# End _draw ============================================================
+	
+	def _onClick(self, event):
+		# ABOUT: Base method to be called when a cell is clicked.
+		# RETURNS: IID of cell clicked.
+
+		# Get selected rectangle:
+		return self.canvas.find_closest(
+			self.canvas.canvasx(event.x), 
+			self.canvas.canvasy(event.y))[0]
+		
+	# End _onClick =============================================================
+
+# End class Grid =#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
+
+class MainGrid(Tk.Frame, object):
+	# ABOUT: 2D grid to represent fan array.
+
+	def __init__(self, master, rows, columns, cellLength):
+		# ABOUT: Constructor for class MainGrid.
 
 		# Call parent constructor (for class Frame):
 		super(MainGrid, self).__init__(master)
@@ -107,15 +182,65 @@ class Grid(Tk.Frame, object):
 		
 		# Set IID dictionary:
 		self.iids = {}
+
+		# Initialize data representation:
+		# TODO: Create custom class for each fan
+		self.matrix = []
+		for i in range(rows):
+			self.matrix.append([])
+			for j in range(columns):
+				self.matrix[i].append([None, None])
+			
 		self.pack(fill = Tk.BOTH, expand = True)
+
 		self._draw(self.cellLength)
-		# End MainGrid constructor =============================================	
+		# End MainGrid constructor =============================================
+	
+	def linkFan(self, fan, row, column): # =====================================
+		# ABOUT: Link given fan to cell in given row and column, if possible.
+		
+		# Check if there was a previously linked fan:
+		if self.matrix[row][column] is not None:
+			# Unlink fan:
+			self.matrix[row][column].setGridCell(None)
+
+		# Set grid-to-fan link
+		self.matrix[row][column][1] = fan
+		
+		# Set fan-to-grid link
+		fan.setGridCell(self.matrix[row][column][0])
+			#           \-------------------------/
+			#             IID of linked grid cell	
+
+		# End linkFan ==========================================================
+
+	def linkSlave(self, slaveContainer): # =====================================
+		# ABOUT: Link given SlaveContainer to grid (must have valid coordinates)
+
+		# Verify:
+		if slave.coordinates is None:
+			raise TypeError("Argument 'coordinates' must not be None to allow "\
+				"linking")
+
+		# NOTE: Here the "coordinates" of a Slave are those of the fan
+		# at the top-left position of its module's grid.
+		
+		print "[linkSlave called]"
+
+		# End linkSlave ========================================================
+
+	def select(self, iid, selected = True): # ==================================
+		# ABOUT: Set selection color of a given fan.
+
+		if selected:
+			self.canvas.itemconfig(iid, fill = 'orange')
+		else:
+			self.canvas.itemconfig(iid, fill = 'darkgray')
 
 	# Private methods ----------------------------------------------------------
 
-	def _draw(self, givenCellLength): # ===================================-
-		# ABOUT: Draw a grid in which each cell has side of length
-                # givenCellLength.
+	def _draw(self, l): # ======================================================
+		# ABOUT: Draw a grid in which each cell has side l.
 
 		# Initialize coordinates:
 		x, y = self.margin, self.margin
@@ -127,49 +252,55 @@ class Grid(Tk.Frame, object):
 				iid = \
 					self.canvas.create_rectangle(
 					x,y, x+l,y+l, fill = 'white')
+				self.matrix[i][j][0] = iid
 				self.iids[iid] = (i, j)
 				self.canvas\
-					.tag_bind(
-                                        iid, '<ButtonPress-1>', self._onClick)
+					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
 				x += l
 			y += l
 		
 		self.canvas.config(
-			width = cellLength*self.columns + self.margin, 
-                        height = cellLength*self.rows + self.margin)
-		# End _draw ====================================================
+			width = l*self.columns + self.margin, 
+			height = l*self.rows + self.margin)
+		# End _draw ============================================================
 
 	def _onClick(self, event):
-    
-            # Get selected rectangle:
-            rect = self.canvas.find_closest(
-                    self.canvas.canvasx(event.x), 
-                    self.canvas.canvasy(event.y))[0]
-            
-            i, j = self.iids[rect]
-             
-            print "({}, {})".format(i,j)
-            
+	
+		# Get selected rectangle:
+		rect = self.canvas.find_closest(
+			self.canvas.canvasx(event.x), 
+			self.canvas.canvasy(event.y))[0]
+		
+		i, j = self.iids[rect]
+
+		# Determine status of selected rectangle:
+		if self.matrix[i][j][1] is not None and \
+			self.matrix[i][j][1].isActive:
+			# If there is a fan linked, toggle its selection:
+			self.matrix[i][j][1].toggle()
+
+		else:
+			# Do nothing is the cell is empty
+			return
+
 	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
-
-class MainGrid(Tk.Frame, object):
+"""
+class ModuleGrid(Tk.Frame, object):
 	# ABOUT: 2D grid to represent fan array.
 
-	def __init__(self, master, m, n, l, ms):
+	def __init__(self, master, rows, columns, cellLength, slave):
 		# ABOUT: Constructor for class MainGrid.
-		
-		self.ms = ms
+	
+		self.slave = slave
 
 		# Call parent constructor (for class Frame):
-		super(MainGrid, self).__init__(
-			master
-			)
+		super(MainGrid, self).__init__(master)
 		
 		# Assign member variables:
-		self.m = m
-		self.n = n
-		self.l = l
+		self.rows = rows
+		self.columns = columns
+		self.cellLength = cellLength
 			
 		# Build cavas:
 		self.canvas = Tk.Canvas(self)
@@ -270,7 +401,8 @@ class MainGrid(Tk.Frame, object):
 			y += l
 		
 		self.canvas.config(
-			width = l*self.n + self.margin, height = l*self.m + self.margin)
+			width = l*self.columns + self.margin, 
+			height = l*self.rows + self.margin)
 		# End _draw ============================================================
 
 	def _linkAll(self): # ======================================================
@@ -308,7 +440,7 @@ class MainGrid(Tk.Frame, object):
 			return
 
 	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-
+"""
 class SlaveContainer:
 	# ABOUT: Represent GUI-relevant Slave data in the Communicator module.
 	# Here each SlaveInterface instance corresponds to one Slave unit in the
@@ -316,7 +448,8 @@ class SlaveContainer:
 
 	def __init__(self, # =======================================================
 		name, mac, status, maxFans, activeFans, ip, misoMethod, mosiMethod,
-		master, period_ms, slaveListIID, index, coordinates):
+		master, period_ms, slaveListIID, index, coordinates, moduleDimensions,
+		moduleAssignment):
 		# ABOUT: Constructor for class SlaveContainer.
 
 		# ATTRIBUTE SUMMARY ----------------------------------------------------
@@ -331,6 +464,8 @@ class SlaveContainer:
 		#	Max fans			constant	int
 		#	Active fans			constant	int	
 		#	Coordinates			variable	int tuple
+		#	Module dimensions	variable	int tuple
+		#	Module assignment	variable	str
 		#	....................................................................
 		#	MOSI index			variable	StringVar
 		#	MISO index			variable	StringVar
@@ -360,6 +495,12 @@ class SlaveContainer:
 		
 		# Coordinates:
 		self.coordinates = coordinates
+
+		# Module dimensions:
+		self.moduleDimensions = moduleDimensions
+
+		# Module assignment: 
+		self.moduleAssignment = moduleAssignment
 
 		# Tkinter master:
 		self.master = master
@@ -409,7 +550,6 @@ class SlaveContainer:
 		
 		# Displays:
 		self.slaveDisplay = None
-		self.moduleDisplay = None
 
 		# Increment slave count:
 		self.master.totalSlaves += 1
@@ -588,35 +728,6 @@ class SlaveContainer:
 		self.slaveDisplay = slaveDisplay
 
 		# End setSlaveDisplay ==================================================
-
-	def setModuleDisplay(self, slaveDisplay): # ================================
-		# ABOUT: Set the module targetting this container, if any.
-		# PARAMETERS:
-		# slaveDisplay: either a module object  or None.
-
-		self.moduleDisplay = moduleDisplay
-
-		# End setModuleDisplay =================================================
-
-	def getAttributes(self): # =================================================
-		# ABOUT: Get a tuple containing all the relevant attributes of this Sla-
-		# ve container (either str or int for constant variables or StringVar, 
-		# IntVar or DoubleVar for variables)
-
-		return (self.name, 
-				self.mac, 
-				self.status, 
-				self.statusStringVar, 
-				self.mosiIndex,
-				self.misoIndex,
-				self.maxFans, 
-				self.activeFans,
-				self.ip, 
-				self.dcs, 
-				self.rpms,
-				self.index)
-
-		# End getAttributes ====================================================
 
 	def select(self, fan = None, selection = True): # ==========================
 		# ABOUT: Select fan(s) (by setting them as selected or not selected.
@@ -1060,11 +1171,15 @@ class SlaveDisplay(Tk.Frame):
 		self.selectAllButton.pack(side = Tk.LEFT)
 		self.deselectAllButton.pack(side = Tk.LEFT)
 		
+		self.isModuleWindowActive = False
+		self.moduleWindow = None
 		self.customizeModuleButton = Tk.Button(
 			self.buttonFrame, 
 			state = Tk.DISABLED,
 			text = "Customize Module",
-			highlightbackground = self.background)
+			highlightbackground = self.background,
+			command = self._customizeModuleRoutine
+			)
 
 		self.customizeModuleButton.pack(side = Tk.LEFT)
 		
@@ -1256,11 +1371,94 @@ class SlaveDisplay(Tk.Frame):
 		if self.target != None:
 			self.target.selectAll()
 
-	def deselectAll(self): # ====================================================
+	def deselectAll(self): # ===================================================
 		# ABOUT: Set all fans as selected:
 		if self.target != None:
 			self.target.deselectAll()
 
+	def _customizeModuleRoutine(self): # =======================================
+		# ABOUT: To be called by the grid button. Hides and shows grid in popup
+		# window.
+		try:
+			# Check status:
+			if not self.isModuleWindowActive:
+				# If the grid is not active, this method activates the grid:
+				
+				# Error-check:
+				if self.moduleWindow is not None:
+					raise RuntimeError("Grid activation routine called while "\
+						"grid window placeholder is active.")
+
+				# Activate grid:
+				self.moduleWindow = Tk.Toplevel()
+				self.moduleWindow.protocol("WM_DELETE_WINDOW", 
+					self._deactivateModuleWindowRoutine)
+
+				self.grid = Grid(
+					self.moduleWindow,
+					self.profiler.profile["dimensions"][0],
+					self.profiler.profile["dimensions"][1],
+					600/self.profiler.profile["dimensions"][0],
+					)
+			
+				# Update button format:
+				self.gridButton.config(text = "Deactivate Grid")
+				
+				# Update sentinel:
+				self.isGridActive = True
+
+			else:
+				# If the grid is active, this method deactivates the grid:
+
+				# Error-check:
+				if self.gridWindow is  None:
+					raise RuntimeError("Grid deactivation routine called while "\
+						"grid window placeholder is inactive.")
+
+				# Call the designated grid deactivation routine:
+				self._gridDeactivationRoutine()
+
+		except Exception as e: # Print uncaught exceptions
+			self.printMain("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		# End _customizeModuleRoutine  =========================================
+
+	def _deactivateModuleWindowRoutine(self): # ================================
+			# ABOUT: Dismantle grid and grid's popup window.
+			
+		try:
+			
+			# Error-check:
+			if not self.isGridActive:
+				raise RuntimeError("Grid deactivation routine called on "\
+					"inactive grid.")
+			# Disable button to avoid conflicts:
+			self.gridButton.config( state = Tk.DISABLED)
+
+			# Destroy grid:
+			self.grid.destroy()
+			self.grid = None
+
+			# Destroy popup window:
+			self.gridWindow.destroy()
+			self.gridWindow = None
+
+			# Update sentinel:
+			self.isGridActive = False
+
+			# Reconfigure button:
+			self.gridButton.config(
+				text = "Activate Grid",
+				state = Tk.NORMAL)
+			
+			# Done
+			return
+
+		except Exception as e: # Print uncaught exceptions
+			self.printMain("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+		# End _gridDeactivationRoutine =========================================
 	# End SlaveDisplay #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 class FanDisplay(Tk.Frame):
@@ -2581,8 +2779,9 @@ class FCInterface(Tk.Frame):
 							tag = Slave.translate(fetched[2], True)),
 										#        \------/ Status (int)
 						index = fetched[8],
-						coordinates = fetched[9]
-
+						coordinates = fetched[9],
+						moduleDimensions = fetched[10],
+						moduleAssignment = fetched[11]
 					)
 				
 				# Add to SlaveContainer array:
@@ -2778,7 +2977,6 @@ class FCInterface(Tk.Frame):
 					self.profiler.profile["dimensions"][0],
 					self.profiler.profile["dimensions"][1],
 					600/self.profiler.profile["dimensions"][0],
-					self
 					)
 			
 				# Update button format:

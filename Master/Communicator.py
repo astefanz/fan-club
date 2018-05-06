@@ -858,7 +858,9 @@ class Communicator:
 			self.slaves[index].getUpdate, # NOTE: Here the method itself is passed.
 			self.slaves[index].setMOSI,
 			index,
-			self.slaves[index].getCoordinates()
+			self.slaves[index].getCoordinates(),
+			self.slaves[index].getModuleDimensions(),
+			self.slaves[index].getModuleAssignment()
 			))
 
 		# Done

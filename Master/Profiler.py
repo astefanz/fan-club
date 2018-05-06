@@ -155,9 +155,6 @@ class Profiler:
 
 		self.profile["dimensions"] = (11,11)
 		self.profile["maxFans"] =  DEFAULT_MAX_FANS
-		self.profile["defaultModuleGrid"] = \
-			np.matrix(	[[1, 2, 3, 4],
-						[5, 6, 7, 8]])
 
 		# Fan array ------------------------------------------------------------
 		self.profile["fanModel"] = DEFAULT_FAN_MODEL

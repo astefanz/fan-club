@@ -97,7 +97,7 @@ class Slave:
         #   ABOUT: This table describes each attribute of this class and how
         #   these are meant to be used and accessed.
         #   NOTE: It is implied that these attributes will be accessed through
-        #   corresponding get/set methods.
+        #   the corresponding get/set methods.
         #
         #   ATTRIBUTE           KIND        MODIFIER        THREADING
         #   --------------------------------------------------------------------
