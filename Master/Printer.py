@@ -103,7 +103,7 @@ class Printer:
 		#	- Get a timestamp
 		# 	- For each Slave in the list:
 		# 		- Try to get list of RPM's and DC's.
-		#		- Format data as a single row, w/ NaN for failures to fetch
+		#		- Format data as a single row, w/ '' for failures to fetch
 		#	- Append data to file
 
 		# PRINTING FORMAT EXAMPLE:
@@ -216,9 +216,6 @@ class Printer:
 								if self.stopFlag:
 									# Break out of loop and stop thread:
 									break
-								elif self.getStatus() == PAUSED:
-									# Skip cycles while pause == True:
-									continue
 
 								# Get from queue w/o blocking:
 								fetched = slave[3].get_nowait()
@@ -236,11 +233,11 @@ class Printer:
 								for dc in fetched[1]:
 									dcs += str(dc) + ','
 							except Queue.Empty:
-								# If the Queue is empty, fill portion w/ NaN:
+								# If the Queue is empty, fill portion w/ '':
 								
 								for NaN in range(slave[2]):
-									rpms += "NaN,"
-									dcs += "NaN,"
+									rpms += ","
+									dcs += ","
 
 						# Once all the RPM's and DC's have been obtained, check
 						# if at least one Slave was updated:
@@ -294,7 +291,7 @@ class Printer:
 				self.statusLock.acquire()
 			
 			# Validate input:
-			if newStatus not in (ON, OFF, PAUSED):
+			if newStatus not in (ON, OFF):
 				raise ValueError("Argument 'newStatus' must be valid int code,"\
 					" not {}".format(newStatus))
 
@@ -306,8 +303,6 @@ class Printer:
 				self.printM("[PT][_sS] Printer thread ON")
 			elif newStatus == OFF: 
 				self.printM("[PT][_sS] Printer thread OFF")
-			elif newStatus == PAUSED:
-				self.printM("[PT][_sS] Printer thread PAUSED")
 			# Done (lock will be released in finally clause)
 			return
 			
