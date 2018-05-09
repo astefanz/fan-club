@@ -161,7 +161,7 @@ class Grid(Tk.Frame, object):
 class MainGrid(Tk.Frame, object):
 	# ABOUT: 2D grid to represent fan array.
 
-	def __init__(self, master, rows, columns, cellLength, slaves):
+	def __init__(self, master, rows, columns, cellLength, slaves, maxRPM):
 		# ABOUT: Constructor for class MainGrid.
 
 		# Call parent constructor (for class Frame):
@@ -171,7 +171,8 @@ class MainGrid(Tk.Frame, object):
 		self.rows = rows
 		self.columns = columns
 		self.cellLength = cellLength
-			
+		self.maxRPM = maxRPM
+
 		# Build cavas:
 		self.canvas = Tk.Canvas(self)
 		#self.canvas.place(relx = .5, rely = .5, anchor = Tk.CENTER)
@@ -179,7 +180,7 @@ class MainGrid(Tk.Frame, object):
 			# NOTE: The above is a workaround for centering
 		
 		# Set a margin for grid edges to show:
-		self.margin = 5
+		self.margin = 16
 		
 		# Set IID dictionary:
 		self.iids = {}
@@ -200,6 +201,13 @@ class MainGrid(Tk.Frame, object):
 		# Draw grid:
 		self._draw(self.cellLength)
 
+		# Create placeholders for drag-select:
+		self.dragging = False
+		self.dragOriginRow = -1
+		self.dragOriginColumn = -1
+		self.dragEndRow = -1
+		self.dragEndColumn = -1
+
 		# Link Slaves to grid:
 		for slave in slaves:
 			self._linkSlave(slave)
@@ -210,9 +218,14 @@ class MainGrid(Tk.Frame, object):
 		# ABOUT: Set selection color of a given fan.
 
 		if selected:
-			self.canvas.itemconfig(iid, fill = MAINGRID_SELECTED)
+			self.canvas.itemconfig(iid, 
+				outline = MAINGRID_SELECTED,
+				width = 4)
 		else:
-			self.canvas.itemconfig(iid, fill = MAINGRID_NOTSELECTED)
+		
+			self.canvas.itemconfig(iid, 
+				outline = "black",
+				width = 1)
 		
 		# End select ===========================================================
 
@@ -249,10 +262,11 @@ class MainGrid(Tk.Frame, object):
 
 			# Update cell color:
 			if fan.isActive():
-				self.canvas.itemconfig(
-					self.matrix[row][column][0], # IID of cell
-					fill = MAINGRID_NOTSELECTED)
-			
+				if fan.isSelected():
+					self.select(self.matrix[row][column][0])
+				else:	
+					self.select(self.matrix[row][column][0],
+						False)
 			else:
 				self.canvas.itemconfig(
 					self.matrix[row][column][0], # IID of cell
@@ -283,7 +297,9 @@ class MainGrid(Tk.Frame, object):
 			# Reset cell color:
 			self.canvas.itemconfig(
 				self.matrix[row][column][0], # IID of cell
-				fill = MAINGRID_EMPTY)
+				fill = MAINGRID_EMPTY,
+				outline = "black",
+				width = 1)
 			
 		except IndexError:
 			# Having certain cells go out of bounds is allowed, in which case
@@ -404,23 +420,123 @@ class MainGrid(Tk.Frame, object):
 		# Initialize coordinates:
 		x, y = self.margin, self.margin
 
-		for i in range(self.rows):
+		for row in range(self.rows):
 			x = self.margin
-			for j in range(self.columns):
+			
+			self.canvas.create_text(
+				self.margin/2,
+				y+self.cellLength/2,
+				text = str(row),
+				font = ('TkFixedFont', 7))
+			
+			for column in range(self.columns):
+				
+				self.canvas.create_text(
+					x+self.cellLength/2,
+					self.margin/2,
+					text = str(column),
+					font = ('TkFixedFont', 7))
+
 				# Draw rectangle ij:
 				iid = \
 					self.canvas.create_rectangle(
 					x,y, x+l,y+l, fill = MAINGRID_EMPTY)
-				self.matrix[i][j][0] = iid
-				self.iids[iid] = (i, j)
+				self.matrix[row][column][0] = iid
+				self.iids[iid] = (row, column)
+				
+				#self.canvas.create_text(x + l/2, y + l/2, text = "{},{}".format(row,column))
+				
+				#self.canvas.create_text(x + l/2, y + 2*l/3, text = "{}".format(iid))
 				self.canvas\
 					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
+				
+				self.canvas\
+					.tag_bind(iid, '<B1-Motion>', self._onDrag)
+				
+				self.canvas\
+					.tag_bind(iid, '<ButtonRelease-1>', self._onRelease)
+				
+				self.canvas\
+					.tag_bind(iid, '<Double-Button-1>', 
+					self._onLeftDoubleClick)
+				
+				self.canvas\
+					.tag_bind(iid, '<Double-Button-2>', 
+					self._onRightDoubleClick)
+				
 				x += l
 			y += l
+	
+		# Draw color gradient:
+
+
+		# Labels:
+
+		# 0 RPM:
+		self.canvas.create_text(
+			2.5*self.margin, # x
+			2.25*self.margin+self.cellLength*self.rows, # y
+			text = "0 RPM",
+			font = ('TkFixedFont', 10, 'bold'),
+			anchor = 'c'
+		)
+
+		# MAX RPM:
+		self.canvas.create_text(
+			self.cellLength*self.columns - self.margin/2, # x
+			2.25*self.margin+self.cellLength*self.rows, # y
+			text = "{}\nRPM".format(self.maxRPM),
+			font = ('TkFixedFont', 7, 'bold'),
+			anchor = 'c',
+			justify = Tk.CENTER
+		)
+
+		# Draw gradient:
+		step = (self.cellLength*self.columns-6*self.margin)/255.0
+			#   \---Total length of inner rectangle-----/   \--/
+			#                              Total number of different colors
+
+		leftX = 4*self.margin
+		rightX = leftX + step
+		constTopY = 1.5*self.margin+self.cellLength*self.rows
+		constBotY = 3*self.margin+self.cellLength*self.rows
 		
+
+		for i in range(255):
+			self.canvas.create_rectangle(
+				leftX + step*i,
+				constTopY,
+				rightX + step* i,
+				constBotY,
+				fill = cc.MAP_VIRIDIS[i],
+				width = 0
+			)
+		
+		# Border:
+		self.canvas.create_rectangle(
+			# Top left corner:
+			self.margin, # x
+			3.0*self.margin/2+self.cellLength*self.rows, # y
+
+			# Bottom right corner:
+			self.margin+self.cellLength*self.columns, # x
+			3*self.margin+self.cellLength*self.rows,  # y
+			)
+
+		# Inner border:
+		self.canvas.create_rectangle(
+			# Top left corner:
+			4*self.margin, # x
+			1.5*self.margin+self.cellLength*self.rows, # y
+
+			# Bottom right corner:
+			self.margin+self.cellLength*self.columns-3*self.margin, # x
+			3*self.margin+self.cellLength*self.rows,  # y
+			)
+
 		self.canvas.config(
-			width = l*self.columns + self.margin, 
-			height = l*self.rows + self.margin)
+			width = l*self.columns + self.margin*2, 
+			height = l*self.rows + self.margin*3)
 		# End _draw ============================================================
 
 	def _onClick(self, event): # ===============================================
@@ -442,6 +558,104 @@ class MainGrid(Tk.Frame, object):
 		else:
 			# Do nothing is the cell is empty
 			return
+
+		# End _onClick =========================================================
+
+	def _onDrag(self, event): # ================================================
+		# ABOUT: To be called when the mouse click is "dragged."
+
+		# Check if this is the beginning of a drag motion:
+		if not self.dragging:
+			# Start recording drag by saving the initial coordinates:
+			self.dragOriginRow, self.dragOriginColumn = self.iids[
+				self.canvas.find_closest(self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+				]
+			self.dragEndRow = self.dragOriginRow
+			self.dragEndColumn = self.dragOriginColumn
+
+			self.dragging = True
+		else:
+			# Update "end" coordinates:
+			
+			self.dragEndRow, self.dragEndColumn = self.iids[
+				self.canvas.find_closest(self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+				]
+
+		# End _onDrag ==========================================================
+
+	def _onRelease(self, event): # =============================================
+		# ABOUT: To be called when the mouse is released. Handles possible 
+		# drag-selection.
+		
+		# Check if there was a drag-selection:
+		if self.dragging:
+			# If there was a drag-selection, select all fans in the rectangle
+			# with the initial and final selection as its opposite corners:
+
+			# Go over all cells within range and select the viable fans:
+			# NOTE: max and min functions are used to cover drags in all
+			# directions, including those in which the initial value is 
+			# greater than the final value (such as when going to the left)
+
+
+			# Check drag range to ignore "single-fan" drags:
+			if not (self.dragOriginRow == self.dragEndRow and \
+				self.dragOriginColumn == self.dragEndColumn):
+				
+				for row in range(
+					min(self.dragOriginRow,self.dragEndRow),
+					max(self.dragOriginRow,self.dragEndRow) + 1):
+					
+					for column in range(
+						min(self.dragOriginColumn, self.dragEndColumn),
+						max(self.dragOriginColumn, self.dragEndColumn)+ 1):
+
+						if self.matrix[row][column][1] is not None and \
+							self.matrix[row][column][1].isActive():
+								
+							self.matrix[row][column][1].select()
+			
+			# Reset counters:
+
+			self.dragging = False
+			self.dragOriginColumn = -1
+			self.dragOriginRow = -1
+			self.dragEndColumn = -1
+			self.dragEndRow = -1
+
+		else:
+			pass
+		
+		# End _onRelease =======================================================
+
+	def _onLeftDoubleClick(self, event): # =====================================
+		# ABOUT: To be called when the grid is double clicked (left). Selects 
+		# all selectable fans.
+
+		# Loop over the entire grid and select all possible fans:
+
+		for row in self.matrix:
+			for cell in row:
+				if cell[1] is not None and cell[1].isActive():
+					cell[1].select()
+
+		# End _onLeftDoubleClick ===============================================
+
+	def _onRightDoubleClick(self, event): # ====================================
+		# ABOUT: To be called when the grid is double clicked (right). Deselects 
+		# all fans.
+
+		# Loop over the entire grid and select all possible fans:
+
+		for row in self.matrix:
+			for cell in row:
+				if cell[1] is not None and cell[1].isActive():
+					cell[1].select(False)
+
+		# End _onLeftDoubleClick ===============================================
+
 
 	# End Main Grid #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
@@ -477,7 +691,7 @@ class SlaveContainer:
 		#	....................................................................
 		#	Duty cycles			variables	List of FanContainers
 		#	RPM's				variables	List of FanContainers
-		# 	....................................................................
+		#	....................................................................
 		#	Update period (ms)	variable	int
 		# ----------------------------------------------------------------------
 
@@ -653,8 +867,7 @@ class SlaveContainer:
 						self.fans[i].dc.set("{:0.1f}".format(fetchedUpdate[3][1][i]*100))
 						
 						# Update grid:
-						if self.fans[i].cell is not None and not \
-							self.fans[i].isSelected():
+						if self.fans[i].cell is not None:
 							# If this fan is linked to a cell that can change
 							# colors...
 							self.master.grid.canvas.itemconfig(
@@ -1266,7 +1479,7 @@ class SlaveDisplay(Tk.Frame):
 			self.target.setSlaveDisplay(None)
 
 		# Enable configure and swap buttons:
-		self.customizeModuleButton.config(state = Tk.NORMAL)
+		#self.customizeModuleButton.config(state = Tk.NORMAL)
 		self.swapButton.config(state = Tk.NORMAL)
 
 		# Assign target:
@@ -1452,10 +1665,6 @@ class SlaveDisplay(Tk.Frame):
 			# Disable button to avoid conflicts:
 			self.customizeModuleButton.config( state = Tk.DISABLED)
 
-			# Destroy grid:
-			self.grid.destroy()
-			self.grid = None
-
 			# Destroy popup window:
 			self.moduleWindow.grab_release()
 			self.moduleWindow.destroy()
@@ -1467,7 +1676,7 @@ class SlaveDisplay(Tk.Frame):
 			# Reconfigure button:
 			self.customizeModuleButton.config(
 				text = "Customize Module",
-				state = Tk.NORMAL)
+				state = Tk.ENABLED)
 			
 			# Done
 			return
@@ -2114,7 +2323,7 @@ class FCInterface(Tk.Frame):
 			textvariable = self.printTargetVar)
 		self.printTargetEntry.pack(side = Tk.LEFT)
  
- 		self.printTargetStatus = EMPTY
+		self.printTargetStatus = EMPTY
 
 		# printTarget button:
 		self.printTargetButton = Tk.Button(self.printFrame, 
@@ -2152,7 +2361,7 @@ class FCInterface(Tk.Frame):
 		self.printStartStopButton = Tk.Button(self.printFrame, 
 			highlightbackground = self.background, text = "Start Recording",
 			width = 12,
-		 	command = self._printButtonRoutine,
+			command = self._printButtonRoutine,
 			)
 
 		self.printStartStopButton.config(state = Tk.DISABLED)
@@ -2656,7 +2865,7 @@ class FCInterface(Tk.Frame):
 						mosiMethod = fetched[7],
 						master = self,
 						period_ms = self.profiler.profile["periodMS"],
-						slaveListIID = 	self.slaveList.insert(
+						slaveListIID =	self.slaveList.insert(
 							'', 'end', 
 							values = (
 							fetched[8] + 1,
@@ -2866,7 +3075,8 @@ class FCInterface(Tk.Frame):
 					self.profiler.profile["dimensions"][0],
 					self.profiler.profile["dimensions"][1],
 					600/self.profiler.profile["dimensions"][0],
-					self.slaveContainers
+					self.slaveContainers,
+					self.profiler.profile["maxRPM"]
 					)
 			
 				# Update button format:
