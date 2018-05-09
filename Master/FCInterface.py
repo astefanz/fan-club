@@ -48,6 +48,7 @@ import Communicator
 import Profiler
 import Printer
 import Slave
+import CellColors as cc
 
 ## CONSTANT VALUES #############################################################    
 
@@ -74,6 +75,12 @@ NODOT_REPEATED = 3
 NORMAL = 4
 RESTORE = 5
 
+# MainGrid cell colors
+MAINGRID_EMPTY = "white"
+MAINGRID_NOTSELECTED = "darkgray"
+MAINGRID_SELECTED = "orange"
+MAINGRID_INACTIVE = "#282828" 
+
 # AUXILIARY DEBUG PRINT:
 db = 0
 def d():
@@ -84,7 +91,7 @@ class Grid(Tk.Frame, object):
 	# ABOUT: Basic 2D grid to be used as parent class.
 
 	def __init__(self, master, rows, columns, cellLength, margin = 5):
-		# ABOUT: Constructor for class MainGrid.
+		# ABOUT: Constructor for class Grid.
 
 		# Call parent constructor (for class Frame):
 		super(Grid, self).__init__(master)
@@ -126,7 +133,7 @@ class Grid(Tk.Frame, object):
 				# Draw rectangle ij:
 				iid = \
 					self.canvas.create_rectangle(
-					x,y, x+l,y+l, fill = 'white')
+					x,y, x+l,y+l, fill = MAINGRID_EMPTY)
 				self.iids[iid] = (i, j)
 				self.canvas\
 					.tag_bind(iid, '<ButtonPress-1>', self._onClick)
@@ -154,7 +161,7 @@ class Grid(Tk.Frame, object):
 class MainGrid(Tk.Frame, object):
 	# ABOUT: 2D grid to represent fan array.
 
-	def __init__(self, master, rows, columns, cellLength):
+	def __init__(self, master, rows, columns, cellLength, slaves):
 		# ABOUT: Constructor for class MainGrid.
 
 		# Call parent constructor (for class Frame):
@@ -184,54 +191,212 @@ class MainGrid(Tk.Frame, object):
 			self.matrix.append([])
 			for j in range(columns):
 				self.matrix[i].append([None, None])
-			
-		self.pack(fill = Tk.BOTH, expand = True)
+						#              IID  Fan    Selection
+				
 
+		# Pack widgets:
+		self.pack(fill = Tk.BOTH, expand = True)
+		
+		# Draw grid:
 		self._draw(self.cellLength)
+
+		# Link Slaves to grid:
+		for slave in slaves:
+			self._linkSlave(slave)
+		
 		# End MainGrid constructor =============================================
 	
-	def linkFan(self, fan, row, column): # =====================================
-		# ABOUT: Link given fan to cell in given row and column, if possible.
-		
-		# Check if there was a previously linked fan:
-		if self.matrix[row][column] is not None:
-			# Unlink fan:
-			self.matrix[row][column].setGridCell(None)
-
-		# Set grid-to-fan link
-		self.matrix[row][column][1] = fan
-		
-		# Set fan-to-grid link
-		fan.setGridCell(self.matrix[row][column][0])
-			#           \-------------------------/
-			#             IID of linked grid cell	
-
-		# End linkFan ==========================================================
-
-	def linkSlave(self, slaveContainer): # =====================================
-		# ABOUT: Link given SlaveContainer to grid (must have valid coordinates)
-
-		# Verify:
-		if slave.coordinates is None:
-			raise TypeError("Argument 'coordinates' must not be None to allow "\
-				"linking")
-
-		# NOTE: Here the "coordinates" of a Slave are those of the fan
-		# at the top-left position of its module's grid.
-		
-		print "[linkSlave called]"
-
-		# End linkSlave ========================================================
-
 	def select(self, iid, selected = True): # ==================================
 		# ABOUT: Set selection color of a given fan.
 
 		if selected:
-			self.canvas.itemconfig(iid, fill = 'orange')
+			self.canvas.itemconfig(iid, fill = MAINGRID_SELECTED)
 		else:
-			self.canvas.itemconfig(iid, fill = 'darkgray')
+			self.canvas.itemconfig(iid, fill = MAINGRID_NOTSELECTED)
+		
+		# End select ===========================================================
 
+	def destroy(self): # =======================================================
+		# Destroy grid widget. Overrides standard Tkinter destroy method to 
+		# unlink fans.
+
+		# Unlink all fans:
+		self._unlinkAllFans()
+
+		# Destroy:
+		super(MainGrid, self).destroy()
+		
+		# End destroy ==========================================================
+	
 	# Private methods ----------------------------------------------------------
+	
+	def _linkFan(self, fan, row, column): # ====================================
+		# ABOUT: Link given fan to cell in given row and column, if possible.
+		
+		# Check if there was a previously linked fan:
+		if self.matrix[row][column][1] is not None:
+			# Unlink fan:
+			self.matrix[row][column].setGridCell(None)
+		
+		try:	
+			# Set grid-to-fan link
+			self.matrix[row][column][1] = fan
+			
+			# Set fan-to-grid link
+			fan.setGridCell(self.matrix[row][column][0])
+				#           \-------------------------/
+				#             IID of linked grid cell
+
+			# Update cell color:
+			if fan.isActive():
+				self.canvas.itemconfig(
+					self.matrix[row][column][0], # IID of cell
+					fill = MAINGRID_NOTSELECTED)
+			
+			else:
+				self.canvas.itemconfig(
+					self.matrix[row][column][0], # IID of cell
+					fill = MAINGRID_INACTIVE)
+
+		except IndexError:
+			# Having certain cells go out of bounds is allowed, in which case
+			# these will be ignored.
+			pass
+
+		# End _linkFan =========================================================
+
+	def _unlinkFan(self, row, column): # =======================================
+		# Unlink a currently linked fan from its cell, if possible.
+
+		# Check if there is no fan to unlink:
+		if self.matrix[row][column][1] is None:
+			return		
+		try:	
+			# Remove fan-to-grid link
+			self.matrix[row][column][1].setGridCell(None)
+			# \-----------------------/
+			#  Fan object linked to cell in this row and column
+
+			# Remove grid-to-fan link
+			self.matrix[row][column][1] = None
+		
+			# Reset cell color:
+			self.canvas.itemconfig(
+				self.matrix[row][column][0], # IID of cell
+				fill = MAINGRID_EMPTY)
+			
+		except IndexError:
+			# Having certain cells go out of bounds is allowed, in which case
+			# these will be ignored.
+			pass
+
+		# End _unlinkFan =======================================================
+
+	def _unlinkAllFans(self): # ================================================
+		# ABOUT: Unlink fans from the entire matrix.
+
+		# Loop through the entire matrix and unlink.
+		# NOTE: Empty cells will be automatically ignored.
+	
+		rowNumber = 0
+		columnNumber = 0
+		
+		for row in self.matrix:
+			for column in self.matrix[0]:
+				self._unlinkFan(rowNumber, columnNumber)
+				columnNumber += 1
+
+			columnNumber = 0
+			rowNumber += 1
+
+		# End _unlinkAllFans ===================================================
+
+	def _linkSlave(self, slaveContainer): # ====================================
+		# ABOUT: Link given SlaveContainer to grid (must have valid coordinates)
+
+		# Verify:
+		if slaveContainer.coordinates is None:
+			# Ignore Slaves without coordinates (these have not been added to
+			# the grid.)
+
+			return
+
+		else:
+			# Loop over the Slave's module and link fans accordingly.
+			
+			# NOTE: Here the "coordinates" of a Slave are those of the fan
+			# at the top-left position of its module's grid.
+
+			splittedModuleAssignment = \
+				slaveContainer.moduleAssignment.split(',')
+			fansToLink = len(splittedModuleAssignment)
+			rowDisplacement = slaveContainer.coordinates[0]
+			columnDisplacement = slaveContainer.coordinates[1]
+
+			for row in range(slaveContainer.moduleDimensions[0]):
+				for column in range(slaveContainer.moduleDimensions[1]):
+					
+					if fansToLink is 0:
+						# Done linking this Slave
+						return
+					elif splittedModuleAssignment[-fansToLink] is '':
+						# Empty cell, skip       
+						pass
+					else:
+						# Link fan
+						self._linkFan(\
+							# First argument: fan to link:
+							slaveContainer.fans[
+								int(splittedModuleAssignment[-fansToLink])-1],
+								#   \-----------------------------/
+								#      Index of fan to link. Get fan
+								#	from SlaveContainer's fan list.
+							
+							# Second argument: row of cell to link:
+							row + rowDisplacement,
+					
+							# Third argument: column of cell to link:
+							column + columnDisplacement
+						)
+					
+					# Decrement counter
+					fansToLink -= 1
+
+		# End _linkSlave =======================================================
+
+	def _unlinkSlave(self, slaveContainer): # ==================================
+		# ABOUT: Unlink given SlaveContainer from grid 
+		# (must have valid coordinates)
+		# NOTE: Usefulness replaced by _unlinkAllFans. Delete later if it proves
+		# unnecessary.
+
+		# Verify:
+		if slaveContainer.coordinates is None:
+			raise ValueError("Argument 'coordinates' must not be None to allow "\
+				"Grid linking")
+		
+		else:
+			# Loop over the Slave's module and unlink fans accordingly.
+			
+			# NOTE: Here the "coordinates" of a Slave are those of the fan
+			# at the top-left position of its module's grid.
+
+			rowDisplacement = slaveContainer.coordinates[0]
+			columnDisplacement = slaveContainer.coordinates[1]
+
+			for row in range((slaveContainer.moduleDimensions[0])):
+				for column in slaveContainer.moduleDimensions[1]:
+					
+					# Unlink fan
+					self._unlinkFan(\
+						# Row of cell to unlink:
+						row + rowDisplacement,
+				
+						# Column of cell to unlink:
+						column + columnDisplacement
+					)					
+
+		# End _unlinkSlave =====================================================
 
 	def _draw(self, l): # ======================================================
 		# ABOUT: Draw a grid in which each cell has side l.
@@ -245,7 +410,7 @@ class MainGrid(Tk.Frame, object):
 				# Draw rectangle ij:
 				iid = \
 					self.canvas.create_rectangle(
-					x,y, x+l,y+l, fill = 'white')
+					x,y, x+l,y+l, fill = MAINGRID_EMPTY)
 				self.matrix[i][j][0] = iid
 				self.iids[iid] = (i, j)
 				self.canvas\
@@ -258,7 +423,8 @@ class MainGrid(Tk.Frame, object):
 			height = l*self.rows + self.margin)
 		# End _draw ============================================================
 
-	def _onClick(self, event):
+	def _onClick(self, event): # ===============================================
+		# ABOUT: To be called when a cell is clicked.
 	
 		# Get selected rectangle:
 		rect = self.canvas.find_closest(
@@ -269,7 +435,7 @@ class MainGrid(Tk.Frame, object):
 
 		# Determine status of selected rectangle:
 		if self.matrix[i][j][1] is not None and \
-			self.matrix[i][j][1].isActive:
+			self.matrix[i][j][1].isActive():
 			# If there is a fan linked, toggle its selection:
 			self.matrix[i][j][1].toggle()
 
@@ -493,9 +659,10 @@ class SlaveContainer:
 							# colors...
 							self.master.grid.canvas.itemconfig(
 								self.fans[i].cell,
-								fill = '#{0}{0}{0}'.format(hex(
-									fetchedUpdate[3][0][i]*255/11500)[2:-1])
-							)
+								fill = cc.MAP_VIRIDIS[
+									int(255*(1.0*fetchedUpdate[3][0][i]/self.master.profiler.profile["maxRPM"]))]
+								)
+							
 					# Update Printer (if it is active):
 					try:
 						if self.master.printer.getStatus() == Printer.ON:
@@ -811,7 +978,7 @@ class FanContainer:
 			if self.slaveContainer.master.grid is not None:
 				self.slaveContainer.master.grid.canvas.itemconfig(
 					self.cell,
-					fill = 'black')
+					fill = MAINGRID_INACTIVE)
 		
 	def isActive(self): # ==================================================
 		# ABOUT: Get whether this fan is active (bool).
@@ -2699,6 +2866,7 @@ class FCInterface(Tk.Frame):
 					self.profiler.profile["dimensions"][0],
 					self.profiler.profile["dimensions"][1],
 					600/self.profiler.profile["dimensions"][0],
+					self.slaveContainers
 					)
 			
 				# Update button format:

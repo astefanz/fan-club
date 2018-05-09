@@ -128,10 +128,19 @@ class Profiler:
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:38:00:2a",				# MAC
 				21,									# Active fans
-				None,								# Grid placement
-				(3,3),								# Module dimensions
+				(4,7),								# Grid placement
+				(0,0),								# Module dimensions
 				"1,2,3,4,5,6,7,8,9"					# Module assignment
 			),
+			
+			(
+				"Ghost1",							# Name
+				"00000000000000:XX",				# MAC
+				21,									# Active fans
+				(0,0),								# Grid placement
+				(3,3),								# Module dimensions
+				"1,2,3,4,5,6,7,8,9"					# Module assignment
+			)
 		]	
 		"""		
 			[
