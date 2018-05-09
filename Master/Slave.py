@@ -281,9 +281,15 @@ class Slave:
             args = routineArgs + (self,)
             )
         self.thread.setDaemon(True)
-        self.thread.start()
 
         # End __init__ =========================================================
+
+    def start(self): # =========================================================
+        # ABOUT: Start Slave thread.
+
+        self.thread.start()
+
+        # End start ============================================================
         
     # GETTERS FOR CONSTANT ATTRIBUTES ##########################################
 

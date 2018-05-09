@@ -121,9 +121,58 @@ class Profiler:
 		# Wind tunnel ----------------------------------------------------------
 		
 		# Slave list ...........................................................
-		self.slaveList = [	
+		self.slaveList = \
+                        [[
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:4b:00:36",				# MAC 
+				 20,									# Active fans
+                                (7,5),
+				(4,6),								# Module dimensions
+				'20,18,14,10,,,19,17,13,9,6,3,,16,12,8,5,2,,15,11,7,4,1'									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:2f:00:1d",				# MAC 
+				 20,									# Active fans
+                                (7,0),
+				(4,6),								# Module dimensions
+				',,14,10,6,,20,17,13,9,5,,19,16,12,8,4,2,18,15,11,7,3,1'									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:29:00:2e",				# MAC 
+				 20,									# Active fans
+                                (3,0),
+				(5,6),								# Module dimensions
+				'19,20,,,,,14,15,16,17,18,,8,9,10,11,12,13,3,4,5,6,7,,1,2,,,,'									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:27:00:3e",				# MAC 
+				 20,									# Active fans
+                                (0,0),
+				(4,6),								# Module dimensions
+				'1,2,3,4,5,,6,7,8,9,10,,11,12,13,14,15,16,,,17,18,19,20'									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:4b:00:42",				# MAC 
+				 20,									# Active fans
+                                (0,5),
+				(4,6),								# Module dimensions
+				'20,18,14,10,6,3,19,17,13,9,5,2,,16,12,8,4,1,,15,11,7,,,'									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:47:00:3d",				# MAC 
+				 21,									# Active fans
+                                (3,5),
+				(5,6),								# Module dimensions
+				',,,,10,5,21,19,16,13,9,4,,18,15,12,8,3,20,17,14,11,7,2,,,,,6,1'									# Module assignment
+			]]	
 		
 		# ALEX'S
+                """
 			(
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:38:00:2a",				# MAC
@@ -141,7 +190,8 @@ class Profiler:
 				(3,3),								# Module dimensions
 				"1,2,3,4,5,6,7,8,9"					# Module assignment
 			)
-		]	
+		"""
+		
 		"""		
 			[
 				random.choice(names.coolNames),		# Name
@@ -152,10 +202,41 @@ class Profiler:
 				''									# Module assignment
 			]
 		"""
-		#]
-		""" BASEMENT WIND TUNNEL:
+		
+		# BASEMENT WIND TUNNEL:
 
-			[
+			
+                """
+                                ,
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:2f:00:1d",				# MAC 
+				 21									# Active fans
+				(1,1),								# Module dimensions
+				''									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:2f:00:1d",				# MAC 
+				 21									# Active fans
+				(1,1),								# Module dimensions
+				''									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:2f:00:1d",				# MAC 
+				 21									# Active fans
+				(1,1),								# Module dimensions
+				''									# Module assignment
+			],
+                        [
+				random.choice(names.coolNames),		# Name
+				"00:80:e1:2f:00:1d",				# MAC 
+				 21									# Active fans
+				(1,1),								# Module dimensions
+				''									# Module assignment
+			],
+                        [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:2f:00:1d",				# MAC 
 				 21									# Active fans
@@ -163,6 +244,7 @@ class Profiler:
 				''									# Module assignment
 			]
 		"""
+		
 		
 		# End Slave list ........................................................ 
 

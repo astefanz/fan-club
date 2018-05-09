@@ -200,6 +200,9 @@ class Communicator:
 					moduleAssignment = slaveList[index][5]
 					)
 
+				# Start Slave thread:
+                                self.slaves[index].start()
+
 				# Add Slave to newSlaveQueue:
 				self.putNewSlave(index)
 
@@ -437,7 +440,10 @@ class Communicator:
 							),
 							))
 					)
-			
+
+                                        # Start Slave thread:
+                                        self.slaves[index].start()
+                                        
 					# Add new Slave's information to newSlaveQueue:
 					self.putNewSlave(index)
 

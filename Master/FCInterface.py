@@ -249,7 +249,7 @@ class MainGrid(Tk.Frame, object):
 		# Check if there was a previously linked fan:
 		if self.matrix[row][column][1] is not None:
 			# Unlink fan:
-			self.matrix[row][column].setGridCell(None)
+			self.matrix[row][column][1].setGridCell(None)
 		
 		try:	
 			# Set grid-to-fan link
@@ -345,7 +345,9 @@ class MainGrid(Tk.Frame, object):
 
 			splittedModuleAssignment = \
 				slaveContainer.moduleAssignment.split(',')
+			
 			fansToLink = len(splittedModuleAssignment)
+                        
 			rowDisplacement = slaveContainer.coordinates[0]
 			columnDisplacement = slaveContainer.coordinates[1]
 
@@ -375,8 +377,8 @@ class MainGrid(Tk.Frame, object):
 							column + columnDisplacement
 						)
 					
-					# Decrement counter
-					fansToLink -= 1
+                                                # Decrement counter
+                                        fansToLink -= 1
 
 		# End _linkSlave =======================================================
 
@@ -426,7 +428,7 @@ class MainGrid(Tk.Frame, object):
 			self.canvas.create_text(
 				self.margin/2,
 				y+self.cellLength/2,
-				text = str(row),
+				text = str(row + 1),
 				font = ('TkFixedFont', 7))
 			
 			for column in range(self.columns):
@@ -434,7 +436,7 @@ class MainGrid(Tk.Frame, object):
 				self.canvas.create_text(
 					x+self.cellLength/2,
 					self.margin/2,
-					text = str(column),
+					text = str(column + 1),
 					font = ('TkFixedFont', 7))
 
 				# Draw rectangle ij:
@@ -867,7 +869,7 @@ class SlaveContainer:
 						self.fans[i].dc.set("{:0.1f}".format(fetchedUpdate[3][1][i]*100))
 						
 						# Update grid:
-						if self.fans[i].cell is not None:
+						if self.master.grid is not None and self.fans[i].cell is not None:
 							# If this fan is linked to a cell that can change
 							# colors...
 							self.master.grid.canvas.itemconfig(
