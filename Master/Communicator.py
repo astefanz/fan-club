@@ -249,8 +249,9 @@ class Communicator:
 					# Send broadcast only if self.broadcastSwitch is True:
 					if self.broadcastSwitch:
 						# Broadcast message:
-						self.broadcastSocket.sendto(broadcastMessage, 
-							("<broadcast>", 65000))
+						for i in (1,2):
+							self.broadcastSocket.sendto(broadcastMessage, 
+								("<broadcast>", 65000))
 
 
 				finally:
@@ -573,7 +574,7 @@ class Communicator:
 						if command is not None:
 							message = "MSTD|" + command
 							# Send message, if any:
-							self._send(message, slave, 4)
+							self._send(message, slave, 2)
 
 							# DEBUG: 
 							# print "Sent: {}".format(message)

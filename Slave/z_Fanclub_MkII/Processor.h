@@ -77,11 +77,13 @@ public:
          * to process.
          */
          
-    void get(char* buffer);
-        /* ABOUT: Get a reply to be sent to Master.
-         * -PARAMETERS:
-         * -const char* buffer: pointer to char array in which to store reply.
-         */
+    bool get(char* buffer);
+		/* ABOUT: Get a reply to be sent to Master.
+		* PARAMETERS:
+		* -const char* buffer: pointer to char array in which to store reply.
+		* RETURNS:
+		# - bool: whether a new message was fetched (false for default)
+		*/
 
     void setStatus(int status);
         /* ABOUT: Modify Processor status.

@@ -116,14 +116,17 @@ bool Processor::process(const char* givenCommand){ // // // // // // // // // //
     return success;
 } // End process  // // // // // // // // // // // // // // // // // // // // //
  
-void Processor::get(char* buffer){ // // // // // // // // // // // // // // // 
+bool Processor::get(char* buffer){ // // // // // // // // // // // // // // // 
     /* ABOUT: Get a reply to be sent to Master.
-     * -PARAMETERS:
+     * PARAMETERS:
      * -const char* buffer: pointer to char array in which to store reply.
+	 * RETURNS:
+	 # - bool: whether a new message was fetched (false for default)
      */
 
 	// Try to get a message from the output buffer. If it is empty, use the
 	// standard "verification" message.
+	bool success = false;
 
 	this->outFlagLock.lock();
 
@@ -145,7 +148,8 @@ void Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 		this->outBuffer[0] = '\0';
 			// NOTE: Neutralize obsolete message.
 		this->outFlag = false;
-
+		
+		success = true;
 
 		this->outBufferLock.unlock();
 
@@ -156,7 +160,7 @@ void Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 	}
 	this->outFlagLock.unlock();
-	return;
+	return success;
 
 } // End get // // // // // // // // // // // // // // // // // // // // // // /
 
@@ -212,7 +216,25 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
         	
 			// Reset data index:
 			this->dataIndex = 0;
-    
+   
+			// Reset buffers and flags:
+
+			// Input:
+			this->inFlagLock.lock();
+			this->inBufferLock.lock();
+			this->inBuffer[0] = '\0';
+			this->inFlag = false;
+			this->inBufferLock.unlock();
+			this->inFlagLock.unlock();
+
+			// Output:
+			this->outFlagLock.lock();
+			this->outBufferLock.lock();
+			this->outBuffer[0] = '\0';
+			this->outFlag = false;
+			this->outBufferLock.unlock();
+			this->outFlagLock.unlock();
+
             break;
 
         default: // Unrecognized status code -----------------------------------
@@ -311,7 +333,9 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
                         // Get float duty cycle:
                         float dutyCycle = atof(splitPtr);
-                        pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
+                        #ifdef DEBUG
+						pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
+						#endif
 
                         // Split contents for selected fans:
                         splitPtr = strtok_r(NULL, "~", &splitPosition);
@@ -336,9 +360,11 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
                         // Get length of selection:
                         int numFans = strlen(splitPtr);
-
+						
+						#ifdef DEBUG
                         pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
                             tm, splitPtr, numFans);pu;
+						#endif
 
                         // Loop over list and assign duty cycles:
                         for(int i = 0; i < numFans; i++){
@@ -349,7 +375,6 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                              // This expression will evaluate to 0 if the fan is
                              // set to 0, and nonzero (true) otherwise.
                                 this->fanArray[i].write(dutyCycle);
-                                pl;printf("\n\r[%08dms][P] Fan %d set",tm, i);pu;
                             }
                         } // End assign duty cycles
 
@@ -399,10 +424,12 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				this->inFlagLock.unlock();
 			} // End command processing ========================================
 
-            pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
 
 			this->outFlagLock.lock();
 			if(not this->outFlag){
+				#ifdef DEBUG
+				pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
+				#endif
 				// If the output buffer is free, write to it.
 				this->outFlagLock.unlock();
 
@@ -434,19 +461,16 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Store duty cycles: ----------------------------------------------
 
 				// Store first duty cycle along w/ separator:
-				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%f", 
+				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%.4f", 
 					this->fanArray[0].getPWM());
 
 				// Store other duty cycles:
 				for(int i = 1; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
-					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%f", 
+					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%.4f", 
 					this->fanArray[i].getPWM());
 				}
-				
-				// DEBUG:
-				pl;printf("\n\r[%08dms][P] outBuffer: %s", tm, this->outBuffer);pu;
-
+			
 				this->outBufferLock.unlock();
 
 				// Raise output flag:

@@ -79,23 +79,24 @@ private:
         /* ABOUT: Code to be executed by the mosi thread.
          */
          
-    int _send(const char* message, int times = 1);
-        /* ABOUT: Send a message to the known Master MISO socket using the Slave
-         *  MISO socket. The currently stored exchange index will be added auto-
-         *  matically, along with its following delimiter 
-         *  ("INDEX|" e.g "00000001|").
-         * PARAMETERS:
-         * -const char* message: NULL-terminated char-array containing message 
-         *  to be sent.
-         * -int times: number of times to send a message, (for good measure)
-         *  defaults to 1.
-         * RETURN: Int; number of bytes sent upon success, negative socket error
-         *  code on failure. If repetition is requested, the result of the last 
-         *  message is returned.
-         * WARNING: This private member function assumes (1) the Slave's MISO 
-         *  socket is ready to send messages and (2) the message given ends in
-         *  '\0'.
-         */
+    int _send(const char* message, int times = 1, bool print = false);
+		/* ABOUT: Send a message to the known Master MISO socket using the Slave
+		*	MISO socket. The currently stored exchange index will be added automati-
+		*	cally, along with its following delimiter ("INDEX|" e.g "00000001|").
+		* PARAMETERS:
+		* -const char* message: NULL-terminated char-array containing message 
+		*	to be sent.
+		* -int times: number of times to send a message, (for good measure)
+		*	defaults to 1.
+		* -bool print: whether to print to terminal the message sent. Defaults to
+		*	false.
+		* RETURN: Int; number of bytes sent upon success, negative socket error
+		*	code on failure. If repetition is requested, the result of the last mes-
+		*	sage is returned.
+		* WARNING: This private member function assumes (1) the Slave's MISO 
+		*	socket is ready to send messages and (2) the message given ends in
+		*	'\0'.
+		*/
          
     int _receive(int *currentIndex, int *receivedIndex, char* keyword, 
         char* command);
@@ -142,7 +143,8 @@ private:
     int misoIndex;       // Index outgoing messages
     int networkTimeouts; // Keep track of timeouts for network check
     int masterTimeouts;  // Keep track of timeouts for connection check
-    
+
+
     EthernetInterface ethernet;
     
     UDPSocket slaveMISO, slaveMOSI, slaveListener; // Use UDP
