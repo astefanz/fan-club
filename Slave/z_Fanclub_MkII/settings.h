@@ -60,5 +60,6 @@
 #define MIN_DC 0.1
 #define PWM_FREQUENCY 25000
 #define CHASER_TOLERANCE 0.4 
+#define MAX_FAN_TIMEOUTS 10
 
 #endif // SETTINGS_H

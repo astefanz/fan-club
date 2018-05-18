@@ -24,6 +24,9 @@
 // CHOOSE PINOUT:
 #define v2_8
 
+// CONSTANT DECLARATIONS ///////////////////////////////////////////////////////
+extern const int 
+	NO_TARGET;
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
@@ -75,14 +78,18 @@ public:
 		 */
          
 	bool configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
-		uint32_t counterCounts, uint8_t pulsesPerRotation);
+		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
+		uint8_t maxTimeouts);
 		/* ABOUT: Configure a fan for usage. Can be called more than once.
 		 * PARAMETERS:
-		 * -PwmOut pwmPin: PWM pin to use for PWM control.
-		 * -PinName tachPin: DigitalIn pin for Counter.
-		 * -uint32_t frequencyHZ: Frequency of the PWM signal (Hz).
-		 * -uint32_t counterCounts: number of pulses to count.
-		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation.
+		 * -PwmOut pwmPin: PWM pin to use for PWM control
+		 * -PinName tachPin: DigitalIn pin for Counter
+		 * -uint32_t frequencyHZ: Frequency of the PWM signal (Hz)
+		 * -uint32_t counterCounts: number of pulses to count
+		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation
+		 * -float minDC: minimum duty cycle for nonzero RPM
+		 * -uint8_t maxTimeouts: maximum number of threshold misses before 
+		 *	chasing is aborted.
 		 */
 
 
@@ -107,6 +114,38 @@ public:
 		* -float: current duty cycle, or negative code if fan is uninitialized.
 		*/
 
+	void setTarget(int target);
+		/* ABOUT: Set a target RPM for Chasing.
+		 * PARAMETERS:
+		 * -int target: target RPM.
+		 */
+
+	int getTarget();
+		/* ABOUT: Get this fan's target RPM.
+		* RETURNS:
+		* -int, either the target RPM or a negative code to indicate no target is
+		* being chased. (NO_TARGET in Fan.h)
+		*/	
+
+	int getRPMChange();
+		/* ABOUT: Get the difference between the latest read and the past one.
+		* NOTE: Will be either 0 or negative of last read if there are not enough 
+		* reads so far.
+		* RETURNS:
+		* -int, absolute value of change in question.
+		*/
+
+	bool incrementTimeouts();
+		/* ABOUT: Increment the timeout counter, and terminate chasing if it reaches
+		* the timeout threshold.
+		* RETURNS:
+		* -bool: whether the threshold was reached (false if not).
+		*/
+
+	void resetTimeouts();
+		/* ABOUT: Reset the timeouts counter.
+ 		 */
+
 private:
 
 	// General:
@@ -117,10 +156,15 @@ private:
 	// For PWM control:
     uint32_t frequencyHZ;	// PWM signal frequency in Hertz
     float dc;               // Current duty cycle
-	
-	// For RPM reading:
+	int target;				// Chaser target RPM
+	int rpmChange;			// Difference between the latest read and the one before
+	int pastRead;			// Previous RPM read, for RPM change
+	float minDC;			// Minimum duty cycle for nonzero RPM
+
+	// For RPM reading and chasing:
 	uint32_t counterCounts;
 	uint8_t pulsesPerRotation;	
+	uint8_t timeouts, maxTimeouts;
 
 };
 

@@ -83,6 +83,7 @@ DEFAULT_MAX_RPM = 11500 # (Maximum nominal RPM)
 DEFAULT_MIN_RPM = 1185  # (Minimum nominal RPM)
 DEFAULT_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
 DEFAULT_MAX_FANS = 21
+DEFAULT_MAX_FAN_TIMEOUTS = 1 
 
 DEFAULT_MODULE_DIMENSIONS = (2, 11) # (rows, columns)
 DEFAULT_MODULE_ASSIGNMENT = \
@@ -264,6 +265,7 @@ class Profiler:
 		self.profile["maxRPM"]  = DEFAULT_MAX_RPM
 		self.profile["minRPM"]  = DEFAULT_MIN_RPM
 		self.profile["minDC"]  = DEFAULT_MIN_DC
+		self.profile["maxFanTimeouts"] = DEFAULT_MAX_FAN_TIMEOUTS
 		
 		self.profile["defaultModuleDimensions"] = DEFAULT_MODULE_DIMENSIONS
 		self.profile["defaultModuleAssignment"] = \

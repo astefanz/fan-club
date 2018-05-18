@@ -14,7 +14,11 @@
 // + REVISED for prototyping FCMkII
  
 #include "Fan.h"
- 
+
+// CONSTANT DEFINITIONS ////////////////////////////////////////////////////////
+const int 
+	NO_TARGET = -1;
+
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
 // VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
@@ -113,15 +117,19 @@ Fan::Fan(){
 } // End Fan constructor
 
 bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
-		uint32_t counterCounts, uint8_t pulsesPerRotation){
-		/* ABOUT: Configure a fan for usage. Can be called more than once.
-		 * PARAMETERS:
-		 * -PwmOut pwmPin: PWM pin to use for PWM control.
-		 * -PinName tachPin: DigitalIn pin for Counter.
-		 * -uint32_t frequencyHZ: Frequency of the PWM signal (Hz).
-		 * -uint32_t counterCounts: number of pulses to count.
-		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation.
-		 */
+		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
+		uint8_t maxTimeouts){
+	/* ABOUT: Configure a fan for usage. Can be called more than once.
+	* PARAMETERS:
+	* -PwmOut pwmPin: PWM pin to use for PWM control
+	* -PinName tachPin: DigitalIn pin for Counter
+	* -uint32_t frequencyHZ: Frequency of the PWM signal (Hz)
+	* -uint32_t counterCounts: number of pulses to count
+	* -uint8_t pulsesPerRotation: number of pulses for one full rotation
+	* -float minDC: minimum duty cycle for nonzero RPM
+	* -uint8_t maxTimeouts: maximum number of threshold misses before 
+	*	chasing is aborted.
+	*/
 	
 	if(this->initialized){
 		// If the Fan is being reconfigured, deallocate previous PWM pin.
@@ -134,7 +142,14 @@ bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
     this->tachPin = tachPin;
 	this->counterCounts = counterCounts;
 	this->pulsesPerRotation = pulsesPerRotation;
+	this->rpmChange = 0;
+	this->pastRead = 0;
+	this->target = NO_TARGET;
+	this->minDC = minDC;
+	this->maxTimeouts = maxTimeouts;
 
+	this->timeouts = 0;
+	
 	this->write(0); 
     initialized = true;
 
@@ -158,7 +173,10 @@ int Fan::read(){
         // Create temporary Counter
         Counter counter(this->tachPin, 
 			this->counterCounts, this->pulsesPerRotation);         
-		return counter.read();
+		int read = counter.read();
+		this->rpmChange = this->pastRead - read;
+		this->pastRead = read;
+		return read;
     }
     else {
 
@@ -176,9 +194,21 @@ bool Fan::write(float newDC){
 	*/
 
     if(initialized and newDC != this->dc){
+		//             \-----------/  Avoid redundancy
+		
+		// Adjust duty cycle w/ respect to boundaries:
+		if(not (newDC < 1.0)){
+			// DC above maximum
+			this->dc = 1.0;
+		} else if (newDC < this->minDC and newDC > 0.0) {
+			// DC below nonzero minimum
+			this->dc = minDC;
+		} else {
+			// Acceptable DC
+			this->dc = newDC;
+		}
 
-        this->pwmPin->write(newDC);
-        this->dc = newDC;
+        this->pwmPin->write(this->dc);
   
         return true;
     }
@@ -200,3 +230,60 @@ float Fan::getDC(){
 	return this->initialized? this->dc : -1.0;
 } // End getDC
 
+
+void Fan::setTarget(int target){
+	/* ABOUT: Set a target RPM for Chasing.
+	* PARAMETERS:
+	* -int target: target RPM.
+	*/
+	this->target = target;
+	this->timeouts = 0;
+} // End setTarget
+
+int Fan::getTarget(){
+	/* ABOUT: Get this fan's target RPM.
+	 * RETURNS:
+	 * -int, either the target RPM or a negative code to indicate no target is
+	 * being chased. (NO_TARGET in Fan.h)
+	 */	
+
+	return this->target;
+
+} // End getTarget
+
+
+int Fan::getRPMChange(){
+	/* ABOUT: Get the difference between the latest read and the past one.
+	* NOTE: Will be either 0 or negative of last read if there are not enough 
+	* reads so far.
+	* RETURNS:
+	* -int, absolute value of change in question.
+	*/
+
+	return this->rpmChange >= 0? this->rpmChange : -this->rpmChange;
+
+} // End getDelta
+
+bool Fan::incrementTimeouts(){
+	/* ABOUT: Increment the timeout counter, and terminate chasing if it reaches
+	 * the timeout threshold.
+	 * RETURNS:
+	 * -bool: whether the threshold was reached (false if not).
+	 */
+	
+	if(++(this->timeouts) >= this->maxTimeouts){
+		this->write(0.0);
+		this->setTarget(NO_TARGET);
+		return true;
+	}
+
+	return false;
+} // End incrementTimeouts
+
+void Fan::resetTimeouts(){
+	/* ABOUT: Reset the timeouts counter.
+	 */
+
+	this->timeouts = 0;
+
+} // End resetTimeouts

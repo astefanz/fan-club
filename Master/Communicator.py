@@ -50,6 +50,7 @@ VERSION = "Separate 0"
 FORCE_IP_ADDRESS = ""
 	#= "192.168.1.129" # (Basement lab)
 
+
 ## CLASS DEFINITION ############################################################
 
 class Communicator:
@@ -497,7 +498,7 @@ class Communicator:
 
 			# HSK message ------------------------------------------------------
 
-			MHSK = "MHSK|{},{},{},{} {} {} {} {} {} {} {} {} {} {}".format(
+			MHSK = "MHSK|{},{},{},{} {} {} {} {} {} {} {} {} {} {} {}".format(
 						slave._misoSocket().getsockname()[1], 
 						slave._mosiSocket().getsockname()[1], 
 						self.profile["periodMS"],
@@ -511,7 +512,8 @@ class Communicator:
 						self.profile["maxRPM"],
 						self.profile["minRPM"],
 						self.profile["minDC"],
-						self.profile["chaserTolerance"])
+						self.profile["chaserTolerance"],
+						self.profile["maxFanTimeouts"])
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()

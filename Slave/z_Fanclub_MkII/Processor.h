@@ -121,6 +121,8 @@ private:
     float minDC;          // Duty cycle corresponding to minRPM (nominal)
 	float chaserTolerance;
 	uint32_t dataIndex;		// Index for new data
+	float rpmSlope;
+	uint8_t maxFanTimeouts;
 
     // STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status

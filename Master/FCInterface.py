@@ -3346,7 +3346,7 @@ class FCInterface(Tk.Frame):
 
 		# Check value and update command frame in accordance:
 		if newValue == "Set Duty Cycle":
-			self.commandLabelText.set("DC: ")
+			self.commandLabelText.set("  DC: ")
 
 		elif newValue == "Chase RPM":
 			self.commandLabelText.set("RPM: ")
