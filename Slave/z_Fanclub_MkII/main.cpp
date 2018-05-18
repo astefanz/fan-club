@@ -122,6 +122,7 @@ mbed_mem_trace_set_callback(printHeapStats);
         "\n\r|\t - DEF. MAX RPM: %d"
         "\n\r|\t - DEF. MIN RPM: %d"
         "\n\r|\t - DEF. MIN DUTY CYCLE: %0.2f%%"
+        "\n\r|\t - DEF. CHASER TOLERANCE: %0.2f%%"
         ,BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, BROADCAST_PORT, TIMEOUT_MS, 
         PASSWORD, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
         MAX_NETWORK_TIMEOUTS, 
@@ -135,7 +136,8 @@ mbed_mem_trace_set_callback(printHeapStats);
         PWM_FREQUENCY,
         MAX_RPM,
         MIN_RPM,
-        MIN_DC*100.0);
+        MIN_DC*100.0,
+		CHASER_TOLERANCE*100.0);
     
     printf("\n\r+-------------------------------------------------------------"
         "-----------------+\n\r");

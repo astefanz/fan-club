@@ -28,7 +28,7 @@ public:
 
     // CONSTRUCTORS AND DESTRUCTORS
     
-    Counter(PinName pin);
+    Counter(PinName pin, uint32_t counts, uint32_t pulsesPerRotation);
         /* Constructor for class Counter
          */
     
@@ -54,6 +54,7 @@ private:
 
     InterruptIn interrupt;
     volatile int count;
+	uint32_t counts, pulsesPerRotation;
     Timer t; 
     
     // AUXILIARY FUNCTIONS

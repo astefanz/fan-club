@@ -299,6 +299,7 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 
 	// Thread loop =============================================================
 	while(true){
+		
 		// Check status = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 		if(this->getStatus() == CONNECTED){
 			// Connected. Send update to Master.
@@ -418,7 +419,6 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					pl;printf("\n\r[%08dms][C] Timeout set to: %dms",
 						tm, periodms);pu;
 
-					this->configurationLock.lock();
 					this->periodMS = periodms;
 					this->configurationLock.unlock();
 
@@ -460,11 +460,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
 				}
 
-				// Reactivate processor:
-				this->processor.setStatus(ACTIVE);
-				
 				// Send command to processor: ..................................
-				bool success = this->processor.process(ptr);
+				char configBuffer[256];
+				strcpy(configBuffer, ptr);
+				bool success = this->processor.process(ptr, true);
 
 				// Check success: ..............................................
 				if(not success){
@@ -491,7 +490,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
 					pl;printf(
 						"\n\r[%08dms][C] HSK Success",tm);pu;
-
+	
 					// Update status and move on:
 					this->_setStatus(CONNECTED);
 
@@ -524,10 +523,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				!strcmp(receivedKeyword, "MRIP")){
 
 				pl;printf(
-					"\n\r[%08dms][C] Connection terminated by Master",tm);pu;
+					"\n\r[%08dms][C] Connection terminated by Master. Rebooting.",tm);pu;
 
 				// Terminate connection:
-				this->_setStatus(NO_MASTER);
+				this->_setStatus(NO_NETWORK);
 
 			}else{ // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 				// Unrecognized message (or command received while disconnected)
@@ -805,6 +804,9 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				
 				// Notify user:
 				pl;printf("\n\r[%08dms][S] Status: CONNECTED", tm);pu;
+				
+				// Activate processor:
+				this->processor.setStatus(ACTIVE);
 				
 				// Exit switch:
 				break;

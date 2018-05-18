@@ -73,8 +73,9 @@ STD_PRINTER_QUEUE_SIZE = 3
 
 DEFAULT_FAN_MODEL = "DELTA PFR0912XHE-SP00"
 DEFAULT_FAN_MODE =  SINGLE
-DEFAULT_TARGET_RELATION = (1,0) # (For double fans, irrelevant if on SINGLE)
+DEFAULT_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
 DEFAULT_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
+DEFAULT_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
 DEFAULT_COUNTER_COUNTS = 1 # (Measure time between pulses once)
 DEFAULT_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
 DEFAULT_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
@@ -256,6 +257,7 @@ class Profiler:
 		self.profile["fanMode"]  = SINGLE
 	 	self.profile["targetRelation"]  = DEFAULT_TARGET_RELATION
 		self.profile["chaserTolerance"]  = DEFAULT_CHASER_TOLERANCE
+		self.profile["fanFrequencyHZ"] = DEFAULT_FAN_FREQUENCY_HZ
 		self.profile["counterCounts"] = DEFAULT_COUNTER_COUNTS
 		self.profile["counterTimeoutMS"]  = DEFAULT_COUNTER_TIMEOUT_MS
 		self.profile["pulsesPerRotation"]  = DEFAULT_PULSES_PER_ROTATION

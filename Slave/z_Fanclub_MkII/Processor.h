@@ -70,11 +70,13 @@ public:
     
     // PUBLIC INTERFACE --------------------------------------------------------
     
-    bool process(const char* givenCommand);
+    bool process(const char* givenCommand, bool configure = false);
         /* ABOUT: Take a given command for processing.
          * PARAMETERS:
          * -const char* givenCommand: NULL-terminated string representing command 
          * to process.
+		 * -bool configure: whether this message is to configure the Processor.
+		 *	Defaults to false.
          */
          
     bool get(char* buffer);
@@ -82,7 +84,7 @@ public:
 		* PARAMETERS:
 		* -const char* buffer: pointer to char array in which to store reply.
 		* RETURNS:
-		# - bool: whether a new message was fetched (false for default)
+		# -bool: whether a new message was fetched (false for default)
 		*/
 
     void setStatus(int status);
@@ -109,13 +111,15 @@ private:
     
     // PROFILE DATA ------------------------------------------------------------
     int8_t fanMode;         // Single or double fan configuration
-    int targetRelation[2];  // (If applic.) Rel. between front and rear fan RPM
+    float targetRelation[2];  // (If applic.) Rel. between front and rear fan RPM
     uint8_t activeFans;     // Number of active fans
+	uint32_t fanFrequencyHZ;	// PWM frequency of fans
     uint8_t counterCounts;  // Number of pulses to be counted when reading
     uint8_t pulsesPerRotation;   // Pulses sent by sensor in one full rotation
-    uint8_t maxRPM;         // Maximum nominal RPM of fan model
-    uint8_t minRPM;         // Minimum nominal nonzero RPM of fan model
-    uint8_t minDC;          // Duty cycle corresponding to minRPM (nominal)
+    uint32_t maxRPM;         // Maximum nominal RPM of fan model
+    uint32_t minRPM;         // Minimum nominal nonzero RPM of fan model
+    float minDC;          // Duty cycle corresponding to minRPM (nominal)
+	float chaserTolerance;
 	uint32_t dataIndex;		// Index for new data
 
     // STATUS DATA -------------------------------------------------------------

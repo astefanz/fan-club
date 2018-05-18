@@ -106,141 +106,97 @@ PinName tachIn[MAX_FANS] ={
 // CONSTRUCTORS AND DESTRUCTORS
 
 Fan::Fan(){
+	/* ABOUT: Constructor for class Fan. Creates an uninitialized fan which
+	* must be configured with Fan::configure before usage.
+	*/
     initialized = false;    
-}
+} // End Fan constructor
 
-Fan::Fan(PwmOut pwm, PinName tach, int p, int max, int min, bool test){
+bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
+		uint32_t counterCounts, uint8_t pulsesPerRotation){
+		/* ABOUT: Configure a fan for usage. Can be called more than once.
+		 * PARAMETERS:
+		 * -PwmOut pwmPin: PWM pin to use for PWM control.
+		 * -PinName tachPin: DigitalIn pin for Counter.
+		 * -uint32_t frequencyHZ: Frequency of the PWM signal (Hz).
+		 * -uint32_t counterCounts: number of pulses to count.
+		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation.
+		 */
 	
-    pwmPin = new PwmOut(pwm);
-    period = p;
-    (*pwmPin).period_us(period);
-    tachPin = tach;
+	if(this->initialized){
+		// If the Fan is being reconfigured, deallocate previous PWM pin.
+		delete this->pwmPin;
+	}
+
+    this->pwmPin = new PwmOut(pwmPin);
+ 	this->frequencyHZ = frequencyHZ;
+    (*this->pwmPin).period_us(1000000/this->frequencyHZ);
+    this->tachPin = tachPin;
+	this->counterCounts = counterCounts;
+	this->pulsesPerRotation = pulsesPerRotation;
+
+	this->write(0); 
     initialized = true;
-    maxRPM = max;
-    minRPM = min;
-    active = true; // Set by default
-    write(0,0,NO_DEBUG);
-    
-}
+
+	return true;
+} // End configure
 
 Fan::~Fan(){
-    delete pwmPin;    
+    delete this->pwmPin;    
 }
 
-// READ AND WRITE
 
-int Fan::read(bool debug){
-
-    if(initialized) {
-        
-        Counter counter(tachPin); // Create temporary Counter
-        int result = counter.read();
-
-        return result;
+int Fan::read(){
+	/* ABOUT: Read the RPM of a fan. 
+	* RETURNS:
+	* -int, either RPM value or negative integer if the fan is 
+	*	uninitialzed.
+	*/
+	
+    if(this->initialized) {
+		
+        // Create temporary Counter
+        Counter counter(this->tachPin, 
+			this->counterCounts, this->pulsesPerRotation);         
+		return counter.read();
     }
     else {
 
         return -1;    
     }
 
-}
+} // End read
 
-float Fan::write(float newPwm, int waitTime, bool debug){
+bool Fan::write(float newDC){
+	/* ABOUT: Set the duty cycle of a fan.
+	* PARAMETERS:
+	* -float newDC: new duty cycle to assign.
+	* RETURNS:
+	* -bool, true upon success and false upon failure (fan uninitialized)
+	*/
 
-    if(initialized and newPwm != pwm){
+    if(initialized and newDC != this->dc){
 
-        *pwmPin = newPwm;
-        pwm = newPwm;
+        this->pwmPin->write(newDC);
+        this->dc = newDC;
   
-        wait(waitTime);
-        return pwm;
+        return true;
     }
     else{
   
-        return -1;  
+        return false;  
     }
-}
 
-// GETTERS AND SETTERS
+	return false;
 
-     
-int Fan::getMaxRPM(void){
+} // End write
 
-     return maxRPM;    
-}
+float Fan::getDC(){
+	/* ABOUT: Get current duty cycle, as a float between 0.0 and 1.0.
+	 * RETURNS:
+	 * -float: current duty cycle, or negative code if fan is uninitialized.
+	 */
 
-int Fan::getMinRPM(void){
-
-     return minRPM;    
-}
-
-int Fan::getPeriod(void){
-
-     return period;
-}
-
-float Fan::getPWM(void){
-
-     if(initialized){
-        return pwm;    
-     }
-     else {
-        return -1;    
-     }
-}
-
-bool Fan::testActivity(int waitTime, bool debug){
-
-     if(initialized){ // Check whether fan is initialized in the first place
-  
-        write(0.1, waitTime, debug); // Set this fan to 10%
-        int rpm = read(debug);
-        if ( rpm > minRPM){ // Check whether fan has responded
-  
-            active = true; // Set this fan as active
-            return true;
-        }
-        else{ // If fan did not respond...
-
-            active = false; // Set this fan as inactive
-            return false;
-            
-        }
-     }
-     else{ // If the fan is not initialized, its activity is irrelevant, as it
-           // is out of reach
-        
-        return false;
-         
-     }
-     
-}
-
-bool Fan::isActive(void){
-
-     
-     return active;
-    
-}
-
-void Fan::setPeriod(int p){
-  
-     period = p;
-     (*pwmPin).period_us(period);
-}
-
-void Fan::setPins(PwmOut pwm, PinName tach, int max, int min){
-
-    pwmPin = new PwmOut(pwm);
-    tachPin = tach;
-    initialized = true;
-    maxRPM = max;
-    minRPM = min;
-    write(0);
-}
-
-
-
-
-
+	return this->initialized? this->dc : -1.0;
+} // End getDC
 

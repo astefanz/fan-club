@@ -16,13 +16,15 @@
  
 // CONSTRUCTORS AND DESTRUCTORS
 
-Counter::Counter(PinName pin) : interrupt(pin) {// Create the InterruptIn on the pin specified to Counter
+Counter::Counter(PinName pin, uint32_t counts, uint32_t pulsesPerRotation): 
+	interrupt(pin), counts(counts), pulsesPerRotation(pulsesPerRotation)
+{// Create the InterruptIn on the pin specified to Counter
     interrupt.rise(this, &Counter::update);// Attach increment function of this counter instance
 }
     
 // "READ" FUNCTION
 
-    int Counter::read(int timeout) {
+int Counter::read(int timeout) {
     
     // The count variable will increase by 1 with every rise (half-cycle)
     
@@ -41,7 +43,7 @@ Counter::Counter(PinName pin) : interrupt(pin) {// Create the InterruptIn on the
     // timer will be syncronized at, approximately, 0
     t.reset();
     t.start();
-    while(count<4 && t.read_us()<4*timeout){
+    while(count< this->counts && t.read_us()< this->counts*timeout){
         // Wait until either enough rises (or timeouts)
     }
     t.stop();   // Stop the timer as soon as the counter variable hits 1
@@ -51,9 +53,10 @@ Counter::Counter(PinName pin) : interrupt(pin) {// Create the InterruptIn on the
     }
     
     // Otherwise, convert from microseconds between half-cycles to RPM and return
-    return count/(2*(t.read_us()/60000000.0)); 
-    
-}
+    return  1 / pulsesPerRotation*(t.read_us()/(this->counts*6000000.0));
+		// count/(2*(t.read_us()/60000000.0));
+
+} // End read
 
 // AUXILIARY FUNCTIONS
 

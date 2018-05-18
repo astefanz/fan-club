@@ -497,7 +497,7 @@ class Communicator:
 
 			# HSK message ------------------------------------------------------
 
-			MHSK = "MHSK|{},{},{},S~{},{},{},{},{},{},{},{},{}".format(
+			MHSK = "MHSK|{},{},{},{} {} {} {} {} {} {} {} {} {} {}".format(
 						slave._misoSocket().getsockname()[1], 
 						slave._mosiSocket().getsockname()[1], 
 						self.profile["periodMS"],
@@ -505,11 +505,13 @@ class Communicator:
 						self.profile["targetRelation"][0],
 						self.profile["targetRelation"][1],
 						self.slaves[targetIndex].activeFans,
+						self.profile["fanFrequencyHZ"],
 						self.profile["counterCounts"],
 						self.profile["pulsesPerRotation"],
 						self.profile["maxRPM"],
 						self.profile["minRPM"],
-						self.profile["minDC"])
+						self.profile["minDC"],
+						self.profile["chaserTolerance"])
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()
@@ -537,9 +539,8 @@ class Communicator:
 						# Check for signs of life w/ HSK message:
 						self._send(MHSK, slave, 1, True)
 
-						# Try to receive reply:
+						# Try to receive replyi w/ extra-lenient timeout:
 						reply = self._receive(slave)
-
 						# Check reply:
 						if reply is not None and reply[1] == "SHSK":
 							# print "Processed reply: {}".format(reply), "G"

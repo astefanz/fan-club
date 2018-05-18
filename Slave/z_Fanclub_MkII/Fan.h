@@ -19,27 +19,17 @@
 
 // CUSTOM MODULES
 #include "Counter.h"
+#include "settings.h"
 
 // CHOOSE PINOUT:
-#define v2_7
+#define v2_8
 
-// AUXILIARY GLOBAL CONSTANTS //////////////////////////////////////////////////
-
-const int 
-          MAXRPM = 11500, /* That of the DELTA PFR0912XHE-SP00 */
-          MINRPM = 0,     /* That of the DELTA PFR0912XHE-SP00 */
-          STD_WAIT = 2;   /* Seconds to wait for fan to respond to PWM signal */
-          
-const bool DO_TEST = true,  // For testing fan activity upon initialization
-           NO_TEST = false,
-           NO_DEBUG = false;
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
 // VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
 #ifdef v2_8
 #define PINOUT_NAME  "v2.8"
-#define MAX_FANS 21
 
 extern PwmOut pwmOut[MAX_FANS];
 
@@ -74,120 +64,64 @@ extern PinName tachIn[MAX_FANS];
 
 class Fan{
 public:
-
-    // CONSTRUCTORS AND DESTRUCTORS
-    
-    
+    // CONSTRUCTORS AND DESTRUCTORS 
     Fan();
-        /* Default constructor.
-         * **WARNING: THIS CLASS IS NOT DESIGNED TO BE INITIALIZED WITHOUT 
-         * ARGUMENTS.
-         */
-    
-    Fan(PwmOut pwm, PinName tach, int p = 40, int max = MAXRPM, int min = MINRPM, bool test = NO_TEST);
-        /* Default constructor. Receives a pair of pins to relate to this fan and
-         * the maximum and minimum RPM it can reach -- all characteristics will default to 
-         * those of the DELTA PFR0912XHE-SP00
-         * - PARAMETER int p: period of PWM control signal, IN MICROSECONDS
-         * - PARAMETER bool test: whether to test if there is an actual fan plugged
-         *   into this object's assigned pins. Defaults to NO_TEST (Defined above) 
-         *   i.e do not test and assume functionality. 
-         *   **NOTE** This setting is not recommended, but it is set to default 
-         *   for safety purposes. This way, fans are initialized to 0% PWM
-         * **WARNING** PINS GIVEN SHOULD BE CORRESPONDING PINS IN "PINOUT" ABOVE
-         *   THAT HAVE NOT YET BEEN SET TO ANOTHER EXISTING FAN OBJECT. OTHERWISE,
-         *   BEHAVIOR IS UNDEFINED
-         */
+		/* ABOUT: Constructor for class Fan. Creates an uninitialized fan which
+		 * must be configured with Fan::configure before usage.
+		 */
          
     ~Fan();
-        /* Destructor for class Fan
-         */
+		/* ABOUT: Destructor for class Fan.
+		 */
          
-    // READ AND WRITE
-    
-    int read(bool debug = NO_DEBUG);
-        /* Read and return this fan's current RPM, from corresp. tach.in pin
-         * - PARAMETER bool debug: whether to print out debug information to serial
-         *   Defaults to NO_DEBUG (Defined atop Communicator.h)
-         * - RETURNS: int, fan's current RPM, as measured by Counter (see Counter.h),
-         *            or -1 if fan has not been initialized (i.e no pins have been set)
-         */
-    
-    float write(float newPwm, int waitTime = 0, bool debug = NO_DEBUG);
-        /* Set this fan's corresponding PWM out pin to given duty cycle
-         * - PARAMETER float pwm: Duty cycle as percentage, between 0.0 and 1.0
-         * - PARAMETER int wait: seconds to wait for fan to respond. Defaults to
-         *   zero
-         * - PARAMETER bool debug: whether to print out debug messages. Defaults
-         *   to NO_DEBUG (false) defined atop Communicator.h
-         * - RETURNS: float, given pwm if successful, -1 if fan is not initialized
-         *            (i.e no pins have been set)
-         */
-
-    // GETTERS AND SETTERS
-    
-    int getMaxRPM(void);
-        /* Return this fan's maxRPM
-         */
-    
-    int getMinRPM(void);
-        /* Return this fan's minRPM
-         */
-    
-    int getPeriod(void);
-        /* Get this fan's period (in MICROSECONDS).
-         */    
-    
-    float getPWM(void);
-        /* Return this fan's currently set pwm value
-         * - PARAMETERS: void
-         * - RETURNS: float, fan's current pwm set, -1 if fan is not initialized
-         *            (i.e no pins have been set)
-         */
-         
-    bool testActivity(int waitTime = 0, bool debug = NO_DEBUG);
-    /* Tests this fan for activity (see definition of private member)
-     * - PARAMETER int waitTime: seconds to wait for fans to adjust to test
-     *   duty cycle. Defaults to zero
-     * - PARAMETER bool debug: whether to print out debug information to serial
-     *   defaults to NO_DEBUG (false). See const definition in Communicator.h
-     * - RETURN: bool, whether an active fan has been detected.
-     */
-     
-    bool isActive(void);
-        /* Get whether this fan is currently active. (See testActivity)
-         * - RETURNS bool, whether fan is active
-         */    
+	bool configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
+		uint32_t counterCounts, uint8_t pulsesPerRotation);
+		/* ABOUT: Configure a fan for usage. Can be called more than once.
+		 * PARAMETERS:
+		 * -PwmOut pwmPin: PWM pin to use for PWM control.
+		 * -PinName tachPin: DigitalIn pin for Counter.
+		 * -uint32_t frequencyHZ: Frequency of the PWM signal (Hz).
+		 * -uint32_t counterCounts: number of pulses to count.
+		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation.
+		 */
 
 
-         
-         
-    void setPeriod(int p);
-        /* Set this fan's PWM signal period (in MICROSECONDS).
-         */    
+    int read();
+		/* ABOUT: Read the RPM of a fan. 
+		 * RETURNS:
+		 * -int, either RPM value or negative integer if the fan is 
+		 *	uninitialzed.
+		 */
     
-    void setPins(PwmOut pwm, PinName tach, int max = MAXRPM, int min = MINRPM);
-        /* Set this fan's pins
-         * - PARAMETERS: PwmOut pwm (pwm pin) and PinName tach (tachometer pin)
-         *   along w/ max. and min. possible RPM -- will default to those of the
-         *   DELTA PFR0912XHE-SP00
-         * **WARNING** PINS PASSED MUST BE IN CORRESPONDING ARRAYS, AS DEFINED
-         *   IN "PINOUTS" ABOVE. OTHERWISE, BEHAVIOR IS UNDEFINED.
-         */
-    
+    bool write(float newDC);
+ 		/* ABOUT: Set the duty cycle of a fan.
+		 * PARAMETERS:
+		 * -float newDC: new duty cycle to assign.
+		 * RETURNS:
+		 * -bool, true upon success and false upon failure (fan uninitialized)
+		 */
+
+	float getDC();
+		/* ABOUT: Get current duty cycle, as a float between 0.0 and 1.0.
+		* RETURNS:
+		* -float: current duty cycle, or negative code if fan is uninitialized.
+		*/
 
 private:
 
-    PwmOut*  pwmPin;         // PWM pin that connects to this fan
+	// General:
+    PwmOut*  pwmPin;        // PWM pin that connects to this fan
     PinName tachPin;        // Tachometer input pin that connects to this fan
-    float pwm;               // Current duty cycle
     bool initialized;       // Whether fan object has pins assigned
-    bool active;            // Whether there is an actual fan plugged in and responding
-    
-    int maxRPM;               // Maximum RPM
-    int minRPM;               // Minimum RPM    
-    int period;               // PWM period    
-    
+
+	// For PWM control:
+    uint32_t frequencyHZ;	// PWM signal frequency in Hertz
+    float dc;               // Current duty cycle
+	
+	// For RPM reading:
+	uint32_t counterCounts;
+	uint8_t pulsesPerRotation;	
+
 };
 
 #endif // FAN_H
