@@ -57,7 +57,7 @@ const char
 Processor::Processor(void): // // // // // // // // // // // // // // // // // /
     processorThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
     activeFans(MAX_FANS), blue(LED2),
-	dataIndex(0)
+	dataIndex(0), inFlag(false), outFlag(false)
 	{
     /* ABOUT: Constructor for class Processor. Starts processor thread.
      */
@@ -85,30 +85,35 @@ bool Processor::process(const char* givenCommand){ // // // // // // // // // //
      * PARAMETERS:
      * -const char* givenCommand: NULL-terminated string representing command to
      *  process.
+	 * RETURNS:
+	 * - bool: true upon success and false upon failure.
      */
+	
+	// Use a placeholder to return once:
+	bool success = false;
 
     // Place command in input queue: ===========================================
+	this->inFlagLock.lock();
+	if(not this->inFlag){
+		// If the input flag is not set, then the buffer is available.
+		// Acquire buffer lock and edit buffer:
 
-    // Try to allocate space in input queue: -----------------------------------
-    command *allocatedCommand = this->inputQueue.alloc();
-
-    // Check allocation: -------------------------------------------------------
-    if(allocatedCommand != NULL){ // Allocation successful:
-
-        // Store given command in placeholder:
-        strcpy(allocatedCommand->content, givenCommand);
-
-        // Place into queue:
-        this->inputQueue.put(allocatedCommand);
-
-    }else{ // Allocation unsuccessful:
-
+		this->inBufferLock.lock();
+		strcpy(this->inBuffer, givenCommand);
+		this->inBufferLock.unlock();
+		
+		this->inFlag = true;
+		success = true;
+		
+    }else{ 
+		// Allocation unsuccessful:
+		
         pl;printf("\n\r[%08dms][P] WARNING: inputQueue full",tm);pu;
-        return false;
 
-    } // End check allocation --------------------------------------------------
- 
-    return true;
+    } // End check -------------------------------------------------------------
+
+	this->inFlagLock.unlock();
+    return success;
 } // End process  // // // // // // // // // // // // // // // // // // // // //
  
 void Processor::get(char* buffer){ // // // // // // // // // // // // // // // 
@@ -117,35 +122,42 @@ void Processor::get(char* buffer){ // // // // // // // // // // // // // // //
      * -const char* buffer: pointer to char array in which to store reply.
      */
 
-    // Set up placeholder: -----------------------------------------------------
-    char placeholder[MAX_MESSAGE_LENGTH] = "SVER";// There will always be 
-    // ^                                                // a message to be sent
-    // |                                             // to Master.
-    // |
-    // Static placeholder will keep the last stored value after returning.
+	// Try to get a message from the output buffer. If it is empty, use the
+	// standard "verification" message.
 
-    // Check output queue: -----------------------------------------------------
-    osEvent result = this->outputQueue.get(0 /*0ms timeout*/);
+	this->outFlagLock.lock();
 
-    // Check if a new reply was successfully fetched:
-    if(result.status == osEventMail){
-        // New reply fetched from outputQueue. Use this reply:
+	if(this->outFlag){
+		// There is a message. Lock the output buffer and copy its contents into
+		// the given buffer.
 
-        command *fetchedReply = (command*)result.value.p;
-            // Returns void pointer to fetched value   ^
+		this->outBufferLock.lock();
 
-        // Store placeholder:
-        strcpy(placeholder, fetchedReply->content);
+		strcpy(buffer, this->outBuffer[0] == '\0'? "SVER": this->outBuffer);
+		// NOTE: The check above rules out the unlikely --yet possible-- case
+		// in which the output buffer is lost. (This may happen if this
+		// function checks a raised output flag while the output buffer lock
+		// is taken by the processor routine. Since these output values are
+		// updated frequently and automatically, it is preferable to sacrifice
+		// one buffer for efficiency.
 
-        // Free space:
-        this->outputQueue.free(fetchedReply);
-    }
 
-    // Store whatever is on the placeholder in the given buffer:
-    strcpy(buffer, placeholder);
+		this->outBuffer[0] = '\0';
+			// NOTE: Neutralize obsolete message.
+		this->outFlag = false;
 
-    // Done:
-    return;
+
+		this->outBufferLock.unlock();
+
+	}else{
+		// If there is no message to send, use the default:
+
+		strcpy(buffer, "SVER");
+
+	}
+	this->outFlagLock.unlock();
+	return;
+
 } // End get // // // // // // // // // // // // // // // // // // // // // // /
 
 void Processor::start(void){
@@ -220,8 +232,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     pl;printf("\n\r[%08dms][P] Processor thread started",tm);pu;
 
     // Prepare placeholders: ---------------------------------------------------
-    char updateBuffer[MAX_MESSAGE_LENGTH];
-
+	char rawCommand[MAX_MESSAGE_LENGTH];
 
     // Thread loop =============================================================
     while(true){
@@ -234,29 +245,31 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
             } // End set all fans to zero
         } else{
             // Processor active, check for commands: ---------------------------
-            pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
-            // Try to fetch a command from input queue:
-            osEvent fetchResult = this->inputQueue.get(0 /*0ms timeout*/);
+            // pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
 
-            // Check for success:
-            if(fetchResult.status == osEventMail){ // ==========================
-                // Command fetched. Interpret and execute it.
+			this->inFlagLock.lock();
+				// NOTICE: This lock is released in two different places (if and
+				// else) as an optimization
+			if(this->inFlag){ // ===============================================
+           
 
                 // Get command contents:
-                command* rawCommand = (command*)fetchResult.value.p;
-            
-                // Store command in placeholder:
-                char placeholder[MAX_MESSAGE_LENGTH];
-                strcpy(placeholder, rawCommand->content);
-                char *splitPosition; 
+				this->inBufferLock.lock();
+				strcpy(rawCommand, this->inBuffer);
+				this->inBuffer[0] = '\0';
+					// NOTE: Destroy obsolete message
+				this->inBufferLock.unlock();
+
+				// Clear input flag:
+				this->inFlag = false;
+				this->inFlagLock.unlock();
+
                 
                 // Split contents: 
-                char* splitPtr = strtok_r(placeholder, "~", &splitPosition);
+                char *splitPosition; 
+                char* splitPtr = strtok_r(rawCommand, "~", &splitPosition);
                     // NOTE: Use strtok_r instead of strtok for thread-safety
                 
-                // Deallocate command from inputQueue:
-                this->inputQueue.free(rawCommand);
-
                 // Verify splitting:
                 if(splitPtr == NULL){
                     // Error:
@@ -272,12 +285,12 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 switch(commandCode){
 
                     case WRITE: // Set fan duty cycles
-			{
+					{
                         pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
 
                         // Update status:
                         if (this->status == CHASING){
-		      	    // WRITE should overwrite CHASING when called 
+		      	    		// WRITE should overwrite CHASING when called 
                             // (and vice versa)
                             this->setStatus(ACTIVE);
                         }
@@ -343,13 +356,11 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
 
                         break;
-			}
+					}
                     case CHASE: // Set a target RPM -- UNIMPLEMENTED ----------------------------------- *
 
                         // Update status:
                         if (this->status == ACTIVE){
-                            // WRITE should overrite CHASING when called 
-                            // (and vice versa)
                             this->setStatus(CHASING);
                         }
 
@@ -383,78 +394,77 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
                 } // End check command -----------------------------------------
                 
-            } // End command processing ========================================
+            }else{
+				// Nothing to process yet. Release input flag lock.
+				this->inFlagLock.unlock();
+			} // End command processing ========================================
 
             pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
 
-            // Update values: ==================================================
-            int n = 0; // Keep track of string index
+			this->outFlagLock.lock();
+			if(not this->outFlag){
+				// If the output buffer is free, write to it.
+				this->outFlagLock.unlock();
+
+				this->outBufferLock.lock();
+				
+				// Update values: ==================================================
+				int n = 0; // Keep track of string index
+				
+				// Increment data index:
+				this->dataIndex++;
+				
+				// Print beginning of update message:	
+				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"SSTD|%d|",
+					this->dataIndex);
+
+				// Store RPM's: ----------------------------------------------------
+
+				// Store first RPM along w/ keyword and separator:
+				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "%d", 
+					this->fanArray[0].read());
+
+				// Store other RPM's:
+				for(int i = 1; i < activeFans; i++){
+					// Loop over buffer and print out RPM's:
+					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%d", 
+					this->fanArray[i].read());
+				}
+
+				// Store duty cycles: ----------------------------------------------
+
+				// Store first duty cycle along w/ separator:
+				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%f", 
+					this->fanArray[0].getPWM());
+
+				// Store other duty cycles:
+				for(int i = 1; i < activeFans; i++){
+					// Loop over buffer and print out RPM's:
+					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%f", 
+					this->fanArray[i].getPWM());
+				}
+				
+				// DEBUG:
+				pl;printf("\n\r[%08dms][P] outBuffer: %s", tm, this->outBuffer);pu;
+
+				this->outBufferLock.unlock();
+
+				// Raise output flag:
+				this->outFlagLock.lock();
+				this->outFlag = true;
+				this->outFlagLock.unlock();
+		} else {
+			// If the output buffer is busy, wait until it has been freed.
+			this->outFlagLock.unlock();
+		}
 			
-			// Increment data index:
-			this->dataIndex++;
-			
-			// Print beginning of update message:	
-			n+= snprintf(updateBuffer, MAX_MESSAGE_LENGTH,"SSTD|%d|",
-				this->dataIndex);
-
-            // Store RPM's: ----------------------------------------------------
-
-            // Store first RPM along w/ keyword and separator:
-            n += snprintf(updateBuffer + n, MAX_MESSAGE_LENGTH - n, "%d", 
-                this->fanArray[0].read());
-
-            // Store other RPM's:
-            for(int i = 1; i < activeFans; i++){
-                // Loop over update placeholder and print out RPM's:
-                n += snprintf(updateBuffer + n, MAX_MESSAGE_LENGTH - n, ",%d", 
-                this->fanArray[i].read());
-            }
-
-            // Store duty cycles: ----------------------------------------------
-
-            // Store first duty cycle along w/ separator:
-            n += snprintf(updateBuffer + n, MAX_MESSAGE_LENGTH - n, "|%f", 
-                this->fanArray[0].getPWM());
-
-            // Store other duty cycles:
-            for(int i = 1; i < activeFans; i++){
-                // Loop over update placeholder and print out RPM's:
-                n += snprintf(updateBuffer + n, MAX_MESSAGE_LENGTH - n, ",%f", 
-                this->fanArray[i].getPWM());
-            }
-            
-            // DEBUG:
-            pl;printf("\n\r[%08dms][P] updateBuffer: %s", tm, updateBuffer);pu;
-
-            // Store update buffer in output queue: ----------------------------
-
-            // Try to allocate space in output queue: --------------------------
-            
-			command *allocatedCommand = this->outputQueue.alloc();
-
-            // Check allocation: -----------------------------------------------
-            if(allocatedCommand != NULL){ // Allocation successful:
-
-                // Store given command in placeholder:
-                strcpy(allocatedCommand->content, updateBuffer);
-
-                // Place into queue:
-                this->outputQueue.put(allocatedCommand);
-
-            }else{ // Allocation unsuccessful:
-
-                pl;printf("\n\r[%08dms][P] WARNING: outputQueue full",tm);pu;
-                // In this case, the message will be discarded.
-
-            } // End check allocation ------------------------------------------
-
         } // End check if active = = = = = = = = = = = = = = = = = = = = = = = =
 
     } // End processor thread loop =============================================
 
     pl;printf("\n\r[%08dms][P] WARNING: BROKE OUT OF PROCESSOR THREAD LOOP",
         tm);pu;
-} // End _processorThread // // // // // // // // // // // // // // // // // // 
+} // End _processorRoutine // // // // // // // // // // // // // // // // // // 
      
 void Processor::_blinkBlue(void){ // // // // // // // // // // // // // // // /
     /* ABOUT: To be set as ISR for blue LED Ticker to show status.
@@ -481,9 +491,7 @@ void Processor::_blinkBlue(void){ // // // // // // // // // // // // // // // /
     // STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
     DigitalOut blue;    // Access to blue LED
-    Ticker blinker;     // Used to blink blue LED for status   
-    Mutex dataLock; // Thread safe access
-    
+    Ticker blinker;     // Used to blink blue LED for status    
     // PROCESS DATA ------------------------------------------------------------
     Mail<process, 2> inputQueue, outputQueue; // For inter-thread comms.
 
