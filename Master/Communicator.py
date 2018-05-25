@@ -40,7 +40,7 @@ import random		# Random names, boy
 import numpy as np	# Fast arrays and matrices
 
 import FCInterface
-import Profiler    # Custom representation of wind tunnel
+import Archiver    # Custom representation of wind tunnel
 import Slave
 import Printer
 import names
@@ -68,7 +68,7 @@ class Communicator:
 
 			self.printM("Initializing Communicator instance")
 
-			# Profiler:
+			# Archiver:
 			self.profile = profile
 			
 			# Initialize Slave-list-related data:

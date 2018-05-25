@@ -45,7 +45,7 @@ import inspect # get line number for debugging
 import numpy as np
 
 import Communicator
-import Profiler
+import Archiver
 import Printer
 import Slave
 import CellColors as cc
@@ -875,7 +875,7 @@ class SlaveContainer:
 							self.master.grid.canvas.itemconfig(
 								self.fans[i].cell,
 								fill = cc.MAP_VIRIDIS[
-									int(255*(1.0*fetchedUpdate[3][0][i]/self.master.profiler.profile["maxRPM"]))]
+									int(255*(1.0*fetchedUpdate[3][0][i]/self.master.archiver.profile["maxRPM"]))]
 								)
 							
 					# Update Printer (if it is active):
@@ -936,7 +936,7 @@ class SlaveContainer:
 				format(self.index + 1, traceback.format_exc()), "E")
 
 		# Schedule next update -------------------------------------------------
-		self.master.after(self.master.profiler.profile["periodMS"], self.update)
+		self.master.after(self.master.archiver.profile["periodMS"], self.update)
 
 		# End update ===========================================================
 	
@@ -2641,23 +2641,23 @@ class FCInterface(Tk.Frame):
 		self.listenerBLUE = self.displayBLUE
 
 
-		# Initialize Profiler --------------------------------------------------
-		self.profiler = Profiler.Profiler() 
-		self.printMain("Profiler initialized", "G")
+		# Initialize Archiver --------------------------------------------------
+		self.archiver = Archiver.Archiver() 
+		self.printMain("Archiver initialized", "G")
 		
 		# Initialize Slave data structure --------------------------------------
 		self.slaveContainers = np.empty(0, dtype = object)
 
 		# Initialize Printer ---------------------------------------------------
 		self.printer = Printer.Printer(
-			queueSize = self.profiler.profile["printerQueueSize"],
-			fanMode = self.profiler.profile["fanMode"]
+			queueSize = self.archiver.profile["printerQueueSize"],
+			fanMode = self.archiver.profile["fanMode"]
 		)
 
 		# Initialize Communicator ----------------------------------------------
 		self.communicator = Communicator.Communicator(
-			self.profiler.slaveList,
-			self.profiler.profile
+			self.archiver.slaveList,
+			self.archiver.profile
 			)
 		self.printMain("Communicator initialized", "G")
 		
@@ -2665,7 +2665,7 @@ class FCInterface(Tk.Frame):
 		self.slaveDisplay = SlaveDisplay(
 			self.slaveDisplayFrame, 
 			self.communicator, 
-			self.profiler.profile["maxFans"],
+			self.archiver.profile["maxFans"],
 			self.printMain)
 
 		# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
@@ -2866,7 +2866,7 @@ class FCInterface(Tk.Frame):
 						misoMethod = fetched[6],
 						mosiMethod = fetched[7],
 						master = self,
-						period_ms = self.profiler.profile["periodMS"],
+						period_ms = self.archiver.profile["periodMS"],
 						slaveListIID =	self.slaveList.insert(
 							'', 'end', 
 							values = (
@@ -2900,12 +2900,12 @@ class FCInterface(Tk.Frame):
 			
 			# Schedule next call -----------------------------------------------
 			self.after(
-				self.profiler.profile["periodMS"], self._newSlaveChecker)
+				self.archiver.profile["periodMS"], self._newSlaveChecker)
 
 		except Exception as e: # Print uncaught exceptions
 			self.printMain("[NS] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
-			self.main.after(self.profiler.profile["periodMS"], self._newSlaveChecker)
+			self.main.after(self.archiver.profile["periodMS"], self._newSlaveChecker)
 		# End _newSlaveChecker =================================================
 
 	def _broadcastThreadChecker(self): # =======================================
@@ -2924,7 +2924,7 @@ class FCInterface(Tk.Frame):
 			self.broadcastDisplayUpdate("R")
 
 		# Schedule future call:
-		self.after(self.profiler.profile["broadcastPeriodMS"], 
+		self.after(self.archiver.profile["broadcastPeriodMS"], 
 			self._broadcastThreadChecker)
 
 		# End _broadcastThreadChecker ==========================================
@@ -3074,11 +3074,11 @@ class FCInterface(Tk.Frame):
 
 				self.grid = MainGrid(
 					self.gridWindow,
-					self.profiler.profile["dimensions"][0],
-					self.profiler.profile["dimensions"][1],
-					600/self.profiler.profile["dimensions"][0],
+					self.archiver.profile["dimensions"][0],
+					self.archiver.profile["dimensions"][1],
+					600/self.archiver.profile["dimensions"][0],
 					self.slaveContainers,
-					self.profiler.profile["maxRPM"]
+					self.archiver.profile["maxRPM"]
 					)
 			
 				# Update button format:
@@ -3242,9 +3242,9 @@ class FCInterface(Tk.Frame):
 				# Start printer:
 				self.printer.start(
 					fileName = fetchedFileName,
-					profileName = self.profiler.profile["name"],
-					maxFans = self.profiler.profile["maxFans"],
-					periodS = self.profiler.profile["periodS"]
+					profileName = self.archiver.profile["name"],
+					maxFans = self.archiver.profile["maxFans"],
+					periodS = self.archiver.profile["periodS"]
 				)
 
 				# Modify buttons upon successful printer startup:

@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" ## File: Profiler.py                    ##
+## Project: Fan Club Mark II "Master" ## File: Archiver.py                    ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -91,34 +91,33 @@ DEFAULT_MODULE_ASSIGNMENT = \
 
 ## CLASS DEFINITION ############################################################
 
-class Profiler:
+class Archiver:
 	# ABOUT: This module holds all "variable" data that should be kept in nonvo-
 	# latile storage.
 
 	def __init__(self):
-		# ABOUT: Constructor for class Profiler.
+		# ABOUT: Constructor for class Archiver.
 		
-		# Store profile information in dictionary:
+		# ASSEMBLE DATA STRUCTURE ==============================================
 		self.profile = {}
 
 		# Administrative data --------------------------------------------------
-		self.profile["name"] = PROFILE_NAME
-		self.profile["description"] = "This is a test Profile"
+		self.profile["name"] = [PROFILE_NAME
+		self.profile["description"] = ["This is a test Profile"
 
 		# Communications -------------------------------------------------------
-		self.profile["broadcastPort"] = STD_BROADCAST_PORT
-		self.profile["periodMS"] = STD_PERIOD_MS
-		self.profile["broadcastPeriodMS"] = STD_BROADCAST_PERIOD_MS
-		self.profile["broadcastPeriodS"] = \
-			self.profile["broadcastPeriodMS"]/1000.0
-		self.profile["periodS"] = STD_PERIOD_MS/1000.0
-		self.profile["passcode"] = "good_luck"
-		self.profile["maxLength"] = STD_MAX_LENGTH
-		self.profile["maxTimeouts"] = STD_MAX_TIMEOUTS
-
-		self.profile["mainQueueSize"] = STD_MAIN_QUEUE_SIZE
-		self.profile["misoQueueSize"] = STD_MISO_QUEUE_SIZE
-		self.profile["printerQueueSize"] = STD_PRINTER_QUEUE_SIZE
+		self.profile["broadcastPort"] = [STD_BROADCAST_PORT, int, threading.Lock()]
+		self.profile["periodMS"] = [STD_PERIOD_MS, int, threading.Lock()]
+		self.profile["broadcastPeriodMS"] = [STD_BROADCAST_PERIOD_MS, int, threading.Lock()]
+		self.profile["broadcastPeriodS"] = [\,
+			self.profile["broadcastPeriodMS"]/1000.0, float, threading.Lock()]
+		self.profile["periodS"] = [STD_PERIOD_MS/1000.0, float, threading.Lock()]
+		self.profile["passcode"] = ["good_luck", str, threading.Lock()]
+		self.profile["maxLength"] = [STD_MAX_LENGTH, int, threading.Lock()]
+		self.profile["maxTimeouts"] = [STD_MAX_TIMEOUTS, int, threading.Lock()]
+		self.profile["mainQueueSize"] = [STD_MAIN_QUEUE_SIZE, int, threading.Lock()]
+		self.profile["misoQueueSize"] = [STD_MISO_QUEUE_SIZE, int, threading.Lock()]
+		self.profile["printerQueueSize"] = [STD_PRINTER_QUEUE_SIZE, int, threading.Lock()]
 
 		# Wind tunnel ----------------------------------------------------------
 		
@@ -250,23 +249,24 @@ class Profiler:
 		
 		# End Slave list ........................................................ 
 
-		self.profile["dimensions"] = (11,11)
-		self.profile["maxFans"] =  DEFAULT_MAX_FANS
+		self.profile["dimensions"] = (11,11), int, threading.Lock()] 
+		self.profile["maxFans"] =  DEFAULT_MAX_FANS, int, threading.Lock()] 
+, int, threading.Lock()] 
+		# Fan array ------------------------------------------------------------, int, threading.Lock()] 
+		self.profile["fanModel"] = DEFAULT_FAN_MODEL, int, threading.Lock()] 
+		self.profile["fanMode"]  = SINGLE, int, threading.Lock()] 
+	 	self.profile["targetRelation"]  = DEFAULT_TARGET_RELATION, int, threading.Lock()] 
+		self.profile["chaserTolerance"]  = DEFAULT_CHASER_TOLERANCE, int, threading.Lock()] 
+		self.profile["fanFrequencyHZ"] = DEFAULT_FAN_FREQUENCY_HZ, int, threading.Lock()] 
+		self.profile["counterCounts"] = DEFAULT_COUNTER_COUNTS, int, threading.Lock()] 
+		self.profile["counterTimeoutMS"]  = DEFAULT_COUNTER_TIMEOUT_MS, int, threading.Lock()] 
+		self.profile["pulsesPerRotation"]  = DEFAULT_PULSES_PER_ROTATION, int, threading.Lock()] 
+		self.profile["maxRPM"]  = DEFAULT_MAX_RPM, int, threading.Lock()] 
+		self.profile["minRPM"]  = DEFAULT_MIN_RPM, int, threading.Lock()] 
+		self.profile["minDC"]  = DEFAULT_MIN_DC, int, threading.Lock()] 
+		self.profile["maxFanTimeouts"] = DEFAULT_MAX_FAN_TIMEOUTS, int, threading.Lock()] 
+		, int, threading.Lock()] 
+		self.profile["defaultModuleDimensions"] = DEFAULT_MODULE_DIMENSIONS, int, threading.Lock()] 
+		self.profile["defaultModuleAssignment"] = \, int, threading.Lock()] 
+                    DEFAULT_MODULE_ASSIGNMENT, int, threading.Lock()] 
 
-		# Fan array ------------------------------------------------------------
-		self.profile["fanModel"] = DEFAULT_FAN_MODEL
-		self.profile["fanMode"]  = SINGLE
-	 	self.profile["targetRelation"]  = DEFAULT_TARGET_RELATION
-		self.profile["chaserTolerance"]  = DEFAULT_CHASER_TOLERANCE
-		self.profile["fanFrequencyHZ"] = DEFAULT_FAN_FREQUENCY_HZ
-		self.profile["counterCounts"] = DEFAULT_COUNTER_COUNTS
-		self.profile["counterTimeoutMS"]  = DEFAULT_COUNTER_TIMEOUT_MS
-		self.profile["pulsesPerRotation"]  = DEFAULT_PULSES_PER_ROTATION
-		self.profile["maxRPM"]  = DEFAULT_MAX_RPM
-		self.profile["minRPM"]  = DEFAULT_MIN_RPM
-		self.profile["minDC"]  = DEFAULT_MIN_DC
-		self.profile["maxFanTimeouts"] = DEFAULT_MAX_FAN_TIMEOUTS
-		
-		self.profile["defaultModuleDimensions"] = DEFAULT_MODULE_DIMENSIONS
-		self.profile["defaultModuleAssignment"] = \
-                    DEFAULT_MODULE_ASSIGNMENT

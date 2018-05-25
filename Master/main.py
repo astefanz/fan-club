@@ -20,14 +20,10 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"ES2\"" # Reference for consecutive versions
+VERSION = "\"ES3\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
-import Communicator
-import Profiler
 import FCInterface as FCI
-import Slave
-import Fan
 
 #### MAIN ######################################################################       
 

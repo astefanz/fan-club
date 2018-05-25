@@ -39,7 +39,7 @@ import inspect # get line number for debugging
 import numpy as np
 
 import inspect # get line number for debugging
-import Profiler
+import Archiver
 ## CONSTANT VALUES #############################################################    
 
 def d():
@@ -122,9 +122,9 @@ class Printer:
 				format(fileName, profileName))
 			
 			# Translate fanMode parameter:
-			if self.fanMode == Profiler.SINGLE:
+			if self.fanMode == Archiver.SINGLE:
 				fanModeStr = "single"
-			elif self.fanMode == Profiler.DOUBLE:
+			elif self.fanMode == Archiver.DOUBLE:
 				fanModeStr = "double"
 			else:
 				fanModeStr = "[unspecified]"
