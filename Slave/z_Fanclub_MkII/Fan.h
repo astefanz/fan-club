@@ -22,13 +22,23 @@
 #include "settings.h"
 
 // CHOOSE PINOUT:
-#define v2_8
+#define v2_9
 
 // CONSTANT DECLARATIONS ///////////////////////////////////////////////////////
 extern const int 
 	NO_TARGET;
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
+
+// VERSION 2.9 (REVISED V2.4 FOR PCB-1 W JPL FAN ASSIGNMENTS) ==================
+#ifdef v2_9
+#define PINOUT_NAME  "v2.9"
+
+extern PwmOut pwmOut[MAX_FANS];
+
+extern PinName tachIn[MAX_FANS];
+
+#endif // v2_9 // ==============================================================
 
 // VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
 #ifdef v2_8
