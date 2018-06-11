@@ -1,4 +1,5 @@
 BUILD
 *.[oa]
 *~
+*.pyc
 *.swp
