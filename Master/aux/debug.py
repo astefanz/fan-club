@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark II "Master" ## File: main.py  - Main file            ##
+## Project: Fan Club Mark II "Master" # File: debug.py                        ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -20,14 +20,32 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"ES4\"" # Reference for consecutive versions
+## ABOUT #######################################################################
+"""
+Auxiliary debug tools
 
-#### IMPORTS ###################################################################
-import FCInterface as FCI
+"""
+################################################################################
 
-#### MAIN ######################################################################       
-
-interface = FCI.FCInterface(VERSION) 
-interface.mainloop()
+## DEPENDENCIES ################################################################
+import inspect # Get corresponding line number in source
 
 
+## CODE ########################################################################
+
+# PRINT LINE NUMBER:
+db = 0
+def d():
+
+	# Will print the line number of function call
+	print inspect.currentframe().f_back.f_lineno
+		
+	# End d()
+
+# GET LINE NUMBER:
+def l():
+
+	# Will return line number of function call
+	return inspect.currentframe().f_back.f_lineno
+
+	# End l()
