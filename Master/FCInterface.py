@@ -58,7 +58,7 @@ import FCSlave as sv
 from fci import MainGrid as mg
 from fci import SlaveDisplay as sd
 
-from aux import debug as d
+from auxiliary import debug as d
 
 ## CONSTANTS ###################################################################
 

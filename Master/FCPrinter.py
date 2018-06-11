@@ -43,7 +43,7 @@ import numpy as np
 
 # FCMkII:
 import FCArchiver as ac
-from aux import debug as d
+from auxiliary import debug as d
 
 ## CONSTANT VALUES #############################################################    
 

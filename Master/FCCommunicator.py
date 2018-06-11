@@ -48,7 +48,7 @@ import numpy as np	# Fast arrays and matrices
 import FCInterface
 import FCSlave as sv
 import FCPrinter
-from aux import names
+from auxiliary import names
 
 ## CONSTANT DEFINITIONS ########################################################
 

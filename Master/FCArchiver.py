@@ -42,7 +42,7 @@ import threading
 import copy
 
 # Provisional:
-from aux import hardcoded as hc
+from auxiliary import hardcoded as hc
 
 ## CONSTANT VALUES #############################################################
 
