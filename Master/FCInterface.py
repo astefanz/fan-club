@@ -58,6 +58,8 @@ import FCSlave as sv
 from fci import MainGrid as mg
 from fci import SlaveDisplay as sd
 
+from fci import SlaveContainer as sc
+
 from auxiliary import debug as d
 
 ## CONSTANTS ###################################################################
@@ -1144,7 +1146,7 @@ class FCInterface(Tk.Frame):
 				
 				# Create new SlaveContainer:
 				newSlaveContainer = \
-					SlaveContainer(
+					sc.SlaveContainer(
 						name = fetched[0],
 						mac = fetched[1],
 						status = fetched[2],

@@ -244,7 +244,7 @@ class SlaveContainer:
 
 						# Update fan activity:
 						for fan in self.fans[:self.activeFans]:
-							fan.setActive(ACTIVE)
+							fan.setActive(fr.ACTIVE)
 
 				elif fetchedUpdate[0] == sv.VALUE_UPDATE:
 					# Update indices and fan array values:
