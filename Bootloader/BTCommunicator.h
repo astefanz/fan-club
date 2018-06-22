@@ -23,21 +23,36 @@
 #ifndef BTCOMMUNICATOR_H
 #define BTCOMMUNICATOR_H
 
-class EthernetInterface;
-class UDPSocket;
-class SocketAddress;
+// ABOUT: Handle bootloader networking.
 
-class BTDownloader;
+// SEE
+// http://blog.janjongboom.com/2017/10/06/firmware-updates-flashiap.html
+//	(For HTTP flashing)
+
+//// INCLUDES //////////////////////////////////////////////////////////////////
+
+// Mbed:
+#include "EthernetInterface.h"
+#include "mbed.h"
+
+// Standard:
+#include <cstring>
+#include <stdint.h>
+#include <stdio.h>
+
+//// CONSTANTS /////////////////////////////////////////////////////////////////
 
 enum BTCode {START, UPDATE, REBOOT};
+
+//// CLASS INTERFACE ///////////////////////////////////////////////////////////
 
 class BTCommunicator{
 public:
 	/*	Constructor for class BTCommunicator. Sets up networking and starts
 	 *	threads. Will reboot MCU upon network failure. 
 	 */
-	BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts
-		uint16_t listenerPort, uint16_t misoPort, uint16_t mosiPort);
+	BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts,
+		uint16_t listenerPort);
 	
 	/*	Destructor for class BTCommunicator. 
 	 */
@@ -49,11 +64,12 @@ public:
 	
 	/* Download firmware into given file (opened w/ binary write).
 	 */
-	bool download(FILE* file, char errormsg[], int msglength);
+	bool download(Callback<void(const char *at,size_t l)> cback,
+	char errormsg[], int msgLength);
 
 	/* Send error message to Master
 	 */
-	int error(char message[], int msglength) const;
+	int error(const char message[], int msglength);
 
 private:
 
@@ -63,14 +79,14 @@ private:
 	SocketAddress masterBroadcastAddress;
 	uint16_t listenerPort;
 	uint16_t misoPort;
-	uint16_t updatePort;
-	int socketTimeoutMS, 
+	int socketTimeoutMS; 
 	int maxRebootTimeouts;
 	bool networkError;
 	char passwordBuffer[32];
 
-	// FCMkIIB:
-	BTDownloader downloader;
+	// Storage:
+	char filename[64];
+
 };
 
 #endif // BTCOMMUNICATOR_H

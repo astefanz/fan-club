@@ -1,3 +1,6 @@
+// OBSOLETE FILE. IGNORE DURING AUTOMATED COMPILATION 
+#if 0
+
 #include <errno.h>
 #include "mbed.h"
 #include "easy-connect.h"
@@ -255,3 +258,7 @@ int main() {
 
     wait(osWaitForever);
 }
+
+
+
+#endif // #if 0

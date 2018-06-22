@@ -28,83 +28,67 @@
 //// INCLUDES //////////////////////////////////////////////////////////////////
 
 // Mbed:
-#include "core_cm4.h" // NVIC_SystemReset
+#include "mbed.h" // NVIC_SystemReset
 
 
 ////////////////////////////////////////////////////////////////////////////////
 namespace BTUtils{
 
-//// CONSTANTS /////////////////////////////////////////////////////////////////
+//// GLOBAL ACCESS /////////////////////////////////////////////////////////////
 
-// Formatting:
-const char THINLINE[] = 
-"-------------------------------------------------------------------------------"
-"-";
+enum LedCode {RED = 0, MID, GREEN, ALL};
+enum LedValue {ON, OFF, TOGGLE};
 
-const char THICKLINE[] = 
-"==============================================================================="
-"=";
+// LED's:
+DigitalOut leds[2][3] = 
+	{{DigitalOut(LED3), DigitalOut(LED2), DigitalOut(LED3)},
+	 {DigitalOut(D3), DigitalOut(D4), DigitalOut(D5)}};
 
-const char THINLINE_LN[] = 
-"-------------------------------------------------------------------------------"
-"-\n\r";
-
-const char THICKLINE_LN[] = 
-"==============================================================================="
-"=\n\r";
-
-const char LN_LN_THINLINE_LN[] = 
-"\n\n"
-"-------------------------------------------------------------------------------"
-"-\n\r";
-
-const char LN_LN_THICKLINE_LN[] = 
-"\n\n"
-"==============================================================================="
-"=\n\r";
 
 //// AUXILIARY FUNCTIONS ///////////////////////////////////////////////////////
 
-/* Launch application. Deallocates objects for cleanup.
+/* Reboot MCU
  */
-void launch(void** toCleanUp, int amount){
+void reboot(void){
+	wait(0.001);
+	NVIC_SystemReset();
+} // End reboot
+
+/* Control LED's
+ */
+void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 	
-	cleanup(toCleanUp, amount);
-		// NOTE: deallocate also in BTUtils
+	if(led == ALL){
+		for(int i = 0; i < 3; i++){
+			leds[0][i] = value == TOGGLE? !leds[0][i] : value == ON;
+			leds[1][i] = leds[0][i];
+		}
+	} else if (led <= 2 and led >= 0){
+		
+		leds[0][led] = value == TOGGLE? !leds[0][led] : value == ON;
+		leds[1][led] = leds[0][led];
+	
+	} return;
 
-	printf("Launching application\n\r");
-	mbed_start_application(POST_APPLICATION_ADDR);
-
-} // End launch
-
-/* Clean up objects that use hardware resources by calling their destructors.
- * (Each of these is to clean itself up within its destructor.)
- */
-void cleanup(void** toCleanUp, int amount){
-
-	for(int i = 0; i < amount; i++){
-		delete toCleanUp[i];
-	}
-
-	return;
-
-} // End cleanup
+} // End setLED
 
 /* Notify the user of a critical error and reboot.
  */
 void fatal(void){
-	prinf("[ERROR] FATAL BOOTLOADER ERROR. REBOOTING.\n\r");
+	printf("[ERROR] FATAL BOOTLOADER ERROR. REBOOTING.\n\r");
+	
+	// Blink LED's:
+	for(int i = 0; i < 5; i++){
+		setLED(RED, TOGGLE);
+		wait(0.050);
+	}
+	
 	reboot();
 		// NOTE: reboot also in BTUtils
 
 	return;
 } // End fatal
 
-/* Reboot MCU
- */
-void reboot(void){
-	NVIC_SystemReset();
-} // End reboot
 
 } // End namespace BTUtils
 

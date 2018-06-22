@@ -20,34 +20,27 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-//// INCLUDES //////////////////////////////////////////////////////////////////
 #include "BTCommunicator.h"
 
-// FCMkII:
-#include "BTDownloader.h"
 
-// Mbed:
-#include "EthernetInterface.h"
-#include "UDPSocket.h"
-#include "mbed.h"
+// HTTP Client:
+#include "easy-connect.h"
+#include "http_request.h"
 
-// Standard:
-#include <cstring.h>
 
 //// FUNCTION DEFINITIONS //////////////////////////////////////////////////////
 
-BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts
+BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts,
 	uint16_t listenerPort):
 	ethernet(), listenerSocket(),
 	masterBroadcastAddress(),
 	listenerPort(listenerPort),
 	misoPort(0),
-	updatePort(0),
 	socketTimeoutMS(socketTimeoutMS), maxRebootTimeouts(maxRebootTimeouts),
-	networkError(false), endThread(false),
-	downloader() {
+	networkError(false){
 
-	passwordBuffer[0] = '\0';
+	this->passwordBuffer[0] = '\0';
+	this->filename[0] = '\0';
 
 	int result = -666; // Keep track of error codes;
 
@@ -56,26 +49,26 @@ BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts
 	// Ethernet interface:
 	result = int(this->ethernet.connect());
 	if (result != 0) {
-		printf("\tERROR initializing ethernet interface (%d)", result);
+		printf("\tERROR initializing ethernet interface (%d)\n\r", result);
 		this->networkError = true;
 		return;
 	}
 
-	// Sockets:
-	
-	this->listenerSocket.open(this->ethernet);
+	// Sockets:	
+	this->listenerSocket.open(&this->ethernet);
 	this->listenerSocket.bind(listenerPort);
 	this->listenerSocket.set_timeout(socketTimeoutMS);
+
+	printf("\tConnected as %s (%d)\n\r", 
+		this->ethernet.get_ip_address(), this->listenerPort);
 
 	return;
 } // End constructor
 
-~BTCommunicator(void){
+BTCommunicator::~BTCommunicator(void){
 	
 	// Close sockets and network interface:
 	this->listenerSocket.close();
-	this->misoSocket.close();
-	this->mosiSocket.close();
 	this->ethernet.disconnect();
 
 } // End destructor
@@ -100,25 +93,26 @@ BTCode BTCommunicator::listen(uint16_t bufferSize){
 		// Check for errors:
 		if (bytesReceived == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
+			printf("\tWaiting... [%2d/%2d]\n\r", 
+				timeouts, this->maxRebootTimeouts);
 
 			timeouts++;
 			if (timeouts >= this->maxRebootTimeouts){
-				printf("\tERROR: Timeout limit reached while listening");
+				printf("\tERROR: Timeout limit reached while listening\n\r");
 				returnCode = REBOOT;
 				break;
 			}
 		
 		} else if (bytesReceived <= 0){
 			// Network error
-			printf("\tERROR: Unrecognized network error code %d", 
+			printf("\tERROR: Unrecognized network error code %d\n\r", 
 				bytesReceived);
 			returnCode = REBOOT;
 			break;
 		
 		} else if (this->networkError){	
 			// Network error
-			printf("\tERROR: Network error flag raised", 
-				bytesReceived);
+			printf("\tERROR: Network error flag raised\n\r");
 			returnCode = REBOOT;
 			break;
 		
@@ -126,101 +120,104 @@ BTCode BTCommunicator::listen(uint16_t bufferSize){
 			// Something was received. Reset timeout counter
 
 			timeouts = 0;
-		}
 
-		// Parse message:
+			// Parse message:
 
-		/* NOTE: The following are expected broadcast formats:
-		 * 
-		 * FORMAT                                  | MEANING
-		 * ----------------------------------------+----------------------------
-		 * 00000000|password|N|listenerPort        | STD broadcast
-		 * 00000000|password|S                     | Start application
-		 * 00000000|password|U|updatePort          | HSK for update
-		 * ----------------------------------------+----------------------------
-		 */
-		
-		char *splitPointer = NULL, *savePointer = NULL;
-		// Skip index and password:
-		strtok_r(mosiBuffer, "|", &savePointer); // Should point to index
-		splitPointer = strtok_r(NULL, "|", &savePointer); // Should point to
-														  // password
+			/* NOTE: The following are expected broadcast formats:
+			 * 
+			 * FORMAT                                  | MEANING
+			 * ----------------------------------------+----------------------------
+			 * 00000000|password|N|listenerPort        | STD broadcast
+			 * 00000000|password|S                     | Start application
+			 * 00000000|password|U|filename            | HSK for update
+			 * ----------------------------------------+----------------------------
+			 */
+			
+			char *splitPointer = NULL, *savePointer = NULL;
+			// Skip index and password:
+			strtok_r(mosiBuffer, "|", &savePointer); // Should point to index
+			splitPointer = strtok_r(NULL, "|", &savePointer); // Should point to
+															  // password
 
-		snprintf(this->passwordBuffer, 32, splitPointer);
+			snprintf(this->passwordBuffer, 32, splitPointer);
 
-		// Prepare standard reply:
-		snprintf(misoBuffer, bufferSize, "00000000|%s|B|%s|%u",
-			this->passwordBuffer, 
-			this->ethernet.get_mac_address(),
-			this->listenerPort);
+			// Prepare standard reply:
+			snprintf(misoBuffer, bufferSize, "00000000|%s|B|%s|%u",
+				this->passwordBuffer, 
+				this->ethernet.get_mac_address(),
+				this->listenerPort);
 
-		// Get specifying character:
-		splitPointer = strtok_r(NULL, "|", &savePointer); // Should point to 
-														  // spec. character
+			// Get specifying character:
+			splitPointer = strtok_r(NULL, "|", &savePointer); // Should point to 
+															  // spec. character
 
-		// Check for errors:
-		if(splitPointer == NULL){
-			// Bad message
-			printf("\tERROR: Bad message from broadcast (\"%s\") discarded",
-				mosiBuffer);
-			continue;
-		
-		} else if (splitPointer[0] == 'S'){
-			// Start application
-			returnCode = START;
-			break;
-		
-		} else if (splitPointer[0] == 'N'){
-			// Standard broadcast. Send standard reply
+			// Check for errors:
+			if(splitPointer == NULL){
+				// Bad message
+				printf("\tERROR: Bad message from broadcast (\"%s\") discarded\n\r",
+					mosiBuffer);
+				continue;
+			
+			} else if (splitPointer[0] == 'S'){
+				// Start application
+				returnCode = START;
+				break;
+			
+			} else if (splitPointer[0] == 'N'){
+				// Standard broadcast. Send standard reply
+					
+				// Fetch Master listener port (MISO port):
+				splitPointer = strtok_r(NULL, "|", &savePointer);
+				if(splitPointer == NULL){
+					printf("\tERROR: NULL splitter when getting Master "\
+						"listener port\n\r");
+					continue;	
+				}
+				this->misoPort = atoi(splitPointer);
+				if(this->misoPort <= 0 or this->misoPort >= 65535){
+					printf("\tERROR: Bad Master listener port (\"%d\")\n\r",
+						misoPort);
+					continue;
+				}
+
+				// Send standard reply:
+				this->listenerSocket.sendto(
+					this->masterBroadcastAddress.get_ip_address(),
+					this->misoPort,
+					misoBuffer,
+					strlen(misoBuffer)
+				);
+
+			} else if (splitPointer[0] == 'U') {
+				// Fetch update
 				
-			// Fetch Master listener port (MISO port):
-			splitPointer = strtok_r(NULL, "|", &savePointer);
-			if(splitPointer == NULL){
-				printf("\tERROR: NULL splitter when getting Master listener port");
-				continue;	
-			}
-			this->misoPort = atoi(splitPointer);
-			if(this->misoPort <= 0 or this->misoPort >= 65535){
-				printf("\tERROR: Bad Master listener port (\"%d\")", misoPort);
+				// Get update port:
+				splitPointer = strtok_r(NULL, "|", &savePointer);
+				if(splitPointer == NULL){
+					printf("\tERROR: NULL splitter when getting filename\n\r");
+					continue;	
+				}
+				strcpy(this->filename, splitPointer);
+				if(strlen(this->filename) <= 0){
+					printf("\tERROR: Missing filename\n\r");
+					continue;
+				}
+				
+				returnCode = UPDATE;
+				break;
+			
+			} else {
+				// Unrecognized character. Discard message
+				printf("\tERROR: Unrecognized character code '%c' discarded\n\r",
+					splitPointer[0]);
 				continue;
 			}
 
-			// Send standard reply:
-			this->listenerSocket.sendto(
-				this->masterBroadcastAddress.get_ip_address(),
-				this->misoPort,
-				misoBuffer,
-				strlen(misoBuffer)
-			);
+				// To attempt a connection, send request and wait for reply
+				// Either secure handshake or start application
 
-		} else if (splitPointer[0] == 'U') {
-			// Fetch update
-			
-			// Get update port:
-			splitPointer = strtok_r(NULL, "|", &savePointer);
-			if(splitPointer == NULL){
-				printf("\tERROR: NULL splitter when getting Master update port");
-				continue;	
-			}
-			this->updatePort = atoi(splitPointer);
-			if(this->updatePort <= 0 or this->updatePort >= 65535){
-				printf("\tERROR: Bad Master update port (\"%d\")", updatePort);
-				continue;
-			}
-			
-			returnCode = UPDATE;
-			break;
-		
-		} else {
-			// Unrecognized character. Discard message
-			printf("\tERROR: Unrecognized character code '%c' discarded",
-				splitPointer[0]);
-			continue;
-		}
+		} // End check reception
 
-			// To attempt a connection, send request and wait for reply
-			// Either secure handshake or start application
-	
 	} while(timeouts <= this->maxRebootTimeouts);
 
 	delete[] misoBuffer;
@@ -230,95 +227,50 @@ BTCode BTCommunicator::listen(uint16_t bufferSize){
 
 } // End listen
 
-bool BTCommunicator::download(FILE* file, char errormsg[], int msgLength){
-	
-	// Verify file -------------------------------------------------------------
-	if (file == NULL){
-		printf("\tERROR: NULL file pointer in download function\n\r");
-		snprintf(errormsg, msgLength, "NULL file pointer in download function");
-		return false;
+bool BTCommunicator::download(Callback<void(const char *at,size_t l)> cback,
+	char errormsg[], int msgLength){
+
+	// Try to get file ---------------------------------------------------------
+	char address[128];
+
+	/*
+	NetworkInterface* network;
+	network = easy_connect(true);
+
+	if(network == NULL){
+		printf("\tERROR: could not connect NetworkInterface\n\r");
+		snprintf(errormsg, msgLength, "Could not connect NetworkInterface");
+		return false; 
 	}
+	*/
 
-	// Verify connection -------------------------------------------------------
-	if(this->misoPort < 0 or this->misoPort > 65535){
-		// Invalid Master listener port. Cannot send error message
-		printf("ERROR: BTC download called w/ invalid MISO port %d\n\r",
-			misoPort);
-		return 0;
-
-	} else if (misoPort == 0){
-		// Also invalid MISO port
-		printf("ERROR: BTC download called w/ MISO port 0 (disconnected?)\n\r",
-			misoPort);
-		return 0;
-	}
-
-	// Download update ---------------------------------------------------------
-
-	bool done = false;
-	bool success = false;
-
-	// Start download
-	this->downloader.download(
-		file, masterBroadcastAddress.get_ip_address(), misoPort,
-		errormsg, msgLength);
-
-	printf("\r\tDownloading [  0%%]");
-
-	// Track download
-	while (not done){
+	snprintf(address, 128, "http://%s:8000/%s",
+		this->masterBroadcastAddress.get_ip_address(), this->filename);
 	
-		// Check download status:
-		DWStatus status = this->downloader.getStatus();
+	printf("\tConnecting to %s\n\r", address);
+	
+	HttpRequest* req = new HttpRequest(
+		&this->ethernet, HTTP_GET, address, cback);
 
-		switch(status){
-		
-			case DOWNLOADING:	
-				printf("\r\tDownloading [%3u%%]", 
-					this->downloader.getPercentage());
-				break;
+    HttpResponse* res = req->send();
+    if (!res) {
+        snprintf(errormsg, msgLength,
+			"HttpRequest failed (error code %d)", req->get_error());
+        return false;
+    }
 
-			case ERROR:
-				// NOTE: Error message will be written by downloader
-				printf("\n\tERROR in Downloader\n\t");
-				success = false;
-				done = true;
-				break;
+	delete req;
 
-			case DONE:
-				printf("\r\tDownloading [100%%]", 
-				success = true;
-				done = true;
-				break;
-
-			default:
-				printf("\r\tERROR: unrecognized Downloader status code %d\n\t",
-					int(status));
-				this->downloader.shutdown();
-				success = false;
-				done = true;
-				break;
-		}
-
-	} // End track download
-
-	return success;
+	return true;
 
 } // End download
 
-int BTCommunicator::error(char message[], int msgLength) const {
+int BTCommunicator::error(const char message[], int msgLength) {
 	
 	// Verify connection:
-	if(this->misoPort < 0 or this->misoPort > 65535){
-		// Invalid Master listener port. Cannot send error message
-		printf("ERROR: BTC error called w/ invalid MISO port %d\n\r",
-			misoPort);
-		return 0;
-
-	} else if (misoPort == 0){
+	if (misoPort == 0){
 		// Also invalid MISO port
-		printf("ERROR: BTC error called w/ MISO port 0 (disconnected?)\n\r",
-			misoPort);
+		printf("ERROR: BTC error called w/ MISO port 0 (disconnected?)\n\r");
 		return 0;
 	} // End verificaton
 
@@ -327,12 +279,12 @@ int BTCommunicator::error(char message[], int msgLength) const {
 
 	i = snprintf(errorMessage, 512, "00000000|%s|B|%s|BERR|",
 		this->passwordBuffer,
-		this->ethernet.get_mac_address(),
+		this->ethernet.get_mac_address()
 	);
 
-	// TODO: WRITING SAFE PRINT INTO ERRORMSG BUFFER
-
-	snprintf(errorMessage + i, i + msgLength < 512?
+	snprintf(errorMessage + i, 
+		msgLength < 512 - i ? msgLength : 512 - i - msgLength,
+		message);
 
 	// Send given error message:
 	return this->listenerSocket.sendto(
@@ -343,4 +295,3 @@ int BTCommunicator::error(char message[], int msgLength) const {
 	);
 
 } // End error
-

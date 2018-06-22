@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "INIT 0" // Initial version
+#define FCIIB_VERSION "INIT 1" // Initial version
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -38,7 +38,6 @@
 #include "BTFlash.h" // Write to flash memory
 
 // Mbed:
-#include "Serial.h"
 #include "HeapBlockDevice.h"
 #include "FATFileSystem.h"
 #include "mbed.h"
@@ -49,70 +48,77 @@
 #define MAX_REBOOT_TIMEOUTS 30
 
 #define LISTENER_PORT 65000
-#define MISO_PORT 55000
-#define MOSI_PORT 55001
 
-#define UPDATE_HEAP_KBYTES 140
+#define UPDATE_HEAP_KBYTES 160
 	// NOTE: The NUCLEO_F429ZI has about 250 KB's of RAM
 #define UPDATE_BLOCKSIZE 512
 
 #define FILENAME "/fs/update.bin"
 
-#define MSG_LENGTH 128 // For message buffers
+#define MSG_LENGTH 256 // For message buffers
+
+////////////////////////////////////////////////////////////////////////////////
+
+FILE* file;
+size_t received;
+size_t receivedPackets;
+
+void _storeFragment(const char* buffer, size_t size) {
+    fwrite(buffer, 1, size, file);
+
+    received += size;
+    receivedPackets++;
+
+	/* (DEBUG)
+    if (received_packets % 20 == 0) {
+        printf("Received %u bytes\n", received);
+    }
+	*/
+} // End _storeFragment
 
 //// MAIN //////////////////////////////////////////////////////////////////////
 int main() {
 
 	// Initialization ==========================================================
-	
+
+	BTUtils::setLED(BTUtils::RED, BTUtils::ON);
+
 	// Prepare Serial communications:
 	Serial PC(USBTX, USBRX, BAUDRATE);
 
 	// Print initialization message:
-	printf(BTUtils::LN_LN_THICKLINE_LN);
-	printf("FCMkII Bootloader (\"%s\") (%dKiB)\n\r", 
-		FCIIB_VERSION, UPDATE_HEAP_KBYTES);
-	printf(BTUtils::THINLINE_LN);
+	printf("\n\n\r==========================================================="\
+	"=====================\n\r");
+	printf("FCMkII Bootloader (\"%s\") (Capacity: %dKiB) (Port: %d)\n\r", 
+		FCIIB_VERSION, UPDATE_HEAP_KBYTES, LISTENER_PORT);
+	printf("----------------------------------------------------------------"\
+		"----------------\n\r");
 	
-	// Store references to objects using hardware resources that need cleanup
-	// (in order to safely launch application)
-	#define numObjects 3
-	int numAllocatedObjects = 0;
-	void* objects[numObjects];
-	for(int i = 0; i < numObjects; i++0){
-		objects[i] = nullptr;
-	}
-
-	// TODO: Keep track of object sizes
-	// TODO: Debug button
-
-	printf("WARNING: SEE TODO'S IN SOURCE\n\r");
-
 	// Initialize communications:
+	printf("Starting communications:\n\r ");
 	BTCommunicator* comms = new BTCommunicator(
-		SOCKET_TIMEOUT_MS, MAX_REBOOT_TIMEOUTS, LISTENER_PORT,
-		MISO_PORT, MOSI_PORT);
-	objects[numAllocatedObjects++] = comms;
-	printf(BTUtils::THINLINE_LN);
+		SOCKET_TIMEOUT_MS, MAX_REBOOT_TIMEOUTS, LISTENER_PORT);
+	printf("\tDone\n\r");
 
+	BTUtils::setLED(BTUtils::MID, BTUtils::ON);
+
+	printf("Listening for messages:\n\r");
 	// Listen for messages:
 	switch(comms->listen(MSG_LENGTH)){
 		
-		case START:
+		case START: {
 			// Launch FCMkII
 			
 			printf("Launching program\n\r");
-			printf(THICKLINE_LN);
-			
-			// Clean up hardware: 
-			// TODO: Cleanup
-			printf("WARNING: NO HARDWARE CLEANUP\n\r");
+			printf("--------------------------------------------------------"\
+			"------------------------\n\n");
 
 			// Jump to MkII:
-			BTUtils::launch(objects, numAllocatedObjects);
+			delete comms;
+			mbed_start_application(POST_APPLICATION_ADDR);
 			break;
-		
-		case UPDATE:
+		}
+		case UPDATE: {
 			// Launch Update sequence
 			printf("Processing update order\n\r");
 
@@ -122,24 +128,28 @@ int main() {
 			HeapBlockDevice bd(1024*UPDATE_HEAP_KBYTES, UPDATE_BLOCKSIZE);
 			FATFileSystem fs("fs");
 
-			if(bd.init != 0){
+			if(bd.init() != 0){
 				printf("ERROR: could not initialize Heap Block Device\n\r");
 				comms->error(
-					"Filesystem error: could not initialize HeapBlockDevice");
+					"Filesystem error: could not initialize HeapBlockDevice",
+					MSG_LENGTH	
+				);
 				BTUtils::fatal();
 			}
 
-			if(FATFileSystem::format(&bd) == NULL){
+			if(FATFileSystem::format(&bd) != 0){
 				printf("ERROR: could not format filesystem\n\r");
 				comms->error(
-					"Filesystem error: could not format block device");
+					"Filesystem error: could not format block device",
+					MSG_LENGTH
+				);
 				BTUtils::fatal();
 			}
 			
 			int errcode = -666;
 			if((errcode = fs.mount(&bd)) != 0){
 				printf("ERROR: could not mount filesystem (%d)\n\r", errcode);
-				comms->error("Filesystem error: could not mount", errcode);
+				comms->error("Filesystem error: could not mount", MSG_LENGTH);
 				BTUtils::fatal();
 			}
 
@@ -148,12 +158,11 @@ int main() {
 
 			// Download file ---------------------------------------------------
 			char errormsg[MSG_LENGTH] = {0};
-			FILE* file = fopen(FILENAME, "wb");
-			comms->download(file, errormsg, MSG_LENGTH);
-		
-			if((errormsg[0] != '\0')){
+			file = fopen(FILENAME, "wb");
+					
+			if(!comms->download(_storeFragment, errormsg, MSG_LENGTH)){
 				printf("ERROR downloading file: \"%s\"\n\r", 
-					errormsg, MSG_LENGTH);
+					errormsg);
 				comms->error(errormsg, MSG_LENGTH);
 				BTUtils::fatal();
 			}
@@ -168,49 +177,44 @@ int main() {
 			BTFlash::flash(file, POST_APPLICATION_ADDR, errormsg, MSG_LENGTH);
 			fclose(file);
 
+			printf("Done with BTFlash\n\r");
+
 			if(errormsg[0] != '\0'){
-				printf("Error flashing file: \"%s\"\n\r", errormsg, MSG_LENGTH);
+				printf("Error flashing file: \"%s\"\n\r", errormsg);
 				comms->error(errormsg, MSG_LENGTH);
 				BTUtils::fatal();
 			}
 
+			// Disassemble filesystem ------------------------------------------
+			printf("Disassembling Filesystem:\n\r");
+			fs.unmount();
+			bd.deinit();
+			printf("\tDone\n\r");
+
 			// Jump to MkII ----------------------------------------------------
-			BTUtils::launch(objects, numAllocatedObjects);
-
-		case REBOOT:
+			delete comms;
+			printf("Launching application\n\r");
+			mbed_start_application(POST_APPLICATION_ADDR);
+			break;
+		
+		}
+		case REBOOT: {
 			// Reboot Bootloader
-
+			
+			printf("Rebooting\n\r");
 			BTUtils::reboot();
-	
-	}
-	
-
-/* * SCRATCH:
-
-	Need to:
-	- UDP comms
-		- Listen and respond to broadcast
-		- Communicate w/ SV thread
-		- 
-	- Track comms status
-	- HTTP transmission
-	- Heap file management
-	- Flash board w/ feedback for UDP
-	
-
-	OOP Breakdown:
-	- BTCommunicator
-	- BTDownloader
-	- BTFlasher
-
-	* Have Downloader and Flasher use externally declared file -> Set up file-
-		system in main file.
-
-* */
-
-	// 
+			break;
+		}
+		default: {
+			printf("ERROR: Unrecognized status code\n\r");
+			BTUtils::fatal();
+			break;
+		}
+	} // End switch
 
 	return 0;
-}
+
+} // end main
+
 
 ////////////////////////////////////////////////////////////////////////////////

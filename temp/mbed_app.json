@@ -1,0 +1,10 @@
+{
+	"target_overrides":{
+		
+		"NUCLEO_F429ZI":{
+		   "target.bootloader_img":"../Bootloader/BUILD/NUCLEO_F429ZI/GCC_ARM/Bootloader.bin"
+	
+		}
+	}
+	
+}

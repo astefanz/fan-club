@@ -92,12 +92,12 @@ void print_MAC(NetworkInterface* network_interface, bool log_messages) {
     const char *mac_addr = network_interface->get_mac_address();
     if (mac_addr == NULL) {
         if (log_messages) {
-            printf("[EasyConnect] ERROR - No MAC address\n");
+            printf("[EasyConnect] ERROR - No MAC address\n\r");
         }
         return;
     }
     if (log_messages) {
-        printf("[EasyConnect] MAC address %s\n", mac_addr);
+        printf("[EasyConnect] MAC address %s\n\r", mac_addr);
     }
 }
 
@@ -112,35 +112,35 @@ NetworkInterface* easy_connect(bool log_messages = false) {
     int connect_success = -1;
     /// This should be removed once mbedOS supports proper dual-stack
 #if defined (MESH) || (MBED_CONF_LWIP_IPV6_ENABLED==true)
-    printf("[EasyConnect] IPv6 mode\n");
+    printf("[EasyConnect] IPv6 mode\n\r");
 #else
-    printf("[EasyConnect] IPv4 mode\n");
+    printf("[EasyConnect] IPv4 mode\n\r");
 #endif
 
  #if MBED_CONF_APP_NETWORK_INTERFACE == WIFI_ESP8266
     if (log_messages) {
-        printf("[EasyConnect] Using WiFi (ESP8266) \n");
-        printf("[EasyConnect] Connecting to WiFi %s\n", MBED_CONF_APP_WIFI_SSID);
+        printf("[EasyConnect] Using WiFi (ESP8266) \n\r");
+        printf("[EasyConnect] Connecting to WiFi %s\n\r", MBED_CONF_APP_WIFI_SSID);
     }
     network_interface = &wifi;
     connect_success = wifi.connect(MBED_CONF_APP_WIFI_SSID, MBED_CONF_APP_WIFI_PASSWORD, NSAPI_SECURITY_WPA_WPA2);
 #elif MBED_CONF_APP_NETWORK_INTERFACE == WIFI_ODIN
     if (log_messages) {
-        printf("[EasyConnect] Using WiFi (ODIN) \n");
-        printf("[EasyConnect] Connecting to WiFi %s\n", MBED_CONF_APP_WIFI_SSID);
+        printf("[EasyConnect] Using WiFi (ODIN) \n\r");
+        printf("[EasyConnect] Connecting to WiFi %s\n\r", MBED_CONF_APP_WIFI_SSID);
     }
     network_interface = &wifi;
     connect_success = wifi.connect(MBED_CONF_APP_WIFI_SSID, MBED_CONF_APP_WIFI_PASSWORD, NSAPI_SECURITY_WPA_WPA2);
 #elif MBED_CONF_APP_NETWORK_INTERFACE == WIFI_RTW
     if (log_messages) {
-        printf("[EasyConnect] Using WiFi (RTW)\n");
-        printf("[EasyConnect] Connecting to WiFi %s\n", MBED_CONF_APP_WIFI_SSID);
+        printf("[EasyConnect] Using WiFi (RTW)\n\r");
+        printf("[EasyConnect] Connecting to WiFi %s\n\r", MBED_CONF_APP_WIFI_SSID);
     }
     network_interface = &wifi;
     connect_success = wifi.connect(MBED_CONF_APP_WIFI_SSID, MBED_CONF_APP_WIFI_PASSWORD, NSAPI_SECURITY_WPA_WPA2);
 #elif MBED_CONF_APP_NETWORK_INTERFACE == ETHERNET
     if (log_messages) {
-        printf("[EasyConnect] Using Ethernet\n");
+        printf("[EasyConnect] Using Ethernet\n\r");
     }
     network_interface = &eth;
     connect_success = eth.connect();
@@ -148,8 +148,8 @@ NetworkInterface* easy_connect(bool log_messages = false) {
 
 #ifdef MESH
     if (log_messages) {
-        printf("[EasyConnect] Using Mesh\n");
-        printf("[EasyConnect] Connecting to Mesh..\n");
+        printf("[EasyConnect] Using Mesh\n\r");
+        printf("[EasyConnect] Connecting to Mesh..\n\r");
     }
     network_interface = &mesh;
     mesh.initialize(&rf_phy);
@@ -157,25 +157,25 @@ NetworkInterface* easy_connect(bool log_messages = false) {
 #endif
     if(connect_success == 0) {
         if (log_messages) {
-            printf("[EasyConnect] Connected to Network successfully\n");
+            printf("[EasyConnect] Connected to Network successfully\n\r");
             print_MAC(network_interface, log_messages);
         }
     } else {
         if (log_messages) {
             print_MAC(network_interface, log_messages);
-            printf("[EasyConnect] Connection to Network Failed %d!\n", connect_success);
+            printf("[EasyConnect] Connection to Network Failed %d!\n\r", connect_success);
         }
         return NULL;
     }
     const char *ip_addr  = network_interface->get_ip_address();
     if (ip_addr == NULL) {
         if (log_messages) {
-            printf("[EasyConnect] ERROR - No IP address\n");
+            printf("[EasyConnect] ERROR - No IP address\n\r");
         }
         return NULL;
     }
     if (log_messages) {
-        printf("[EasyConnect] IP address %s\n", ip_addr);
+        printf("[EasyConnect] IP address %s\n\r", ip_addr);
     }
     return network_interface;
 }
