@@ -39,8 +39,11 @@
 
 // Mbed:
 #include "HeapBlockDevice.h"
-#include "FATFileSystem.h"
+#include "LittleFileSystem.h"
 #include "mbed.h"
+
+// Standard:
+#include <errno.h>
 
 //// SETTINGS //////////////////////////////////////////////////////////////////
 #define BAUDRATE 460800
@@ -62,15 +65,28 @@
 FILE* file;
 size_t received;
 size_t receivedPackets;
+bool errorflag;
+size_t receivedError = 0;
+int errorBuffer[4] = {0};
 
 void _storeFragment(const char* buffer, size_t size) {
-  	int res = (int)fwrite(buffer, 1, size, file);
+ 
+	static uint8_t errorCount = 0;
+	int res = (int)fwrite(buffer, 1, size, file);
 
     received += size;
     receivedPackets++;
 
-	if(receivedPackets %20 == 0)
-		printf("\rDownloaded %uB [fwrite: %d]", received, res);
+	if(receivedPackets %20 == 0){
+		printf("\rDownloaded %uB [fwrite: %d][size: %u][errno: %2d]", received, res,
+			size, errno);
+
+	}
+
+	if(ferror(file)){
+		errorflag = true;
+		if(receivedError == 0) receivedError = received;
+	}
 
 	/* (DEBUG)
     if (received_packets % 20 == 0) {
@@ -129,7 +145,7 @@ int main() {
 			printf("Setting up filesystem:\n\r");
 	
 			HeapBlockDevice bd(1024*UPDATE_HEAP_KBYTES, UPDATE_BLOCKSIZE);
-			FATFileSystem fs("fs");
+			LittleFileSystem fs("fs");
 
 			if(bd.init() != 0){
 				printf("ERROR: could not initialize Heap Block Device\n\r");
@@ -140,7 +156,7 @@ int main() {
 				BTUtils::fatal();
 			}
 
-			if(FATFileSystem::format(&bd) != 0){
+			if(LittleFileSystem::format(&bd) != 0){
 				printf("ERROR: could not format filesystem\n\r");
 				comms->error(
 					"Filesystem error: could not format block device",
@@ -159,18 +175,24 @@ int main() {
 			printf("\tFilesystem initialized w/ %dKiB and %dB blocks\n\r", 
 				UPDATE_HEAP_KBYTES, UPDATE_BLOCKSIZE);
 
+			bd.erase(0, 1024*100);
+
 			// Download file ---------------------------------------------------
 			char errormsg[MSG_LENGTH] = {0};
 			file = fopen(FILENAME, "wb");
 					
 			if(!comms->download(_storeFragment, errormsg, MSG_LENGTH)){
-				printf("ERROR downloading file: \"%s\"\n\r", 
+				printf("\n\rERROR downloading file: \"%s\"\n\r", 
 					errormsg);
 				comms->error(errormsg, MSG_LENGTH);
 				BTUtils::fatal();
+			} else if (errorflag){
+				printf("\n\rERROR: Write file error flag raised (byte %u)\n\r",
+					receivedError);
+				BTUtils::fatal();
 			}
 			fclose(file);
-			
+		
 			printf("File downloaded successfully\n\r");
 
 			// Flash file ------------------------------------------------------

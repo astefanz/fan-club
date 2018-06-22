@@ -124,6 +124,8 @@ BTCode BTCommunicator::listen(uint16_t bufferSize){
 		} else {
 			// Something was received. Reset timeout counter
 
+			mosiBuffer[bytesReceived < bufferSize? bytesReceived:bufferSize-1] =
+				'\0';
 			timeouts = 0;
 
 			// Parse message:

@@ -1,7 +1,7 @@
-#include <stdio.h>
+#include <mbed.h>
+DigitalOut led(LED1);
 
 int main(){
-
-	putchar(',');
+	led = true;
 	return 0;
 }
