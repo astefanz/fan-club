@@ -60,7 +60,6 @@ void flash(char storage[], uint32_t amount, uint32_t address){
     size_t pages_flashed = 0;
     uint32_t percent_done = 0;
 	int result = -666; // Store returned codes for error checking
-	bool success = false;
 
 	/* DEBUG
 	printf("\t Page size: %uB \n\r\tSector size: %dB\n\r",

@@ -50,6 +50,7 @@ DigitalOut leds[2][3] =
 /* Reboot MCU
  */
 void reboot(void){
+	printf("REBOOTING\n\r");
 	wait(0.001);
 	NVIC_SystemReset();
 } // End reboot
@@ -63,7 +64,7 @@ void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 			leds[0][i] = value == TOGGLE? !leds[0][i] : value == ON;
 			leds[1][i] = leds[0][i];
 		}
-	} else if (led <= 2 and led >= 0){
+	} else {
 		
 		leds[0][led] = value == TOGGLE? !leds[0][led] : value == ON;
 		leds[1][led] = leds[0][led];
@@ -75,7 +76,7 @@ void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 /* Notify the user of a critical error and reboot.
  */
 void fatal(void){
-	printf("[ERROR] FATAL BOOTLOADER ERROR. REBOOTING.\n\r");
+	printf("FATAL ERROR\n\r");
 	
 	// Blink LED's:
 	for(int i = 0; i < 5; i++){
@@ -89,6 +90,16 @@ void fatal(void){
 	return;
 } // End fatal
 
+void launch(void){
+	
+	printf("Launching application\n\r");
+	printf("==========================================================="\
+		"=====================\n\r");
+	wait(0.001);
+	mbed_start_application(POST_APPLICATION_ADDR);
+	// Launch application
+
+} // End launch
 
 } // End namespace BTUtils
 
