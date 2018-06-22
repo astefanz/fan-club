@@ -43,13 +43,10 @@ namespace BTFlash{
 
 /* Flash given file into the given application address in flash memory.
  */
-void flash(FILE* file, uint32_t address, char errormsg[], int msglength){
+void flash(char storage[], uint32_t amount, uint32_t address){
 	static FlashIAP flashIAP;
 	
-	fseek(file, 0, SEEK_END);
-	long len = ftell(file);
-	printf("\tFirmware size is %ldB\n\r", len);
-	fseek(file, 0, SEEK_SET);
+	printf("\tFirmware size is %lu B\n\r", amount);
 	
 	printf("\tInitializing FlashIAP\n\r");
     flashIAP.init();
@@ -71,21 +68,19 @@ void flash(FILE* file, uint32_t address, char errormsg[], int msglength){
 	*/
 	
 	putchar('\n');
-
-	while (true) {
-		printf("\r\tFlashing");
+	uint32_t copied = 0;
+	uint32_t count = 0;
+	while (count < amount) {
+		if(count%20 ==0) printf("\r\tFlashing");
 
 		// Read data for this page
 		memset(page_buffer, 0, sizeof(page_buffer));
-        int size_read = fread(page_buffer, 1, page_size, file);
+        
+		for(uint32_t i = 0; i < page_size; i++){
+			page_buffer[i] = storage[count + i];
+			copied++;
+		}
 
-        if (size_read <= 0) {
-			errormsg[0] = '\0';
-			success = true;
-            break;
-        }
-
-		putchar('.');
 
         // Erase this page if it hasn't been erased
         if (!sector_erased) {
@@ -95,14 +90,11 @@ void flash(FILE* file, uint32_t address, char errormsg[], int msglength){
 					result, addr);
 
 				// Error erasing
-				snprintf(errormsg, msglength, "Error (%d) while erasing on %lx",
-					result, addr);
 				break;
 			}
 			sector_erased = true;
         }
 		
-		putchar('.');
 
         // Program page
 		result = flashIAP.program(page_buffer, addr, page_size);
@@ -111,30 +103,31 @@ void flash(FILE* file, uint32_t address, char errormsg[], int msglength){
 			printf("\n\r\tError (%d) while writing on %lx\n\r",
 				result, (long int)addr);
 
-			snprintf(errormsg, msglength, "Error (%d) while writing on %lx",
-				result, (long int)addr);
 			break;
 		}
         
 
-		putchar('.');
 		addr += page_size;
         if (addr >= next_sector) {
             next_sector = addr + flashIAP.get_sector_size(addr);
             sector_erased = false;
         }
 
-		putchar('.');
-        if (++pages_flashed % 3 == 0) {
-            uint32_t percent_done_new = ftell(file) * 100 / len;
+		pages_flashed++;
+        if (count % 20 == 0) {
+            uint32_t percent_done_new = count * 100 / amount;
             if (percent_done != percent_done_new) {
                 percent_done = percent_done_new;
-                printf(" %3ld%%", percent_done);
+                printf("%lu/%lu [%3ld%%]", count, amount, percent_done);
             }
         }
+
+		count++;
     }
 
     delete[] page_buffer;
+
+	printf("\n\r\tFlashed %lu/%lu [%3ld%%]", count, amount, count*100/amount);
 
 	printf("\n\r\tDeinitializing FlashIAP:\n\r");
     flashIAP.deinit();

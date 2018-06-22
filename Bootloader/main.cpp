@@ -38,12 +38,7 @@
 #include "BTFlash.h" // Write to flash memory
 
 // Mbed:
-#include "HeapBlockDevice.h"
-#include "LittleFileSystem.h"
 #include "mbed.h"
-
-// Standard:
-#include <errno.h>
 
 //// SETTINGS //////////////////////////////////////////////////////////////////
 #define BAUDRATE 460800
@@ -52,47 +47,36 @@
 
 #define LISTENER_PORT 65000
 
-#define UPDATE_HEAP_KBYTES 160
+#define UPDATE_HEAP_KBYTES 76
 	// NOTE: The NUCLEO_F429ZI has about 250 KB's of RAM
 #define UPDATE_BLOCKSIZE 512
 
 #define FILENAME "/fs/a.bin"
 
-#define MSG_LENGTH 256 // For message buffers
+#define MSG_LENGTH 128 // For message buffers
 
 ////////////////////////////////////////////////////////////////////////////////
 
-FILE* file;
 size_t received;
 size_t receivedPackets;
 bool errorflag;
 size_t receivedError = 0;
 int errorBuffer[4] = {0};
 
-void _storeFragment(const char* buffer, size_t size) {
- 
-	static uint8_t errorCount = 0;
-	int res = (int)fwrite(buffer, 1, size, file);
+char storage[160000] = {0};
 
-    received += size;
+void _storeFragment(const char* buffer, size_t size) {
+
     receivedPackets++;
 
+	for(uint32_t i = 0; i < size; i++){
+		storage[received++] = buffer[i];
+	}
+
 	if(receivedPackets %20 == 0){
-		printf("\rDownloaded %uB [fwrite: %d][size: %u][errno: %2d]", received, res,
-			size, errno);
-
+		printf("\rDownloaded %u B", received);
 	}
 
-	if(ferror(file)){
-		errorflag = true;
-		if(receivedError == 0) receivedError = received;
-	}
-
-	/* (DEBUG)
-    if (received_packets % 20 == 0) {
-        printf("Received %u bytes\n", received);
-    }
-	*/
 } // End _storeFragment
 
 //// MAIN //////////////////////////////////////////////////////////////////////
@@ -141,45 +125,8 @@ int main() {
 			// Launch Update sequence
 			printf("Processing update order\n\r");
 
-			// Initialize filesystem -------------------------------------------
-			printf("Setting up filesystem:\n\r");
-	
-			HeapBlockDevice bd(1024*UPDATE_HEAP_KBYTES, UPDATE_BLOCKSIZE);
-			LittleFileSystem fs("fs");
-
-			if(bd.init() != 0){
-				printf("ERROR: could not initialize Heap Block Device\n\r");
-				comms->error(
-					"Filesystem error: could not initialize HeapBlockDevice",
-					MSG_LENGTH	
-				);
-				BTUtils::fatal();
-			}
-
-			if(LittleFileSystem::format(&bd) != 0){
-				printf("ERROR: could not format filesystem\n\r");
-				comms->error(
-					"Filesystem error: could not format block device",
-					MSG_LENGTH
-				);
-				BTUtils::fatal();
-			}
-			
-			int errcode = -666;
-			if((errcode = fs.mount(&bd)) != 0){
-				printf("ERROR: could not mount filesystem (%d)\n\r", errcode);
-				comms->error("Filesystem error: could not mount", MSG_LENGTH);
-				BTUtils::fatal();
-			}
-
-			printf("\tFilesystem initialized w/ %dKiB and %dB blocks\n\r", 
-				UPDATE_HEAP_KBYTES, UPDATE_BLOCKSIZE);
-
-			bd.erase(0, 1024*100);
-
 			// Download file ---------------------------------------------------
 			char errormsg[MSG_LENGTH] = {0};
-			file = fopen(FILENAME, "wb");
 					
 			if(!comms->download(_storeFragment, errormsg, MSG_LENGTH)){
 				printf("\n\rERROR downloading file: \"%s\"\n\r", 
@@ -191,16 +138,13 @@ int main() {
 					receivedError);
 				BTUtils::fatal();
 			}
-			fclose(file);
 		
 			printf("File downloaded successfully\n\r");
 
 			// Flash file ------------------------------------------------------
 			printf("Flashing file\n\r");
 			
-			file = fopen(FILENAME, "rb");
-			BTFlash::flash(file, POST_APPLICATION_ADDR, errormsg, MSG_LENGTH);
-			fclose(file);
+			BTFlash::flash(storage, received, POST_APPLICATION_ADDR);
 
 			printf("Done with BTFlash\n\r");
 
@@ -209,14 +153,6 @@ int main() {
 				comms->error(errormsg, MSG_LENGTH);
 				BTUtils::fatal();
 			}
-
-			// Disassemble filesystem ------------------------------------------
-			printf("Disassembling Filesystem:\n\r");
-			fs.unmount();
-			bd.deinit();
-			printf("\tDone\n\r");
-
-			
 			
 			// Jump to MkII ----------------------------------------------------
 			delete comms;
