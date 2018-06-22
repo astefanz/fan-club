@@ -74,7 +74,7 @@ public:
 private:
 
 	// Network attributes:
-	EthernetInterface ethernet;
+	NetworkInterface* ethernet;
 	UDPSocket listenerSocket;
 	SocketAddress masterBroadcastAddress;
 	uint16_t listenerPort;

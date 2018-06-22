@@ -36,7 +36,6 @@
 
 // Mbed:
 #include "FlashIAP.h"
-#include "DigitalIn.h"
 #include "mbed.h"
 
 namespace BTFlash{
@@ -45,15 +44,13 @@ namespace BTFlash{
 /* Flash given file into the given application address in flash memory.
  */
 void flash(FILE* file, uint32_t address, char errormsg[], int msglength){
-
-	FlashIAP flashIAP;
+	static FlashIAP flashIAP;
 	
 	fseek(file, 0, SEEK_END);
 	long len = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
 	printf("\tFirmware size is %ldB\n\r", len);
-
+	fseek(file, 0, SEEK_SET);
+	
 	printf("\tInitializing FlashIAP\n\r");
     flashIAP.init();
 	printf("\t\tDone");

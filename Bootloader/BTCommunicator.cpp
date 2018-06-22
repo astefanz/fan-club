@@ -32,7 +32,7 @@
 
 BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts,
 	uint16_t listenerPort):
-	ethernet(), listenerSocket(),
+	listenerSocket(),
 	masterBroadcastAddress(),
 	listenerPort(listenerPort),
 	misoPort(0),
@@ -46,21 +46,23 @@ BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts,
 
 	// Initialize network ------------------------------------------------------
 
+	this->ethernet = easy_connect(true);
+	/*
 	// Ethernet interface:
-	result = int(this->ethernet.connect());
+	result = int(this->ethernet->connect());
 	if (result != 0) {
 		printf("\tERROR initializing ethernet interface (%d)\n\r", result);
 		this->networkError = true;
 		return;
 	}
-
+	*/
 	// Sockets:	
-	this->listenerSocket.open(&this->ethernet);
+	this->listenerSocket.open(this->ethernet);
 	this->listenerSocket.bind(listenerPort);
 	this->listenerSocket.set_timeout(socketTimeoutMS);
 
 	printf("\tConnected as %s (%d)\n\r", 
-		this->ethernet.get_ip_address(), this->listenerPort);
+		this->ethernet->get_ip_address(), this->listenerPort);
 
 	return;
 } // End constructor
@@ -68,8 +70,11 @@ BTCommunicator::BTCommunicator(int socketTimeoutMS, int maxRebootTimeouts,
 BTCommunicator::~BTCommunicator(void){
 	
 	// Close sockets and network interface:
+	
+	/*
 	this->listenerSocket.close();
-	this->ethernet.disconnect();
+	this->ethernet->disconnect();
+	*/
 
 } // End destructor
 
@@ -144,7 +149,7 @@ BTCode BTCommunicator::listen(uint16_t bufferSize){
 			// Prepare standard reply:
 			snprintf(misoBuffer, bufferSize, "00000000|%s|B|%s|%u",
 				this->passwordBuffer, 
-				this->ethernet.get_mac_address(),
+				this->ethernet->get_mac_address(),
 				this->listenerPort);
 
 			// Get specifying character:
@@ -233,6 +238,7 @@ bool BTCommunicator::download(Callback<void(const char *at,size_t l)> cback,
 	// Try to get file ---------------------------------------------------------
 	char address[128];
 
+
 	/*
 	NetworkInterface* network;
 	network = easy_connect(true);
@@ -250,10 +256,12 @@ bool BTCommunicator::download(Callback<void(const char *at,size_t l)> cback,
 	printf("\tConnecting to %s\n\r", address);
 	
 	HttpRequest* req = new HttpRequest(
-		&this->ethernet, HTTP_GET, address, cback);
+		this->ethernet, HTTP_GET, address, cback);
+
+	this->listenerSocket.close();
 
     HttpResponse* res = req->send();
-    if (!res) {
+    if (res == NULL) {
         snprintf(errormsg, msgLength,
 			"HttpRequest failed (error code %d)", req->get_error());
         return false;
@@ -279,7 +287,7 @@ int BTCommunicator::error(const char message[], int msgLength) {
 
 	i = snprintf(errorMessage, 512, "00000000|%s|B|%s|BERR|",
 		this->passwordBuffer,
-		this->ethernet.get_mac_address()
+		this->ethernet->get_mac_address()
 	);
 
 	snprintf(errorMessage + i, 

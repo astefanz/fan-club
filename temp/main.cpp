@@ -1,8 +1,7 @@
-#include "mbed.h"
+#include <stdio.h>
 
 int main(){
 
-	printf("\n\rOui oui bagette\n\r");
-
+	putchar(',');
 	return 0;
 }

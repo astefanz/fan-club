@@ -53,7 +53,7 @@
 	// NOTE: The NUCLEO_F429ZI has about 250 KB's of RAM
 #define UPDATE_BLOCKSIZE 512
 
-#define FILENAME "/fs/update.bin"
+#define FILENAME "/fs/a.bin"
 
 #define MSG_LENGTH 256 // For message buffers
 
@@ -64,10 +64,13 @@ size_t received;
 size_t receivedPackets;
 
 void _storeFragment(const char* buffer, size_t size) {
-    fwrite(buffer, 1, size, file);
+  	int res = (int)fwrite(buffer, 1, size, file);
 
     received += size;
     receivedPackets++;
+
+	if(receivedPackets %20 == 0)
+		printf("\rDownloaded %uB [fwrite: %d]", received, res);
 
 	/* (DEBUG)
     if (received_packets % 20 == 0) {
@@ -191,6 +194,8 @@ int main() {
 			bd.deinit();
 			printf("\tDone\n\r");
 
+			
+			
 			// Jump to MkII ----------------------------------------------------
 			delete comms;
 			printf("Launching application\n\r");
