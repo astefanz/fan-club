@@ -50,7 +50,7 @@ DigitalOut leds[2][3] =
 /* Reboot MCU
  */
 void reboot(void){
-	printf("REBOOTING\n\r");
+	printf("\n\rREBOOTING\n\r");
 	wait(0.001);
 	NVIC_SystemReset();
 } // End reboot
@@ -73,10 +73,17 @@ void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 
 } // End setLED
 
+void blinkMID(void){
+
+	leds[0][MID] = !leds[0][MID];
+	leds[1][MID] = leds[0][MID];
+
+} // End blinkMID
+
 /* Notify the user of a critical error and reboot.
  */
 void fatal(void){
-	printf("FATAL ERROR\n\r");
+	printf("\n\rFATAL ERROR\n\r");
 	
 	// Blink LED's:
 	for(int i = 0; i < 5; i++){
@@ -91,8 +98,9 @@ void fatal(void){
 } // End fatal
 
 void launch(void){
-	
-	printf("Launching application\n\r");
+
+	setLED(ALL, OFF);
+	printf("\n\rLaunching application\n\r");
 	printf("==========================================================="\
 		"=====================\n\r");
 	wait(0.001);

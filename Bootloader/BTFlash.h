@@ -39,18 +39,15 @@
 #include "mbed.h"
 
 namespace BTFlash{
+
+FlashIAP flashIAP;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /* Flash given file into the given application address in flash memory.
  */
 void flash(char storage[], uint32_t amount, uint32_t address){
-	static FlashIAP flashIAP;
-	
 	printf("\tFirmware size is %lu B\n\r", amount);
-	
-	printf("\tInitializing FlashIAP\n\r");
-    flashIAP.init();
-	printf("\t\tDone");
 
     const uint32_t page_size = flashIAP.get_page_size();
     char *page_buffer = new char[page_size];
@@ -128,14 +125,94 @@ void flash(char storage[], uint32_t amount, uint32_t address){
 
 	printf("\n\r\tFlashed %lu/%lu [%3ld%%]", count, amount, count*100/amount);
 
-	printf("\n\r\tDeinitializing FlashIAP:\n\r");
-    flashIAP.deinit();
-	printf("\t\tDone\n\r");
-
 	return;
 
 } // End flash
 
+/* Copy data from one side of flash to the other.
+ */
+void copy(uint32_t from, uint32_t amount, uint32_t to){
+	
+	printf("\tFirmware size is %lu B. \n\r"\
+		"Copying from [0x%lx, 0x%lx] to [0x%lx, 0x%lx]",
+		amount, from, from + amount, to, to + amount);
+
+    const uint32_t page_size = flashIAP.get_page_size();
+    char *page_buffer = new char[page_size];
+    uint32_t addr = to;
+    uint32_t next_sector = addr + flashIAP.get_sector_size(addr);
+    bool sector_erased = false;
+    size_t pages_flashed = 0;
+	int result = -666; // Store returned codes for error checking
+
+	/* DEBUG
+	printf("\t Page size: %uB \n\r\tSector size: %dB\n\r",
+		flashIAP.get_page_size(), flash.get_sector_size(addr));
+	*/
+	
+	putchar('\n');
+	putchar('\r');
+	uint32_t count = 0;
+	while (addr < from + amount) {
+
+		// Read data for this page
+		memset(page_buffer, 0, sizeof(page_buffer));
+        
+		flashIAP.read(page_buffer, from + count, page_size);
+		count += page_size;
+
+        // Erase this page if it hasn't been erased
+        if (!sector_erased) {
+			printf("\n\n\r\tErasing sector on 0x%lx", addr);
+			result = flashIAP.erase(addr, flashIAP.get_sector_size(addr));
+        	if (result != 0){
+				printf("(got %d)\n\r",
+				result);
+				// NOTE: error code occurs when erasing previously erased flash
+				// (benign)
+				// Error erasing
+				//BTUtils::fatal();
+			//	break;
+			} else{
+				printf("\n\r");
+			}
+			sector_erased = true;
+        }
+		
+
+        // Program page
+		result = flashIAP.program(page_buffer, addr, page_size);
+		if (result != 0){
+			// Error erasing
+			printf("\n\r\tError (%d) while writing on 0x%lx\n\r",
+				result, addr);
+			
+			break;
+		}
+        
+
+		addr += page_size;
+        if (addr >= next_sector) {
+            next_sector = addr + flashIAP.get_sector_size(addr);
+            sector_erased = false;
+        }
+
+		pages_flashed++;
+        if (count % 512 == 0) {
+                printf("\r\t [0x%lx -> 0x%lx]",
+					addr, from + amount);
+            }
+
+    }
+
+    delete[] page_buffer;
+
+	printf("\r\tDone. Dest: [0x%lx, 0x%lx] Source: [0x%lx, 0x%lx]",
+		addr, from + amount, to + addr - from, to + amount);
+
+	return;
+
+} // End flash
 } // End namespace
 
 #endif // BTFLASH_H

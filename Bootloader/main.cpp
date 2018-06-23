@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "ARRAY SLIM 1" // Initial version
+#define FCIIB_VERSION "1.0"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -52,12 +52,14 @@
 
 //// SETTINGS //////////////////////////////////////////////////////////////////
 #define BAUDRATE 460800
-#define SOCKET_TIMEOUT_MS 1000
-#define MAX_REBOOT_TIMEOUTS 30
+#define SOCKET_TIMEOUT_MS 500
+#define MAX_REBOOT_TIMEOUTS 60*10*2 // (this*SOCKET_TIMEOUT_MS)/1000 seconds total
+
+#define FLASH_BUFFER_SIZE 1024*1000 // Have 1,000 KB download buffer
 
 #define LISTENER_PORT 65001
 
-#define MAX_BYTES 72000 // For storage
+#define MAX_BYTES 32000 // For storage
 
 #define FILENAME "/fs/a.bin"
 
@@ -67,16 +69,37 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// USAGE OF FLASH MEMORY:
+/*
+
++----------------+ End of Flash: POST_APPLICATION_ADDR + POST_APPLICATION_SIZE 
+|                |\
+| FLASH BUFFER   | \__FLASH_BUFFER_SIZE
+| (Download here)| /
+|                |/
++----------------+
+|                |
+| MkII BINARY    |
+| (Copy here)    |
+|                |
++----------------+ End of Bootloader: APPLICATION_ADDR + APPLICATION_SIZE
+| BOOTLOADER     |
++----------------+ Start of Bootloader: APPLICATION_ADDR
+| Vector table   |
++================+
+
+*/
+
+
 //// CONSTANTS AND GLOBALS /////////////////////////////////////////////////////
 enum BTCode {START, UPDATE, REBOOT};
 
-size_t received;
+uint32_t received;
 size_t receivedPackets;
 bool errorflag;
 size_t receivedError = 0;
 int errorBuffer[4] = {0};
 char storage[MAX_BYTES] = {0};
-
 
 //// FUNCTION PROTOTYPES ///////////////////////////////////////////////////////
 
@@ -94,6 +117,10 @@ int main() {
 	// Initialization ==========================================================
 
 	BTUtils::setLED(BTUtils::RED, BTUtils::ON);
+
+	// Optional PSU pin:
+	DigitalOut PSU_off(D9);
+	PSU_off.write(true);
 
 	// Prepare Serial communications:
 	Serial PC(USBTX, USBRX, BAUDRATE);
@@ -166,17 +193,18 @@ int main() {
 			// Timed out
 			printf("\tWaiting... [%2d/%2d]\n\r", 
 				timeouts, MAX_REBOOT_TIMEOUTS);
-
 			timeouts++;
+		
 			if (timeouts >= MAX_REBOOT_TIMEOUTS){
-				printf("\tERROR: MAX TIMEOUTS\n\r");
+				printf("\n\r\tERROR: MAX TIMEOUTS\n\r");
 				btCode = REBOOT;
 				break;
 			}
-		
+			continue;
+			
 		} else if (result <= 0){
 			// Network error
-			printf("\tERROR: CODE %d\n\r", 
+			printf("\n\r\tERROR: CODE %d\n\r", 
 				result);
 			btCode = REBOOT;
 			break;
@@ -221,7 +249,7 @@ int main() {
 			// Check for errors:
 			if(splitPointer == NULL){
 				// Bad message
-				printf("\tERROR: BAD BCAST: \"%s\"\n\r",
+				printf("\n\r\tERROR: BAD BCAST: \"%s\"\n\r",
 					mosiBuffer);
 				continue;
 			
@@ -236,12 +264,12 @@ int main() {
 				// Fetch Master listener port (MISO port):
 				splitPointer = strtok_r(NULL, "|", &savePointer);
 				if(splitPointer == NULL){
-					printf("\tERROR: NULL LISTN PORT\n\r");
+					printf("\n\r\tERROR: NULL LISTN PORT\n\r");
 					continue;	
 				}
 				misoPort = atoi(splitPointer);
 				if(misoPort == 0){
-					printf("\tERROR: 0 LISTN PORT");
+					printf("\n\r\tERROR: 0 LISTN PORT\n\r");
 					continue;
 				}
 
@@ -259,12 +287,12 @@ int main() {
 				// Get update port:
 				splitPointer = strtok_r(NULL, "|", &savePointer);
 				if(splitPointer == NULL){
-					printf("\tERROR: NULL FILENAME\n\r");
+					printf("\n\r\tERROR: NULL FILENAME\n\r");
 					continue;	
 				}
 				strcpy(filename, splitPointer);
 				if(strlen(filename) <= 0){
-					printf("\tERROR: NO FILENAME\n\r");
+					printf("\n\r\tERROR: NO FILENAME\n\r");
 					continue;
 				}
 				
@@ -273,7 +301,7 @@ int main() {
 			
 			} else {
 				// Unrecognized character. Discard message
-				printf("\tERROR: BAD CODE '%c'\n\r",
+				printf("\n\r\tERROR: BAD CODE '%c'\n\r",
 					splitPointer[0]);
 				continue;
 			}
@@ -298,9 +326,13 @@ int main() {
 		}
 		case UPDATE: {
 			// Launch Update sequence
-			printf("Updating\n\r");
+			printf("\n\rUpdating\n\r");
 
 			// Download file ---------------------------------------------------
+			Ticker t;	
+			
+			t.attach(BTUtils::blinkMID, 0.2);
+			
 			char errormsg[BUFFER_SIZE] = {0};
 			char address[MAX_ADDRESS_SIZE];
 			snprintf(address, MAX_ADDRESS_SIZE, "http://%s:8000/%s",
@@ -308,10 +340,11 @@ int main() {
 			
 			printf("\tConnecting to %s\n\r", address);
 			
+			BTFlash::flashIAP.init();
 			HttpRequest* req = new HttpRequest(
 				ethernet, HTTP_GET, address, _storeFragment);
 
-			listenerSocket.close();
+			//listenerSocket.close();
 
 			HttpResponse* res = req->send();
 			if (res == NULL) {
@@ -329,11 +362,18 @@ int main() {
 			}
 
 			delete req;
-			printf("\n\rDownload successful\n\r");
+			printf("\n\n\rDownload successful\n\n\r");
 
 			// Flash file ------------------------------------------------------
 			printf("Flashing file\n\r");	
-			BTFlash::flash(storage, received, POST_APPLICATION_ADDR);
+			t.detach();
+			t.attach(BTUtils::blinkMID, 0.1);
+
+			BTFlash::copy(
+				POST_APPLICATION_ADDR + POST_APPLICATION_SIZE - 
+					FLASH_BUFFER_SIZE,
+				received,
+				POST_APPLICATION_ADDR);
 			printf("Done flashing\n\r");
 
 			if(errormsg[0] != '\0'){
@@ -346,7 +386,10 @@ int main() {
 
 				BTUtils::fatal();
 			}
-			
+
+			t.detach();
+			BTFlash::flashIAP.deinit();
+
 			// Jump to MkII ----------------------------------------------------
 			BTUtils::launch();
 			break;
@@ -377,16 +420,109 @@ int main() {
 // Storage ---------------------------------------------------------------------
 void _storeFragment(const char buffer[], size_t size) {
 
+	static bool initialized = false;
+    static bool sector_erased = false;
+	static uint32_t addr = 
+		POST_APPLICATION_ADDR + POST_APPLICATION_SIZE - FLASH_BUFFER_SIZE;
+	static uint32_t addr_original = addr;
+	static char* page_buffer;
+	static uint32_t page_size;
+	static uint32_t next_sector;
+    static size_t pages_flashed = 0;
+	
+	if(not initialized){
+		int res = BTFlash::flashIAP.init();
+		page_size = BTFlash::flashIAP.get_page_size();
+		page_buffer = new char[page_size];
+    	next_sector = addr + BTFlash::flashIAP.get_sector_size(addr);
+		initialized = true;
+		printf("\tWriting directly to flash memory (%d)\n\r"\
+			"\t\tSector size: %lu B\n\r\t\tPage size: %lu B\n\r", 
+			res, BTFlash::flashIAP.get_sector_size(addr), page_size);
+	}
+	
+	//printf("\tWriting %lu bytes starting on 0x%lx\n\r", size, addr);
+
     receivedPackets++;
 
-	for(uint32_t i = 0; i < size; i++){
-		storage[received++] = buffer[i];
-	}
+	uint32_t target_addr = addr + size;
+	uint16_t count = 0;
+	while (addr < target_addr) {
+		int result = -666;
 
-	if(receivedPackets %20 == 0){
-		printf("\rDownloaded %u B", received);
-	}
+		// Prevent overflows:
+		if(addr == POST_APPLICATION_ADDR + POST_APPLICATION_SIZE){
+			printf("ERROR: OUT OF SPACE\n\r");
+			BTUtils::fatal();
+		}
 
+		// Get data to be written ..............................................
+
+		// Wipe page_buffer:
+		// Read data for this page
+		memset(page_buffer, 0, sizeof(page_buffer));
+        
+		for(uint32_t i = 0; i < page_size; i++){
+			page_buffer[i] = buffer[count + i];
+			count++;
+		}
+
+
+        // Erase this page if it hasn't been erased
+        if (!sector_erased) {
+			printf("\n\n\r\tErasing sector on 0x%lx", addr);
+			result = BTFlash::flashIAP.erase(addr, BTFlash::flashIAP.get_sector_size(addr));
+        	if (result != 0){
+				printf("(got %d)\n\r",result);
+				// NOTE: error code occurs when erasing previously erased flash
+				// (benign)
+				// Error erasing
+				//BTUtils::fatal();
+			//	break;
+			} else{
+			
+				printf("\n\r");
+			}
+			sector_erased = true;
+        }
+		
+
+        // Program page
+		result = BTFlash::flashIAP.program(page_buffer, addr, page_size);
+		if (result != 0){
+			// Error writing
+			printf("\n\r\tError (%d) while writing on 0x%lx\n\r",
+				result, addr);
+			BTUtils::fatal();
+
+			break;
+		}
+        
+
+		addr += page_size;
+		received += page_size;
+        if (addr >= next_sector) {
+            next_sector = addr + BTFlash::flashIAP.get_sector_size(addr);
+            sector_erased = false;
+        }
+
+		pages_flashed++;
+		
+		/*
+			printf("\r\tFlashed %lu page(s) (@0x%lx) (%d)", 
+				pages_flashed, addr, sector_erased);
+		*/
+
+		if(received >= FLASH_BUFFER_SIZE){
+			printf("ERROR: NOT ENOUGH ROOM\n\r");
+			BTUtils::fatal();
+		}
+    }
+	printf("\r\tDownloaded %lu B [0x%lx, 0x%lx]", 
+		received, addr_original, addr);
+	
+	
+	
 } // End _storeFragment
 
 // Network ---------------------------------------------------------------------
