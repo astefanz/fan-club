@@ -1,0 +1,316 @@
+\documentclass{article}
+\pagenumbering{gobble}
+\usepackage[margin=.35in]{geometry}
+\usepackage{enumitem}
+\usepackage{longtable}
+
+\begin{document}
+{\noindent \Large \textsc{FCMkII DESIGN SCRATCH}}
+\vspace{1em}
+
+{\par\noindent\large\textsc{Communications}}
+
+\small
+
+\renewcommand{\arraystretch}{1}
+{
+\begin{center}
+\begin{longtable}{|p{.92\textwidth}|}
+	\hline
+	\textsc{Standardized Port Numbers}\\
+	\hline
+	\begin{description}
+		\item[S. Listener (Broadcast):]\texttt{65000}
+		\item[S. MISO: ]\texttt{65001}
+		\item[S. MOSI: ]\texttt{65002}
+	\end{description}\\
+	\hline
+\end{longtable}
+\end{center}
+}
+
+\begin{center}
+\small
+\begin{longtable}{| p{.45\textwidth} | p{.45\textwidth} |}
+	\hline
+	\multicolumn{2}{|c|}{\textsc{Breakdown}}\\
+	\hline
+	\textbf{Master} & \textbf{Slave}\\
+	\hline
+	\multicolumn{2}{|c|}{\textbf{Parts}}\\
+	\hline
+	\begin{itemize}[leftmargin=*]
+		\item Broadcast Thread
+			\begin{itemize}
+				\item Standard broadcast
+				\item Update broadcast
+				\item Shutdown broadcast
+			\end{itemize}
+		\item {Listener\hspace{.5em}thread\hspace{.5em}}
+			\linebreak NOTE: Here, responding Slaves can categorized are known and unknown
+			\begin{itemize}
+				\item List new, unknown Slaves for adding
+				\item Mark known, disconnected Slaves for reconnection
+				\item Ignore messages from connected Slaves
+				\item Send startup messages to Bootloaders when appropriate
+			\end{itemize}
+		\item {Slave\hspace{.5em}threads}
+			\linebreak Depending on target Slave status..
+			\begin{description}
+				\item[DISCONNECTED: ] Wait for Slave to be marked by Listener thread
+				\item[AVAILABLE: ] Attempt handshake to connect. Mark as disconnected 
+					upon failure
+				\item[CONNECTED: ] Listen for messages, count timeouts when applicable,
+					fetch commands from user
+			\end{description}
+	\end{itemize}
+	&
+	\begin{itemize}[leftmargin=*]
+		\item {Listener\hspace{.5em}thread:}
+			\linebreak Listen for broadcasts. Depending on broadcast type...
+			\begin{description}
+				\item[Standard: ] If disconnected, send reply; if connected, reset Master
+				timeout counter.
+				\item[*Master timeout:] Ping Master before assuming disconnection
+				\item[*Network timeout:] Ping self before rebooting
+				\item[Update broadcast:] Shutdown Processor and reboot
+				\item[Shutdown broadcast:] Shutdown Processor and reboot
+				\item[Launch application:] (For Bootloader) Ignore when in MkII; launch
+				MkII when in Bootloader
+			\end{description}
+		\item {MISO\hspace{.5em}thread:}
+			\linebreak Send updates to Master when connected:
+			\begin{itemize}
+				\item Fetch updates from Processor, if any, or send empty message to
+					maintain connection
+				\item Send ping requests when flagged by Listener
+				\item Remain idle when disconnected. NOTE: Empty processor Queue
+			\end{itemize}
+		\item {MOSI\hspace{.5em}thread:}
+			\begin{itemize}
+				\item Listen for messages from Master (when connected) and add them to
+				Processor buffer
+				\item Reset timeout counter whenever a Message is received
+			\end{itemize}
+	\end{itemize}
+	\\
+	\hline
+	\multicolumn{2}{|c|}{\textbf{Connection and Disconnection}}\\
+	\hline
+	\begin{itemize}
+		\item Use broadcast thread to keep Slave connected
+		\item Use MISO-side of Slave thread to listen for periodic Slave-side updates
+			to know when to assume disconnection
+		\item NOTE: Send Disconnect message to Slave when assuming disconnection
+		\item Send multiple MOSI messages (use index)
+	\end{itemize}
+	&
+	\begin{itemize}
+		\item Use listener thread to know if Master is still connected (based on
+			broadcast)
+		\item Ping Master when considering disconnection
+		\item Send Disconnect message to Master when assuming disconnection
+		\item Ping self to check network status before assuming network error and 
+			rebooting
+		\item Also reset Master timeout counter upon reception in MOSI thread
+		\item Shutdown Processor when assuming disconnection from Master
+	\end{itemize}
+	\\
+	\hline
+
+\end{longtable}
+\end{center}
+
+\pagebreak
+
+\begin{center}
+\begin{longtable}{| p{.45\textwidth} | p{.45\textwidth} |}
+	
+	\hline
+	\multicolumn{2}{|c|}{\textsc{Message formats}}\\
+	\hline
+	\textbf{MOSI} & \textbf{MISO}\\
+	\hline
+	\multicolumn{2}{|c|}{\textbf{Broadcast-side}}\\
+	\hline
+	\begin{itemize}
+		\item {Standard\hspace{.5em}broadcast:} \
+		\linebreak\texttt{\underline{N|}PASSCODE\underline{|}M\_L\_PORT}
+		\item {Update\hspace{.5em}broadcast:} \
+		\linebreak\texttt{\underline{U|}PASSCODE\underline{|}M\_L\_PORT\underline{|}FILE\_NAME\underline{|}FILE\_SIZE\_BYTES}
+		\item {Shutdown\hspace{.5em}broadcast:} \
+		\linebreak\texttt{\underline{R|}PASSCODE}
+		\item {Launch\hspace{.5em}MkII:} \
+		\linebreak\texttt{\underline{L|}PASSCODE}
+	\end{itemize}
+	&
+	\begin{itemize}
+		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(MkII):} \
+		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|}S\_MISO\_P\underline{|}S\_MOSI\_P\underline{|}VERSION}
+		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(Bootloader):} \
+		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC}
+	\end{itemize}
+	\\
+	\hline
+	\multicolumn{2}{|c|}{\textbf{Communications and Control}}\\*
+	\hline
+	\begin{itemize}
+		\item {Set\hspace{.5em}DC:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|S|D:}DC\underline{:}000000000000000000000}
+		\linebreak Here each character in the string of zeroes corresponds to a fan in the
+		target Slave's array. A `1' means the fan is to be set to the specified DC, and 
+		a `0' means it is to be left unchanged.
+		\item {Chase\hspace{.5em}RPM:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|S|C:}RPM\underline{:}000000000000000000000}
+		\linebreak See ``Set DC" for the meaning of the string of zeroes.
+		\item {Handshake:}\
+		\linebreak\texttt{\underline{0|H|}COMMS\_CONFIG\underline{|H:}ARRAY\_CONFIG}
+		\linebreak COMMS\_CONFIG is a comma-separated list with the following:
+		\begin{enumerate}
+			\item MISO port
+			\item MOSI port
+			\item Period (ms)
+			\item Max. Master timeouts
+		\end{enumerate}
+		ARRAY\_CONFIG is a colon-separated list with the following:
+		\begin{enumerate}
+			\item Pinout code
+			\item Fan mode
+			\item Num. active fans
+			\item PWM frequency (Hz)
+			\item Counter counts
+			\item Pulses per rotation 
+			\item Max. RPM
+			\item Min. RPM
+			\item Min. DC
+			\item Chaser tolerance (\%)
+			\item Max. fan timeout
+			\end{enumerate}
+		\item {Disconnect:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|X}}
+		\item {Reboot:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|Z}}
+		\item {Reset\hspace{.5em}index:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|I}}
+		\linebreak Slave will reset its MOSI index to 0.
+		\item {Ping:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|P}}
+
+	\end{itemize}
+	&
+	\begin{itemize}
+		\item {Maintain\hspace{.5em}connection:}\
+		\linebreak\texttt{MISO\_INDEX\underline{|M}}
+		\linebreak Sent to Master when there are no updates from Processor, but a MISO
+		message is due to maintain connection.
+		\item {Standard\hspace{.5em}update:}\
+		\linebreak\texttt{MISO\_INDEX\underline{|T|}DUTY\_CYCLES\underline{|}RPMS}
+		\linebreak Here DUTY\_CYCLES and RPMS are comma-separated lists of the DC and
+		RPM values of each fan in the array, in order. Negative values will be used for
+		RPMS of fans being ``Chased."
+		\item {Error\hspace{.5em}(MkII):}\
+		\linebreak\texttt{MISO\_INDEX\underline{|E|}ERROR\_MESSAGE}
+		\linebreak For Slave-side exception handling and documenting; will also be
+		used to indicate Slave-side assumption of disconnection.
+		\item {Error\hspace{.5em}(Bootloader):}\
+		\linebreak\texttt{\underline{B|}PASSCODE\underline{E|}S\_MAC\underline{|}ERROR\_MESSAGE}
+		\linebreak To be received by Master's listener thread.
+		\item {Ping\hspace{.5em}request:}\
+		\linebreak\texttt{MISO\_INDEX\underline{|P}}
+		\item {MISO\hspace{.5em}index\hspace{.5em}reset:}\
+		\linebreak\texttt{MISO\_INDEX\underline{|I}}
+		\linebreak Master will reset its MISO index to 0.
+		
+	\end{itemize}
+	\\
+	\hline
+	\pagebreak
+	\hline
+	\multicolumn{2}{|c|}{\textbf{Legend}}\\*
+	\hline
+	\begin{description}
+		\item[N] ``NORMAL" i.e. Standard broadcast
+		\item[U] ``UPDATE" i.e. Update broadcast
+		\item[R] ``REBOOT" i.e. Reboot MCU
+		\item[L] ``LAUNCH" i.e. Launch MkII
+		\item[S] ``STANDARD" i.e. Standard command for Processor
+		\item[D] ``DUTY CYCLE" i.e. Set Duty Cycle
+		\item[C] ``CHASE" i.e. Chase RPM
+		\item[H] ``HANDSHAKE" i.e. Handshake to start connection
+		\item[X] ``DISCONNECT" i.e. Assume disconnection (Shutdown Processor)
+		\item[Z] ``REBOOT" i.e. Reboot MCU
+		\item[I] ``INDEX" i.e. Reset MISO Index
+	\end{description}
+	&
+	\begin{description}
+		\item[A] ``APPLICATION" i.e. Message from MkII
+		\item[B] ``BOOTLOADER" i.e. Message from Bootloader
+		\item[M] ``MAINTAIN" i.e. Maintain connection
+		\item[T] ``STANDARD" i.e. Standard update message
+		\item[E] ``ERROR" i.e. Error message
+		\item[P] ``PING" i.e. Ping request
+		\item[I] ``INDEX" i.e. MISO index reset
+	\end{description}
+	\\
+	\hline
+
+\end{longtable}
+\end{center}
+
+\begin{center}
+\renewcommand{\labelitemi}{-}
+\begin{longtable}{| p{.92\textwidth} |}
+\hline
+\multicolumn{1}{|c|}{\textsc{To Do}}\\*
+\hline
+\multicolumn{1}{|l|}{Mon. 6/25/18 - Tue. 6/25/18}\\*
+\hline
+\begin{enumerate}
+	\item \underline{Fix Bootloader 404 and empty file bugs}
+	\item Add missing pinout, PSU pins and external LED pins
+	\item Add placeholder for runtime pinout configuration
+	\item \underline{Implement new message standard}
+		\linebreak\indent Among other things...
+		\begin{itemize}
+			\item Receive S.Error and B.Error messages in both Slave threads
+				and listener thread
+			\item Use extra warnings in the event of a Bootloader error
+		\end{itemize}
+	\item \textbf{\underline{Implement Slave self-pinging}}
+\end{enumerate}\\
+\hline
+\multicolumn{1}{|l|}{Wed. 6/25/18 - Fri 6/29/18}\\*
+\hline
+\begin{enumerate}
+	\item Implement runtime pinout configuration
+	\item Implement Master-side firmware uploads
+	\item ``Fully" modularize Master
+	\item Implement ``verifications" and shutdown button
+	\item Implement user configuration and ``null" settings
+	\item \textbf{Implement multiprocessing}
+\end{enumerate}\\
+\hline
+\multicolumn{1}{|l|}{Mon. 7/2/18}\\*
+\hline
+\begin{enumerate}
+	\item Fix PWM resolution
+	\item Fix Chaser
+	\item \textbf{Fix RPM spikes (if applicable)}
+\end{enumerate}\\
+\hline
+\multicolumn{1}{|l|}{Tue. 7/3/18 - Fri. 7/6/18}\\*
+\hline
+\begin{enumerate}
+	\item + Implement hotkeys
+	\item + Implement plotter
+	\item + Document
+	\item + Add "help" section
+	\item + Compile Master-side
+	\item + Credits and licensing (And comments!)
+\end{enumerate}\\
+
+\hline
+\end{longtable}
+\end{center}
+
+\end{document}
