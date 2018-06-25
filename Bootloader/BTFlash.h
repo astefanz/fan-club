@@ -131,7 +131,8 @@ void flash(char storage[], uint32_t amount, uint32_t address){
 
 /* Copy data from one side of flash to the other.
  */
-void copy(uint32_t from, uint32_t amount, uint32_t to){
+void copy(uint32_t from, uint32_t amount, uint32_t to,
+	char errorBuffer[], size_t errorBufferSize){
 	
 	printf("\tFirmware size is %lu B. \n\r"\
 		"Copying from [0x%lx, 0x%lx] to [0x%lx, 0x%lx]",
@@ -153,6 +154,7 @@ void copy(uint32_t from, uint32_t amount, uint32_t to){
 	putchar('\n');
 	putchar('\r');
 	uint32_t count = 0;
+	errorBuffer[0] = '\0';
 	while (addr < from + amount) {
 
 		// Read data for this page
@@ -184,7 +186,8 @@ void copy(uint32_t from, uint32_t amount, uint32_t to){
 		result = flashIAP.program(page_buffer, addr, page_size);
 		if (result != 0){
 			// Error erasing
-			printf("\n\r\tError (%d) while writing on 0x%lx\n\r",
+			snprintf(errorBuffer, errorBufferSize,
+				"Error (%d) while writing on 0x%lx",
 				result, addr);
 			
 			break;
@@ -206,10 +209,19 @@ void copy(uint32_t from, uint32_t amount, uint32_t to){
     }
 
     delete[] page_buffer;
-
 	printf("\r\tDone. Dest: [0x%lx, 0x%lx] Source: [0x%lx, 0x%lx]",
 		addr, from + amount, to + addr - from, to + amount);
 
+	if(addr != from + amount and errorBuffer[0] == '\0'){
+		// If there is a mismatch in the amount of bytes counted and what is
+		// supposed to have been written, and there is no previous error
+		// recorded, then something else has gone wrong.
+
+		snprintf(errorBuffer, errorBufferSize, 
+			"Flash error -- address mismatch: expected 0x%lx, got 0x%lx",
+			from + amount, addr);
+	}
+ 
 	return;
 
 } // End flash
