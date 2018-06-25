@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.6"
+#define FCIIB_VERSION "S1.9"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -105,6 +105,8 @@ enum BTCode {START, UPDATE, REBOOT};
 NetworkInterface* ethernet;
 UDPSocket listenerSocket;
 SocketAddress masterBroadcastAddress;
+Thread connectionSentinel;
+Mutex watchFlagLock;
 
 // Network data:
 uint16_t misoPort = 0;
@@ -115,11 +117,9 @@ char errorBuffer[BUFFER_SIZE] = {0};
 uint32_t received = 0;
 size_t receivedPackets = 0;
 bool errorflag;
+bool watchFlag = true;
 size_t receivedError = 0;
 size_t printed = 0;
-
-// Misc. tools:
-Ticker ticker; // For LED blinking
 
 //// FUNCTION PROTOTYPES ///////////////////////////////////////////////////////
 
@@ -128,6 +128,7 @@ void _storeFragment(const char buffer[], size_t size);
 
 // Network ---------------------------------------------------------------------
 void sendError(const char message[], size_t length);	
+void _watchConnection(void);
 
 //// MAIN //////////////////////////////////////////////////////////////////////
 int main() {
@@ -385,10 +386,14 @@ int main() {
 					// Proceed to update ---------------------------------------
 					// Launch Update sequence
 					printf("\n\rUpdating\n\r");
-
-					// Download file -------------------------------------------
-					ticker.attach(BTUtils::blinkMID, 0.2);
 					
+					// Start sentinel thread in case of mid-flash disconnection:
+					printf("\n\rActivating connection sentinel thread:");
+					connectionSentinel.set_priority(osPriorityBelowNormal);
+					connectionSentinel.start(_watchConnection);
+					printf("\n\r\tDone");
+					// Download file -------------------------------------------
+						
 					snprintf(addressBuffer, MAX_ADDRESS_SIZE, 
 						"http://%s:8000/%s",
 						masterBroadcastAddress.get_ip_address(), filename);
@@ -421,11 +426,21 @@ int main() {
 					}
 					delete req;
 					printf("\n\rDownload successful");
-
+					
+					// Deactivate sentinel thread:
+					// (Even if there is a disconnection, we do not want the
+					// flashing to the actual application memory to be cut
+					// short)
+					printf("\n\rDeactivating connection sentinel thread:");
+					watchFlagLock.lock();
+					watchFlag = false;
+					watchFlagLock.unlock();
+					connectionSentinel.join();
+					printf("\n\r\tDone");
+					BTUtils::setLED(BTUtils::RED, BTUtils::ON);
+	
 					// Flash file ----------------------------------------------
 					printf("\n\rFlashing file");
-					ticker.detach();
-					ticker.attach(BTUtils::blinkMID, 0.1);
 
 					BTFlash::copy(
 						POST_APPLICATION_ADDR + POST_APPLICATION_SIZE - 
@@ -442,8 +457,8 @@ int main() {
 						BTUtils::fatal();
 					}
 
-					ticker.detach();
 					BTFlash::flashIAP.deinit();
+					
 
 					// Jump to MkII --------------------------------------------
 					BTUtils::launch();
@@ -668,3 +683,29 @@ void sendError(const char message[], size_t length){
 	return;
 
 } // End sendError
+
+void _watchConnection(void){
+	// Check connection status in case of mid-flash disconnect
+	bool keepWatching = true;
+	nsapi_connection_status_t status;
+
+	while(keepWatching){
+		// Check flag:
+		watchFlagLock.lock();
+		keepWatching = watchFlag;
+		watchFlagLock.unlock();
+	
+		status = ethernet->get_connection_status();
+
+		if(status != NSAPI_STATUS_GLOBAL_UP and
+			status != NSAPI_STATUS_LOCAL_UP){
+			
+			printf("\n\r[ETH ERROR]\n\r");
+			BTUtils::fatal();
+		} 
+
+		BTUtils::setLED(BTUtils::RED, BTUtils::TOGGLE);
+		Thread::wait(0.5);
+	}
+
+} // End _watchConnection

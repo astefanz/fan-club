@@ -34,6 +34,9 @@
 
 //// INCLUDES //////////////////////////////////////////////////////////////////
 
+// MkII:
+#include "BTUtils.h"
+
 // Mbed:
 #include "FlashIAP.h"
 #include "mbed.h"
@@ -156,7 +159,7 @@ void copy(uint32_t from, uint32_t amount, uint32_t to,
 	uint32_t count = 0;
 	errorBuffer[0] = '\0';
 	while (addr < from + amount) {
-
+		
 		// Read data for this page
 		memset(page_buffer, 0, sizeof(page_buffer));
         
@@ -201,9 +204,10 @@ void copy(uint32_t from, uint32_t amount, uint32_t to,
         }
 
 		pages_flashed++;
-        if (count % 512 == 0) {
+        if (count % 256 == 0) {
                 printf("\r\t [0x%lx -> 0x%lx]",
 					addr, from + amount);
+				BTUtils::setLED(BTUtils::MID, BTUtils::TOGGLE);
             }
 
     }
@@ -211,6 +215,7 @@ void copy(uint32_t from, uint32_t amount, uint32_t to,
     delete[] page_buffer;
 	printf("\r\tDone. Dest: [0x%lx, 0x%lx] Source: [0x%lx, 0x%lx]",
 		addr, from + amount, to + addr - from, to + amount);
+	BTUtils::setLED(BTUtils::MID, BTUtils::ON);
 
 	if(addr != from + amount and errorBuffer[0] == '\0'){
 		// If there is a mismatch in the amount of bytes counted and what is
