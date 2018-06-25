@@ -42,8 +42,8 @@
 #include "mbed.h"
 
 // HTTP Client:
-#include "easy-connect.h"
 #include "http_request.h"
+#include "EthernetInterface.h"
 // SEE
 // http://blog.janjongboom.com/2017/10/06/firmware-updates-flashiap.html
 //	(For HTTP flashing)
@@ -155,9 +155,10 @@ int main() {
 	printf("Init. Network:\n\r ");
 	
 	// Network interface and sockets:
-	ethernet = easy_connect(false);	
-	if(ethernet == NULL){
-		printf("\n\tETH ERROR");
+	ethernet = new EthernetInterface;
+	int c = ethernet->connect();
+	if(c < 0){
+		printf("\n\tETHERNET CONNECTION ERROR");
 		BTUtils::fatal();
 	}
 
@@ -209,12 +210,12 @@ int main() {
 				ethernet->get_connection_status();
 			switch(cstatus){
 				case NSAPI_STATUS_GLOBAL_UP:
-					printf("\r\tWaiting [%10d] (Connection: Global IP)",
+					printf("\r\tWaiting [%10lu] (Connection: Global IP)",
 						timeouts++);
 					break;
 
 				case NSAPI_STATUS_LOCAL_UP:
-					printf("\r\tWaiting [%10d] (Connection:  Local IP)",
+					printf("\r\tWaiting [%10lu] (Connection:  Local IP)",
 						timeouts++);
 					break;
 
