@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.5"
+#define FCIIB_VERSION "S1.6"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -165,8 +165,8 @@ int main() {
 	listenerSocket.bind(LISTENER_PORT);
 	listenerSocket.set_timeout(SOCKET_TIMEOUT_MS);
 
-	printf("\tConnected: %s (%d)\n\r", 
-		ethernet->get_ip_address(), LISTENER_PORT);
+	printf("\tConnected: %s (%d) MAC: %s\n\r", 
+		ethernet->get_ip_address(), LISTENER_PORT, ethernet->get_mac_address());
 	
 	// Storage:
 	char filename[MAX_FILENAME_LENGTH] = {0};
@@ -174,7 +174,7 @@ int main() {
 	uint32_t filesize = 0;
 
 	// Networking:
-	int timeouts = 0;
+	uint32_t timeouts = 0;
 
 	// Listen for messages -----------------------------------------------------
 	printf("Listening:\n\r");
@@ -195,7 +195,7 @@ int main() {
 		}
 
 		int result = -666;	
-		
+
 		// Listen for broadcast:
 		result = listenerSocket.recvfrom(
 			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE); 
@@ -203,21 +203,35 @@ int main() {
 		// Check for errors:
 		if (result == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
-			printf("\tWaiting... [%2d/%2d]\n\r", 
-				timeouts, MAX_REBOOT_TIMEOUTS);
-			timeouts++;
-		
-			if (timeouts >= MAX_REBOOT_TIMEOUTS){
-				printf("\n\r\tERROR: MAX TIMEOUTS\n\r");
-				
-				BTUtils::fatal();
-				break;
-			}
-			continue;
+			// Check network status
 			
+			nsapi_connection_status_t cstatus = 
+				ethernet->get_connection_status();
+			switch(cstatus){
+				case NSAPI_STATUS_GLOBAL_UP:
+					printf("\r\tWaiting [%10d] (Connection: Global IP)",
+						timeouts++);
+					break;
+
+				case NSAPI_STATUS_LOCAL_UP:
+					printf("\r\tWaiting [%10d] (Connection:  Local IP)",
+						timeouts++);
+					break;
+
+				case NSAPI_STATUS_DISCONNECTED:
+					printf("\n\rERROR: DISCONNECTED FROM NETWORK\n\r");
+					BTUtils::fatal();
+					break;
+
+				default:
+					printf("\n\rERROR: UNRECOGNIZED NETWORK STATUS CODE %d",
+						cstatus);
+			}
+		
+
 		} else if (result <= 0){
 			// Network error
-			printf("\n\r\tERRiOR: NETWORK ERR. CODE %d\n\r", 
+			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r", 
 				result);
 
 			BTUtils::fatal();
