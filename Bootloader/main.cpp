@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.9"
+#define FCIIB_VERSION "S1.10"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -664,7 +664,7 @@ void sendError(const char message[], size_t length){
 	}
 
 	// Format error message
-	snprintf(errorMessage, BUFFER_SIZE, "B|%s|E|%s|%s",
+	snprintf(errorMessage, BUFFER_SIZE, "B|%s|%s|E|%s",
 		passcodeBuffer,
 		ethernet->get_mac_address(),
 		message

@@ -24,6 +24,32 @@
 // This module handles communications to Master throug ethernet.			  //
 ////////////////////////////////////////////////////////////////////////////////
 
+/* -----------------------------------------------------------------------------
+ * SUMMARY OF CHARACTER CODES
+ * -----------------------------------------------------------------------------
+	N “NORMAL” i.e. Standard broadcast
+	U “UPDATE” i.e. Update broadcast
+	R “REBOOT” i.e. Reboot MCU
+	L “LAUNCH” i.e. Launch MkII
+ * -----------------------------------------------------------------------------
+	S “STANDARD” i.e. Standard command for Processor
+	D “DUTY CYCLE” i.e. Set Duty Cycle
+	C “CHASE” i.e. Chase RPM
+	H “HANDSHAKE” i.e. Handshake to start connection
+	X “DISCONNECT” i.e. Assume disconnection (ShutdownProcessor)
+	Z “REBOOT” i.e. Reboot MCU
+	I “INDEX” i.e. Reset MISO Index
+	W “POWER” i.e. Power PSU
+ * -----------------------------------------------------------------------------
+	A “APPLICATION” i.e. Message from MkII
+	B “BOOTLOADER” i.e. Message from Bootloader
+	M “MAINTAIN” i.e. Maintain connection
+	T “STANDARD” i.e. Standard update message
+	E “ERROR” i.e. Error message
+	P “PING” i.e. Ping request
+	I “INDEX” i.e. MISO index reset
+ * -------------------------------------------------------------------------- */
+
 //// DEPENDENCIES //////////////////////////////////////////////////////////////
 #include "Communicator.h"
 #include "mbed_stats.h"
@@ -31,12 +57,12 @@
 
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
 
-Communicator::Communicator():processor(),periodMS(TIMEOUT_MS),
-	exchangeIndex(0),networkTimeouts(0),masterTimeouts(0),
+Communicator::Communicator(const char version[]):processor(),periodMS(TIMEOUT_MS),
+	mosiIndex(0),misoIndex(0), masterTimeouts(0),
 	listenerThread(osPriorityNormal,16 * 1024 /*16K stack size*/),
 	misoThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
 	mosiThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
-	red(LED3), green(LED1)
+	red(LED3), xred(D3), green(LED1), xgreen(D5)
 	{ // // // // // // // // // // // // // // // // // // // // // // // // //
 	/* ABOUT: Constructor for class Communicator. Starts networking threads.
 	 * PARAMETERS:
@@ -45,6 +71,8 @@ Communicator::Communicator():processor(),periodMS(TIMEOUT_MS),
 	 */
 	pl;printf("\n\r[%08dms][c] Initializing Communicator threads", tm);pu;
 	this->_setStatus(INITIALIZING);
+
+	strcpy(this->version, version);
 
 	// Initialize ethernet interface - - - - - - - - - - - - - - - - - - - - - -
 	int result = -1;
@@ -120,8 +148,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 	pl;printf("\n\r[%08dms][L] Listener thread started", tm);pu;
 	
 	// Declare placeholders: - - - - - - - - - - - - - - - - - - - - - - - -
-	char dataReceived[256], password[16] = {'\0'};
-	int masterListenerPort = -1;
+	char dataReceived[MAX_MESSAGE_LENGTH];
 
 	while(true){ // Listener routine loop ======================================
 		
@@ -149,43 +176,56 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			// Increment corresponding timeout: - - - - - - - - - - - - - - - - 
 			if(this->getStatus() == CONNECTED){
 				// Connected to Master. Increment Master timeouts:
-				this->masterTimeouts++;
+				this->_incrementTimeouts();
+				// Check network status:
+				nsapi_connection_status_t netStatus = 
+					this->ethernet.get_connection_status();
 
+				if(netStatus == NSAPI_STATUS_DISCONNECTED or
+					netStatus == NSAPI_STATUS_ERROR_UNSUPPORTED){
+					pl;printf("\n\r[%08dms][L] NETWORK ERROR. REBOOTING",tm);pu;
+					
+					// Set status to NO_NETWORK:
+					this->_setStatus(NO_NETWORK);
+				}
 				// Check threshold:
-				if(this->masterTimeouts < MAX_MASTER_TIMEOUTS){
+				if(this->_getTimeouts() < MAX_MASTER_TIMEOUTS){
 					// Still within threshold
 					pl;printf("\n\r[%08dms][L] MT incremented (%d/%d)",
-						tm, this->masterTimeouts, MAX_MASTER_TIMEOUTS);pu;
+						tm, this->_getTimeouts(), MAX_MASTER_TIMEOUTS);pu;
+				
+				}else if (this->_getTimeouts() == MAX_MASTER_TIMEOUTS - 1){
+					// Ping Master before timing out
+					this->_send("|P");
 
 				}else{
 					// Past threshold:
 					pl;printf("\n\r[%08dms][L] MT THRESHOLD (%d/%d)",
-						tm, this->masterTimeouts, MAX_MASTER_TIMEOUTS);pu;
+						tm, this->_getTimeouts(), MAX_MASTER_TIMEOUTS);pu;
 
 					// Assume disconnection:
 					this->_setStatus(NO_MASTER);
 
 				} // End check threshold.
 			}else{
-				// Not connected to Master. Increment network timeouts:
-				this->networkTimeouts++;
+				// Not connected to Master.
+				
+				// Check network status:
+				nsapi_connection_status_t netStatus = 
+					this->ethernet.get_connection_status();
 
-				// Check threshold:
-				if(this->networkTimeouts < MAX_NETWORK_TIMEOUTS){
-					// Still within threshold
-					pl;printf("\n\r[%08dms][L] NT incremented (%d/%d)",
-						tm, this->networkTimeouts, MAX_NETWORK_TIMEOUTS);pu;
-
-				}else{
-					// Past network timeout threshold:
-					pl;printf("\n\r[%08dms][L] NT THRESHOLD (%d/%d) REBOOTING",
-						tm, this->networkTimeouts, MAX_NETWORK_TIMEOUTS);pu;
+				if(netStatus == NSAPI_STATUS_DISCONNECTED or
+					netStatus == NSAPI_STATUS_ERROR_UNSUPPORTED){
+					pl;printf("\n\r[%08dms][L] NETWORK ERROR. REBOOTING",tm);pu;
 					
 					// Set status to NO_NETWORK:
 					this->_setStatus(NO_NETWORK);
+				} else {
+					pl;printf("\n\r[%08dms][L] Standing by...",tm);pu;
+				
+				}
 
-				} // End check threshold.
-			} 
+			} // End if socket timeout
 
 			// Restart loop:
 			continue;
@@ -197,16 +237,9 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 				"\n\r[%08dms][C] UNRECOGNIZED NETWORK ERROR. WILL REBOOT: "
 				"\n\r\t\"%s\""
 				,tm, this->_interpret(bytesReceived));pu;
-			
-			pl;printf(
-				"\n\r[%08dms][C][REDN] UNRECOGNIZED NETWORK ERROR. WILL REBOOT: "
-				"\n\r\t\"%s\""
-				,tm, this->_interpret(bytesReceived));pu;
-			// Arbitrary wait for printing to finish:
-			wait_ms(10);
 
 			// Reboot:
-			NVIC_SystemReset();
+			this->_setStatus(NO_NETWORK);
 		} else{
 			// Positive code. A message was received.
 			// A positive value indicates a message was received.
@@ -215,6 +248,9 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			dataReceived[bytesReceived] = '\0';
 
 			if(this->getStatus() != CONNECTED){
+				// Print out this feedback only if there is no ongoing 
+				// connection w/ Master
+
 				pl;printf("\n\r[%08dms][L] Received: \"%s\""
 						"\n\r				 From: (%s,%d)",tm,
 					dataReceived, masterBroadcast.get_ip_address(), 
@@ -222,69 +258,138 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			}
 
 			// Validate data received: - - - - - - - - - - - - - - - - - - - - -
-			char* splitPosition; // Save splitting position in strtok_r
+			char* splitPointer = NULL; // Save splitting position in strtok_r
+			char* splitPositionTracker = NULL;
+			char specifier = '\0';
 				// NOTE: Use strtok_r instead of strtok for thread safety.
 
-			strtok_r(dataReceived, "|", &splitPosition);
-			strcpy(password, strtok_r(NULL, "|", &splitPosition));
-			masterListenerPort = atoi(strtok_r(NULL, "|", &splitPosition));
-		   
-			#ifdef DEBUG
-			pl;printf("\n\r[%08dms][L] Parsing:"
-					  "\n\r				   Master LPort: %d"
-					  "\n\r				   Password: \"%s\"", 
-					  tm, masterListenerPort, password);pu;
-			#endif
-
-			if(masterListenerPort > 0 and strcmp(password, PASSWORD) == 0){
-				// If the message received represents a general broadcast,
-				// send corresponding reply: - - - - - - - - - - - - - - - - - -
+			/* -----------------------------------------------------------------
+			 * EXPECTED POSSIBLE BROADCAST FORMATS:
+			 * -----------------------------------------------------------------
+			 * - STD BCAST: N|PASSCODE|M L PORT
+			 * - UPDT BCAST: U|PASSCODE|M L PORT|FILE NAME|FILE SIZE BYTES
+			 * - SHUTD BCAST: R|PASSCODE
+			 * - LAUNCH MkII (For Bootloader): L|PASSCODE
+			 * ---------------------------------------------------------------*/
+			
+			// Specifier .......................................................
+			// Get what should be a character specifying the nature of this
+			// broadcast:
+			splitPointer = strtok_r(dataReceived, "|", &splitPositionTracker);
 				
-				#ifdef DEBUG
-				pl;printf("\n\r[%08dms][L] General broadcast validated. "
-							"Sending reply",tm);pu;
-				#endif
-
-				// Configure listener address:..................................
-				this->masterListener.set_ip_address(
-					masterBroadcast.get_ip_address());
-				
-				this->masterListener.set_port(masterListenerPort);
-				
-				// Send reply:..................................................
-				char reply[256];
-				sprintf(reply, "00000000|%s|%s|%d|%d", 
-					password,this->ethernet.get_mac_address(),SMISO, SMOSI);
-					
-				this->slaveListener.sendto(
-					masterListener, reply, strlen(reply));
-				
-				#ifdef DEBUG
-				pl; printf("\n\r[%08dms][L] Sent: %s"
-						   "\n\r				To (%s, %d)",tm,
-					reply, masterListener.get_ip_address(), 
-					masterListenerPort);pu;
-				#endif
-				// Blink green LED: - - - - - - - - - - - - - - - - - - - - - - 
-				for(int i = 0; i < (this->getStatus() == CONNECTED? 0:1); i++){
-					this->green = !this->green;
-					Thread::wait(0.050);
-					this->green = !this->green;
-				} // End blink green LED - - - - - - - - - - - - - - - - - - - -
-				
-			}else{
-				// If the message received represents neither a general bcast
-				// nor a specific broadcast, discard it and restart:
-				
-				pl; printf(
-					"\n\r[%08dms][L] Invalid broadcast message discarded", 
-					tm);pu;
+			// Verify:
+			if (splitPointer == NULL){
+				pl;printf("\n\r[%08dms][L] NULL Splitter on char. Discarded",tm);pu;
 				continue;
+			}
+
+			// Save specifier:
+			specifier = splitPointer[0];
+
+			// Passcode ........................................................
+			// Point to passcode:
+			splitPointer = strtok_r(NULL, "|", &splitPositionTracker);
+			
+			// Check passcode:
+			if(splitPointer == NULL){
+				pl;printf("\n\r[%08dms][L] NULL Splitter on P.Code. Discarded",tm);pu;
+				continue;
+			} else if (strcmp(splitPointer, PASSCODE) != 0){
+				pl;printf("\n\r[%08dms][L] Passcode mismatch (%s != %s)", tm,
+					splitPointer, PASSCODE);pu;
+				continue;	
+			} else {
+				this->passcodeLock.lock();
+				strcpy(this->passcode, splitPointer);
+				this->passcodeLock.unlock();
+			}
 				
-			}// end data validation - - - - - - - - - - - - - - - - - - - - - - 
+			// Now assume correct passcode and proceed to check specifier ......
+
+			switch(specifier){
+				
+				case 'N': { // STD BCAST. Send reply
+					
+					// Update Master Listener port
+					
+					splitPointer = strtok_r(NULL, "|", &splitPositionTracker);
+					if(splitPointer == NULL){
+						pl;printf("\n\r[%08dms][L] NULL Splitter on M.L.Port "\
+							"discarded",tm);pu;
+						continue;
+					}
+
+					int port = atoi(splitPointer);
+					if(port <= 0){
+						pl;printf("\n\r[%08dms][L] Bad M.L.Port \"%d\" "\
+							"discarded",tm, port);pu;
+						continue;
+					} else {
+						this->masterListener.set_port(port);
+					}
+					
+					// If disconnected, send standard reply
+					if(this->getStatus() != CONNECTED){
+						char reply[MAX_MESSAGE_LENGTH];
+
+						this->passcodeLock.lock();
+						int n = snprintf(reply, 256, "A|%s|%s|%d|%d|%s", 
+							this->passcode,
+							this->ethernet.get_mac_address(),
+							SMISO, 
+							SMOSI,
+							this->version);
+						this->passcodeLock.unlock();
+
+						this->listenerSocketLock.lock();
+						this->slaveListener.sendto(
+							masterListener, reply, n);
+						pl;printf("\n\r[%08dms][L] Broadcast validated. "\
+							"Reply sent", tm);pu;
+						this->listenerSocketLock.unlock();
+
+					} // End reply if disconnected
+					
+					// Store IP addres
+
+					break;
+				} // End STD BCAST
+
+				case 'U': { // UPDATE BCAST. Reboot
+					pl;printf("\n\r[%08dms][L] Update command received. "\
+						"Rebooting", tm);pu;
+				
+					this->_setStatus(NO_NETWORK);
+					break;
+				} // End UPDATE BCAST
+
+				case 'R': { // SHUTDOWN BCAST. Reboot
+					pl;printf("\n\r[%08dms][L] Shutdown command received. "\
+						"Rebooting", tm);pu;
+				
+					this->_setStatus(NO_NETWORK);
+					break;
+				} // End SHUTDOWN BCAST
+
+				case 'L': { // LAUNCH BCAST. Ignore
+					if(this->getStatus() != CONNECTED){
+						pl;printf("\n\r[%08dms][L] \"Launch\" command ignored",
+							tm);pu;	
+					}
+					break;
+				} // End LAUNCH BCAST
+
+				default: { // Unrecognized broadcast specifier
+					pl;printf("\n\r[%08dms][L] Unrecognized BC code \"%c\""\
+						" ignored",
+						tm, specifier);pu;	
+				}
+
+			} // End switch specifier
+			
 		} // End reception validation = = = = = = = = = = = = = = = = = = = = = 
 	}// End listener routine loop ==============================================
-	} // End Communicator::_listenerRoutine // // // // // // // // // // // // 
+} // End Communicator::_listenerRoutine // // // // // // // // // // // // // /
    
 void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 	// ABOUT: Send periodic updates to Master once connected.
@@ -295,7 +400,6 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 	// Initialize placeholders -------------------------------------------------
 	unsigned int misoPeriodMS = 1; // Time between cycles
 	char processed[MAX_MESSAGE_LENGTH]; // Feedback to be sent back to Master 
-	bool newMessage = false; // Whether a new message was fetched
 
 	// Thread loop =============================================================
 	while(true){
@@ -304,13 +408,11 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 		if(this->getStatus() == CONNECTED){
 			// Connected. Send update to Master.
 
-			// [TODO: Error-checking queue]
-
 			// Fetch message to send -------------------------------------------
-			newMessage = this->processor.get(processed);
+			this->processor.get(processed);
 			
 			// Send message ----------------------------------------------------
-			this->_send(processed, 2, newMessage);
+			this->_send(processed, 1);
 
 		} else { // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 			// Not connected. Nothing to send.
@@ -320,9 +422,9 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 		// Wait period ---------------------------------------------------------
 
 		// Fetch latest value:
-		this->configurationLock.lock();
+		this->periodLock.lock();
 		misoPeriodMS = this->periodMS;
-		this->configurationLock.unlock();
+		this->periodLock.unlock();
 
 		// Wait:
 		Thread::wait(misoPeriodMS);
@@ -330,7 +432,7 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 		// (Restart loop)
 
 	} // End MISO loop =========================================================
-	} // End Communicator::_misoRoutine // // // // // // // // // // // // // /
+} // End Communicator::_misoRoutine // // // // // // // // // // // // // // //
 
 void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 	// ABOUT: Listen for commands from Master.
@@ -339,214 +441,237 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 	pl;printf("\n\r[%08dms][I] MOSI thread started",tm);pu;
 
 	// Prepare placeholders ----------------------------------------------------
-	int receivedExchange = 0;  // Exchange index of a received message
-	char receivedKeyword[64];  // Keyword of a received message
-	char receivedCommand[MAX_MESSAGE_LENGTH]; // Possible command in a message
 
-	this->exchangeIndex = 0;
+	// Communications:
+	char buffer[MAX_MESSAGE_LENGTH] = {0};
+	char errorBuffer[MAX_MESSAGE_LENGTH] = {0};
+	char specifier = '\0';
+	char *splitPointer = NULL;
+	char *savePointer = NULL;
+
+	// Handshake:
+	int parsedMISOPort = 0;
+	int parsedMOSIPort = 0;
+	int parsedPeriodMS = 0;
+	int parsedMaxMasterTimeouts = 0;
+
 	// Thread loop =============================================================
 	while(true){
 
 		// Wait for message ----------------------------------------------------
-		int result = this->_receive(&(this->exchangeIndex), 
-			&receivedExchange, receivedKeyword, receivedCommand);
+		int result = this->_receive(&specifier, buffer);
 
 		// Verify reception = = = = = = = = = = = = = = = = = = = = = = = = = = 
 		if(result <= 0){
-			// Error. Discard message. (Error will be reported by _receive)
+			// Error. Discard message. (Error will be printed by _receive)
 			continue;
-
-		}else{
+		
+		} else if(this->getStatus() == CONNECTED) {
+			
 			// A message was received. Validate its content.
+			switch(specifier){
+				
+				case 'S':{ // STANDARD
+			
+					// Verify nonempty message:
+					if(buffer[0] == '\0'){
+						pl;printf(
+							"\n\r[%08dms][I][E] WARNING: EMPTY MESSAGE ON 'S'",
+							tm);pu;
+						this->_sendError("E|Empty 'S' message received");
+					}
+					
+					// Pass message to Processor:
+					this->processor.process(buffer);
+					break;
+				}
+					
+				case 'H':{ // HANDSHAKE
+					pl;printf(
+						"\n\r[%08dms][I][E] WARNING: HSK while connected", tm);pu;
+					this->_sendError("E|HSK while connected");
 
-			// Check message contents -----------------------------------------
-			if(!strcmp(receivedKeyword, "MHSK")){
-				// Handshake message w/ configuration parameters.
-				pl;printf("\n\r[%08dms][C] HSK received. Updating sockets",tm);pu;
+					break;
+				}
+				case 'X':{ // DISCONNECT
+					
+					pl;printf(
+						"\n\r[%08dms][I] Disconnect message received."\
+							" Rebooting", tm);pu;
+					
+					this->_setStatus(NO_NETWORK);
+					break;
+				}
+					
+				case 'Z':{ // REBOOT
+					pl;printf(
+						"\n\r[%08dms][I] Reboot message received."\
+							" Rebooting", tm);pu;
 
-				// Update status to stop broadcast:
-				this->_setStatus(CONNECTING);
+					this->_setStatus(NO_NETWORK);
+					break;
+				}
+					
+				case 'I':{ // INDEX
+					pl;printf(
+						"\n\r[%08dms][I] Resetting MOSI index" , tm);pu;
+					this->_resetMOSIIndex();
+					
+					break;
+				}
+					
+				case 'P':{ // PING
+					pl;printf(
+						"\n\r[%08dms][I] Ping message received" , tm);pu;
+					this->_resetTimeouts();
 
-				// Update sockets: .................................................
+					break;
+				}
+					
+				default:{
+					pl;printf(
+						"\n\r[%08dms][I][E] WARNING: UNRECOGNIZED CODE \'%c\'",
+						tm, specifier);pu;
+					snprintf(errorBuffer, MAX_MESSAGE_LENGTH,
+						"E|Unrecognized code '%c'", specifier);
+					this->_sendError(errorBuffer);
+				
+					break;
+				}
+			
+			} // End switch specifier
+		
+		} else if (specifier == 'H'){
+			// If there is no connection, accept only HSK messages
+		
+			// Verify nonempty message:
+				if(buffer[0] == '\0'){
+					pl;printf(
+						"\n\r[%08dms][I][E] WARNING: EMPTY HSK MESSAGE",
+						tm);pu;
+				}
+			 
+				// Get network-related configuration
+				// Here the buffer is expected to be formatted as 
+				//
+				//		 MISOP,MOSIP,PERIODMS,MAXT|ARRAY_CONFIG
+				//					
+				//
+				
+				// MISO Port
+				splitPointer = strtok_r(buffer, ",", &savePointer);
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL MISO P. IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				} else if ((parsedMISOPort = atoi(splitPointer) ==0)){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO MISO P. IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
 
-				// Get configuration lock:
-				this->configurationLock.lock();
+				// MOSI Port
+				splitPointer = strtok_r(NULL, ",", &savePointer);
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL MISO P. IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				} else if ((parsedMOSIPort = atoi(splitPointer) ==0)){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO MISO P. IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
 
-				// Get values: . . . . . . . . . . . . . . . . . . . . . . . . . . .
-				char *ptr = NULL, *splitPosition;
-				int port, periodms;
-					// NOTE: Use strtok_r instead of strtok for thread-safety
+				// Period
+				splitPointer = strtok_r(NULL, ",", &savePointer);
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL PERIOD IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				} else if ((parsedPeriodMS = atoi(splitPointer) ==0)){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO PERIOD IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
 
-				ptr = strtok_r(receivedCommand, ",", &splitPosition);
-				pl;printf("\n\r[%08dms][C] First item: %s",tm, ptr);pu;
+				// Max. Master timeouts
+				splitPointer = strtok_r(NULL, ",|", &savePointer);
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL M.TIMEOUTS IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				} else if ((parsedMaxMasterTimeouts = atoi(splitPointer) 
+					==0 )){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO M.TIMEOUTS IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
 
-				// Get Master MISO port:
-				if(ptr != NULL and (port = atoi(ptr)) > 0){
-					this->masterMISO.set_port(port);
-
-					// Set Master IP on MISO (from MOSI):
+				// Processor
+				
+				// Send Processor-related configuration
+				// 	NOTE: COPY IN PROCESSOR
+				
+				splitPointer = strtok_r(NULL, "|", &savePointer);
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL PERIOD IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
+				bool processorSuccess = this->processor.process(splitPointer);
+				
+				// Check success:
+				if(processorSuccess){
+					
+					// Apply configuration
+					this->sendLock.lock();
+					this->receiveLock.lock();
+					this->masterMISO.set_port(parsedMISOPort);
 					this->masterMISO.set_ip_address(
 						this->masterMOSI.get_ip_address());
-						
-					pl;printf("\n\r[%08dms][C] Master MISO set to: %s on %d",
-					tm, masterMISO.get_ip_address(), port);pu;
-				}else{
-					// Bad Master MISO:
-					pl;printf(
-						"\n\r[%08dms][C] HS1 ERROR. Bad master MISO: %d(-1 if NULL)"
-						,tm, ptr == NULL? -1:port);pu;
 
-					// Discard progress and restart:
-					this->_setStatus(NO_MASTER);
-
-					// Release configuration lock:
-					this->configurationLock.unlock();
-
-					// Restart loop:
-					continue;
-				}
-
-				// Skip Master MOSI port:
-				ptr = strtok_r(NULL, ",", &splitPosition);
-				pl;printf("\n\r[%08dms][C] Second item: %s",tm, ptr);pu;
-				
-				ptr = strtok_r(NULL, ",", &splitPosition);
-				pl;printf("\n\r[%08dms][C] Third item: %s",tm, ptr);pu;
-
-				// Get period:
-				if(ptr != NULL and (periodms = atoi(ptr)) > 0){
+					this->receiveLock.unlock();
+					this->sendLock.unlock();
 					
-					pl;printf("\n\r[%08dms][C] Timeout set to: %dms",
-						tm, periodms);pu;
+					this->periodLock.lock();
+					this->periodMS = parsedPeriodMS;
+					this->periodLock.unlock();
 
-					this->periodMS = periodms;
-					this->configurationLock.unlock();
+					this->maxMasterTimeoutsLock.lock();
+					this->maxMasterTimeouts = parsedMaxMasterTimeouts;
+					this->maxMasterTimeoutsLock.unlock();
 
-				}else{
-					// Bad timeout:
-					pl;printf(
-						"\n\r[%08dms][C] HS1 ERROR. Bad period: %d(-1 if NULL)"
-						,tm, ptr == NULL? -1:periodms);pu;
-
-					// Discard progress and restart:
-					this->_setStatus(NO_MASTER);
-
-					// Release configuration lock:
-					this->configurationLock.unlock();
-
-					// Restart loop:
-					continue;
-				}
-
-				// Get fan array configuration for Processor:
-				ptr = strtok_r(NULL, ",", &splitPosition);
-				pl;printf("\n\r[%08dms][C] Fourth item: %s",tm, ptr);pu;
-
-				// Verify:
-				if(ptr == NULL){
-					// Error while splitting.
-					pl;printf(
-						"\n\r[%08dms][C] HSK ERROR. NULL configuration."
-						,tm);pu;
-
-					// Discard progress and restart:
-					this->_setStatus(NO_MASTER);
-
-					// Release configuration lock:
-					this->configurationLock.unlock();
-
-					// Restart loop:
-					continue;
-
-				}
-
-				// Send command to processor: ..................................
-				char configBuffer[256];
-				strcpy(configBuffer, ptr);
-				bool success = this->processor.process(ptr, true);
-
-				// Check success: ..............................................
-				if(not success){
-					// If there was a failure in the configuration, terminate 
-					// the attempt:
-					pl;printf(
-						"\n\r[%08dms][C] HSK error at processor. "
-						"Handshake aborted",tm);pu;
-
-					// Discard progress:
-					this->_setStatus(NO_MASTER);
-
-					// Release configuration lock:
-					this->configurationLock.unlock();
-
-					// Restart loop:
-					continue;
-
-				}else{
-					// Success. 
-
-					// Send reply to master:
-					this->_send("SHSK", 5); // Send reply
-
-					pl;printf(
-						"\n\r[%08dms][C] HSK Success",tm);pu;
-	
-					// Update status and move on:
+					// Send handshake acknowledgement
+					this->_send("H",2);
+					
+					// Update status:
 					this->_setStatus(CONNECTED);
+				
+				} else {
 
-					// Release configuration lock:
-					this->configurationLock.unlock();
-
-					// Restart loop:
-					continue;
-
-					} // End check success .....................................
-
-			}else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
-				!strcmp(receivedKeyword, "MVER")){
-
-				// Verification message. Not compatible w/ this version.
-				pl;printf(
-					"\n\r[%08dms][C] WARNING: MVER obsolete",tm);pu;
-
-			}else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
-				!strcmp(receivedKeyword, "MSTD")){
-				// Standard command message. Send command to Processor.
-
-				pl;printf(
-					"\n\r[%08dms][C] MSTD. Command: %s",tm, receivedCommand);pu;
-
-				// Send command to Processor:
-				this->processor.process(receivedCommand);
-
-			}else if(this->getStatus() == CONNECTED and // - - - - - - - - - - - - - 
-				!strcmp(receivedKeyword, "MRIP")){
-
-				pl;printf(
-					"\n\r[%08dms][C] Connection terminated by Master. Rebooting.",tm);pu;
-
-				// Terminate connection:
-				this->_setStatus(NO_NETWORK);
-
-			}else{ // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-				// Unrecognized message (or command received while disconnected)
-				pl;printf(
-					"\n\r[%08dms][C] WARNING: Keyword unrecognized or non-HSK"
-					" before setup",tm);pu;
-
-				// Reset index if waiting for HSK:
-				if(this->getStatus() == NO_MASTER){
-					this->exchangeIndex = 0;
-				} // End reset index
-
-			}// End check message ----------------------------------------------
-
-		} // End verify reception = = = = = = = = = = = = = = = = = = = = = = = 
-
-		// (Restart loop)
+					// HSK error at processor
+					this->_sendError("E|Bad HSK at Processor");
+					this->_setStatus(NO_MASTER);
+				} // End check processor success
+		
+		} else {
+			
+			pl;printf(
+				"\n\r[%08dms][I][E] WARNING: Could not classify message",
+				tm);pu;
+		} // End verify reception
 
 	} // End MOSI loop =========================================================
-	} // End Communicator::_mosiRoutine // // // // // // // // // // // // // /
+} // End Communicator::_mosiRoutine // // // // // // // // // // // // // // //
 
 int Communicator::_send(const char* message, int times, bool print){ // // // //
 	/* ABOUT: Send a message to the known Master MISO socket using the Slave
@@ -565,176 +690,193 @@ int Communicator::_send(const char* message, int times, bool print){ // // // //
 	 * WARNING: This private member function assumes (1) the Slave's MISO 
 	 *	socket is ready to send messages and (2) the message given ends in
 	 *	'\0'.
+	 * NOTE: Blocks for thread-safety.
 	 */
-	
-	static char outgoing[MAX_MESSAGE_LENGTH];
-	static int length;
-	static int resultCode;
+
+	// Cannot send messages if there is no established connection:
+	this->sendLock.lock();
+
+	char outgoing[MAX_MESSAGE_LENGTH];
+	int length = 0;
+	int resultCode = 0;
 
 	// Increment MISO index:
-	this->misoIndex++;
+	this->_incrementMISOIndex();
 	
 	// Format message: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	length = sprintf(outgoing, "%d|%s", this->misoIndex, message); 
+	length = sprintf(outgoing, "%d|%s", this->_getMISOIndex(), message); 
 	
 	// Send  message: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	
-	for(int i = 0; i < times; i++)
-		resultCode = this->slaveMISO.sendto(masterMISO, outgoing, length);
-	
-	// Notify terminal: - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-	if(print){
-	pl;printf("\n\r[%08dms][C] Sent: \"%s\" "
-			  "\n\r				   To MMISO (%s, %d) (%d times)", 
-		tm, length > 0? outgoing : "[SEND ERR]", 
-		this->masterMISO.get_ip_address(), this->masterMISO.get_port(), times);
-		pu;
+	for(int i = 0; i < times; i++){
+		resultCode = this->slaveMISO.sendto(
+			this->masterMISO, outgoing, length);
+		if(resultCode <= 0){
+			break;
+		}
 	}
-	// Set acknowledgement flag to false: - - - - - - - - - - - - - - - - - - - 
-	this->messageResent = false;	
+	if (resultCode <= 0){
+		pl;printf("\n\r[%08dms][C][E] SEND ERROR: %d",tm, resultCode);
+
+	} else if(print){
+
+		// Notify terminal: - - - - - - - - - - - - - - - - - - - - - - - - - - 
+		pl;printf("\n\r[%08dms][C] Sent: \"%s\" "
+				  "\n\r				   To MMISO (%s, %d) (%d times)", 
+			tm, length > 0? outgoing : "[SEND ERR]", 
+			this->masterMISO.get_ip_address(), this->masterMISO.get_port(), 
+			times);pu;
+	}
 	
+	this->sendLock.unlock();
+
 	// Return result code: - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	return resultCode;
-	 
-		 
-	} // End Communicator::_send // // // // // // // // // // // // // // // //
+	 	 
+} // End Communicator::_send // // // // // // // // // // // // // // // // // 
 
-int Communicator::_receive( // // // // // // // // // // // // // // // // // /
-	int *currentIndex, int *receivedIndex, char* keyword, char* command){
+int Communicator::_sendError(const char* message){ // // // // // // // // // // /
+	/* ABOUT: Send an error message to Master, if possible. This function will
+	 * try to use either the MISO-side _send function 
+	 * (if there is a connection) or the listener thread's socket.
+	 * PARAMETERS:
+	 * - const char* message: NULL-terminated message to send.
+	 * RETURN: int; number of bytes received upon success, negative error code
+	 * on failure.
+	 * NOTE: Blocks for thread-safety.
+	 */
+
+	// Check connection status
+	if (this->getStatus() == CONNECTED){
+		// Use standard _send function
+		return this->_send(message);
+	
+	} else {
+		// Use listenerSocket 
+		int result = 0;
+		char buffer[MAX_MESSAGE_LENGTH] = {0};
+		this->passcodeLock.lock();
+		snprintf(buffer, MAX_MESSAGE_LENGTH, "A|%s|%s|E|%s",
+			this->passcode, this->ethernet.get_mac_address(),
+			message);
+		this->passcodeLock.unlock();
+
+		this->listenerSocketLock.lock();
+		result = this->slaveListener.sendto(
+			this->masterListener, message, strlen(message));
+		this->listenerSocketLock.unlock();
+
+		return result;
+	}
+
+} // End Communicator::_sendError // // // // // // // // // // // // // // // /
+
+int Communicator::_receive(char* specifier, char message[]){ // // // // // // 
 		/* ABOUT: Receive a message in MOSI socket and place it in the given
 		 * placeholder arguments.
 		 * RETURNS: Int; number of bytes received upon success, negative error
 		 * code upon failure.
+		 *
+		 * Expected message format:
+		 *
+		 * 		MOSI_INDEX | C | MESSAGE
+		 *
 		 */ 
-	
-	// Placeholders: ===========================================================
-	char received[MAX_MESSAGE_LENGTH];
-	int result = -1;
-	char *ptr;
-	bool hsk = false;
 
-	// Default values: =========================================================
-	*receivedIndex = 0;
-	keyword[0] = '\0';
-	command[0] = '\0';
-	result = -1;
-	
-	
-	// Loop until a correct message is received or the socket times out:
-	while(true){ // Receive loop ===============================================
-		// Get messages and evaluate them. Either return w/ success after find-
-		// ing an appropriate message or w/ failure after timing out.
+	// Placeholders ============================================================
+	char 	buffer[MAX_MESSAGE_LENGTH] = {0},
+			*splitPointer = NULL,
+			*splitPosition = NULL;
 
-		// Get a message: = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-		pl;printf("\n\r[%08dms][R] Waiting on message",tm);pu;
-		
+	int result = -1; 
+	int index = 0;
+	
+	// NOTE: The following loop will either terminate successfully by reaching 
+	// the return statement at the end of this loop or by an eventual timeout
+	// or other network error (first case of if/else statement below)
+
+	// Receive message =========================================================
+	while(true){
 		result = 
-			this->slaveMOSI.recvfrom(&this->masterMOSI, received, 
-				MAX_MESSAGE_LENGTH);
-
-		// Validate message = = = = = = = = = = = = = = = = = = = = = = = = = = 
-
-		// Check result integer: ----------------------------------------------
+			this->slaveMOSI.recvfrom(
+				&this->masterMOSI, buffer, MAX_MESSAGE_LENGTH);
+		
+		// Verify reception ====================================================
 		if(result <= 0){
-			// Timeout or other error code. Exit function w/ error code.
-			pl;printf(
-				"\n\r[%08dms][R] Receive timeout or network error: \n\r\t\"%s\""
-				,tm, this->_interpret(result));pu;
-				
+			// Timeout or connection error (leave connection error detection to
+			// listener thread)
+			*specifier = '\0';
+			message[0] = '\0';
 			return result;
+		 
+		} else { // Validate message ===========================================
 			
-		} // Done checking result integer: -------------------------------------
-		// Split message: ------------------------------------------------------
-		received[result] = '\0';
-		
-		pl;printf("\n\r[%08dms][R] Received: %s (%d)", tm,received, result);pu;
+			// Add NULL-termination character:
+			buffer[result] = '\0';
 
-		char* splitPosition;
-			// NOTE: Use strtok_r instead of strtok for thread-safety
-		ptr = strtok_r(received,"|", &splitPosition);
-		
-		// Get index: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		if(ptr != NULL){
-			*receivedIndex = atoi(ptr);
-		}
-		
-		// Check index: - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		if(*receivedIndex == 0){
-			// Zero index might indicate HSK. Raise HSK flag.
-			hsk = true;
-			pl;printf("\n\r[%08dms][R] Zero index. HSK flag raised",
-				tm);pu;
-		}
-		else if((*receivedIndex <= *currentIndex) or (ptr == NULL)){
-			// Bad index:
-			pl;printf("\n\r[%08dms][R] Bad recv'd index (%d): expected %d",tm,
-				ptr == NULL? 0 : *receivedIndex, *currentIndex + 1);pu;
+			// Check index -----------------------------------------------------
+			// Get index:
+			splitPointer = strtok_r(buffer, "|", &splitPosition);
+			if(splitPointer == NULL){
+				// NULL index. Ignore message
+				pl;printf("\n\r[%08dms][R] WARNING: NULL Index received", 
+					tm);pu;
+				continue;
 
-			// Restart loop:
-			continue;
-		}
-		// Check keyword: - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		ptr = strtok_r(NULL, "|", &splitPosition);
-
-		if(ptr != NULL and strlen(ptr) == 4){
-			strcpy(keyword, ptr);
-		}
-		else{
-			// Bad keyword: 
-			pl;printf("\n\r[%08dms][R] Bad recv'd keyword (%s)",tm,
-				ptr == NULL? "[NULL]" : keyword);pu;
-
-			// Restart loop:
-			continue;
-		}
-
-		// Check HSK flag:
-		if(hsk and strcmp(keyword, "MHSK") != 0){
-			// Have zero index but non-HSK keyword. (Invalid)
-			pl;printf("\n\r[%08dms][R] Zero index w/o MHSK. Message discarded",
-				tm);pu;
-
-			// Restart loop:
-			continue;
-		}
-		
-
-		// Check command: - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-		ptr = strtok_r(NULL, "|", &splitPosition);
-
-		if(ptr != NULL){
-
-			strcpy(command, ptr);
+			} else if ((index = atoi(splitPointer)) < 0){
+				pl;printf("\n\r[%08dms][R] WARNING: Negative index received "\
+					"(%d):\n\r\t\t\"%s\"", tm, index, buffer);pu;
+				continue;
 			
-		}else{
-			command[0] = '\0';
-		}
+			} else if (index != 0 and index < this->_getMOSIIndex()){
+				// Outdated message
+				pl;printf("\n\r[%08dms][R] Old MSG Ignored (%d)", 
+					tm, index);pu;
+				continue;
 
-		
+			} // End check index
+			
+			// NOTE: Index 0 is a special case (HSK)
 
-		// Reset corresponding timeout: - - - - - - - - - - - - - - - - - - - - 
-		if(this->getStatus() == CONNECTED){
+			// Get specifier ---------------------------------------------------
+			splitPointer = strtok_r(NULL, "|", &splitPosition);
+			if(splitPointer == NULL){
+				// NULL specifier. Ignore message
+				pl;printf("\n\r[%08dms][R] WARNING: NULL Spec. received:"\
+					"\n\r\t\t\"%s\"", tm, buffer);pu;
+				continue;
 
-			// Increment Master timeouts:
-			this->masterTimeouts = 0;
+			} else {
+				// Non-NULL specifier. Store in placeholder:
+				*specifier = splitPointer[0];
 
-		}else{
+				// Check for zero index w/o HSK (not allowed)
+				if(index == 0 and *specifier != 'H'){
+					pl;printf("\n\r[%08dms][R] WARNING: Non-HSK 0 Index"\
+					" received:\n\t\t%s", tm, buffer);pu;
+					continue;	
+				}
+			}
 
-			// Increment networkTimeouts:
-			this->networkTimeouts = 0;
+			// Get message -----------------------------------------------------
+			splitPointer = strtok_r(NULL, "|", &splitPosition);
+			if(splitPointer == NULL){
+				// No message (acceptable for some specifiers)
+				message[0] = '\0';
 
-			} // End increment timeout - - - - - - - - - - - - - - - - - - - - 
+			} else {
+				// Valid message to be stored:
+				strcpy(message, buffer);
+			}
 
-		// Update index upon success: - - - - - - - - - - - - - - - - - - - - - 
-		*currentIndex = *receivedIndex;
+			// Message approved. Modify MOSI index:
+			this->_setMOSIIndex(index);
+			return result;
 
-		// Break from loop:
-		break;
-		} // End receive loop /=================================================
-	return result;		  
+		} // End verify result
+	} // End receive loop
 
-	} // End Communicator::_receive // // // // // // // // // // // // // // //
-
+} // End Communicator::_receive // // // // // // // // // // // // // // // // 
+	
 void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 	// ABOUT: Set the current connection status, which will be displayed to
 	// The user using the MCU's LED's and used for multithread coordination.
@@ -750,21 +892,20 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 		return;
 	}else{ // Otherwise, update the status accordingly:
 		// Reset timeout counters when changing status:
-		this->networkTimeouts = 0;
-		this->masterTimeouts = 0;
+		this->_resetTimeouts();
 	
 		switch(newStatus){ // - - - - - - - - - - - - - - - - - - - - - - - - - 
 			
 			case NO_MASTER: // ..................................................
 				// Reset exchange index:
-				this->exchangeIndex = 0;
-				this->misoIndex = 0;
+				this->_resetMOSIIndex();
+				this->_resetMISOIndex();
 			
 				// Set green:
 				statusTicker.attach(callback(this, &Communicator::_blinkGreen),
 					BLINK_SLOW);
 				// Set red:
-				this->red = true;
+				this->_setRed(L_ON);
 		
 				// Shut down Processor:
 				this->processor.setStatus(OFF);
@@ -783,7 +924,7 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				statusTicker.attach(callback(this, &Communicator::_blinkGreen),
 					BLINK_SLOW);
 				// Set red:
-				this->red = true;
+				this->_setRed(L_ON);
 				
 				
 				// Notify user:
@@ -798,8 +939,8 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				statusTicker.detach();
 				
 				// Set green:
-				this->green = true;
-				this->red = false;
+				this->_setGreen(L_ON);
+				this->_setRed(L_OFF);
 				
 				
 				// Notify user:
@@ -813,18 +954,18 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 							 
 			case NO_NETWORK: // ................................................
 				// Reset exchange index:
-				this->exchangeIndex = 0;
-				this->misoIndex = 0;
+				this->_resetMOSIIndex();
+				this->_resetMISOIndex();
 			
 				// Set green:
-				this->green = false;
+				this->_setGreen(L_OFF);
 				
 				// Set red:
 				statusTicker.attach(callback(this, &Communicator::_blinkRed),
 					BLINK_FAST);
 		
 				// Shut down Processor:
-				this->processor.setStatus(OFF);	
+				this->processor.setStatus(L_OFF);	
 					
 				// Notify user:
 				pl;printf("\n\r[%08dms][S] Status: NO_NETWORK", tm);pu;    
@@ -841,15 +982,15 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				
 			case INITIALIZING: // ..............................................
 				// Reset exchange index:
-				this->exchangeIndex = 0;
-				this->misoIndex = 0;
+				this->_resetMOSIIndex();
+				this->_resetMISOIndex();
 			
 				// No blinking:
 				statusTicker.detach();
 				
 				// Set green:
-				this->green = false;
-				this->red = true;
+				this->_setGreen(L_OFF);
+				this->_setRed(L_ON);
 			
 				   
 				// Notify user:
@@ -900,22 +1041,6 @@ int Communicator::getStatus(void){
 		// return?
 		
 	} // End Communicator::getStatus // // // // // // // // // // // // // // /
-
-void Communicator::_blinkRed(){ // // // // // // // // // // // // // // // // 
-	// About: Alternate status of red USR LED. To be used by _setStatus.
-	
-	// When called, alternate status:
-	this->red = !red;
-	
-	} // End Communicator::_blinkRed // // // // // // // // // // // // // // /
-
-void Communicator::_blinkGreen(){ // // // // // // // // // // // // // // // /
-	// About: Alternate status of green USR LED. To be used by _setStatus.
-	
-	// When called, alternate status:
-	this->green = !green;
-	
-	} // End Communicator::_blinkGreen // // // // // // // // // // // // // //
 
 const char* Communicator::_interpret(int errorCode){
 	/* Interpret a network error code and return its description.
@@ -982,3 +1107,188 @@ const char* Communicator::_interpret(int errorCode){
 	} // End switch
 			
 	} // End Communicator::_interpret // // // // // // // // // // // // / // /
+
+void Communicator::_resetTimeouts(void){ // // // // // // // // // // // // // 
+	/* ABOUT: Reset Master timeout counter to 0.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->timeoutLock.lock();
+	this->masterTimeouts = 0;
+	this->timeoutLock.unlock();
+
+} // Communicator::_resetTimeouts // // // // // // // // // // // // // // // /
+
+void Communicator::_incrementTimeouts(void){ // // // // // // // // // // // //
+	/* ABOUT: Increase Master timeout counter by 1.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->timeoutLock.lock();
+	this->masterTimeouts++;
+	this->timeoutLock.unlock();
+
+} // Communicator::_increaseTimeouts // // // // // // // // // // // // // // /
+
+int Communicator::_getTimeouts(void){ // // // // // // // // // // // // // // 
+	/* ABOUT: Get value of Master timeout counter.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	int value = 0;
+	this->timeoutLock.lock();
+	value =	this->masterTimeouts;
+	this->timeoutLock.unlock();
+	
+	return value;
+
+} // Communicator::_getTimeouts // // // // // // // // // // // // // // // // 
+
+void Communicator::_resetMISOIndex(void){ // // // // // // // // // // // // // 
+	/* ABOUT: Reset  MISO index to 1.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->misoIndexLock.lock();
+	this->misoIndex = 1;
+	this->misoIndexLock.unlock();
+
+} // Communicator::_resetMISOIndex // // // // // // // // // // // // // // // 
+
+void Communicator::_incrementMISOIndex(void){ // // // // // // // // // // // /
+	/* ABOUT: Increase  MISO index by 1.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->misoIndexLock.lock();
+	this->misoIndex++;
+	this->misoIndexLock.unlock();
+
+} // Communicator::_increaseMISOIndex // // // // // // // // // // // // // // 
+
+int Communicator::_getMISOIndex(void){ // // // // // // // // // // // // // // 
+	/* ABOUT: Get value of  MISO index.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	int value = 0;
+	this->misoIndexLock.lock();
+	value =	this->misoIndex;
+	this->misoIndexLock.unlock();
+	
+	return value;
+
+} // Communicator::_getMISOIndex // // // // // // // // // // // // // // // // 
+
+void Communicator::_resetMOSIIndex(void){ // // // // // // // // // // // // // 
+	/* ABOUT: Reset  MOSI index to 1.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->mosiIndexLock.lock();
+	this->mosiIndex = 1;
+	this->mosiIndexLock.unlock();
+
+} // Communicator::_resetMOSIIndex // // // // // // // // // // // // // // // 
+
+void Communicator::_incrementMOSIIndex(void){ // // // // // // // // // // // /
+	/* ABOUT: Increase  MOSI index by 1.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->mosiIndexLock.lock();
+	this->mosiIndex++;
+	this->mosiIndexLock.unlock();
+
+} // Communicator::_increaseMOSIIndex // // // // // // // // // // // // // // 
+
+int Communicator::_getMOSIIndex(void){ // // // // // // // // // // // // // // 
+	/* ABOUT: Get value of  MOSI index.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	int value = 0;
+	this->mosiIndexLock.lock();
+	value =	this->mosiIndex;
+	this->mosiIndexLock.unlock();
+	
+	return value;
+
+} // Communicator::_getMOSIIndex // // // // // // // // // // // // // // // // 
+
+void Communicator::_setMOSIIndex(int newIndex){ // // // // // // // // // // //
+	/* ABOUT: Set value of  MOSI index.
+	 * NOTE: Blocks for thread safety.
+	 */
+
+	this->mosiIndexLock.lock();
+	this->mosiIndex = newIndex;
+	this->mosiIndexLock.unlock();
+
+} // Communicator::_increaseMOSIIndex // // // // // // // // // // // // // // 
+
+void Communicator::_setRed(int state){ // // // // // // // // // // // // // //
+	/* ABOUT: Set state of red USR LED. To be used by _setStatus.
+	 */
+
+	switch(state){
+		
+		case L_TOGGLE:
+			this->red = !this->red;
+			this->xred = this->red;
+			break;
+
+		case L_ON:
+			this->red = true;
+			this->xred = true;
+			break;
+
+		case L_OFF:
+			this->red = false;
+			this->xred = false;
+			break;
+	}
+
+} // End Communicator::_setRed // // // // // // // // // // // // // // // // /
+	 
+void Communicator::_setGreen(int state){ // // // // // // // // // // // // // 
+	/* ABOUT: Set state of green USR LED. To be used by _setStatus.
+	 */
+	
+	switch(state){
+		
+		case L_TOGGLE:
+			this->green = !this->green;
+			this->xgreen = this->green;
+			break;
+
+		case L_ON:
+			this->green = true;
+			this->xgreen = true;
+			break;
+
+		case L_OFF:
+			this->green = false;
+			this->xgreen = false;
+			break;
+
+	}
+} // End Communicator::_setGreen // // // // // // // // // // // // // // // //
+
+void Communicator::_blinkRed(void){ // // // // // // // // // // // // // // //
+	/* ABOUT: Blink red LED (alternate).
+	 */
+
+	this->red = !this->red;
+	this->xred = !this->xred;
+
+} // End Communicator::_blinkRed // // // // // // // // // // // // // // // //
+
+void Communicator::_blinkGreen(void){ // // // // // // // // // // // // // // //
+	/* ABOUT: Blink green LED (alternate).
+	 */
+
+	this->green = !this->green;
+	this->xgreen = !this->xgreen;
+
+} // End Communicator::_blinkGreen // // // // // // // // // // // // // // // //

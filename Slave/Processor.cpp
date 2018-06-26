@@ -34,13 +34,13 @@ const int
     // STATUS CODES ------------------------------------------------------------
     CHASING = 2,
     ACTIVE = 1,
-    OFF = -1,
+    OFF = 0,
+	ON = 1,
+	TOGGLE = 3,
 
     // FAN MODES ---------------------------------------------------------------
     SINGLE = 1,
     DOUBLE = 2;
-
-const int GET_ERROR = -2147483648;
 
 const char
     
@@ -68,24 +68,15 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	maxFanTimeouts(MAX_FAN_TIMEOUTS),
 	dataIndex(0),  
-	blue(LED2),
+	led(LED2),
+	xled(D4),
+	psuOff(D9),
 	inFlag(false), outFlag(false)
 	{
     /* ABOUT: Constructor for class Processor. Starts processor thread.
      */
 
-    pl;printf("\n\r[%08dms][p] initializing processor",tm);pu;
-
-	this->targetRelation[0] = TARGET_RELATION_0;
-	this->targetRelation[1] = TARGET_RELATION_1;
-    // Initialize fan array:
-    for(int i = 0; i < MAX_FANS; i++){
-        this->fanArray[i].configure(pwmOut[i], tachIn[i], 
-			this->fanFrequencyHZ, this->counterCounts, this->pulsesPerRotation, 
-			this->minDC, this->maxFanTimeouts);
-
-    } // End fan array initialization loop
-    pl;printf("\n\r[%08dms][p] fan array initialized",tm);pu;
+    pl;printf("\n\r[%08dms][p] Processor initialized",tm);pu;
 
     // Set initial status:
     this->setStatus(OFF);
@@ -132,48 +123,48 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 	} else {
 		// Configure Processor.
 
-		// Ensure configuration is done on a deactivated Processor:
+		// Ensure configuration is done on a deactivated Processor:	
 		int previousStatus = this->status;
-		if(previousStatus != OFF){
-			this->setStatus(OFF);
-		}
+		this->setStatus(OFF);
 		
 		// Get values:
 		int fanMode, activeFans, fanFrequencyHZ,
 			counterCounts, pulsesPerRotation, maxRPM, minRPM,
 			maxFanTimeouts;
 		
-		float targetRelation0, targetRelation1, chaserTolerance, minDC;
+		float chaserTolerance, minDC;
 
-		sscanf(givenCommand, "%d %f %f %d %d %d %d %d %d %f %f %d",
-			&fanMode, &targetRelation0, &targetRelation1, 
-			&activeFans, &fanFrequencyHZ, &counterCounts,
+		char pwmPinout[25] = {0}, tachPinout[25] = {0};
+
+		sscanf(givenCommand, "%d %d %d %d %d %d %d %f %f %d %s %s",
+			&fanMode, &activeFans, &fanFrequencyHZ, &counterCounts,
 			&pulsesPerRotation, &maxRPM, &minRPM, &minDC, &chaserTolerance,
-			&maxFanTimeouts);
+			&maxFanTimeouts, pwmPinout, tachPinout);
 		
 		// Validate values:
 		if( (fanMode != SINGLE and fanMode != DOUBLE) || 
-			activeFans < 0 || fanFrequencyHZ <= 0 || counterCounts <= 0 || 
+			activeFans < 0 || activeFans > 24 || 
+			fanFrequencyHZ <= 0 || counterCounts <= 0 || 
 			pulsesPerRotation < 1 || maxRPM <= minRPM || minRPM < 0 || 
-			minDC < 0 || chaserTolerance <= 0.0 || maxFanTimeouts < 0) {
+			minDC < 0 || chaserTolerance <= 0.0 || maxFanTimeouts < 0
+			|| pwmPinout[0] == '\0' || tachPinout[0] == '\0') {
 			
 			// Invalid data. Print error and return error false.
 			
     		pl;printf("\n\r[%08dms][P] ERROR: BAD HSK CONFIG VALUE(S): "
-			"%d,%f,%f,%d,%d,%d,%d,%d,%d,%f,%f,%d",tm,
-			fanMode, targetRelation0, targetRelation1, 
+			"%d,%d,%d,%d,%d,%d,%d,%f,%f,%d,\"%s\",\"%s\"",tm,
+			fanMode, 
 			activeFans, fanFrequencyHZ, counterCounts,
 			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
-			maxFanTimeouts);pu;
+			maxFanTimeouts,
+			pwmPinout, tachPinout);pu;
 		
 			success = false;
 	
 		} else {
 			// Valid data. Proceed with assignment.
 		
-			this->fanMode = (int8_t) fanMode;
-			this->targetRelation[0] = targetRelation0;
-			this->targetRelation[1] = targetRelation1;
+			this->fanMode = (int8_t)fanMode;
 			this->activeFans = (uint32_t)activeFans;
 			this->fanFrequencyHZ = (uint32_t)fanFrequencyHZ;
 			this->counterCounts = (uint32_t)counterCounts;
@@ -183,33 +174,25 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			this->minDC = minDC;
 			this->chaserTolerance = chaserTolerance;
 			this->maxFanTimeouts = (uint8_t)maxFanTimeouts;
-
-
-
+			
 			// RPM linear fit:
 			this->rpmSlope = (maxRPM - minRPM)/(1.0 - minDC);
-
-			// Reconfigure fan array:
-			for(int i = 0; i < this->activeFans; i++){
-				this->fanArray[i].configure(pwmOut[i], tachIn[i], 
+			
+			// Configure fan array:
+			for(int i = 0; i < activeFans; i++){
+				this->fanArray[i].configure(
+					PWMS[pwmPinout[i] - 'A'], 
+					TACHS[tachPinout[i] - '['],
 					this->fanFrequencyHZ, this->counterCounts, 
 					this->pulsesPerRotation, this->minDC,
 					this->maxFanTimeouts);
-
 			} // End fan array reconfiguration loop
+			success = true;
 
-
-				success = true;
-		
 		} // End if/else
-
-
-		// Restore previous status:
-		if(previousStatus != OFF){
-			this->setStatus(previousStatus);
-		}
 		
-	
+		this->setStatus(previousStatus);
+
 	} // End check configure
 
     return success;
@@ -290,7 +273,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
             this->status = status;
             // Update LED blinking:
                 // Blink slowly
-            this->blinker.attach(callback(this, &Processor::_blinkBlue),
+            this->blinker.attach(callback(this, &Processor::_blinkLED),
                     BLINK_SLOW);
                     
             break;
@@ -310,14 +293,16 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
 			
 			#endif		
 
+
     		pl;printf("\n\r[%08dms][P][DEBUG] RPM SLOPE: %.2f", tm, this->rpmSlope);pu;
 			// Set internal status:
             this->status = status;
             // Update LED blinking:
                 // Solid blue
             this->blinker.detach();
-            this->blue = 1;
-            
+			this->_setLED(ON);
+			this->psuOff.write(false);
+
             break;
 
         case OFF: // Processor offline -----------------------------------------
@@ -326,8 +311,9 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
             // Update LED blinking:
                 // LED off
             this->blinker.detach();
-            this->blue = 0;
-        	
+			this->psuOff.write(true);
+            this->_setLED(OFF);
+
 			// Reset data index:
 			this->dataIndex = 0;
    
@@ -377,7 +363,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     while(true){
 		
         // Check if active = = = = = = = = = = = = = = = = = = = = = = = = = = =
-        if(this->status <= 0){
+       	if(this->status ==  OFF){
             // Processor off, set all fans to zero. (Safety redundancy)
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
@@ -388,7 +374,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
 			// Reset corresponding flags:
 			writeCalled = false;
-
+						
 			this->inFlagLock.lock();
 				// NOTICE: This lock is released in two different places (if and
 				// else) as an optimization
@@ -734,37 +720,35 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     pl;printf("\n\r[%08dms][P] WARNING: BROKE OUT OF PROCESSOR THREAD LOOP",
         tm);pu;
 } // End _processorRoutine // // // // // // // // // // // // // // // // // // 
+
+void Processor::_setLED(int state){ // // // // // // // // // // // // // // /.
+    /* ABOUT: Set LED state.
+     */
+	
+	switch(state){
+		case TOGGLE:
+			// Alternate value of LED:
+			this->led = !this->led;
+			this->xled = this->led;
+			break;
+		
+		case ON:
+			this->led = true;
+			this->xled = true;
+			break;
+
+		case OFF:
+			this->led = false;
+			this->xled = true;
+			break;
+	}
+} // End _setLED // // // // // // // // // // // // // // // // // // // // // 
      
-void Processor::_blinkBlue(void){ // // // // // // // // // // // // // // // /
+void Processor::_blinkLED(void){ // // // // // // // // // // // // // // // //
     /* ABOUT: To be set as ISR for blue LED Ticker to show status.
      */
-
-    // Alternate value of LED:
-    this->blue = !this->blue;
-} // End _blinkBlue // // // // // // // // // // // // // // // // // // // // 
-
-/*    
-
-    Thread processorThread; // Executes _processorRoutine
-    
-    // PROFILE DATA ------------------------------------------------------------
-    int8_t fanMode;         // Single or double fan configuration
-    int targetRelation[2];  // (If applic.) Rel. between front and rear fan RPM
-    uint8_t activeFans;      // Number of active fans
-    uint8_t counterCounts;  // Number of pulses to be counted when reading
-    uint8_t pulsesPerRotation;   // Pulses sent by sensor in one full rotation
-    uint8_t maxRPM;         // Maximum nominal RPM of fan model
-    uint8_t minRPM;         // Minimum nominal nonzero RPM of fan model
-    uint8_t minDC;          // Duty cycle corresponding to minRPM (nominal)
-    
-    // STATUS DATA -------------------------------------------------------------
-    int8_t status;      // Current processor status
-    DigitalOut blue;    // Access to blue LED
-    Ticker blinker;     // Used to blink blue LED for status    
-    // PROCESS DATA ------------------------------------------------------------
-    Mail<process, 2> inputQueue, outputQueue; // For inter-thread comms.
-
-    // Fan array data ----------------------------------------------------------
-    Fan fanArray[MAX_FANS];
-    
-*/
+	
+	// Alternate value of LED:
+	this->led = !this->led;
+	this->xled = this->led;
+} // End _blinkLED // // // // // // // // // // // // // // // // // // // // 

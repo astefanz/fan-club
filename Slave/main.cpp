@@ -20,9 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCII_VERSION "VERSION: \"OFFL 8b\"" // Finishing network tests
-
-// ** W A R N I N G ** BE ADVISED: THIS EARLY VERSION IS NOT YET FUNCTIONAL.  // 
+#define FCMKII_VERSION "SP 1" 
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -68,7 +66,7 @@ void printHeapStats(uint8_t op, void *res, void *caller, ...){
 
 void mainLoop(void){
 	// ABOUT: Workaround to control main thread stack size:
-	Communicator communicator;
+	Communicator communicator(FCMKII_VERSION);
 	Thread::wait(osWaitForever);	
 } // End mainLoop
 
@@ -88,7 +86,7 @@ mbed_mem_trace_set_callback(printHeapStats);
 
     // Print information = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     printf(INIT); // (size: 1560)
-    printf(FCII_VERSION);  
+    printf("\n\r VERSION: %s", FCMKII_VERSION);  
    
     printf("\n\r+--SETTINGS-------"
     "-------------------------------------------------------------+"
@@ -102,7 +100,7 @@ mbed_mem_trace_set_callback(printHeapStats);
         // Networking:
         "\n\r|\t - BROADCAST PORT: %d"
         "\n\r|\t - INIT. TIMEOUT: %dms"
-        "\n\r|\t - PASSWORD: \"%s\""
+        "\n\r|\t - PASSCODE: \"%s\""
         "\n\r|\t - SLAVE MISO PORT: %d"
         "\n\r|\t - SLAVE MOSI PORT: %d"
         "\n\r|\t - SLAVE LISTENER PORT: %d"
@@ -125,7 +123,7 @@ mbed_mem_trace_set_callback(printHeapStats);
         "\n\r|\t - DEF. CHASER TOLERANCE: %0.2f%%"
         "\n\r|\t - DEF. MAX FAN TIMEOUTS: %d"
         ,BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, BROADCAST_PORT, TIMEOUT_MS, 
-        PASSWORD, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
+        PASSCODE, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
         MAX_NETWORK_TIMEOUTS, 
         MAX_MASTER_TIMEOUTS,
         FAN_MODE == SINGLE? "SINGLE":"DOUBLE",

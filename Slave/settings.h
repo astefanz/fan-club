@@ -40,7 +40,7 @@
 // COMMUNICATIONS //////////////////////////////////////////////////////////////
 #define BROADCAST_PORT 65000
 #define TIMEOUT_MS 500
-#define PASSWORD "good_luck"
+#define PASSCODE "CT"
 #define SMISO 60000
 #define SMOSI 60001
 #define SLISTENER 65000
@@ -49,7 +49,7 @@
 #define MAX_MASTER_TIMEOUTS 10 // Before assuming disconnection
 
 // DEFAULT FAN ARRAY VALUES ////////////////////////////////////////////////////
-#define MAX_FANS 21
+#define MAX_FANS 24
 #define FAN_MODE 1
 #define TARGET_RELATION_0 1.0
 #define TARGET_RELATION_1 0.0

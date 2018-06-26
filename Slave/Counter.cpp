@@ -16,8 +16,8 @@
  
 // CONSTRUCTORS AND DESTRUCTORS
 
-Counter::Counter(PinName pin, uint32_t counts, uint32_t pulsesPerRotation): 
-	interrupt(pin), counts(counts), pulsesPerRotation(pulsesPerRotation)
+Counter::Counter(PinName* pin, uint32_t counts, uint32_t pulsesPerRotation): 
+	interrupt(*pin), counts(counts), pulsesPerRotation(pulsesPerRotation)
 {// Create the InterruptIn on the pin specified to Counter
     interrupt.rise(this, &Counter::update);// Attach increment function of this counter instance
 }

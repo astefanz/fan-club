@@ -49,6 +49,11 @@ enum {
      CONNECTING = 0,  
      CONNECTED = 1};
 
+enum {
+	L_ON = 1,
+	L_OFF = 0,
+	L_TOGGLE = 2};
+
 //// CLASS INTERFACE ///////////////////////////////////////////////////////////
 
 class Communicator {
@@ -56,7 +61,7 @@ public:
 
     // CONSTRUCTORS AND DESTRUCTORS --------------------------------------------
 
-    Communicator();
+    Communicator(const char version[]);
         /* ABOUT: Constructor for class Communicator. Starts networking threads.
          * PARAMETERS:
          * -Processor &processor: Reference to Processor instance. (See Proces-
@@ -96,15 +101,31 @@ private:
 		* WARNING: This private member function assumes (1) the Slave's MISO 
 		*	socket is ready to send messages and (2) the message given ends in
 		*	'\0'.
+	 	* NOTE: Blocks for thread-safety.
 		*/
-         
-    int _receive(int *currentIndex, int *receivedIndex, char* keyword, 
-        char* command);
-        /* ABOUT: Receive a message in MOSI socket and place it in the given
-         * placeholder arguments.
-         * RETURNS: Int; number of bytes received upon success, negative error
-         * code upon failure.
-         */ 
+
+	int _sendError(const char* message);
+		/* ABOUT: Send an error message to Master, if possible. This function will
+		 * try to use either the MISO-side _send function 
+		 * (if there is a connection) or the listener thread's socket.
+		 * PARAMETERS:
+		 * - const char* message: NULL-terminated message to send.
+		 * RETURN: int; number of bytes received upon success, negative error code
+		 * on failure.
+		 * NOTE: Blocks for thread-safety.
+		 */
+
+	int _receive(char* specifier, char message[]);
+		/* ABOUT: Receive a message in MOSI socket and place it in the given
+		 * placeholder arguments.
+		 * RETURNS: Int; number of bytes received upon success, negative error
+		 * code upon failure.
+		 *
+		 * Expected message format:
+		 *
+		 * 		MOSI_INDEX | C | MESSAGE
+		 *
+		 */ 
          
     void _setStatus(const int newStatus);
         /* ABOUT: Set the current connection status, which will be displayed to
@@ -115,14 +136,22 @@ private:
 		/* ABOUT: Get current connection status in a thread-safe manner.
 		 */
         
-    void _blinkRed();
-        /* About: Alternate status of red USR LED. To be used by _setStatus.
+    void _setRed(int state = L_TOGGLE);
+        /* ABOUT: Set state of red USR LED. To be used by _setStatus.
          */
          
-    void _blinkGreen();
-        /* About: Alternate status of green USR LED. To be used by _setStatus.
+    void _setGreen(int state = L_TOGGLE);
+        /* ABOUT: Set state of green USR LED. To be used by _setStatus.
          */
-         
+
+	void _blinkRed(void);
+		/* ABOUT: Blink red LED (alternate).
+		 */
+
+	void _blinkGreen(void);
+		/* ABOUT: Blink green LED (alternate).
+		 */
+
     const char* _interpret(int errorCode);
         /* ABOUT: Interpret a network error code and return its description.
          * PARAMETERS:
@@ -131,19 +160,69 @@ private:
          * RETURN: pointer to constant, NULL-terminated string of chars that
          *  describes the error, if a description is found.
          */
-    
+   
+   	void _resetTimeouts(void);
+		/* ABOUT: Reset Master timeout counter to 0.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	void _incrementTimeouts(void);
+		/* ABOUT: Increase Master timeout counter by 1.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	int _getTimeouts(void);
+		/* ABOUT: Get value of Master timeout counter.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	void _resetMISOIndex(void);
+		/* ABOUT: Reset  MISO index to 1.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	void _incrementMISOIndex(void);
+		/* ABOUT: Increase  MISO index by 1.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	int _getMISOIndex(void);
+		/* ABOUT: Get value of  MISO index.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	void _resetMOSIIndex(void);
+		/* ABOUT: Reset  MOSI index to 1.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	void _incrementMOSIIndex(void);
+		/* ABOUT: Increase  MOSI index by 1.
+		 * NOTE: Blocks for thread safety.
+		 */
+         
+   	int _getMOSIIndex(void);
+		/* ABOUT: Get value of  MOSI index.
+		 * NOTE: Blocks for thread safety.
+		 */
+
+   	void _setMOSIIndex(int newIndex);
+		/* ABOUT: Set value of  MOSI index.
+		 * NOTE: Blocks for thread safety.
+		 */
+
          
     // PRIVATE DATA ------------------------------------------------------------
     Processor processor;      // Command-processing module
     int status;               // Connection status
     int periodMS;             // MISO period
-    bool messageResent; // Keep track of Master's acknowledgement
-    
-    int exchangeIndex;   // Index messages
-    int misoIndex;       // Index outgoing messages
-    int networkTimeouts; // Keep track of timeouts for network check
-    int masterTimeouts;  // Keep track of timeouts for connection check
+	char version[16];
+	char passcode[16];
 
+    int mosiIndex;   // Index messages
+    int misoIndex;       // Index outgoing messages
+    int masterTimeouts;  // Keep track of timeouts for connection check
+	int maxMasterTimeouts;
 
     EthernetInterface ethernet;
     
@@ -155,9 +234,18 @@ private:
     Thread listenerThread, misoThread, mosiThread;
         // Use threads for communications
 
-    Mutex	configurationLock, // Lock relevant threads when modifying values
-			statusLock;
-    DigitalOut red, green;
+    Mutex	periodLock, // Lock relevant threads when modifying values
+			statusLock,
+			timeoutLock,
+			misoIndexLock,
+			mosiIndexLock,
+			sendLock,
+			receiveLock,
+			maxMasterTimeoutsLock,
+			listenerSocketLock,
+			passcodeLock;
+
+    DigitalOut red, xred, green, xgreen;
         // Use red and green LED's to convey connection status
     
 };

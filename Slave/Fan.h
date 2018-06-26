@@ -21,8 +21,6 @@
 #include "Counter.h"
 #include "settings.h"
 
-// CHOOSE PINOUT:
-#define v2_9
 
 // CONSTANT DECLARATIONS ///////////////////////////////////////////////////////
 extern const int 
@@ -30,9 +28,25 @@ extern const int
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
+extern PinName PWMS[24];
+extern PinName TACHS[29];
+
+#if 0 // -----------------------------------------------------------------------
+// VERSION CT1 (ADAPTED TO CAST WIND TUNNEL) ===================================
+#ifdef vCT1
+#define PINOUT_NAME  "vCT1"
+#define MAX_FANS 18
+
+extern PwmOut pwmOut[MAX_FANS];
+
+extern PinName tachIn[MAX_FANS];
+
+#endif // vCT1 // ==============================================================
+
 // VERSION 2.9 (REVISED V2.4 FOR PCB-1 W JPL FAN ASSIGNMENTS) ==================
 #ifdef v2_9
 #define PINOUT_NAME  "v2.9"
+#define MAX_FANS 21
 
 extern PwmOut pwmOut[MAX_FANS];
 
@@ -43,6 +57,7 @@ extern PinName tachIn[MAX_FANS];
 // VERSION 2.8 (REVISED V2.4 FOR PCB-1) ========================================
 #ifdef v2_8
 #define PINOUT_NAME  "v2.8"
+#define MAX_FANS 21
 
 extern PwmOut pwmOut[MAX_FANS];
 
@@ -71,7 +86,7 @@ extern PwmOut pwmOut[MAX_FANS];
 extern PinName tachIn[MAX_FANS];
                           
 #endif  // v2_7 // =============================================================
-           
+#endif // ----------------------------------------------------------------------
            
 // CLASS INTERFACE /////////////////////////////////////////////////////////////
 
@@ -87,7 +102,7 @@ public:
 		/* ABOUT: Destructor for class Fan.
 		 */
          
-	bool configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
+	bool configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
 		uint8_t maxTimeouts);
 		/* ABOUT: Configure a fan for usage. Can be called more than once.
@@ -160,7 +175,7 @@ private:
 
 	// General:
     PwmOut*  pwmPin;        // PWM pin that connects to this fan
-    PinName tachPin;        // Tachometer input pin that connects to this fan
+    PinName* tachPin;        // Tachometer input pin that connects to this fan
     bool initialized;       // Whether fan object has pins assigned
 
 	// For PWM control:

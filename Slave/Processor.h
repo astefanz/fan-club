@@ -41,13 +41,13 @@ extern const int
     CHASING,
     ACTIVE,
     OFF,
-    
+	ON,    
+	TOGGLE,
 
     // FAN MODES ---------------------------------------------------------------
     SINGLE,
     DOUBLE;
 
-extern const int GET_ERROR;
 
 // Process data structure ------------------------------------------------------
 
@@ -103,15 +103,17 @@ private:
         /* ABOUT: To be executed by this Processor's processor thread.
          */
          
-    void _blinkBlue(void);
-        /* ABOUT: To be set as ISR for blue LED Ticker to show status.
+    void _setLED(int state = OFF);
+        /* ABOUT: Set LED state.
          */
          
+	void _blinkLED(void);
+		/* ABOUT: To be set as ISR for blue LED Ticker to show status.
+		 */
     Thread processorThread; // Executes _processorRoutine
     
     // PROFILE DATA ------------------------------------------------------------
     int8_t fanMode;         // Single or double fan configuration
-    float targetRelation[2];  // (If applic.) Rel. between front and rear fan RPM
     uint8_t activeFans;     // Number of active fans
 	uint32_t fanFrequencyHZ;	// PWM frequency of fans
     uint8_t counterCounts;  // Number of pulses to be counted when reading
@@ -120,13 +122,13 @@ private:
     uint32_t minRPM;         // Minimum nominal nonzero RPM of fan model
     float minDC;          // Duty cycle corresponding to minRPM (nominal)
 	float chaserTolerance;
+	uint8_t maxFanTimeouts;
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
-	uint8_t maxFanTimeouts;
 
     // STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
-    DigitalOut blue;    // Access to blue LED
+    DigitalOut led, xled, psuOff;    // Access to blue LED
     Ticker blinker;     // Used to blink blue LED for status    
     // PROCESS DATA ------------------------------------------------------------
 	

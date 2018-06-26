@@ -28,7 +28,7 @@ public:
 
     // CONSTRUCTORS AND DESTRUCTORS
     
-    Counter(PinName pin, uint32_t counts, uint32_t pulsesPerRotation);
+    Counter(PinName* pin, uint32_t counts, uint32_t pulsesPerRotation);
         /* Constructor for class Counter
          */
     

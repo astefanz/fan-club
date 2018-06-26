@@ -12,7 +12,7 @@
 
 \small
 
-\renewcommand{\arraystretch}{1}
+\renewcommand{\arraystretch}{1.5}
 {
 \begin{center}
 \begin{longtable}{|p{.92\textwidth}|}
@@ -147,6 +147,10 @@
 	\begin{itemize}
 		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(MkII):} \
 		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|}S\_MISO\_P\underline{|}S\_MOSI\_P\underline{|}VERSION}
+		\item {Error\hspace{.5em}(MkII Listener):} \
+		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|E|}ERROR\_MESSAGE}
+		\item {Error\hspace{.5em}(Bootloader):} \
+		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC\underline{|E|}ERROR\_MESSAGE}
 		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(Bootloader):} \
 		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC}
 	\end{itemize}
@@ -155,6 +159,7 @@
 	\multicolumn{2}{|c|}{\textbf{Communications and Control}}\\*
 	\hline
 	\begin{itemize}
+	{\scriptsize
 		\item {Set\hspace{.5em}DC:}\
 		\linebreak\texttt{MOSI\_INDEX\underline{|S|D:}DC\underline{:}000000000000000000000}
 		\linebreak Here each character in the string of zeroes corresponds to a fan in the
@@ -164,7 +169,7 @@
 		\linebreak\texttt{MOSI\_INDEX\underline{|S|C:}RPM\underline{:}000000000000000000000}
 		\linebreak See ``Set DC" for the meaning of the string of zeroes.
 		\item {Handshake:}\
-		\linebreak\texttt{\underline{0|H|}COMMS\_CONFIG\underline{|H:}ARRAY\_CONFIG}
+		\linebreak\texttt{\underline{0|H|}COMMS\_CONFIG\underline{|}ARRAY\_CONFIG}
 		\linebreak COMMS\_CONFIG is a comma-separated list with the following:
 		\begin{enumerate}
 			\item MISO port
@@ -172,9 +177,8 @@
 			\item Period (ms)
 			\item Max. Master timeouts
 		\end{enumerate}
-		ARRAY\_CONFIG is a colon-separated list with the following:
+		ARRAY\_CONFIG is a space-separated list with the following:
 		\begin{enumerate}
-			\item Pinout code
 			\item Fan mode
 			\item Num. active fans
 			\item PWM frequency (Hz)
@@ -185,6 +189,8 @@
 			\item Min. DC
 			\item Chaser tolerance (\%)
 			\item Max. fan timeout
+			\item PWM pinout
+			\item Tach. pinout
 			\end{enumerate}
 		\item {Disconnect:}\
 		\linebreak\texttt{MOSI\_INDEX\underline{|X}}
@@ -195,7 +201,12 @@
 		\linebreak Slave will reset its MOSI index to 0.
 		\item {Ping:}\
 		\linebreak\texttt{MOSI\_INDEX\underline{|P}}
-
+		\item {PSU:}\
+		\linebreak\texttt{MOSI\_INDEX\underline{|S|}W:0}
+		\linebreak Here the last character will be a 1 or 0 depending on the desired PSU			state (1 for ON and 0 for OFF). The PSU will be turned on upon startup and off
+			upon shutdown and rebootby default.
+		
+	}
 	\end{itemize}
 	&
 	\begin{itemize}
@@ -208,13 +219,9 @@
 		\linebreak Here DUTY\_CYCLES and RPMS are comma-separated lists of the DC and
 		RPM values of each fan in the array, in order. Negative values will be used for
 		RPMS of fans being ``Chased."
-		\item {Error\hspace{.5em}(MkII):}\
+		\item {Error\hspace{.5em}(MkII\hspace{.5em}MISO):}\
 		\linebreak\texttt{MISO\_INDEX\underline{|E|}ERROR\_MESSAGE}
-		\linebreak For Slave-side exception handling and documenting; will also be
-		used to indicate Slave-side assumption of disconnection.
-		\item {Error\hspace{.5em}(Bootloader):}\
-		\linebreak\texttt{\underline{B|}PASSCODE\underline{E|}S\_MAC\underline{|}ERROR\_MESSAGE}
-		\linebreak To be received by Master's listener thread.
+		\linebreak For Slave-side exception handling and documenting.
 		\item {Ping\hspace{.5em}request:}\
 		\linebreak\texttt{MISO\_INDEX\underline{|P}}
 		\item {MISO\hspace{.5em}index\hspace{.5em}reset:}\
@@ -240,6 +247,7 @@
 		\item[X] ``DISCONNECT" i.e. Assume disconnection (Shutdown Processor)
 		\item[Z] ``REBOOT" i.e. Reboot MCU
 		\item[I] ``INDEX" i.e. Reset MISO Index
+		\item[W] ``POWER" i.e. Power PSU
 	\end{description}
 	&
 	\begin{description}
@@ -283,6 +291,7 @@
 \hline
 \begin{enumerate}
 	\item Implement runtime pinout configuration
+	\item Implement `efficient" tachometer
 	\item Implement Master-side firmware uploads
 	\item ``Fully" modularize Master
 	\item Implement ``verifications" and shutdown button
@@ -296,11 +305,16 @@
 	\item Fix PWM resolution
 	\item Fix Chaser
 	\item \textbf{Fix RPM spikes (if applicable)}
+	\item Fix Processor thread-safety
 \end{enumerate}\\
 \hline
 \multicolumn{1}{|l|}{Tue. 7/3/18 - Fri. 7/6/18}\\*
 \hline
 \begin{enumerate}
+	\item + Fix S-side data types
+	\item + Strong processor checks
+	\item + PSU auto on/off setting
+	\item + Input and output sockets in Master
 	\item + Implement hotkeys
 	\item + Implement plotter
 	\item + Document
