@@ -45,9 +45,8 @@ const int
 const char
     
     // COMMAND KEYWORDS --------------------------------------------------------
-    WRITE = 'W',
-    CHASE = 'C',
-    CONFIGURE = 'S';
+    WRITE = 'D',
+    CHASE = 'C';
     
 
 //// CLASS IMPLEMENTATION //////////////////////////////////////////////////////
@@ -65,9 +64,9 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	minRPM(MIN_RPM),
 	minDC(MIN_DC),
 	chaserTolerance(CHASER_TOLERANCE),
-	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	maxFanTimeouts(MAX_FAN_TIMEOUTS),
 	dataIndex(0),  
+	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	led(LED2),
 	xled(D4),
 	psuOff(D9),
@@ -204,6 +203,8 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
      * -const char* buffer: pointer to char array in which to store reply.
 	 * RETURNS:
 	 * -bool: whether a new message was fetched (false for default)
+	 *	NOTE: a false return value implies the given buffer has been left 
+	 * 	unmodified.
      */
 
 	// Try to get a message from the output buffer. If it is empty, use the
@@ -212,23 +213,27 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 	this->outFlagLock.lock();
 
-	if(this->outFlag){
-		// There is a message. Lock the output buffer and copy its contents into
-		// the given buffer.
-
-		this->outBufferLock.lock();
-
-		strcpy(buffer, this->outBuffer[0] == '\0'? "SVER": this->outBuffer);
-		// NOTE: The check above rules out the unlikely --yet possible-- case
+	if(this->outFlag and this->outBuffer[0] != '\0'){
+		// NOTE (From a previous version):
+		// ---------------------------------------------------------------------
+		// The check above rules out the unlikely --yet possible-- case
 		// in which the output buffer is lost. (This may happen if this
 		// function checks a raised output flag while the output buffer lock
 		// is taken by the processor routine. Since these output values are
 		// updated frequently and automatically, it is preferable to sacrifice
 		// one buffer for efficiency.
+		// ---------------------------------------------------------------------
+		
+		// There is a message. Lock the output buffer and copy its contents into
+		// the given buffer.
 
+		this->outBufferLock.lock();
+
+		strcpy(buffer, this->outBuffer);
 
 		this->outBuffer[0] = '\0';
 			// NOTE: Neutralize obsolete message.
+
 		this->outFlag = false;
 		
 		success = true;
@@ -238,7 +243,7 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 	}else{
 		// If there is no message to send, use the default:
 
-		strcpy(buffer, "SVER");
+		success = false;
 
 	}
 	this->outFlagLock.unlock();
@@ -395,7 +400,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 
                 // Split contents: 
                 char *splitPosition; 
-                char* splitPtr = strtok_r(rawCommand, "~", &splitPosition);
+                char* splitPtr = strtok_r(rawCommand, ":", &splitPosition);
                     // NOTE: Use strtok_r instead of strtok for thread-safety
                 
                 // Verify splitting:
@@ -420,7 +425,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 						writeCalled = true;
 
                         // Split contents for duty cycle:
-                        splitPtr = strtok_r(NULL, "~", &splitPosition);
+                        splitPtr = strtok_r(NULL, ":", &splitPosition);
 
                         // Validate:
                         if(splitPtr == NULL){
@@ -440,7 +445,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 						#endif
 
                         // Split contents for selected fans:
-                        splitPtr = strtok_r(NULL, "~", &splitPosition);
+                        splitPtr = strtok_r(NULL, ":", &splitPosition);
 
                             // spliPtr now points to a string of 0's and 1's,
                             // indicating which fans are selected. For example:
@@ -492,7 +497,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         pl;printf("\n\r[%08dms][P] CHASE received",tm);pu;
 					
                         // Split contents for duty cycle:
-                        splitPtr = strtok_r(NULL, "~", &splitPosition);
+                        splitPtr = strtok_r(NULL, ":", &splitPosition);
 
                         // Validate:
                         if(splitPtr == NULL){
@@ -512,7 +517,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 						#endif
 
                         // Split contents for selected fans:
-                        splitPtr = strtok_r(NULL, "~", &splitPosition);
+                        splitPtr = strtok_r(NULL, ":", &splitPosition);
 
                             // spliPtr now points to a string of 0's and 1's,
                             // indicating which fans are selected. For example:
@@ -552,7 +557,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 						}
 
                         pl;printf("\n\r[%08dms][P][DEBUG] Linear-guess DC: "
-						" (%d) / %d = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
+						" (%d) / %lu = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
                         // Loop over list and assign duty cycles:
                         for(int i = 0; i < numFans; i++){
 
@@ -607,7 +612,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				this->dataIndex++;
 				
 				// Print beginning of update message:	
-				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"SSTD|%d|",
+				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"T|%d|",
 					this->dataIndex);
 
 				// Update RPM's and Chase if applicable ------------------------

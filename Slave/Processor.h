@@ -81,11 +81,13 @@ public:
          
     bool get(char* buffer);
 		/* ABOUT: Get a reply to be sent to Master.
-		* PARAMETERS:
-		* -const char* buffer: pointer to char array in which to store reply.
-		* RETURNS:
-		# -bool: whether a new message was fetched (false for default)
-		*/
+		 * PARAMETERS:
+		 * -const char* buffer: pointer to char array in which to store reply.
+		 * RETURNS:
+		 * -bool: whether a new message was fetched (false for default)
+		 *	NOTE: a false return value implies the given buffer has been left 
+		 * 	unmodified.
+		 */
 
     void setStatus(int status);
         /* ABOUT: Modify Processor status.
@@ -125,8 +127,8 @@ private:
 	uint8_t maxFanTimeouts;
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
-
-    // STATUS DATA -------------------------------------------------------------
+    
+	// STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
     DigitalOut led, xled, psuOff;    // Access to blue LED
     Ticker blinker;     // Used to blink blue LED for status    

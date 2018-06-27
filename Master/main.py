@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"ES4\"" # Reference for consecutive versions
+VERSION = "\"ES5\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import FCInterface as FCI

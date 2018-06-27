@@ -325,6 +325,9 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 							"discarded",tm, port);pu;
 						continue;
 					} else {
+						this->masterListener.set_ip_address(
+							this->masterBroadcast.get_ip_address()
+						);
 						this->masterListener.set_port(port);
 					}
 					
@@ -333,7 +336,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 						char reply[MAX_MESSAGE_LENGTH];
 
 						this->passcodeLock.lock();
-						int n = snprintf(reply, 256, "A|%s|%s|%d|%d|%s", 
+						int n = snprintf(reply, 256, "A|%s|%s|N|%d|%d|%s", 
 							this->passcode,
 							this->ethernet.get_mac_address(),
 							SMISO, 
@@ -345,7 +348,9 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 						this->slaveListener.sendto(
 							masterListener, reply, n);
 						pl;printf("\n\r[%08dms][L] Broadcast validated. "\
-							"Reply sent", tm);pu;
+							"Reply sent to %s, %d", tm,
+							masterListener.get_ip_address(),
+							masterListener.get_port());pu;
 						this->listenerSocketLock.unlock();
 
 					} // End reply if disconnected
@@ -399,8 +404,9 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 
 	// Initialize placeholders -------------------------------------------------
 	unsigned int misoPeriodMS = 1; // Time between cycles
-	char processed[MAX_MESSAGE_LENGTH]; // Feedback to be sent back to Master 
+	char processed[MAX_MESSAGE_LENGTH] = {0}; // Feedback to be sent to Master 
 
+	processed[0] = 'M';
 	// Thread loop =============================================================
 	while(true){
 		
@@ -428,6 +434,8 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 
 		// Wait:
 		Thread::wait(misoPeriodMS);
+		
+
 
 		// (Restart loop)
 
@@ -496,10 +504,9 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				case 'X':{ // DISCONNECT
 					
 					pl;printf(
-						"\n\r[%08dms][I] Disconnect message received."\
-							" Rebooting", tm);pu;
+						"\n\r[%08dms][I] Disconnect message received.", tm);pu;
 					
-					this->_setStatus(NO_NETWORK);
+					this->_setStatus(NO_MASTER);
 					break;
 				}
 					
@@ -559,46 +566,103 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				//
 				
 				// MISO Port
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] HSK: %s",
+					tm, buffer);pu;
+
 				splitPointer = strtok_r(buffer, ",", &savePointer);
+				pl;printf(
+					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
+					tm, splitPointer, savePointer);pu;
+
+				*/
+
 				if(splitPointer == NULL){
 					pl;printf(
 						"\n\r[%08dms][I][E] NULL MISO P. IN HSK",
 						tm);pu;
 					continue; // Discard HSK
-				} else if ((parsedMISOPort = atoi(splitPointer) ==0)){
+				}
+				parsedMISOPort = atoi(splitPointer);
+
+				if (parsedMISOPort  ==0){
 					pl;printf(
 						"\n\r[%08dms][I][E] ZERO MISO P. IN HSK",
 						tm);pu;
 					continue; // Discard HSK
 				}
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] parsedMISOPort: %d",
+					tm, parsedMISOPort);pu;
+				*/
 
 				// MOSI Port
 				splitPointer = strtok_r(NULL, ",", &savePointer);
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
+					tm, splitPointer, savePointer);pu;
+				*/
+				
 				if(splitPointer == NULL){
 					pl;printf(
-						"\n\r[%08dms][I][E] NULL MISO P. IN HSK",
-						tm);pu;
-					continue; // Discard HSK
-				} else if ((parsedMOSIPort = atoi(splitPointer) ==0)){
-					pl;printf(
-						"\n\r[%08dms][I][E] ZERO MISO P. IN HSK",
+						"\n\r[%08dms][I][E] NULL MOSI P. IN HSK",
 						tm);pu;
 					continue; // Discard HSK
 				}
+				parsedMOSIPort = atoi(splitPointer);
+				if (parsedMOSIPort == 0){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO MOSI P. IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] parsedMOSIPort: %d",
+					tm, parsedMOSIPort);pu;
+				pl;printf(
+					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
+					tm, splitPointer, savePointer);pu;
+
+				*/
 
 				// Period
 				splitPointer = strtok_r(NULL, ",", &savePointer);
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
+					tm, splitPointer, savePointer);pu;
+				*/
+
 				if(splitPointer == NULL){
 					pl;printf(
 						"\n\r[%08dms][I][E] NULL PERIOD IN HSK",
 						tm);pu;
 					continue; // Discard HSK
-				} else if ((parsedPeriodMS = atoi(splitPointer) ==0)){
+				}
+				
+				parsedPeriodMS = atoi(splitPointer);
+				
+				if (parsedPeriodMS ==0){
 					pl;printf(
 						"\n\r[%08dms][I][E] ZERO PERIOD IN HSK",
 						tm);pu;
 					continue; // Discard HSK
 				}
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] parsedPeriodMS: %d",
+					tm, parsedPeriodMS);pu;
+				*/
 
 				// Max. Master timeouts
 				splitPointer = strtok_r(NULL, ",|", &savePointer);
@@ -607,13 +671,23 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 						"\n\r[%08dms][I][E] NULL M.TIMEOUTS IN HSK",
 						tm);pu;
 					continue; // Discard HSK
-				} else if ((parsedMaxMasterTimeouts = atoi(splitPointer) 
-					==0 )){
+				}
+
+				parsedMaxMasterTimeouts = atoi(splitPointer);
+
+				if (parsedMaxMasterTimeouts == 0 ){
 					pl;printf(
 						"\n\r[%08dms][I][E] ZERO M.TIMEOUTS IN HSK",
 						tm);pu;
 					continue; // Discard HSK
 				}
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] parsedMaxMasterTimeouts: %d",
+					tm, parsedMaxMasterTimeouts);pu;
+
+				*/
 
 				// Processor
 				
@@ -621,6 +695,16 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				// 	NOTE: COPY IN PROCESSOR
 				
 				splitPointer = strtok_r(NULL, "|", &savePointer);
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] parsedMOSIPort: %d",
+					tm, parsedMOSIPort);pu;
+				pl;printf(
+					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
+					tm, splitPointer, savePointer);pu;
+				*/
+
 				if(splitPointer == NULL){
 					pl;printf(
 						"\n\r[%08dms][I][E] NULL PERIOD IN HSK",
@@ -628,6 +712,23 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					continue; // Discard HSK
 				}
 				bool processorSuccess = this->processor.process(splitPointer);
+				
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][I] Parsed: "\
+						"\n\r\tMISOP: %d"\
+						"\n\r\tMOSIP: %d"\
+						"\n\r\tPERIOD: %dms"\
+						"\n\r\tTIMEOUTS: %d"\
+						"\n\r\tProcessor: %s",
+						tm,
+						parsedMISOPort,
+						parsedMOSIPort,
+						parsedPeriodMS,
+						parsedMaxMasterTimeouts,
+						splitPointer
+						);pu;
+				*/
 				
 				// Check success:
 				if(processorSuccess){
@@ -649,10 +750,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					this->maxMasterTimeoutsLock.lock();
 					this->maxMasterTimeouts = parsedMaxMasterTimeouts;
 					this->maxMasterTimeoutsLock.unlock();
-
+				
 					// Send handshake acknowledgement
-					this->_send("H",2);
-					
+					this->_send("H", 1, true);
+
 					// Update status:
 					this->_setStatus(CONNECTED);
 				
@@ -704,7 +805,7 @@ int Communicator::_send(const char* message, int times, bool print){ // // // //
 	this->_incrementMISOIndex();
 	
 	// Format message: - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	length = sprintf(outgoing, "%d|%s", this->_getMISOIndex(), message); 
+	length = sprintf(outgoing, "%lu|%s", this->_getMISOIndex(), message); 
 	
 	// Send  message: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	for(int i = 0; i < times; i++){
@@ -788,7 +889,7 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 			*splitPosition = NULL;
 
 	int result = -1; 
-	int index = 0;
+	uint32_t index = 0;
 	
 	// NOTE: The following loop will either terminate successfully by reaching 
 	// the return statement at the end of this loop or by an eventual timeout
@@ -810,6 +911,7 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 		 
 		} else { // Validate message ===========================================
 			
+			
 			// Add NULL-termination character:
 			buffer[result] = '\0';
 
@@ -821,15 +923,11 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 				pl;printf("\n\r[%08dms][R] WARNING: NULL Index received", 
 					tm);pu;
 				continue;
-
-			} else if ((index = atoi(splitPointer)) < 0){
-				pl;printf("\n\r[%08dms][R] WARNING: Negative index received "\
-					"(%d):\n\r\t\t\"%s\"", tm, index, buffer);pu;
-				continue;
-			
-			} else if (index != 0 and index < this->_getMOSIIndex()){
+	
+			} else if ((index = uint32_t(atoi(splitPointer))) != 0 
+				and index < this->_getMOSIIndex()){
 				// Outdated message
-				pl;printf("\n\r[%08dms][R] Old MSG Ignored (%d)", 
+				pl;printf("\n\r[%08dms][R] Old MSG Ignored (%lu)", 
 					tm, index);pu;
 				continue;
 
@@ -852,20 +950,25 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 				// Check for zero index w/o HSK (not allowed)
 				if(index == 0 and *specifier != 'H'){
 					pl;printf("\n\r[%08dms][R] WARNING: Non-HSK 0 Index"\
-					" received:\n\t\t%s", tm, buffer);pu;
+					" received:\n\r\t\t%s", tm, buffer);pu;
 					continue;	
 				}
 			}
 
 			// Get message -----------------------------------------------------
-			splitPointer = strtok_r(NULL, "|", &splitPosition);
-			if(splitPointer == NULL){
+			
+			// NOTE: Use splitPosition instead in order to keep all separators
+			// (Using strtok_r would get only one segment, while we want to
+			// return the entirety of the message that is after the specifier.)
+
+			if(strlen(splitPosition) == 0){
 				// No message (acceptable for some specifiers)
 				message[0] = '\0';
+				
 
 			} else {
 				// Valid message to be stored:
-				strcpy(message, buffer);
+				strcpy(message, splitPosition);
 			}
 
 			// Message approved. Modify MOSI index:
@@ -1166,12 +1269,12 @@ void Communicator::_incrementMISOIndex(void){ // // // // // // // // // // // /
 
 } // Communicator::_increaseMISOIndex // // // // // // // // // // // // // // 
 
-int Communicator::_getMISOIndex(void){ // // // // // // // // // // // // // // 
+uint32_t Communicator::_getMISOIndex(void){ // // // // // // // // // // // // 
 	/* ABOUT: Get value of  MISO index.
 	 * NOTE: Blocks for thread safety.
 	 */
 
-	int value = 0;
+	uint32_t value = 0;
 	this->misoIndexLock.lock();
 	value =	this->misoIndex;
 	this->misoIndexLock.unlock();
@@ -1202,12 +1305,12 @@ void Communicator::_incrementMOSIIndex(void){ // // // // // // // // // // // /
 
 } // Communicator::_increaseMOSIIndex // // // // // // // // // // // // // // 
 
-int Communicator::_getMOSIIndex(void){ // // // // // // // // // // // // // // 
+uint32_t Communicator::_getMOSIIndex(void){ // // // // // // // // // // // // 
 	/* ABOUT: Get value of  MOSI index.
 	 * NOTE: Blocks for thread safety.
 	 */
 
-	int value = 0;
+	uint32_t value = 0;
 	this->mosiIndexLock.lock();
 	value =	this->mosiIndex;
 	this->mosiIndexLock.unlock();
@@ -1216,7 +1319,7 @@ int Communicator::_getMOSIIndex(void){ // // // // // // // // // // // // // //
 
 } // Communicator::_getMOSIIndex // // // // // // // // // // // // // // // // 
 
-void Communicator::_setMOSIIndex(int newIndex){ // // // // // // // // // // //
+void Communicator::_setMOSIIndex(uint32_t newIndex){ // // // // // // // // // 
 	/* ABOUT: Set value of  MOSI index.
 	 * NOTE: Blocks for thread safety.
 	 */

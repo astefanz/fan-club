@@ -91,6 +91,8 @@ defaultModuleAssignment = 45
 
 dimensions = 46
 
+defaultPinout = 47
+
 # FAN MODES (Not parameters):
 SINGLE = -1
 DOUBLE = -2
@@ -133,7 +135,7 @@ class FCArchiver:
 		self.profile[periodS] = \
 			[hc.DEF_PERIOD_MS/1000.0, float, threading.Lock()]
 		self.profile[passcode] = \
-			["good_luck", str, threading.Lock()]
+			["CT", str, threading.Lock()]
 		self.profile[maxLength] = \
 			[hc.DEF_MAX_LENGTH, int, threading.Lock()]
 		self.profile[maxTimeouts] = \
@@ -149,19 +151,20 @@ class FCArchiver:
 		
 		# Slave list ...........................................................
 		self.profile[slaveList] = \
-			[hc.SLAVELIST_BASEMENT, list, threading.Lock()]
+			[hc.DEF_SLAVELIST, list, threading.Lock()]
 
 		# End Slave list ....................................................... 
-		self.profile[dimensions] = [(11,11), int, threading.Lock()]
+		self.profile[dimensions] = \
+			[hc.DEF_DIMENSIONS, tuple, threading.Lock()]
 		self.profile[maxFans] =  [hc.DEF_MAX_FANS, int, threading.Lock()]
 
 		# Fan array ------------------------------------------------------------
-		self.profile[fanModel] = [hc.DEF_FAN_MODEL, int, threading.Lock()]
+		self.profile[fanModel] = [hc.DEF_FAN_MODEL, str, threading.Lock()]
 		self.profile[fanMode]  = [SINGLE, int, threading.Lock()]
 	 	self.profile[targetRelation] = \
-			[hc.DEF_TARGET_RELATION, int, threading.Lock()]
+			[hc.DEF_TARGET_RELATION, tuple, threading.Lock()]
 		self.profile[chaserTolerance]  = \
-			[hc.DEF_CHASER_TOLERANCE, int, threading.Lock()]
+			[hc.DEF_CHASER_TOLERANCE, float, threading.Lock()]
 		self.profile[fanFrequencyHZ] = \
 			[hc.DEF_FAN_FREQUENCY_HZ, int, threading.Lock()]
 		self.profile[counterCounts] = \
@@ -179,9 +182,11 @@ class FCArchiver:
 		self.profile[maxFanTimeouts] = \
 			[hc.DEF_MAX_FAN_TIMEOUTS, int, threading.Lock()]
 		self.profile[defaultModuleDimensions] = \
-			[hc.DEF_MODULE_DIMENSIONS, int, threading.Lock()]
+			[hc.DEF_MODULE_DIMENSIONS, tuple, threading.Lock()]
 		self.profile[defaultModuleAssignment] = \
-			[hc.DEF_MODULE_ASSIGNMENT, int, threading.Lock()]
+			[hc.DEF_MODULE_ASSIGNMENT, str, threading.Lock()]
+		self.profile[defaultPinout] = \
+			[hc.DEF_PINOUT, str, threading.Lock()]
 	# End FCArchiver constructor ===============================================
 
 	def get(self, param): # ====================================================

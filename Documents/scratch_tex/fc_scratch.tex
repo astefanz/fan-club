@@ -146,13 +146,13 @@
 	&
 	\begin{itemize}
 		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(MkII):} \
-		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|}S\_MISO\_P\underline{|}S\_MOSI\_P\underline{|}VERSION}
+		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|N|}S\_MISO\_P\underline{|}S\_MOSI\_P\underline{|}VERSION}
 		\item {Error\hspace{.5em}(MkII Listener):} \
 		\linebreak\texttt{\underline{A|}PASSCODE\underline{|}S\_MAC\underline{|E|}ERROR\_MESSAGE}
 		\item {Error\hspace{.5em}(Bootloader):} \
 		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC\underline{|E|}ERROR\_MESSAGE}
 		\item {Standard\hspace{.5em}broadcast\hspace{.5em}reply\hspace{.5em}(Bootloader):} \
-		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC}
+		\linebreak\texttt{\underline{B|}PASSCODE\underline{|}S\_MAC\underline{|N}}
 	\end{itemize}
 	\\
 	\hline
@@ -215,12 +215,14 @@
 		\linebreak Sent to Master when there are no updates from Processor, but a MISO
 		message is due to maintain connection.
 		\item {Standard\hspace{.5em}update:}\
-		\linebreak\texttt{MISO\_INDEX\underline{|T|}DUTY\_CYCLES\underline{|}RPMS}
+		\linebreak\texttt{MISO\_INDEX\underline{|T|}DATA\_INDEX\underline{|}RPMS\underline{|}DUTY\_CYCLES}
 		\linebreak Here DUTY\_CYCLES and RPMS are comma-separated lists of the DC and
 		RPM values of each fan in the array, in order. Negative values will be used for
 		RPMS of fans being ``Chased."
 		\item {Error\hspace{.5em}(MkII\hspace{.5em}MISO):}\
 		\linebreak\texttt{MISO\_INDEX\underline{|E|}ERROR\_MESSAGE}
+		\item {Handshakehspace{.5em}confirmation:}\
+		\linebreak\texttt{MISO\_INDEX\underline{|H}}
 		\linebreak For Slave-side exception handling and documenting.
 		\item {Ping\hspace{.5em}request:}\
 		\linebreak\texttt{MISO\_INDEX\underline{|P}}
@@ -312,6 +314,7 @@
 \hline
 \begin{enumerate}
 	\item + Fix S-side data types
+	\item + Implement index resets (including \texttt{dataIndex}!)
 	\item + Strong processor checks
 	\item + PSU auto on/off setting
 	\item + Input and output sockets in Master

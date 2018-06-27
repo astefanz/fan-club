@@ -30,17 +30,18 @@ This module handles low-level socket communications w/ Slave units.
 ## DEPENDENCIES ################################################################
 
 # Network:
-import socket     	# Networking
-import threading  	# Multitasking
-import thread     	# thread.error
+import socket		# Networking
+import threading	# Multitasking
+import thread		# thread.error
 
 # System:
-import sys        	# Exception handling
-import traceback  	# More exception handling
+import sys			# Exception handling
+import traceback	# More exception handling
 import random		# Random names, boy
+import resource		# Socket limit
 
 # Data:
-import time       	# Timing
+import time			# Timing
 import Queue
 import numpy as np	# Fast arrays and matrices
 
@@ -69,7 +70,7 @@ class FCCommunicator:
 			defaultModuleDimensions, defaultModuleAssignment,
 			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
 			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts
+			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout
 		): # ===================================================================
 		# ABOUT: Constructor for class Communicator.
 
@@ -105,6 +106,7 @@ class FCCommunicator:
 			self.minDC = minDC
 			self.chaserTolerance = chaserTolerance
 			self.maxFanTimeouts = maxFanTimeouts
+			self.pinout = pinout
 
 			# Output queues:
 			self.mainQueue = Queue.Queue(mainQueueSize)
@@ -121,12 +123,10 @@ class FCCommunicator:
 			
 			self.printM("\tHost IP: {}".format(self.hostIP))
 			
-			"""
 			# Use resource library to get OS to give extra sockets, for good
 			# measure:
 			resource.setrlimit(resource.RLIMIT_NOFILE, 
 				(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
-			"""
 			
 			# INITIALIZE MASTER SOCKETS ========================================
 
@@ -185,7 +185,8 @@ class FCCommunicator:
 			self.broadcastThread = threading.Thread(
 				name = "FCMkII_broadcast",
 				target = self._broadcastRoutine,
-				args = ["00000000|{}|{}".format(self.passcode, 
+				args = ["N|{}|{}".format(
+							self.passcode, 
 							self.listenerPort), 
 						self.broadcastPeriodS]
 				)
@@ -230,13 +231,14 @@ class FCCommunicator:
 					routineArgs = (index,),
 					misoQueueSize = misoQueueSize,
 					index = index,
+					pinout = self.pinout,
 					coordinates = slaveList[index][3],
 					moduleDimensions = slaveList[index][4],
 					moduleAssignment = slaveList[index][5]
 					)
 
 				# Start Slave thread:
-                                self.slaves[index].start()
+				self.slaves[index].start()
 
 				# Add Slave to newSlaveQueue:
 				self.putNewSlave(index)
@@ -306,19 +308,36 @@ class FCCommunicator:
 			the listenerSocket and respond accordingly.
 		"""
 
-		try:    
+		self.printM("[LT] Listener thread started. Waiting.", "G")
 
-			self.printM("[LT] Listener thread started. Waiting.", "G")
+		# Get standard replies:
+		launchMessage = "L|{}".format(self.passcode)
 
-			while(True):
+
+		while(True):
+			try:
 				# Wait for a message to arrive:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
+				
+				""" DEBUG
+				print "Message recevied: {}".format(messageReceived)
+				"""
 
 				""" NOTE: The message received from Slave, at this point, 
-					should have the following form:
+					should have one of the following forms:
 
-						000000000|PASSWORD|SV:MA:CA:DD:RE:SS|SMISO|SMOSI|
+					- STD from MkII:
+						A|PCODE|SV:MA:CA:DD:RE:SS|SMISO|SMOSI|VERSION
+						0     1                 2     3     4       5
+					- STD from Bootloader:
+						B|PCODE|SV:MA:CA:DD:RE:SS|
+
+					- Error from MkII:
+						A|PCODE|SV:MA:CA:DD:RE:SS|ERRMESSAGE
+
+					- Error from Bootloader:
+						B|PCODE|SV:MA:CA:DD:RE:SS|ERRMESSAGE
 
 					Where SMISO and SMOSI are the Slave's MISO and MOSI 
 					port numbers, respectively. Notice separators.
@@ -327,165 +346,195 @@ class FCCommunicator:
 					# NOTE: messageSplitted is a list of strings, each of which
 					# is expected to contain a string as defined in the comment
 					# above.
+				
+				# Verify passcode:
+				if messageSplitted[1] != self.passcode:
+					self.printM("Wrong passcode received (\"{}\") "\
+						"from {}".format(messageSplitted[1], 
+						senderAddress[0]), 'E')
+					
+					print "Wrong passcode"
 
-				# Validate message ---------------------------------------------
-
-				try:
-
-					# Verify passcode:
-					if messageSplitted[1] != self.passcode:
-						raise ValueError("Wrong passcode received ({})".\
-							format(messageSplitted[1]))
-
-					# Attempt conversion into corresponding containers:
-					misoPort = int(messageSplitted[3])
-					mosiPort = int(messageSplitted[4])
-					mac = messageSplitted[2]
-					# A ValueError will be raised if invalid port numbers are
-					# given and an IndexError will be raised if the given 
-					# message yields less than three strings when splitted.
-
-					# DEBUG DEACTV:
-					"""
-					self.printM("Parsed:\
-								\n\t\t Password: {}\
-								\n\t\t MAC: {}\
-								\n\t\t MMISO: {}\
-								\n\t\t MMOSI: {}\n".\
-								format(
-								messageSplitted[1],
-								messageSplitted[2],
-								messageSplitted[3],
-								messageSplitted[4]))
-					"""
-					# Verify converted values:
-					if (misoPort <= 0 or misoPort > 65535):
-						# Raise a ValueError if a port number is invalid:
-						raise ValueError("Bad SMISO ({}). Need [1, 65535]".\
-							format(miso))
-
-					if (mosiPort <= 0 or mosiPort > 65535):
-						# Raise a ValueError if a port number is invalid:
-						raise ValueError("Bad SMOSI ({}). Need [1, 65535]".\
-							format(mosi))
-
-					if (len(mac) != 17):
-						# Raise a ValueError if the given MAC address is not 17
-						# characters long.
-						raise ValueError("MAC ({}) not 17 chars ({})")
-
-
-				except (ValueError, IndexError) as e:
-
-					# If the given message is invalid, discard it and move on:
-
-					self.printM("[LT ]Error: \"{}\"\n\tObtained when parsing \"\
-						{}\" from {}. (Message discarded)"\
-					.format(e, messageReceived, senderAddress), "E")
-
-					# Move on:
 					continue
 
-				# Check Slave against self.slaves and respond accordingly ------
-					# (Message validation completed successfully by this point)
-				index = None
-				for slave in self.slaves:
-					if slave.getMAC() == mac:
-						index = slave.getIndex()
-						break
+				# Check who's is sending the message
+				if messageSplitted[0][0] == 'A':
+					# This message comes from the MkII
+					
+					print "From MkII"
 
-
-				# Check if the Slave is known:
-				if index is not None :
-
-					# If the index is in the Slave dictionary, check its
-					# recorded status and proceed accordingly:
-
-					if self.slaves[index].getStatus() == sv.DISCONNECTED:
-						# If the Slave is recorded as DISCONNECTED but just res-
-						# ponded to a broadcast, update its status and mark it
-						# for automatic reconnection.
+					try:		
+						mac = messageSplitted[2]
 						
-						# NOTE:  
-						#	DISCONNECTED Slaves were previously connected to
-						#   and later anomalously disconnected. Since have
-						#   been chosen by the user, they should be recon-
-						#   nected to automatically. Changing their state to
-						#	KNOWN will trigger a response from the corres-
-						#	ponding Slave thread to connect automatically.
+						# Check message type:
+						if messageSplitted[3] == 'N':
+							# Standard broadcast reply
+							
+							misoPort = int(messageSplitted[4])
+							mosiPort = int(messageSplitted[5])
+							version = messageSplitted[6]
+							
+							# Verify converted values:
+							if (misoPort <= 0 or misoPort > 65535):
+								# Raise a ValueError if a port number is invalid:
+								self.printM(
+									"Bad SMISO ({}). Need [1, 65535]".\
+									format(miso), "E")
 
-						# Update status and networking information:
-						self.slaves[index].setStatus(
-							sv.KNOWN,
-							senderAddress[0],
-							misoPort,
-							mosiPort
-							)
+							if (mosiPort <= 0 or mosiPort > 65535):
+								# Raise a ValueError if a port number is invalid:
+								raise ValueError(
+									"Bad SMOSI ({}). Need [1, 65535]".\
+									format(mosi))
 
-					else:
-						# All other statuses should be ignored for now.
-						pass
+							if (len(mac) != 17):
+								# Raise a ValueError if the given MAC address is 
+								# not 17 characters long.
+								raise ValueError("MAC ({}) not 17 chars".\
+									format(mac))
+
+							# Search for Slave in self.slaves 
+							index = None
+							for slave in self.slaves:
+								if slave.getMAC() == mac:
+									index = slave.getIndex()
+									break
+
+							# Check if the Slave is known:
+							if index is not None :
+								# Slave already recorded
+
+								# If the index is in the Slave dictionary,
+								# check its status and proceed accordingly:
+
+								if self.slaves[index].getStatus() == \
+									sv.DISCONNECTED:
+									# If the Slave is DISCONNECTED but just res-
+									# ponded to a broadcast, update its status 
+									# for automatic reconnection. (handled by
+									# their already existing Slave thread)
+
+									# Update status and networking information:
+									self.slaves[index].setStatus(
+										sv.KNOWN,
+										senderAddress[0],
+										misoPort,
+										mosiPort,
+										version
+									)
+									
+									
+								else:
+									# All other statuses should be ignored for 
+									# now.
+
+									pass
+
+							else:
+								# Newly met Slave
+
+								index = len(self.slaves)
+								# If the MAC address is not recorded, list it
+								# AVAILABLE and move on. The user may choose 
+								# to add it later.
+
+								# NOTE: Since numpy.concatenate takes 
+								# "array_like" objects, the newly instantiated 
+								# Slave is passed as a member of a singleton 
+								# (1 element) tuple.
+
+								self.slaves = np.concatenate(
+									(self.slaves, 
+										(sv.FCSlave(
+											name = random.choice(names.coolNames),
+											mac = mac,
+											status = sv.AVAILABLE,
+											maxFans = self.maxFans,
+											activeFans = self.maxFans,
+											routine = self._slaveRoutine,
+											routineArgs = (index, ),
+											pinout = self.pinout,
+											version = version,
+											misoQueueSize = self.misoQueueSize,
+											ip = senderAddress[0],
+											misoP = misoPort,
+											mosiP = mosiPort,
+											index = index,
+											coordinates = None,
+											moduleDimensions = 
+												self.defaultModuleDimensions,
+											moduleAssignment = 
+												self.defaultModuleAssignment
+											),
+										)
+									)
+								)
+
+								# Start Slave thread:
+								self.slaves[index].start()
+													
+								# Add new Slave's information to newSlaveQueue:
+								self.putNewSlave(index)
+
+						
+						elif messageSplitted[3] == 'E':
+							# Error message
+
+							self.printM("Error message from {} (MkII): "\
+								"\"{}\"".format(
+									messageSplitted[2], messageSplitted[3]),'E')
+						
+						else:
+							# Invalid code
+							raise IndexError
+
+					except IndexError:
+						self.printM("Invalid message \"{}\" discarded; "\
+							"sent by {}".format(
+								senderAddress[0], messageReceived), "W")
+
+				elif messageSplitted[0][0] == 'B':
+					# This message comes from the Bootloader
+					
+					print "From Bootloader"
+
+					try:
+						# Check message type:
+
+						if messageSplitted[3] == 'N':
+							# Standard broadcast
+							# TODO: Handle update possibility
+
+							self.listenerSocket.sendto(
+								launchMessage,
+								senderAddress)
+
+							print "Sent {} to {}".format(launchMessage, senderAddress)
+				
+						elif messageSplitted[3] == 'E':
+							# Error message
+
+							self.printM("Error message from {} "\
+								"(Bootloader): \"{}\"".format(
+									messageSplitted[2], 
+									messageSplitted[3]),
+									'E')
+							
+					except IndexError:
+						self.printM("Invalid message \"{}\" discarded; "\
+							"sent by {}".format(
+								senderAddress[0], messageReceived), "W")
 
 				else:
-					index = len(self.slaves)
 
-					# If the MAC address is not recorded, list this board as A-
-					# VAILABLE and move on. The user may choose to add it later:
+					# Invalid first character (discard message)
+					self.printM("Warning: Message from {} w/ invalid first "\
+						"character '{}' discarded".\
+						format(senderAddress[0], messageSplitted[0]))
 
-					# NOTE: Slaves that are not connected will have either port
-					# numbers or None as their "miso" and "mosi" attributes.
-					# When a connection is secured, these port numbers will be
-					# replaced by UDP sockets CONNECTED to said port numbers --
-					# notice these are CONNECTED to, not BINDED to, said port
-					# numbers.
-					
-					# Create a new Slave instance and store it:
-					
-					# The numpy.concatenate function returns a new array that
-					# arises from concatenating the two give "array_like"
-					# objects. The resulting array will use REFERENCES to the
-					# same objects to which the original ones refer. This means
-					# we can replace self.slaves for the result and effectively
-					# keep the same array with the same objects plus the added
-					# slave Instance.
-
-					# NOTE: Since numpy.concatenate takes "array_like" objects,
-					# the newly instantiated Slave is passed as a member of a
-					# singleton (1 element) tuple.
-
-					self.slaves = np.concatenate(
-							(self.slaves,
-							(sv.FCSlave(
-							name = random.choice(names.coolNames),
-							mac = mac,
-							status = sv.AVAILABLE,
-							maxFans = self.maxFans,
-							activeFans = self.maxFans,
-							routine = self._slaveRoutine,
-							routineArgs = (index, ),
-							misoQueueSize = self.misoQueueSize,
-							ip = senderAddress[0],
-							misoP = misoPort,
-							mosiP = mosiPort,
-							index = index,
-							coordinates = None,
-							moduleDimensions = 
-								self.defaultModuleDimensions,
-							moduleAssignment = 
-								self.defaultModuleAssignment,
-							),
-							))
-					)
-
-                                        # Start Slave thread:
-                                        self.slaves[index].start()
-                                        
-					# Add new Slave's information to newSlaveQueue:
-					self.putNewSlave(index)
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")	
+			except Exception as e: # Print uncaught exceptions
+				self.printM("[LT] UNCAUGHT EXCEPTION: \"{}\"".\
+					format(traceback.format_exc()), "E")	
 		# End _listenerRoutine =================================================
 
 	def _slaveRoutine(self, targetIndex, target): # # # # # # # # # # # # # # # # 
@@ -496,7 +545,7 @@ class FCCommunicator:
 		# PARAMETERS:
 		# - targetIndex: int, index of the Slave handled
 		# - target: Slave controlled by this thread
-		# NOTE: This current version is expected to run as daemon.
+		# NOTE: This version is expected to run as daemon.
 
 		try:
 			
@@ -531,13 +580,13 @@ class FCCommunicator:
 
 			# HSK message ------------------------------------------------------
 
-			MHSK = "MHSK|{},{},{},{} {} {} {} {} {} {} {} {} {} {} {}".format(
+			MHSK = "H|{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
 						slave._misoSocket().getsockname()[1], 
 						slave._mosiSocket().getsockname()[1], 
 						self.periodMS,
+						self.maxTimeouts,
+
 						self.fanMode,
-						self.targetRelation[0],
-						self.targetRelation[1],
 						self.slaves[targetIndex].activeFans,
 						self.fanFrequencyHZ,
 						self.counterCounts,
@@ -546,7 +595,8 @@ class FCCommunicator:
 						self.minRPM,
 						self.minDC,
 						self.chaserTolerance,
-						self.maxFanTimeouts)
+						self.maxFanTimeouts,
+						self.pinout)
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()
@@ -561,8 +611,7 @@ class FCCommunicator:
 				try:
 
 					# Acquire lock:
-					slave.acquire()
-					
+					slave.acquire()	
 					status = slave.getStatus()
 
 					# Act according to Slave's state: 
@@ -574,10 +623,11 @@ class FCCommunicator:
 						# Check for signs of life w/ HSK message:
 						self._send(MHSK, slave, 1, True)
 
-						# Try to receive replyi w/ extra-lenient timeout:
+						# Try to receive reply:
+
 						reply = self._receive(slave)
 						# Check reply:
-						if reply is not None and reply[1] == "SHSK":
+						if reply is not None and reply[1] == "H":
 							# print "Processed reply: {}".format(reply), "G"
 							# print "Handshake confirmed"
 
@@ -589,9 +639,10 @@ class FCCommunicator:
 							# print
 							#   "Missed handshake. Retrying."
 							# Set Slave to disconnected:
+							self._send("X", slave, 1)
 							slave.setStatus(sv.DISCONNECTED, lock = False) 
 								# NOTE: This call also resets exchange index.
-								
+							
 
 					elif slave.status > 0: # = = = = = = = = = = = = = = = = = = 
 						# If the Slave's state is positive, it is online and 
@@ -608,7 +659,7 @@ class FCCommunicator:
 						command = slave.getMOSI()
 							
 						if command is not None:
-							message = "MSTD|" + command
+							message = "S|" + command
 							# Send message, if any:
 							self._send(message, slave, 2)
 
@@ -624,8 +675,11 @@ class FCCommunicator:
 
 							# Restore timeout counter after success:
 							timeouts = 0
-							# Check if there are DCs and RPMs:
-							if reply[1] == "SSTD":
+						
+							# Check message type:
+							if reply[1] == 'T':
+								# Standard update
+
 								# Get data index:
 								receivedDataIndex = reply[2]
 							
@@ -661,6 +715,32 @@ class FCCommunicator:
 										self.printM("[{}] WARNING: MISO Queue Full."\
 											" GUI thread falling behind. ".\
 										format(slave.getMAC()), "E")
+
+							elif reply[1] == 'I':
+								# Reset MISO index
+								
+								slave.setMISOIndex(0)
+								self.printM("[{}] MISO Index reset".format(
+									slave.getMAC))
+
+							elif reply[1] == 'P':
+								# Ping request
+								
+								self.send("P", slave)
+							
+							elif reply[1] == 'E':
+								# Error report
+
+								self.printM("[{}] ERROR: \"{}\"".format(
+									slave.getMAC(), reply[2]), "E")
+
+							else:
+								# Unrecognized command
+
+								self.printM("[{}] Warning, unrecognized "\
+									"message: \"{}\"".format(
+										slave.getMAC(), reply))
+
 						else:
 							timeouts += 1
 							totalTimeouts += 1
@@ -670,7 +750,7 @@ class FCCommunicator:
 								# received, resend it:
 								# print "Timed out. Resending"
 								# Resend message:
-								self._send(message, slave, 4)
+								self._send(message, slave, 1)
 								# Increment timeout counter:
 
 							# Check timeout counter: - - - - - - - - - - - - - -
@@ -691,7 +771,7 @@ class FCCommunicator:
 								# Terminate connection: ........................
 
 								# Send termination message:
-								self._send("MRIP", slave)
+								self._send("X", slave)
 
 								# Reset timeout counter:
 								timeouts = 0
@@ -802,8 +882,10 @@ class FCCommunicator:
 					self.maxLength)
 
 				# DEBUG DEACTV
-				## print "Received: \"{}\" from {}".
-				 #   format(message, sender), "D")
+				"""
+				print "Received: \"{}\" from {}".\
+				 	format(message, sender)
+				"""
 
 				try:
 					# Split message: -------------------------------------------

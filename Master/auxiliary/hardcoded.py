@@ -30,45 +30,36 @@ import random # Random names, boy
 import names
 
 
-# DEFAULT VALUES ===============================================================
+# SPECIAL VALUES ===============================================================
 
-DEF_PROFILE_NAME = "[ALPHA]"
-	
-# COMMUNICATIONS:
-DEF_BROADCAST_PORT  = 65000
-DEF_PERIOD_MS = 100 # (millisecond(s))
-DEF_BROADCAST_PERIOD_MS = 1000
-DEF_MAX_LENGTH = 512
-DEF_MAX_TIMEOUTS = 4
-
-DEF_MAIN_QUEUE_SIZE = 20
-DEF_SLAVE_QUEUE_SIZE= 100
-DEF_BROADCAST_QUEUE_SIZE = 2
-DEF_LISTENER_QUEUE_SIZE = 3
-DEF_MISO_QUEUE_SIZE = 4
-DEF_PRINTER_QUEUE_SIZE = 3
-
-# FAN ARRAY:
-# NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
-# fans.
-
-DEF_FAN_MODEL = "DELTA PFR0912XHE-SP00"
-DEF_FAN_MODE = -1
-DEF_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
-DEF_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
-DEF_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
-DEF_COUNTER_COUNTS = 1 # (Measure time between pulses once)
-DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
-DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
-DEF_MAX_RPM = 11500 # (Maximum nominal RPM)
-DEF_MIN_RPM = 1185  # (Minimum nominal RPM)
-DEF_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
-DEF_MAX_FANS = 21
-DEF_MAX_FAN_TIMEOUTS = 1 
-
-DEF_MODULE_DIMENSIONS = (2, 11) # (rows, columns)
-DEF_MODULE_ASSIGNMENT = \
+# Basement:
+SPEC_BASEMENT_MODULE_ASSIGNMENT = \
     "1,2,3,4,5,6,7,8,9,10,,11,12,13,14,15,16,17,18,19,20"
+
+SPEC_BASEMENT_MODULE_DIMENSIONS = (2,11) # (rows, columns)
+
+# CAST:
+SPEC_CAST_MODULE_ASSIGNMENT_BACK = \
+	"1,3,5,7,9,11,13,15,17"
+	# NOTE (UPSTREAM)
+
+SPEC_CAST_MODULE_ASSIGNMENT_FRONT = \
+	"0,2,4,6,8,10,12,14,16"
+	# NOTE (DOWNSTREAM)
+
+SPEC_CAST_MODULE_DIMENSIONS = (3,3) # (rows, columns) 
+SPEC_CAST_PINOUT = "ETRGMLWXPQJKUVBADC edcb_^ng`w\\]porqfs"
+SPEC_CAST_DIMENSIONS = (36, 36)
+SPEC_CAST_MAX_FANS = 18
+SPEC_CAST_DEF_ACTIVE_FANS = 18
+
+# .............................................................................. 
+
+# Values to be used in provisional FCArchiver: 
+DEF_MODULE_DIMENSIONS = SPEC_CAST_MODULE_DIMENSIONS
+DEF_MODULE_ASSIGNMENT = SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+DEF_PINOUT =  SPEC_CAST_PINOUT
+DEF_DIMENSIONS = SPEC_CAST_DIMENSIONS
 
 # PREDEFINED SLAVE LISTS =======================================================
 
@@ -121,7 +112,7 @@ SLAVELIST_BASEMENT = [\
 				(5,6),								# Module dimensions
 				',,,,10,5,21,19,16,13,9,4,,18,15,12,8,3,20,17,14,11,7,2,,,,,6,1'									# Module assignment
 			]\
-] # END SLAVELIST_ALEX	
+] # END SLAVELIST_BASEMENT	
 		
 SLAVELIST_ALEX = [\
 			[
@@ -151,3 +142,43 @@ SLAVELIST_ALEX = [\
 				''									# Module assignment
 			]\
 ] # End SLAVELIST_ALEX
+
+# Slavelist to be used:
+DEF_SLAVELIST = []
+
+# DEFAULT VALUES ===============================================================
+
+DEF_PROFILE_NAME = "[ALPHA]"
+	
+# COMMUNICATIONS:
+DEF_BROADCAST_PORT  = 65000
+DEF_PERIOD_MS = 100 # (millisecond(s))
+DEF_BROADCAST_PERIOD_MS = 1000
+DEF_MAX_LENGTH = 512
+DEF_MAX_TIMEOUTS = 4
+
+DEF_MAIN_QUEUE_SIZE = 20
+DEF_SLAVE_QUEUE_SIZE= 100
+DEF_BROADCAST_QUEUE_SIZE = 2
+DEF_LISTENER_QUEUE_SIZE = 3
+DEF_MISO_QUEUE_SIZE = 4
+DEF_PRINTER_QUEUE_SIZE = 3
+
+# FAN ARRAY:
+# NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
+# fans.
+
+DEF_FAN_MODEL = "DELTA PFR0912XHE-SP00"
+DEF_FAN_MODE = -1
+DEF_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
+DEF_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
+DEF_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
+DEF_COUNTER_COUNTS = 1 # (Measure time between pulses once)
+DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
+DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
+DEF_MAX_RPM = 11500 # (Maximum nominal RPM)
+DEF_MIN_RPM = 1185  # (Minimum nominal RPM)
+DEF_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
+DEF_MAX_FANS = SPEC_CAST_MAX_FANS
+DEF_MAX_FAN_TIMEOUTS = 1 
+

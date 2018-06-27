@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.10"
+#define FCIIB_VERSION "S1.15"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -55,8 +55,8 @@
 //// SETTINGS //////////////////////////////////////////////////////////////////
 // Network:
 #define BAUDRATE 460800
-#define SOCKET_TIMEOUT_MS 500
-#define MAX_REBOOT_TIMEOUTS 60*10*2 // (this*SOCKET_TIMEOUT_MS)/1000 seconds total
+#define SOCKET_TIMEOUT_MS 1000
+#define MAX_TIMEOUTS 30 // (this*SOCKET_TIMEOUT_MS)/1000 seconds total
 #define LISTENER_PORT 65000
 
 // Command specifiers:
@@ -183,8 +183,12 @@ int main() {
 	BTUtils::setLED(BTUtils::MID, BTUtils::ON);
 	
 	
+	// Set slow blink to indicate standby:
+	Ticker ticker;
+	ticker.attach(Callback<void()>(BTUtils::blinkMID), 1);
+
 	do { // ....................................................................
-		
+				
 		// Reset values:
 		misoPort = 0;
 		for(uint8_t i = 0; i < BUFFER_SIZE; i++){
@@ -211,12 +215,12 @@ int main() {
 				ethernet->get_connection_status();
 			switch(cstatus){
 				case NSAPI_STATUS_GLOBAL_UP:
-					printf("\r\tWaiting [%10lu] (Connection: Global IP)",
+					printf("\n\r\tWaiting [%10lu] (Connection: Global IP)",
 						timeouts++);
 					break;
 
 				case NSAPI_STATUS_LOCAL_UP:
-					printf("\r\tWaiting [%10lu] (Connection:  Local IP)",
+					printf("\n\r\tWaiting [%10lu] (Connection:  Local IP)",
 						timeouts++);
 					break;
 
@@ -229,8 +233,7 @@ int main() {
 					printf("\n\rERROR: UNRECOGNIZED NETWORK STATUS CODE %d",
 						cstatus);
 			}
-		
-
+			
 		} else if (result <= 0){
 			// Network error
 			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r", 
@@ -299,7 +302,7 @@ int main() {
 
 					
 					// Format reply:
-					snprintf(misoBuffer, BUFFER_SIZE,"B|%s|%s",
+					snprintf(misoBuffer, BUFFER_SIZE,"B|%s|%s|N",
 						passcodeBuffer, ethernet->get_mac_address());
 
 					// Send reply:
@@ -384,6 +387,10 @@ int main() {
 					}
 
 					// Proceed to update ---------------------------------------
+
+					// Detach ticker:
+					ticker.detach();
+
 					// Launch Update sequence
 					printf("\n\rUpdating\n\r");
 					
@@ -476,6 +483,10 @@ int main() {
 					if(strlen(splitPointer) > 0){
 						// Nonempty passcode. Proceed to reboot
 						printf("\n\rLaunch order received ");
+						
+						// Detach ticker:
+						ticker.detach();
+						
 						// Jump to MkII:
 						BTUtils::launch();
 						break;
@@ -517,14 +528,18 @@ int main() {
 					snprintf(errorBuffer, BUFFER_SIZE,
 						"Bad char. code: %c", mosiBuffer[0]);
 					sendError(errorBuffer, strlen(errorBuffer));
-					BTUtils::fatal();
+					continue;
 					break;
 
 			} // End switch
 		
 		} // End message reception test
 
-	} while(timeouts <= MAX_REBOOT_TIMEOUTS);
+	} while(timeouts < MAX_TIMEOUTS);
+
+	// Launch MkII:
+	printf("\n\rTimeout limit reached. Launching MkII");
+	BTUtils::launch();
 
 	return 0;
 

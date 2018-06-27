@@ -40,6 +40,7 @@ import Queue
 
 # FCMkII:
 import FCSlave as sv
+import FCPrinter as pt
 import cellcolors as cc
 import FanContainer as fr
 
@@ -269,7 +270,7 @@ class SlaveContainer:
 							
 					# Update Printer (if it is active):
 					try:
-						if self.master.printer.getStatus() == Printer.ON:
+						if self.master.printer.getStatus() == pt.ON:
 							self.master.printer.put(
 								self.index,
 								(fetchedUpdate[3][0], fetchedUpdate[3][1])

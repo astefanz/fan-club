@@ -186,7 +186,7 @@ private:
 		 * NOTE: Blocks for thread safety.
 		 */
          
-   	int _getMISOIndex(void);
+   	uint32_t _getMISOIndex(void);
 		/* ABOUT: Get value of  MISO index.
 		 * NOTE: Blocks for thread safety.
 		 */
@@ -201,12 +201,12 @@ private:
 		 * NOTE: Blocks for thread safety.
 		 */
          
-   	int _getMOSIIndex(void);
+   	uint32_t _getMOSIIndex(void);
 		/* ABOUT: Get value of  MOSI index.
 		 * NOTE: Blocks for thread safety.
 		 */
 
-   	void _setMOSIIndex(int newIndex);
+   	void _setMOSIIndex(uint32_t newIndex);
 		/* ABOUT: Set value of  MOSI index.
 		 * NOTE: Blocks for thread safety.
 		 */
@@ -219,8 +219,8 @@ private:
 	char version[16];
 	char passcode[16];
 
-    int mosiIndex;   // Index messages
-    int misoIndex;       // Index outgoing messages
+    uint32_t mosiIndex;   // Index messages
+    uint32_t misoIndex;       // Index outgoing messages
     int masterTimeouts;  // Keep track of timeouts for connection check
 	int maxMasterTimeouts;
 

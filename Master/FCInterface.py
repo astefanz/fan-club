@@ -1018,7 +1018,8 @@ class FCInterface(Tk.Frame):
 				minRPM = self.archiver.get(ac.minRPM),
 				minDC = self.archiver.get(ac.minDC),
 				chaserTolerance = self.archiver.get(ac.chaserTolerance),
-				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts)
+				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
+				pinout = self.archiver.get(ac.defaultPinout)
 				)
 			self.printMain("Communicator initialized", "G")
 				
@@ -1773,7 +1774,7 @@ class FCInterface(Tk.Frame):
 				return
 	
 			# Assemble the shared side of the command to be sent: ------------
-			#       [INDEX]|MSTD|command~arg~fans
+			#       [INDEX]|S|command~arg~fans
 			#       \-----------/\----------/\--/
 			#              |            |      |
 			#              |            |     Added here. Specific of each Slave
@@ -1788,10 +1789,10 @@ class FCInterface(Tk.Frame):
 			commandKeyword = ""
 
 			if self.selectedCommand.get() == "Set Duty Cycle":
-				commandKeyword += "W~{}".format(float(
+				commandKeyword += "D:{}".format(float(
 					self.commandEntry.get())/100.0)
 			elif self.selectedCommand.get() == "Chase RPM":
-				commandKeyword += "C~{}".format(self.commandEntry.get())
+				commandKeyword += "C:{}".format(self.commandEntry.get())
 
 			else:
 				# Unrecognized command (wat):
@@ -1807,7 +1808,7 @@ class FCInterface(Tk.Frame):
 				if slaveContainer.hasSelected():
 					# If it has at least one fan selected, add this to its queue:
 					try:
-						command = "{}~{}".format(
+						command = "{}:{}".format(
 							commandKeyword, \
 							slaveContainer.getSelection())
 						slaveContainer.mosiMethod(command, False)

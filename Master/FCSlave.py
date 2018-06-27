@@ -93,8 +93,8 @@ class FCSlave:
 	# no behavior besides that of its components, such as Locks.
 
 	def __init__(self, name, mac, status, maxFans, activeFans, routine, 
-		routineArgs, misoQueueSize, index, 
-				coordinates = None, moduleDimensions = (0,0), moduleAssignment = "",
+		routineArgs, misoQueueSize, index, pinout, version = "MkII(?)",
+		coordinates = None, moduleDimensions = (0,0), moduleAssignment = "",
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None):
 		# ABOUT: Constructor for class Slave.
 	
@@ -167,6 +167,18 @@ class FCSlave:
 			raise TypeError(
 				"Attribute 'index' must be int, not {}".\
 				format(type(index)))
+		elif type(pinout) is not str:
+			raise TypeError(
+				"Attribute 'pinout' must be str, not {}".\
+				format(type(index)))
+		elif (len(pinout)-1)/2 != activeFans:
+			raise ValueError(
+				"Attribute 'pinout' must span {} fans, not {}".\
+				format(activeFans, (len(pinout)-1)/2))
+		elif type(version) is not str:
+			raise TypeError(
+				"Attribute 'version' must be int, not {}".\
+				format(type(version)))
 		elif type(coordinates) not in (tuple, type(None)):
 			raise TypeError(
 				"Attribute 'coordinates' must be tuple or None, not {}".\
@@ -242,6 +254,12 @@ class FCSlave:
 		# Module assignment:
 		self.moduleAssignment = moduleAssignment
 		self.moduleAssignmentLock = threading.Lock()
+
+		# Pinout and version:
+		self.pinout = pinout
+		self.pinoutLock = threading.Lock()
+		self.version = version
+		self.versionLock = threading.Lock()
 
 		# Communications-specific ..............................................
 		
@@ -361,6 +379,7 @@ class FCSlave:
 		newIP = None,
 		newMISOP = None,
 		newMOSIP = None,
+		newVersion = None,
 		lock = True):
 		# ABOUT: Setter for status. (Uses full lock for thread-safety.)
 		# NOTE: This method will modify all attributes that correspond to the
@@ -375,10 +394,12 @@ class FCSlave:
 		# - newMISOP and newMOSIP: ints, new MISO and MOSI port numbers, res-
 		#	pectively. Required to set to AVAILABLE and KNOWN. (will be igno-
 		#	red otherwise). Default to None.
+		# - newVersion: str, code of the MkII-S version running in the MCU
 		# - lock: bool, whether to acquire Slave lock (set to False if caller
 		#	already has lock. OTHERWISE DEADLOCK WILL ENSUE! 
 		# RAISES:
-		# - TypeError, ValueError, if newStatus is not int status code.
+		# - TypeError, ValueError, if newStatus is not int status code or argu-
+		#	ments are invalid.
 		# - Queue.Full if update queue is full.
 
 		# Validate input -------------------------------------------------------
@@ -425,7 +446,14 @@ class FCSlave:
 				if newMISOP != None:
 					self._setPorts(newMISOP, newMOSIP)
 					# NOTE: Argument validation will be performed here
-				
+			
+				if newVersion != None:
+					if type(newVersion) is not str:
+						raise TypeError("Argument 'newVersion' must be of type"\
+							"str, not {}".format(type(newVersion)))
+					else:
+						self.version = newVersion
+
 				# Reset indices:
 				self.resetIndices()
 
@@ -605,7 +633,89 @@ class FCSlave:
 		finally:
 			self.moduleAssignmentLock.release()
 		
-		# End setModuleAssignment ===================================================
+		# End setModuleAssignment ==============================================
+
+	def getPinout(self): # =====================================================
+		# ABOUT: Get pinout of this Slave.
+		# RETURNS:
+		# - str
+		# NOTE: Thread-safe (blocks)
+		
+		try:
+			self.pinoutLock.acquire()
+			
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.pinout
+
+			# Lock will be released by finally clause
+			return placeholder
+
+		finally:
+			self.pinoutLock.release()
+		
+		# End getPinout ========================================================
+
+	def setPinout(self, newPinout): # ==========================================
+		# ABOUT: Set pinout.
+		# PARAMETERS:
+		# - newPinout: str.
+		# NOTE: Thread-safe (blocks)
+		
+		# Validate input:
+		if type(newPinout) is not str:
+			raise TypeError("Argument 'newPinout' must be str, "\
+				"not {}".\
+				format(type(newPinout)))
+		try:
+			self.pinoutLock.acquire()
+			
+			self.pinout = newPinout
+
+		finally:
+			self.pinoutLock.release()
+		
+		# End setPinout ========================================================
+
+	def getVersion(self): # ====================================================
+		# ABOUT: Get version of this Slave.
+		# RETURNS:
+		# - str, may be empty("").
+		# NOTE: Thread-safe (blocks)
+		
+		try:
+			self.versionLock.acquire()
+			
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.version
+
+			# Lock will be released by finally clause
+			return placeholder
+
+		finally:
+			self.versionLock.release()
+		
+		# End getVersion =======================================================
+
+	def setVersion(self, newVersion): # ========================================
+		# ABOUT: Set version.
+		# PARAMETERS:
+		# - newVersion: str.
+		# NOTE: Thread-safe (blocks)
+		
+		# Validate input:
+		if type(newVersion) is not str:
+			raise TypeError("Argument 'newVersion' must be str, "\
+				"not {}".\
+				format(type(newVersion)))
+		try:
+			self.versionLock.acquire()
+			
+			self.version = newVersion
+
+		finally:
+			self.versionLock.release()
+		
+		# End setVersion =======================================================
 
 	# METHODS FOR NETWORKING ATTRIBUTES ########################################
 
