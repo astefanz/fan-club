@@ -881,6 +881,7 @@ class FCInterface(Tk.Frame):
 				self.printMain)
 			
 			# DRAW WINDOW = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+			
 			# Finally show window:
 			print "Calculating sizes... [1/6]"
 			self.master.update_idletasks() # Required to set minimum size	
@@ -905,7 +906,7 @@ class FCInterface(Tk.Frame):
 			
 			# Activate resizing:
 			self.master.resizable(True, True)
-
+			
 			"""
 			self.master.geometry('%dx%d+%d+%d' % (960, 630, \
 				(self.master.winfo_screenwidth()/5),      \
@@ -914,7 +915,7 @@ class FCInterface(Tk.Frame):
 			)
 			self.master.update() # Required to set minimum size	
 			"""
-		
+
 			# DETERMINE MINIMUM SIZES:
 			self.master.withdraw()
 			# When only the essential "bars" are packed:
@@ -989,6 +990,7 @@ class FCInterface(Tk.Frame):
 				fanMode = self.archiver.get(ac.fanMode)
 				)
 			self.printMain("Printer Initialized", "G")
+
 
 			# INITIALIZATION STEP 4: BUILD AND START COMMUNICATOR ##################
 
