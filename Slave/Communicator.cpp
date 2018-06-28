@@ -387,10 +387,12 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 				case 'X': { // DISCONNECT BCAST. Change status to DISCONNECTED
 					pl;printf("\n\r[%08dms][L] Disconnect command received.",
 						tm);pu;
-						
-					this->_setStatus(NO_MASTER);
+					
+					if(this->getStatus() == CONNECTED){
+						this->_setStatus(NO_MASTER);
+					}
 					break;
-				} // End SHUTDOWN BCAST
+				} // End DISCONNECT BCAST
 
 				case 'L': { // LAUNCH BCAST. Ignore
 					if(this->getStatus() != CONNECTED){
@@ -799,6 +801,12 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					this->_setStatus(NO_MASTER);
 				} // End check processor success
 		
+		} else if (specifier == 'X'){
+			// Redundant disconnect message. Ignore
+			pl;printf(
+				"\n\r[%08dms][I][D] Redundant disconnect message ignored",
+			tm);pu;
+			
 		} else {
 			
 			pl;printf(
