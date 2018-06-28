@@ -53,15 +53,121 @@ SPEC_CAST_DIMENSIONS = (36, 36)
 SPEC_CAST_MAX_FANS = 18
 SPEC_CAST_DEF_ACTIVE_FANS = 18
 
+SPEC_CAST_DIMS_12 = (9, 12)
+
 # .............................................................................. 
 
 # Values to be used in provisional FCArchiver: 
 DEF_MODULE_DIMENSIONS = SPEC_CAST_MODULE_DIMENSIONS
 DEF_MODULE_ASSIGNMENT = SPEC_CAST_MODULE_ASSIGNMENT_FRONT
 DEF_PINOUT =  SPEC_CAST_PINOUT
-DEF_DIMENSIONS = SPEC_CAST_DIMENSIONS
+DEF_DIMENSIONS = SPEC_CAST_DIMS_12
 
 # PREDEFINED SLAVE LISTS =======================================================
+
+SLAVELIST_CAST_12 = [\
+	[	
+		"R3-C4",
+		"00:80:e1:21:00:35",
+		18,
+		(6, 9),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R2-C4",
+		"00:80:e1:4a:00:36",
+		18,
+		(3, 9),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"42-C3",
+		"00:80:e1:51:00:2d",
+		18,
+		(3, 6),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R3-C1",
+		"00:80:e1:2d:00:2d",
+		18,
+		(6, 0),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R1-C2",
+		"00:80:e1:4f:00:2f",
+		18,
+		(3, 0),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+
+	[	
+		"T-L",
+		"00:80:e1:31:00:1c",
+		18,
+		(0, 0),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R1-C3",
+		"00:80:e1:4f:00:2d",
+		18,
+		(0, 6),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+
+	[	
+		"R3-C3",
+		"00:80:e1:39:00:36",
+		18,
+		(6, 6),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+
+
+	[	
+		"R3-C2",
+		"00:80:e1:43:00:28",
+		18,
+		(6, 3),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+
+	[	
+		"R2-C1",
+		"00:80:e1:22:00:30",
+		18,
+		(3, 0),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R2-C2",
+		"00:80:e1:41:00:28",
+		18,
+		(3, 3),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	],
+	[	
+		"R1-C4",
+		"00:80:e1:41:00:28",
+		18,
+		(0, 9),
+		SPEC_CAST_MODULE_DIMENSIONS,
+		SPEC_CAST_MODULE_ASSIGNMENT_FRONT
+	]
+]
 
 SLAVELIST_BASEMENT = [\
 			[
@@ -72,7 +178,7 @@ SLAVELIST_BASEMENT = [\
 				(4,6),								# Module dimensions
 				'20,18,14,10,,,19,17,13,9,6,3,,16,12,8,5,2,,15,11,7,4,1'									# Module assignment
 			],
-                        [
+            [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:2f:00:1d",				# MAC 
 				 20,									# Active fans
@@ -80,7 +186,7 @@ SLAVELIST_BASEMENT = [\
 				(4,6),								# Module dimensions
 				',,14,10,6,,20,17,13,9,5,,19,16,12,8,4,2,18,15,11,7,3,1'									# Module assignment
 			],
-                        [
+            [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:29:00:2e",				# MAC 
 				 20,									# Active fans
@@ -88,7 +194,7 @@ SLAVELIST_BASEMENT = [\
 				(5,6),								# Module dimensions
 				'19,20,,,,,14,15,16,17,18,,8,9,10,11,12,13,3,4,5,6,7,,1,2,,,,'									# Module assignment
 			],
-                        [
+            [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:27:00:3e",				# MAC 
 				 20,									# Active fans
@@ -96,7 +202,7 @@ SLAVELIST_BASEMENT = [\
 				(4,6),								# Module dimensions
 				'1,2,3,4,5,,6,7,8,9,10,,11,12,13,14,15,16,,,17,18,19,20'									# Module assignment
 			],
-                        [
+            [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:4b:00:42",				# MAC 
 				 20,									# Active fans
@@ -104,14 +210,14 @@ SLAVELIST_BASEMENT = [\
 				(4,6),								# Module dimensions
 				'20,18,14,10,6,3,19,17,13,9,5,2,,16,12,8,4,1,,15,11,7,,,'									# Module assignment
 			],
-                        [
+            [
 				random.choice(names.coolNames),		# Name
 				"00:80:e1:47:00:3d",				# MAC 
 				 21,									# Active fans
                                 (3,5),
 				(5,6),								# Module dimensions
 				',,,,10,5,21,19,16,13,9,4,,18,15,12,8,3,20,17,14,11,7,2,,,,,6,1'									# Module assignment
-			]\
+			]
 ] # END SLAVELIST_BASEMENT	
 		
 SLAVELIST_ALEX = [\
@@ -152,10 +258,10 @@ DEF_PROFILE_NAME = "[ALPHA]"
 	
 # COMMUNICATIONS:
 DEF_BROADCAST_PORT  = 65000
-DEF_PERIOD_MS = 200 # (millisecond(s))
+DEF_PERIOD_MS = 100 # (millisecond(s))
 DEF_BROADCAST_PERIOD_MS = 1000
 DEF_MAX_LENGTH = 512
-DEF_MAX_TIMEOUTS = 2
+DEF_MAX_TIMEOUTS = 10
 
 DEF_MAIN_QUEUE_SIZE = 20
 DEF_SLAVE_QUEUE_SIZE= 100
@@ -177,8 +283,8 @@ DEF_COUNTER_COUNTS = 2 # (Measure time between pulses once)
 DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
 DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
 DEF_MAX_RPM = 11500 # (Maximum nominal RPM)
-DEF_MIN_RPM = 1185  # (Minimum nominal RPM)
-DEF_MIN_DC = 0.1 # (10% duty cycle corresponds to ~1185 RPM)
+DEF_MIN_RPM = 0  # (Minimum nominal RPM)
+DEF_MIN_DC = 0.0 # NOTE (10% duty cycle corresponds to ~1185 RPM)
 DEF_MAX_FANS = SPEC_CAST_MAX_FANS
 DEF_MAX_FAN_TIMEOUTS = 1 
 

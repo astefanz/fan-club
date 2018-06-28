@@ -1,0 +1,251 @@
+MkII performance testing started on Thu 28 Jun 2018 10:49:13
+Configuring network on 10:49:13
+Configured network by 10:49:13
+0,10:49:14,Discovered
+1,10:49:14,Discovered
+2,10:49:14,Discovered
+3,10:49:14,Discovered
+4,10:49:14,Discovered
+5,10:49:14,Discovered
+6,10:49:14,Discovered
+7,10:49:14,Discovered
+8,10:49:14,Discovered
+9,10:49:15,Discovered
+10,10:49:15,Discovered
+11,10:49:15,Discovered
+0,10:51:25,Connecting
+1,10:51:25,Connecting
+2,10:51:25,Connecting
+3,10:51:25,Connecting
+4,10:51:25,Connecting
+5,10:51:25,Connecting
+6,10:51:25,Connecting
+7,10:51:25,Connecting
+8,10:51:25,Connecting
+9,10:51:25,Connecting
+10,10:51:25,Connecting
+11,10:51:25,Connecting
+9,10:51:25,Connected
+5,10:51:25,Connected
+11,10:51:25,Connected
+7,10:51:25,Connected
+0,10:51:25,Connected
+3,10:51:25,Connected
+2,10:51:25,Connected
+1,10:51:25,Connected
+4,10:51:25,Connected
+6,10:51:25,Connected
+8,10:51:25,Connected
+10,10:51:25,Connected
+6,10:51:41,First command out
+8,10:51:41,First command out
+10,10:51:41,First command out
+9,10:51:41,First command out
+5,10:51:41,First command out
+11,10:51:41,First command out
+7,10:51:41,First command out
+0,10:51:41,First command out
+3,10:51:41,First command out
+1,10:51:41,First command out
+2,10:51:41,First command out
+4,10:51:41,First command out
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+6,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+8,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+10,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+9,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+5,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+11,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+7,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+0,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+3,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+1,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+2,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+4,10:51:44,First nonzero RPM confirmed
+11,10:53:34,Connected
+2,10:53:35,Connected
+0,10:55:07,Connected
+9,10:55:07,Connected
+8,10:55:28,Connected
+3,10:55:28,Connected
+11,10:55:28,Connected
+5,10:55:28,Connected
+10,10:55:28,Connected
+6,10:55:28,Connected
+1,10:55:28,Connected
+7,10:55:28,Connected
+2,10:55:35,Connected
+0,10:56:52,Connected
+9,10:59:02,Connected
+4,10:59:02,Connected

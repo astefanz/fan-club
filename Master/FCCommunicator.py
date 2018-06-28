@@ -76,6 +76,7 @@ class FCCommunicator:
 
 		try:
 			
+			"""
 			# Provisional timestamping solution:
 			self.canTimestamp = False
 			try:
@@ -95,7 +96,8 @@ class FCCommunicator:
 			self.file.write("Configuring network on {}\n".format(
 				time.strftime(
 				"%H:%M:%S", time.localtime())))
-				
+			"""
+
 			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Store parameters -------------------------------------------------
@@ -236,6 +238,7 @@ class FCCommunicator:
 				# Create an empty numpy array of objects w/ space for as many
 				# Slave units as there are in slaveList
 			# Loop over slaveList to instantiate any saved Slaves:
+			print "Initializing Sv's"
 			for index in range(len(slaveList)):
 
 				# NOTE: Here each sub list, if any, contains data to initialize
@@ -244,7 +247,8 @@ class FCCommunicator:
 				# [0]: Name (as a string)
 				# [1]: MAC address (as a string)
 				# [2]: Number of active fans (as an integer)
-				
+			
+
 				self.slaves[index] = \
 					sv.FCSlave(
 					name = slaveList[index][0],
@@ -267,18 +271,21 @@ class FCCommunicator:
 
 				# Add Slave to newSlaveQueue:
 				self.putNewSlave(index)
-
+		
 			# START MASTER THREADS =============================================
 			self.listenerThread.start()
 			self.broadcastThread.start()
 			
 			# DONE
 			self.printM("Communicator ready", "G")
-			
+		
+			"""
 			self.file.write("Configured network by {}\n".format(
 				time.strftime(
-				"%H:%M:%S", time.localtime())))
-			
+					"%H:%M:%S", time.localtime())))
+			"""
+
+		
 		except Exception as e: # Print uncaught exceptions
 			self.printM("UNHANDLED EXCEPTION IN Communicator __init__: "\
 				"\"{}\"".\
@@ -501,9 +508,11 @@ class FCCommunicator:
 
 								# Start Slave thread:
 								self.slaves[index].start()
-									
+								
+								"""
 								self._saveTimeStamp(index, "Discovered")
-
+								"""
+					
 								# Add new Slave's information to newSlaveQueue:
 								self.putNewSlave(index)
 
@@ -667,7 +676,10 @@ class FCCommunicator:
 
 							# Mark as CONNECTED and get to work:
 							slave.setStatus(sv.CONNECTED, lock = False)
+							
+							"""
 							self._saveTimeStamp(slave.getIndex(), "Connected")
+							"""
 
 						else:
 							self._send("X", slave, 1)
@@ -702,13 +714,14 @@ class FCCommunicator:
 
 							# Send message, if any:
 							self._send(message, slave, 2)
-							
+						
+							"""
 							if not timestampedDCFirst:
 								self._saveTimeStamp(slave.getIndex(),
 								"First command out")
 							
 								timestampedDCFirst = True
-							
+							"""	
 							# DEBUG: 
 							# print "Sent: {}".format(message)
 
@@ -753,7 +766,7 @@ class FCCommunicator:
 											),
 											totalTimeouts)
 											# FORM: (RPMs, DCs)
-											
+										"""		
 										if not timestampedRPMFirst:
 											for rpm in reply[-2].split(','):
 												if int(rpm) != 0:
@@ -762,7 +775,7 @@ class FCCommunicator:
 														slave.getIndex(),
 														"First nonzero RPM confirmed")
 													timestampedRPMFirst = True
-											
+										"""	
 									except Queue.Full:
 										# If there is no room for the queue, dismiss
 										# this update and warn the user:
@@ -803,7 +816,8 @@ class FCCommunicator:
 						else:
 							timeouts += 1
 							totalTimeouts += 1
-
+							
+							"""
 							if message is not None:
 								# If a message was sent and no reply was 
 								# received, resend it:
@@ -811,6 +825,8 @@ class FCCommunicator:
 								# Resend message:
 								self._send(message, slave, 1)
 								# Increment timeout counter:
+
+							"""
 
 							# Check timeout counter: - - - - - - - - - - - - - -
 							if timeouts < self.maxTimeouts:
@@ -852,6 +868,9 @@ class FCCommunicator:
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
 
+						command = "Blank"
+						
+					
 						pass
 				finally:
 					# DEBUG DEACTV
@@ -1077,8 +1096,8 @@ class FCCommunicator:
 		# End getNewSlave ======================================================
 
 	def printM(self, output, tag = 'S'): # =====================================
-		# ABOUT: Print on corresponding GUI terminal screen by adding a message to
-		# this Communicator's corresponding output Queue.
+		# ABOUT: Print on corresponding GUI terminal screen by adding a message 
+		# to this Communicator's corresponding output Queue.
 		# PARAMETERS:
 		# - output: str, string to be printed.
 		# - tag: str, single character for string formatting.
@@ -1090,8 +1109,15 @@ class FCCommunicator:
 		if DEBUG:
 			print "[DEBUG][COMMS] " + output
 
-		return self.mainQueue.put((output, tag))
-		
+		try:
+			self.mainQueue.put_nowait((output, tag))
+			return True
+
+		except Queue.Full:
+			print "[ERROR][COMMS] Warning. Communications output queue full. "\
+				"Could not print the following message:\n\r \"{}\"".\
+				format(output)
+			return False
 		# End printM ===========================================================
 
 	# # INTERFACE METHODS # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -1112,8 +1138,9 @@ class FCCommunicator:
 
 		if status == sv.AVAILABLE:
 			self.slaves[targetIndex].setStatus(sv.KNOWN)
+			"""
 			self._saveTimeStamp(targetIndex, "Connecting")
-
+			"""
 		else:
 			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
 				format(targetIndex + 1, sv.translate(status)))
@@ -1201,7 +1228,8 @@ class FCCommunicator:
 
 		finally:
 			self.broadcastLock.release()
-	
+
+	"""
 	def _saveTimeStamp(self, index, message):
 		# ABOUT: Provisional method to save timestamps for testing.
 
@@ -1209,6 +1237,7 @@ class FCCommunicator:
 			index,
 			time.strftime("%H:%M:%S"), 
 			message))
+	"""
 
 ## MODULE'S TEST SUITE #########################################################
 

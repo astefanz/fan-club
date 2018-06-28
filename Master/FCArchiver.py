@@ -43,6 +43,7 @@ import copy
 
 # Provisional:
 from auxiliary import hardcoded as hc
+from auxiliary.debug import d
 
 ## CONSTANT VALUES #############################################################
 
@@ -204,6 +205,7 @@ class FCArchiver:
 			if self.profile[param][TYPE] in (int, str, float, tuple):
 				# Immutable value, no need for fancy copying
 				value = self.profile[param][VALUE]
+			
 			else:
 				# Probably a mutable type, such a list. Return a copy.
 				value = copy.deepcopy(self.profile[param][VALUE])

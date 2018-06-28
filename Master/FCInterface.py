@@ -60,7 +60,7 @@ from fci import SlaveDisplay as sd
 
 from fci import SlaveContainer as sc
 
-from auxiliary import debug as d
+from auxiliary.debug import d
 
 ## CONSTANTS ###################################################################
 
@@ -993,7 +993,6 @@ class FCInterface(Tk.Frame):
 
 
 			# INITIALIZATION STEP 4: BUILD AND START COMMUNICATOR ##################
-
 			# Initialize Communicator ----------------------------------------------
 			self.printMain("Initializing Communicator...")
 			self.communicator = FCCommunicator.FCCommunicator(
@@ -1023,7 +1022,6 @@ class FCInterface(Tk.Frame):
 				pinout = self.archiver.get(ac.defaultPinout)
 				)
 			self.printMain("Communicator initialized", "G")
-				
 			# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 			self._mainPrinterRoutine()
 			self.ableToPrint = True # Errors can now be printed using the 
