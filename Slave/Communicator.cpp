@@ -384,6 +384,14 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					break;
 				} // End SHUTDOWN BCAST
 
+				case 'X': { // DISCONNECT BCAST. Change status to DISCONNECTED
+					pl;printf("\n\r[%08dms][L] Disconnect command received.",
+						tm);pu;
+						
+					this->_setStatus(NO_MASTER);
+					break;
+				} // End SHUTDOWN BCAST
+
 				case 'L': { // LAUNCH BCAST. Ignore
 					if(this->getStatus() != CONNECTED){
 						pl;printf("\n\r[%08dms][L] \"Launch\" command ignored",

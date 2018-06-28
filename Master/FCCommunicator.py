@@ -190,9 +190,14 @@ class FCCommunicator:
 
 			self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
+			self.broadcastLock = threading.Lock()
+
 			self.printM("\tbroadcastSocket initialized on " + \
 				str(self.broadcastSocket.getsockname()))
-			
+
+			# Reset any existing phantom connections:
+			self._sendDisconnect()
+
 			# SET UP MASTER THREADS ============================================
 
 			# INITIALIZE BROADCAST THREAD --------------------------------------
@@ -305,6 +310,7 @@ class FCCommunicator:
 				# Wait designated period:
 				time.sleep(broadcastPeriod)
 
+				self.broadcastLock.acquire()
 				self.broadcastSwitchLock.acquire()
 				try:
 					# Send broadcast only if self.broadcastSwitch is True:
@@ -318,7 +324,8 @@ class FCCommunicator:
 				finally:
 					# Guarantee lock release:
 					self.broadcastSwitchLock.release()
-
+					self.broadcastLock.release()
+			
 		except Exception as e:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
@@ -1170,7 +1177,23 @@ class FCCommunicator:
 
 		# End isListenerThreadAlive ============================================
 
+	def _sendDisconnect(self):
+		# ABOUT: Use broadcast socket to send a general "disconnect" message
+		# that terminates any existing connection.
 
+		try:
+			self.broadcastLock.acquire()
+			self.broadcastSocket.sendto(
+				"X|{}".format(self.passcode),
+				("<broadcast>", 65000))
+
+		except Exception as e:
+			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
+			   format(traceback.format_exc()), "E")
+
+		finally:
+			self.broadcastLock.release()
+	
 	def _saveTimeStamp(self, index, message):
 		# ABOUT: Provisional method to save timestamps for testing.
 

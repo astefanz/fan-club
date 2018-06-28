@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.16"
+#define FCIIB_VERSION "S1.17"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -64,6 +64,7 @@
 #define UPDATE_COMMAND 'U'
 #define SHUTDOWN_COMMAND 'R'
 #define LAUNCH_COMMAND 'L'
+#define DISCONNECT_COMMAND 'X'
 
 // Storage:
 #define FLASH_BUFFER_SIZE 1024*1000 // Have 1,000 KB download buffer
@@ -517,6 +518,27 @@ int main() {
 							splitPointer);
 						continue;
 					}
+					break;
+				
+				case DISCONNECT_COMMAND: // Terminate connection (MkII) ........
+					// Reboot
+					
+					// Check for nonempty passcode:					
+					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
+					splitPointer = 
+						strtok_r(NULL, "|", &savePointer); // Point to passcode
+				
+					if(strlen(splitPointer) > 0){
+						// Nonempty passcode. Proceed to reboot
+						printf("\n\rDisconnect order ignored (for MkII)");
+					} else {
+						// Invalid message
+						printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+							splitPointer);
+					}
+					
+					continue;
+
 					break;
 
 				default: // Unrecognized command specifier .....................
