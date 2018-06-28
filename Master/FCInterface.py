@@ -1736,7 +1736,11 @@ class FCInterface(Tk.Frame):
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
 
-		self.printMain("WARNING: SHUTDOWN BUTTON NOT YET IMPLEMENTED", "E")
+		self.printMain("Shutdown button pressed. Terminating connections", 
+			"E")
+
+		for slaveContainer in self.slaveContainers:
+			slaveContainer.mosiMethod("X", False)
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList

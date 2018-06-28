@@ -691,7 +691,15 @@ class FCCommunicator:
 						command = slave.getMOSI()
 							
 						if command is not None:
-							message = "S|" + command
+							# Classify command:
+							if command == "X":
+								# Disconnect message. Terminate connection.
+								message = "X"
+							
+							else: 
+								# Standard command
+								message = "S|" + command
+
 							# Send message, if any:
 							self._send(message, slave, 2)
 							
