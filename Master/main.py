@@ -29,7 +29,7 @@ import time
 #### MAIN ######################################################################       
 
 print ">>> Started program: {}".format(time.strftime(
-							"%a %d %b %Y %H:%M:%S", time.localtime()))
+	"%a %d %b %Y %H:%M:%S", time.localtime()))
 
 interface = FCI.FCInterface(VERSION) 
 interface.mainloop()

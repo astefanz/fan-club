@@ -76,6 +76,26 @@ class FCCommunicator:
 
 		try:
 			
+			# Provisional timestamping solution:
+			self.canTimestamp = False
+			try:
+				self.file = open("MkII_test_on_{}".\
+					format(time.strftime("%a %d %b %Y %H:%M:%S")), "w")
+				self.canTimestamp = True
+				
+				self.file.write("MkII performance testing started on {}\n".\
+					format(time.strftime("%a %d %b %Y %H:%M:%S")))
+
+			except IOError:
+				print "IOError Opening timestamp file. Cannot record!"
+				self.canTimestamp = False
+				
+			
+			
+			self.file.write("Configuring network on {}\n".format(
+				time.strftime(
+				"%H:%M:%S", time.localtime())))
+				
 			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Store parameters -------------------------------------------------
@@ -249,6 +269,10 @@ class FCCommunicator:
 			
 			# DONE
 			self.printM("Communicator ready", "G")
+			
+			self.file.write("Configured network by {}\n".format(
+				time.strftime(
+				"%H:%M:%S", time.localtime())))
 			
 		except Exception as e: # Print uncaught exceptions
 			self.printM("UNHANDLED EXCEPTION IN Communicator __init__: "\
@@ -470,7 +494,9 @@ class FCCommunicator:
 
 								# Start Slave thread:
 								self.slaves[index].start()
-													
+									
+								self._saveTimeStamp(index, "Discovered")
+
 								# Add new Slave's information to newSlaveQueue:
 								self.putNewSlave(index)
 
@@ -574,10 +600,11 @@ class FCCommunicator:
 
 			# HSK message ------------------------------------------------------
 
-			MHSK = "H|{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
+			MHSK = "H|{},{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
 						slave._misoSocket().getsockname()[1], 
 						slave._mosiSocket().getsockname()[1], 
 						self.periodMS,
+						self.broadcastPeriodS*1000,
 						self.maxTimeouts,
 
 						self.fanMode,
@@ -599,6 +626,10 @@ class FCCommunicator:
 			totalTimeouts = 0
 			message = None
 
+			# TEMP. DEBUG:
+			timestampedRPMFirst = False
+			timestampedDCFirst = False
+			
 			# Slave loop =======================================================
 			while(True):
 				time.sleep(periodS)
@@ -617,8 +648,10 @@ class FCCommunicator:
 						# Check for signs of life w/ HSK message:
 						self._send(MHSK, slave, 1, True)
 
-						# Try to receive reply:
+						# Give time to process:
+						time.sleep(periodS)
 
+						# Try to receive reply:
 						reply = self._receive(slave)
 						# Check reply:
 						if reply is not None and reply[1] == "H":
@@ -627,18 +660,16 @@ class FCCommunicator:
 
 							# Mark as CONNECTED and get to work:
 							slave.setStatus(sv.CONNECTED, lock = False)
-							
+							self._saveTimeStamp(slave.getIndex(), "Connected")
+
 						else:
-							# If there was an error, restart attempt:
-							# print
-							#   "Missed handshake. Retrying."
-							# Set Slave to disconnected:
 							self._send("X", slave, 1)
 							slave.setStatus(sv.DISCONNECTED, lock = False) 
-								# NOTE: This call also resets exchange index.
+								# NOTE: This call also resets exchange 
+								# index.
 							
 
-					elif slave.status > 0: # = = = = = = = = = = = = = = = = = = 
+					elif slave.getStatus() > 0: # = = = = = = = = = = = = = = = 
 						# If the Slave's state is positive, it is online and 
 						# there is a connection to maintain.
 
@@ -656,7 +687,13 @@ class FCCommunicator:
 							message = "S|" + command
 							# Send message, if any:
 							self._send(message, slave, 2)
-
+							
+							if not timestampedDCFirst:
+								self._saveTimeStamp(slave.getIndex(),
+								"First command out")
+							
+								timestampedDCFirst = True
+							
 							# DEBUG: 
 							# print "Sent: {}".format(message)
 
@@ -701,7 +738,16 @@ class FCCommunicator:
 											),
 											totalTimeouts)
 											# FORM: (RPMs, DCs)
+											
+										if not timestampedRPMFirst:
+											for rpm in reply[-2].split(','):
+												if int(rpm) != 0:
 
+													self._saveTimeStamp(
+														slave.getIndex(),
+														"First nonzero RPM confirmed")
+													timestampedRPMFirst = True
+											
 									except Queue.Full:
 										# If there is no room for the queue, dismiss
 										# this update and warn the user:
@@ -1051,6 +1097,7 @@ class FCCommunicator:
 
 		if status == sv.AVAILABLE:
 			self.slaves[targetIndex].setStatus(sv.KNOWN)
+			self._saveTimeStamp(targetIndex, "Connecting")
 
 		else:
 			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
@@ -1124,6 +1171,13 @@ class FCCommunicator:
 		# End isListenerThreadAlive ============================================
 
 
+	def _saveTimeStamp(self, index, message):
+		# ABOUT: Provisional method to save timestamps for testing.
+
+		self.file.write("{},{},{}\n".format(
+			index,
+			time.strftime("%H:%M:%S"), 
+			message))
 
 ## MODULE'S TEST SUITE #########################################################
 

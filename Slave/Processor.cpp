@@ -149,7 +149,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			|| pwmPinout[0] == '\0' || tachPinout[0] == '\0') {
 			
 			// Invalid data. Print error and return error false.
-			pl;printf("\n\r[%08dms][P] HSK CONFIG VALUES: "
+			pl;printf("\n\r[%08dms][P][E] BAD HSK CONFIG VALUE(S): "
 			"\n\r\tfanMode: %d"\
 			"\n\r\tactiveFans: %d"\
 			"\n\r\tfanFreqHZ: %d"\
@@ -195,7 +195,8 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			
 			// RPM linear fit:
 			this->rpmSlope = (maxRPM - minRPM)/(1.0 - minDC);
-			
+		
+			/* DEBUG
 			pl;printf("\n\r[%08dms][P] HSK CONFIG VALUES: "
 			"\n\r\tfanMode: %d"\
 			"\n\r\tactiveFans: %d"\
@@ -214,14 +215,19 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
 			maxFanTimeouts,
 			pwmPinout, tachPinout);pu;
-			
-
+			*/
+			/* DEBUG
 			pl;printf("\n\r[%08dms][P] Configuring fan array: ", tm);pu;
-
+			*/
 
 			// Configure fan array:
 			for(int i = 0; i < activeFans; i++){
-				pl;printf("\n\r\t Fan %d: P:%d T:%d", i, int(pwmPinout[i]-'A'), int(tachPinout[i]-'[') );pu;
+
+				/* DEBUG
+				pl;printf("\n\r\t Fan %d: P:%d T:%d", 
+					i, int(pwmPinout[i]-'A'), int(tachPinout[i]-'[') );pu;
+				 */
+
 				this->fanArray[i].configure(
 					PWMS[pwmPinout[i] - 'A'], 
 					TACHS[tachPinout[i] - '['],
@@ -283,6 +289,8 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 	}else{
 		// If there is no message to send, use the default:
+		buffer[0] = 'M';
+		buffer[1] = '\0';
 		success = false;
 
 	}
@@ -328,7 +336,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
 			// If the Processor is being activateed after being off (not 
 			// previously chasing), then reset fan configuration.
 			
-			#ifdef DEBUG
+			/* DEBUG
 			pl;printf("\n\r[%08dms][P][DEBUG] Config. V's: "
 			"%d,%f,%f,%d,%d,%d,%d,%d,%d,%f,%f,%d",tm,
 			this->fanMode, this->targetRelation[0], this->targetRelation[1], 
@@ -338,8 +346,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
 			
 			pl;printf("\n\r[%08dms][P][DEBUG] RPM SLOPE: %.2f", 
 				tm, this->rpmSlope);pu;
-			#endif		
-
+			*/
 
 			// Set internal status:
             this->status = ACTIVE;
@@ -408,16 +415,21 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     // Thread loop =============================================================
     while(true){
         //pl;printf("\n\r[%08dms][P] DEBUG: Processor loop active",tm);pu;
-		wait(0.001);		
+		//wait_us(1);		
 
         // Check if active = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		if(this->status ==  OFF){
+			// Reset values
+
             // Processor off, set all fans to zero. (Safety redundancy)
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor inactive",tm);pu;
 
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
             } // End set all fans to zero
+			
+			rpmWritten = false; // Avoid skipping RPM's before the first write
+			writeCalled = false; // Keep track of whether a write was just called
 			
         } else{
             // Processor active, check for commands: ---------------------------
@@ -777,6 +789,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				this->outFlagLock.unlock();
 		} else {
 			// If the output buffer is busy, wait until it has been freed.
+    		pl;printf("\n\r[%08dms][P] Output buffer busy",
+        		tm);pu;
 			this->outFlagLock.unlock();
 		}
 			
@@ -806,7 +820,7 @@ void Processor::_setLED(int state){ // // // // // // // // // // // // // // /.
 
 		case OFF:
 			this->led = false;
-			this->xled = true;
+			this->xled = false;
 			break;
 	}
 } // End _setLED // // // // // // // // // // // // // // // // // // // // // 

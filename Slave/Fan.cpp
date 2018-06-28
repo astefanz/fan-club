@@ -209,7 +209,6 @@ bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
 	this->pwmPin->write(0);
     initialized = true;
 
-	pl;printf("\n\r\tFAN DC(I): %f",this->dc);pu;
 	return true;
 } // End configure
 
@@ -263,8 +262,11 @@ bool Fan::write(float newDC){
 		} else if (newDC < this->minDC and newDC > 0.0) {
 			// DC below nonzero minimum
 			this->dc = minDC;
+		} else if (newDC <= 0.0){
+			// DC below or at 0
+			this->dc = 0.0;
 		} else {
-			// Acceptable DC
+			// DC within extremes
 			this->dc = newDC;
 		}
 
@@ -287,7 +289,7 @@ float Fan::getDC(){
 	 * -float: current duty cycle, or negative code if fan is uninitialized.
 	 */
 
-	return this->initialized? this->pwmPin->read() : -1.0;
+	return this->initialized? this->dc : -1.0;
 } // End getDC
 
 

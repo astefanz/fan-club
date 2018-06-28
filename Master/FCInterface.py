@@ -953,7 +953,7 @@ class FCInterface(Tk.Frame):
 			self.master.update_idletasks() # Required to set minimum size	
 			self.terminalMinimumSize = \
 				(self.master.winfo_width(),self.master.winfo_height())
-		
+			
 			# Pack widgets after determining minimum size:
 			self.slaveDisplayToggleVar.set(True)
 			self._slaveDisplayToggle()
@@ -961,7 +961,6 @@ class FCInterface(Tk.Frame):
 			self._slaveListToggle()
 			self.terminalToggleVar.set(False)
 			self._terminalToggle()
-			
 			print "Calculating sizes... [6/6]"
 			self.master.update_idletasks()
 			self.master.deiconify()

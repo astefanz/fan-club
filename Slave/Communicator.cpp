@@ -57,7 +57,9 @@
 
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
 
-Communicator::Communicator(const char version[]):processor(),periodMS(TIMEOUT_MS),
+Communicator::Communicator(const char version[]):processor(),
+	periodMS(TIMEOUT_MS),
+	bPeriodMS(TIMEOUT_MS),
 	mosiIndex(0),misoIndex(0), masterTimeouts(0),
 	listenerThread(osPriorityNormal,16 * 1024 /*16K stack size*/),
 	misoThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
@@ -154,14 +156,16 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 		
 		// Wait a certain time in accordance to current comm status: - - - - - -
 		/*
-		this->configurationLock.lock();
-		Thread::wait(this->getStatus() == CONNECTED? 
-			this->periodMS:
-			TIMEOUT_MS);
-	   
-		this->configurationLock.unlock();
+		if (this->getStatus() == CONNECTED){
+			pl;printf("\n\r[%08dms][L] Waiting %dms", tm, this->bPeriodMS);pu;
+			Thread::wait(this->bPeriodMS);
+
+		}else{
+			Thread::wait(TIMEOUT_MS);
+		}
 		*/
 		Thread::wait(TIMEOUT_MS);
+		
 		// Receive data: - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		int bytesReceived = this->slaveListener.recvfrom(
 			&masterBroadcast,
@@ -188,25 +192,29 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					// Set status to NO_NETWORK:
 					this->_setStatus(NO_NETWORK);
 				}
+
 				// Check threshold:
-				if(this->_getTimeouts() < MAX_MASTER_TIMEOUTS){
+				//	this->maxMasterTimeoutsLock.lock();
+				if(this->_getTimeouts() < this->maxMasterTimeouts){
 					// Still within threshold
 					pl;printf("\n\r[%08dms][L] MT incremented (%d/%d)",
-						tm, this->_getTimeouts(), MAX_MASTER_TIMEOUTS);pu;
+						tm, this->_getTimeouts(), this->maxMasterTimeouts);pu;
 				
-				}else if (this->_getTimeouts() == MAX_MASTER_TIMEOUTS - 1){
-					// Ping Master before timing out
-					this->_send("|P");
-
+				 	if (this->_getTimeouts() == this->maxMasterTimeouts - 1){
+						// Ping Master before timing out
+						this->_send("|P");
+					}
 				}else{
 					// Past threshold:
 					pl;printf("\n\r[%08dms][L] MT THRESHOLD (%d/%d)",
-						tm, this->_getTimeouts(), MAX_MASTER_TIMEOUTS);pu;
+						tm, this->_getTimeouts(), this->maxMasterTimeouts);pu;
 
 					// Assume disconnection:
 					this->_setStatus(NO_MASTER);
 
 				} // End check threshold.
+				//	this->maxMasterTimeoutsLock.unlock();
+
 			}else{
 				// Not connected to Master.
 				
@@ -403,10 +411,10 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 	pl;printf("\n\r[%08dms][O] MISO thread started",tm);pu;
 
 	// Initialize placeholders -------------------------------------------------
-	unsigned int misoPeriodMS = 1; // Time between cycles
 	char processed[MAX_MESSAGE_LENGTH] = {0}; // Feedback to be sent to Master 
 
 	processed[0] = 'M';
+	processed[1] = '\0';
 	// Thread loop =============================================================
 	while(true){
 		
@@ -419,26 +427,15 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 			
 			// Send message ----------------------------------------------------
 			this->_send(processed, 1, true);
-
+			
+			Thread::wait(this->periodMS);
+			continue;
 		} else { // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-			// Not connected. Nothing to send.
-			processed[0] = 'M';
+			// Not connected. Nothing to send.	
+			Thread::yield();
+			continue;
 
 		} // End check status = = = = = = = = = = = = = = = = = = = = = = = = = 
-
-		// Wait period ---------------------------------------------------------
-
-		// Fetch latest value:
-		this->periodLock.lock();
-		misoPeriodMS = this->periodMS;
-		this->periodLock.unlock();
-
-		// Wait:
-		Thread::wait(misoPeriodMS);
-		
-
-
-		// (Restart loop)
 
 	} // End MISO loop =========================================================
 } // End Communicator::_misoRoutine // // // // // // // // // // // // // // //
@@ -462,6 +459,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 	int parsedMISOPort = 0;
 	int parsedMOSIPort = 0;
 	int parsedPeriodMS = 0;
+	int parsedBPeriodMS = 0;
 	int parsedMaxMasterTimeouts = 0;
 
 	// Thread loop =============================================================
@@ -635,7 +633,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
 				*/
 
-				// Period
+				// Comms. Period
 				splitPointer = strtok_r(NULL, ",", &savePointer);
 				
 				/* DEBUG
@@ -656,6 +654,25 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				if (parsedPeriodMS ==0){
 					pl;printf(
 						"\n\r[%08dms][I][E] ZERO PERIOD IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
+				
+				// Broadcast period:
+				splitPointer = strtok_r(NULL, ",", &savePointer);
+				
+				if(splitPointer == NULL){
+					pl;printf(
+						"\n\r[%08dms][I][E] NULL B.PERIOD IN HSK",
+						tm);pu;
+					continue; // Discard HSK
+				}
+				
+				parsedBPeriodMS = atoi(splitPointer);
+				
+				if (parsedPeriodMS ==0){
+					pl;printf(
+						"\n\r[%08dms][I][E] ZERO B.PERIOD IN HSK",
 						tm);pu;
 					continue; // Discard HSK
 				}
@@ -749,6 +766,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					this->periodLock.lock();
 					this->periodMS = parsedPeriodMS;
 					this->periodLock.unlock();
+
+					this->bPeriodLock.lock();
+					this->bPeriodMS = parsedBPeriodMS;
+					this->bPeriodLock.unlock();
 
 					this->maxMasterTimeoutsLock.lock();
 					this->maxMasterTimeouts = parsedMaxMasterTimeouts;

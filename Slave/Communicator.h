@@ -216,6 +216,7 @@ private:
     Processor processor;      // Command-processing module
     int status;               // Connection status
     int periodMS;             // MISO period
+	int bPeriodMS;
 	char version[16];
 	char passcode[16];
 
@@ -235,6 +236,7 @@ private:
         // Use threads for communications
 
     Mutex	periodLock, // Lock relevant threads when modifying values
+			bPeriodLock,
 			statusLock,
 			timeoutLock,
 			misoIndexLock,
