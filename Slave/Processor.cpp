@@ -39,8 +39,8 @@ const int
 	TOGGLE = 3,
 
     // FAN MODES ---------------------------------------------------------------
-    SINGLE = 1,
-    DOUBLE = 2;
+    SINGLE = -1,
+    DOUBLE = -2;
 
 const char
     
@@ -121,9 +121,9 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 	
 	} else {
 		// Configure Processor.
+		
 
 		// Ensure configuration is done on a deactivated Processor:	
-		int previousStatus = this->status;
 		this->setStatus(OFF);
 		
 		// Get values:
@@ -149,20 +149,39 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			|| pwmPinout[0] == '\0' || tachPinout[0] == '\0') {
 			
 			// Invalid data. Print error and return error false.
+			pl;printf("\n\r[%08dms][P] HSK CONFIG VALUES: "
+			"\n\r\tfanMode: %d"\
+			"\n\r\tactiveFans: %d"\
+			"\n\r\tfanFreqHZ: %d"\
+			"\n\r\tcounterCounts: %d"\
+			"\n\r\tpulsesPerRotation: %d"\
+			"\n\r\tmaxRPM: %d"\
+			"\n\r\tminRPM: %d"\
+			"\n\r\tminDC: %f"\
+			"\n\r\tchaserTolerance: %f"\
+			"\n\r\tmaxFanTimeouts: %d"\
+			"\n\r\tPWM pinout: \"%s\""\
+			"\n\r\tTach pinout: \"%s\"",tm,
+			fanMode, 
+			activeFans, fanFrequencyHZ, counterCounts,
+			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
+			maxFanTimeouts,
+			pwmPinout, tachPinout);pu;
 			
-    		pl;printf("\n\r[%08dms][P] ERROR: BAD HSK CONFIG VALUE(S): "
+			/*
+			pl;printf("\n\r[%08dms][P] ERROR: BAD HSK CONFIG VALUE(S): "
 			"%d,%d,%d,%d,%d,%d,%d,%f,%f,%d,\"%s\",\"%s\"",tm,
 			fanMode, 
 			activeFans, fanFrequencyHZ, counterCounts,
 			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
 			maxFanTimeouts,
 			pwmPinout, tachPinout);pu;
-		
+			*/
 			success = false;
 	
 		} else {
 			// Valid data. Proceed with assignment.
-		
+			
 			this->fanMode = (int8_t)fanMode;
 			this->activeFans = (uint32_t)activeFans;
 			this->fanFrequencyHZ = (uint32_t)fanFrequencyHZ;
@@ -177,8 +196,32 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			// RPM linear fit:
 			this->rpmSlope = (maxRPM - minRPM)/(1.0 - minDC);
 			
+			pl;printf("\n\r[%08dms][P] HSK CONFIG VALUES: "
+			"\n\r\tfanMode: %d"\
+			"\n\r\tactiveFans: %d"\
+			"\n\r\tfanFreqHZ: %d"\
+			"\n\r\tcounterCounts: %d"\
+			"\n\r\tpulsesPerRotation: %d"\
+			"\n\r\tmaxRPM: %d"\
+			"\n\r\tminRPM: %d"\
+			"\n\r\tminDC: %f"\
+			"\n\r\tchaserTolerance: %f"\
+			"\n\r\tmaxFanTimeouts: %d"\
+			"\n\r\tPWM pinout: \"%s\""\
+			"\n\r\tTach pinout: \"%s\"",tm,
+			fanMode, 
+			activeFans, fanFrequencyHZ, counterCounts,
+			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
+			maxFanTimeouts,
+			pwmPinout, tachPinout);pu;
+			
+
+			pl;printf("\n\r[%08dms][P] Configuring fan array: ", tm);pu;
+
+
 			// Configure fan array:
 			for(int i = 0; i < activeFans; i++){
+				pl;printf("\n\r\t Fan %d: P:%d T:%d", i, int(pwmPinout[i]-'A'), int(tachPinout[i]-'[') );pu;
 				this->fanArray[i].configure(
 					PWMS[pwmPinout[i] - 'A'], 
 					TACHS[tachPinout[i] - '['],
@@ -189,8 +232,6 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			success = true;
 
 		} // End if/else
-		
-		this->setStatus(previousStatus);
 
 	} // End check configure
 
@@ -204,7 +245,7 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 	 * RETURNS:
 	 * -bool: whether a new message was fetched (false for default)
 	 *	NOTE: a false return value implies the given buffer has been left 
-	 * 	unmodified.
+	 *	unmodified.
      */
 
 	// Try to get a message from the output buffer. If it is empty, use the
@@ -242,7 +283,6 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 	}else{
 		// If there is no message to send, use the default:
-
 		success = false;
 
 	}
@@ -289,19 +329,20 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
 			// previously chasing), then reset fan configuration.
 			
 			#ifdef DEBUG
-    		pl;printf("\n\r[%08dms][P][DEBUG] Config. V's: "
+			pl;printf("\n\r[%08dms][P][DEBUG] Config. V's: "
 			"%d,%f,%f,%d,%d,%d,%d,%d,%d,%f,%f,%d",tm,
 			this->fanMode, this->targetRelation[0], this->targetRelation[1], 
 			this->activeFans, this->fanFrequencyHZ, this->counterCounts,
 			this->pulsesPerRotation, this->maxRPM, this->minRPM, this->minDC, 
 			this->chaserTolerance,this->maxFanTimeouts);pu;
 			
+			pl;printf("\n\r[%08dms][P][DEBUG] RPM SLOPE: %.2f", 
+				tm, this->rpmSlope);pu;
 			#endif		
 
 
-    		pl;printf("\n\r[%08dms][P][DEBUG] RPM SLOPE: %.2f", tm, this->rpmSlope);pu;
 			// Set internal status:
-            this->status = status;
+            this->status = ACTIVE;
             // Update LED blinking:
                 // Solid blue
             this->blinker.detach();
@@ -366,16 +407,22 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
     // Thread loop =============================================================
     while(true){
-		
+        //pl;printf("\n\r[%08dms][P] DEBUG: Processor loop active",tm);pu;
+		wait(0.001);		
+
         // Check if active = = = = = = = = = = = = = = = = = = = = = = = = = = =
-       	if(this->status ==  OFF){
+		if(this->status ==  OFF){
             // Processor off, set all fans to zero. (Safety redundancy)
+            //pl;printf("\n\r[%08dms][P] DEBUG: Processor inactive",tm);pu;
+
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
             } // End set all fans to zero
+			
         } else{
             // Processor active, check for commands: ---------------------------
-            // pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
+            //pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
+
 
 			// Reset corresponding flags:
 			writeCalled = false;
@@ -385,6 +432,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// else) as an optimization
 			if(this->inFlag){ // ===============================================
            
+
+				//pl;printf("\n\r[%08dms][P][D] Input found",tm);pu;
 
                 // Get command contents:
 				this->inBufferLock.lock();
@@ -399,10 +448,16 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
                 
                 // Split contents: 
-                char *splitPosition; 
+                char *splitPosition = NULL;
                 char* splitPtr = strtok_r(rawCommand, ":", &splitPosition);
                     // NOTE: Use strtok_r instead of strtok for thread-safety
-                
+               
+				/* DEBUG
+				pl;printf(
+					"\n\r[%08dms][P][D] Input: \n\r\t\"%s\"\n\r\tSplit: %s",
+					tm, rawCommand, splitPtr);pu;
+				*/
+
                 // Verify splitting:
                 if(splitPtr == NULL){
                     // Error:
@@ -440,9 +495,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
                         // Get float duty cycle:
                         float dutyCycle = atof(splitPtr);
-                        #ifdef DEBUG
 						pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
-						#endif
 
                         // Split contents for selected fans:
                         splitPtr = strtok_r(NULL, ":", &splitPosition);
@@ -468,10 +521,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                         // Get length of selection:
                         int numFans = strlen(splitPtr);
 						
-						#ifdef DEBUG
                         pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
                             tm, splitPtr, numFans);pu;
-						#endif
 
                         // Loop over list and assign duty cycles:
                         for(int i = 0; i < numFans; i++){
@@ -567,7 +618,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                              // This expression will evaluate to 0 if the fan is
                              // set to 0, and nonzero (true) otherwise.
 
-							 	// Make a first guess by assuming a linear fit:
+								// Make a first guess by assuming a linear fit:
                                 this->fanArray[i].write(dutyCycle);
 
 								// Override Chaser, if any:
@@ -591,6 +642,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 
             }else{
 				// Nothing to process yet. Release input flag lock.
+				//pl;printf("\n\r[%08dms][P][D] No input found",tm);pu;
 				this->inFlagLock.unlock();
 			} // End command processing ========================================
 
@@ -612,7 +664,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				this->dataIndex++;
 				
 				// Print beginning of update message:	
-				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"T|%d|",
+				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"T|%lu|",
 					this->dataIndex);
 
 				// Update RPM's and Chase if applicable ------------------------
@@ -620,7 +672,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				if(not (writeCalled and rpmWritten)){
 					// NOTE: Skip RPM writing if a DC was just set, to allow for 
 					// fast feedback. Do this as long as there is some RPM value
-					// in the buffer (i.e rpmWritte is true)	
+					// in the buffer (i.e rpmWrite is true)	
 					
 					// Evaluate first fan separately due to special formatting
 
@@ -697,14 +749,24 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Store duty cycles: ----------------------------------------------
 
 				// Store first duty cycle along w/ separator:
+				 
+				/*DEBUG 
+				pl;printf("\n\r\t[P][D] output buffer: %s",
+					outBuffer);pu;
+				*/
 				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%.3f", 
 					this->fanArray[0].getDC());
+			
 
 				// Store other duty cycles:
 				for(int i = 1; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
 					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%.4f", 
 					this->fanArray[i].getDC());
+					/*DEBUG
+					 pl;printf("\n\r\t[P][D] output buffer: %s",
+						outBuffer);pu;
+					*/
 				}
 			
 				this->outBufferLock.unlock();

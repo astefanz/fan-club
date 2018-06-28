@@ -361,8 +361,6 @@ class FCCommunicator:
 				if messageSplitted[0][0] == 'A':
 					# This message comes from the MkII
 					
-					print "From MkII"
-
 					try:		
 						mac = messageSplitted[2]
 						
@@ -496,8 +494,6 @@ class FCCommunicator:
 				elif messageSplitted[0][0] == 'B':
 					# This message comes from the Bootloader
 					
-					print "From Bootloader"
-
 					try:
 						# Check message type:
 
@@ -508,8 +504,6 @@ class FCCommunicator:
 							self.listenerSocket.sendto(
 								launchMessage,
 								senderAddress)
-
-							print "Sent {} to {}".format(launchMessage, senderAddress)
 				
 						elif messageSplitted[3] == 'E':
 							# Error message
@@ -681,7 +675,7 @@ class FCCommunicator:
 								# Standard update
 
 								# Get data index:
-								receivedDataIndex = reply[2]
+								receivedDataIndex = int(reply[2])
 							
 								# Check for redundant data:
 								if receivedDataIndex > slave.getDataIndex():
@@ -727,7 +721,11 @@ class FCCommunicator:
 								# Ping request
 								
 								self.send("P", slave)
-							
+						
+							elif reply[1] == 'M':
+								# Maintain connection. Pass
+								pass
+
 							elif reply[1] == 'E':
 								# Error report
 

@@ -28,7 +28,7 @@ extern const int
            
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
-extern PinName PWMS[24];
+extern PwmOut PWMS[24];
 extern PinName TACHS[29];
 
 #if 0 // -----------------------------------------------------------------------
@@ -102,7 +102,7 @@ public:
 		/* ABOUT: Destructor for class Fan.
 		 */
          
-	bool configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
+	bool configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
 		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
 		uint8_t maxTimeouts);
 		/* ABOUT: Configure a fan for usage. Can be called more than once.

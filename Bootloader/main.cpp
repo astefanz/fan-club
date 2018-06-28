@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.15"
+#define FCIIB_VERSION "S1.16"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -56,7 +56,7 @@
 // Network:
 #define BAUDRATE 460800
 #define SOCKET_TIMEOUT_MS 1000
-#define MAX_TIMEOUTS 30 // (this*SOCKET_TIMEOUT_MS)/1000 seconds total
+#define MAX_TIMEOUTS 5 // (this*SOCKET_TIMEOUT_MS)/1000 seconds total
 #define LISTENER_PORT 65000
 
 // Command specifiers:

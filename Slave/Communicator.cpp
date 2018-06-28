@@ -418,10 +418,11 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 			this->processor.get(processed);
 			
 			// Send message ----------------------------------------------------
-			this->_send(processed, 1);
+			this->_send(processed, 1, true);
 
 		} else { // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 			// Not connected. Nothing to send.
+			processed[0] = 'M';
 
 		} // End check status = = = = = = = = = = = = = = = = = = = = = = = = = 
 
@@ -571,8 +572,9 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				pl;printf(
 					"\n\r[%08dms][I] HSK: %s",
 					tm, buffer);pu;
-
+				*/
 				splitPointer = strtok_r(buffer, ",", &savePointer);
+				/*
 				pl;printf(
 					"\n\r[%08dms][I] split: %s\n\r\tsave:%s",
 					tm, splitPointer, savePointer);pu;
@@ -711,7 +713,8 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 						tm);pu;
 					continue; // Discard HSK
 				}
-				bool processorSuccess = this->processor.process(splitPointer);
+				bool processorSuccess = this->processor.process(
+					splitPointer, true);
 				
 				/* DEBUG
 				pl;printf(
@@ -756,6 +759,9 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
 					// Update status:
 					this->_setStatus(CONNECTED);
+					pl;printf(
+						"\n\r[%08dms][I][D] Handshake complete",
+					tm);pu;
 				
 				} else {
 
@@ -822,7 +828,7 @@ int Communicator::_send(const char* message, int times, bool print){ // // // //
 
 		// Notify terminal: - - - - - - - - - - - - - - - - - - - - - - - - - - 
 		pl;printf("\n\r[%08dms][C] Sent: \"%s\" "
-				  "\n\r				   To MMISO (%s, %d) (%d times)", 
+				  "\n\r\t\tTo MMISO (%s, %d) (%d time(s))", 
 			tm, length > 0? outgoing : "[SEND ERR]", 
 			this->masterMISO.get_ip_address(), this->masterMISO.get_port(), 
 			times);pu;

@@ -892,8 +892,8 @@ class FCSlave:
 		
 		# Validate input:
 		if type(newIndex) is not int:
-			raise TypeError("Argument 'newIndex' must be of type int, not {}".\
-				format(type(newIndex)))
+			raise TypeError("Argument 'newIndex' must be of type int, not {}"\
+				" ({})".format(type(newIndex), newIndex))
 
 		try:
 			self.dataIndexLock.acquire()

@@ -52,7 +52,7 @@ import Queue
 # FCMkII:
 import FCCommunicator
 import FCArchiver as ac
-import FCPrinter
+import FCPrinter as pt
 import FCSlave as sv
 
 from fci import MainGrid as mg
@@ -985,7 +985,7 @@ class FCInterface(Tk.Frame):
 
 			# Initialize Printer ---------------------------------------------------
 			self.printMain("Initializing Printer...")
-			self.printer = FCPrinter.FCPrinter(
+			self.printer = pt.FCPrinter(
 				queueSize = self.archiver.get(ac.printerQueueSize),
 				fanMode = self.archiver.get(ac.fanMode)
 				)
@@ -1480,7 +1480,7 @@ class FCInterface(Tk.Frame):
 		try:
 			
 			# Proceed in accordance w/ Printer status:
-			if self.printer.getStatus() == Printer.OFF:
+			if self.printer.getStatus() == pt.OFF:
 				# If the printer is off, choose a file name.
 
 				# Disable print button while choosing file:
@@ -1496,7 +1496,7 @@ class FCInterface(Tk.Frame):
 				# Set the visibility to the right end of the file name:
 				self.printTargetEntry.xview_moveto(1)
 
-			elif self.printer.getStatus() is Printer.ON:
+			elif self.printer.getStatus() is pt.ON:
 					
 				raise RuntimeError("Cannot use target file specifier while "\
 					"printing")
@@ -1519,7 +1519,7 @@ class FCInterface(Tk.Frame):
 			self.printTargetEntry.config(state=Tk.DISABLED)
 
 			# Check state of printer:
-			if self.printer.getStatus() == Printer.OFF:
+			if self.printer.getStatus() == pt.OFF:
 				# If the printer is not active, activate it:
 				
 				# Fetch file name:
@@ -1545,7 +1545,7 @@ class FCInterface(Tk.Frame):
 				# Modify buttons upon successful printer startup:
 
 				# Check if the change was successful:
-				if self.printer.getStatus() == Printer.ON:
+				if self.printer.getStatus() == pt.ON:
 					self.printStartStopButton.config(text = "Stop Recording")
 					
 					# Start timer:
@@ -1555,7 +1555,7 @@ class FCInterface(Tk.Frame):
 					# Reactivate printTargetButton (upon init. failure)
 					self.printTargetButton.config(state = Tk.NORMAL)
 
-			elif self.printer.getStatus() == Printer.ON:
+			elif self.printer.getStatus() == pt.ON:
 				# If the printer is active, shut it down
 				
 				# Deactivate Printer-related components while shutdown completes:
@@ -1592,7 +1592,7 @@ class FCInterface(Tk.Frame):
 		# and fields.
 
 		# Check Printer status:
-		if self.printer.getStatus() == Printer.OFF:
+		if self.printer.getStatus() == pt.OFF:
 			# Restore buttons 
 			self.printStartStopButton.config(text = "Start Recording")
 			self.printTargetEntry.config(state = Tk.NORMAL)

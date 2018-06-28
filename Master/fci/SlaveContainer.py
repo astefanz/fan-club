@@ -254,6 +254,7 @@ class SlaveContainer:
 					self.dataIndex.set(str(fetchedUpdate[4]))	
 					self.timeouts.set(str(fetchedUpdate[5]))
 					# Update fan array values:
+					
 					for i in range(self.activeFans):
 						self.fans[i].rpm.set(fetchedUpdate[3][0][i])
 						self.fans[i].dc.set("{:0.1f}".format(fetchedUpdate[3][1][i]*100))

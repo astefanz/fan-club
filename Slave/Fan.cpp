@@ -14,13 +14,14 @@
 // + REVISED for prototyping FCMkII
  
 #include "Fan.h"
+#include "print.h"
 
 // CONSTANT DEFINITIONS ////////////////////////////////////////////////////////
 const int 
 	NO_TARGET = -1;
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
-PinName PWMS[24] = {
+PwmOut PWMS[24] = {
 	PB_11,	// A	// 0 --> A
 	PB_10,	// B
 	PE_14,	// C
@@ -169,7 +170,7 @@ Fan::Fan(){
     initialized = false;    
 } // End Fan constructor
 
-bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
+bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
 		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
 		uint8_t maxTimeouts){
 	/* ABOUT: Configure a fan for usage. Can be called more than once.
@@ -196,6 +197,7 @@ bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
     this->tachPin = new PinName(tachPin);
 	this->counterCounts = counterCounts;
 	this->pulsesPerRotation = pulsesPerRotation;
+	this->dc = 0;
 	this->rpmChange = 0;
 	this->pastRead = 0;
 	this->target = NO_TARGET;
@@ -204,9 +206,10 @@ bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 
 	this->timeouts = 0;
 	
-	this->write(0); 
+	this->pwmPin->write(0);
     initialized = true;
 
+	pl;printf("\n\r\tFAN DC(I): %f",this->dc);pu;
 	return true;
 } // End configure
 
@@ -228,11 +231,13 @@ int Fan::read(){
         // Create temporary Counter
         Counter counter(this->tachPin, 
 			this->counterCounts, this->pulsesPerRotation);         
-		int read = counter.read();
+		int read = counter.read(30000);
 		this->rpmChange = this->pastRead - read;
 		this->pastRead = read;
 		return read;
-    }
+    } else if (this->dc == 0){
+		return 0;
+	}
     else {
 
         return -1;    
@@ -282,7 +287,7 @@ float Fan::getDC(){
 	 * -float: current duty cycle, or negative code if fan is uninitialized.
 	 */
 
-	return this->initialized? this->dc : -1.0;
+	return this->initialized? this->pwmPin->read() : -1.0;
 } // End getDC
 
 
