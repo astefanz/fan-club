@@ -104,9 +104,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			// If the input flag is not set, then the buffer is available.
 			// Acquire buffer lock and edit buffer:
 
-			this->inBufferLock.lock();
 			strcpy(this->inBuffer, givenCommand);
-			this->inBufferLock.unlock();
 			
 			this->inFlag = true;
 			success = true;
@@ -260,7 +258,7 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 	this->outFlagLock.lock();
 
-	if(this->outFlag and this->outBuffer[0] != '\0'){
+	if(this->outFlag){
 		// NOTE (From a previous version):
 		// ---------------------------------------------------------------------
 		// The check above rules out the unlikely --yet possible-- case
@@ -273,19 +271,11 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 		
 		// There is a message. Lock the output buffer and copy its contents into
 		// the given buffer.
-
-		this->outBufferLock.lock();
-
-		strcpy(buffer, this->outBuffer);
-
-		this->outBuffer[0] = '\0';
-			// NOTE: Neutralize obsolete message.
-
-		this->outFlag = false;
+		strcpy(buffer, this->outBuffer[0] != '\0'? this->outBuffer : "M");
 		
+		this->outBuffer[0] = '\0';
+		this->outFlag = false;
 		success = true;
-
-		this->outBufferLock.unlock();
 
 	}else{
 		// If there is no message to send, use the default:
@@ -312,7 +302,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
      * -int status: Integer code of new status to set. Must be defined in 
      * Processor.h.
      */
-
+	
     // Check redundancy:
     if (status == this->status){
         // If this status change is redundant, ignore it:
@@ -359,7 +349,9 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
             break;
 
         case OFF: // Processor offline -----------------------------------------
-            // Set internal status:
+            this->threadLock.lock();
+			
+			// Set internal status:
             this->status = status;
             // Update LED blinking:
                 // LED off
@@ -374,19 +366,17 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
 
 			// Input:
 			this->inFlagLock.lock();
-			this->inBufferLock.lock();
 			this->inBuffer[0] = '\0';
 			this->inFlag = false;
-			this->inBufferLock.unlock();
 			this->inFlagLock.unlock();
 
 			// Output:
 			this->outFlagLock.lock();
-			this->outBufferLock.lock();
 			this->outBuffer[0] = '\0';
 			this->outFlag = false;
-			this->outBufferLock.unlock();
 			this->outFlagLock.unlock();
+			
+			this->threadLock.unlock();
 
             break;
 
@@ -394,7 +384,7 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
             // Print error message:
             pl;printf("\n\r[%08dms][P] ERROR: UNRECOGNIZED STATUS CODE %d", 
                 tm, status);pu;
-		
+
     }
 } // End setStatus // // // // // // // // // // // // // // // // // // // // /
 
@@ -414,6 +404,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
     // Thread loop =============================================================
     while(true){
+		this->threadLock.lock();
         //pl;printf("\n\r[%08dms][P] DEBUG: Processor loop active",tm);pu;
 		//wait_us(1);		
 
@@ -448,11 +439,9 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				//pl;printf("\n\r[%08dms][P][D] Input found",tm);pu;
 
                 // Get command contents:
-				this->inBufferLock.lock();
 				strcpy(rawCommand, this->inBuffer);
 				this->inBuffer[0] = '\0';
 					// NOTE: Destroy obsolete message
-				this->inBufferLock.unlock();
 
 				// Clear input flag:
 				this->inFlag = false;
@@ -477,6 +466,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                     tm);pu;
 
                     // Resume loop:
+    				this->threadLock.unlock();
                     continue;
                 } // End verify splitting.
                 
@@ -502,6 +492,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
+    						this->threadLock.unlock();
                             continue;
                         } // End validate splitting
 
@@ -527,6 +518,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
+    						this->threadLock.unlock();
                             continue;
                         } // End validate splitting
 
@@ -570,6 +562,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
+    						this->threadLock.unlock();
                             continue;
                         } // End validate splitting
 
@@ -597,6 +590,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                                 tm);pu;
 
                             // Ignore message:
+    						this->threadLock.unlock();
                             continue;
                         } // End validate splitting
 
@@ -665,9 +659,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
 				#endif
 				// If the output buffer is free, write to it.
-				this->outFlagLock.unlock();
 
-				this->outBufferLock.lock();
 				
 				// Update values: ==================================================
 				int n = 0; // Keep track of string index
@@ -781,22 +773,24 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 					*/
 				}
 			
-				this->outBufferLock.unlock();
-
 				// Raise output flag:
-				this->outFlagLock.lock();
 				this->outFlag = true;
 				this->outFlagLock.unlock();
 		} else {
 			// If the output buffer is busy, wait until it has been freed.
-    		pl;printf("\n\r[%08dms][P] Output buffer busy",
+    		
+			/* DEBUG
+			pl;printf("\n\r[%08dms][P] Output buffer busy",
         		tm);pu;
+
+			*/
 			this->outFlagLock.unlock();
 		}
 			
         } // End check if active = = = = = = = = = = = = = = = = = = = = = = = =
-
-    } // End processor thread loop =============================================
+		
+    	this->threadLock.unlock();
+	} // End processor thread loop =============================================
 
     pl;printf("\n\r[%08dms][P] WARNING: BROKE OUT OF PROCESSOR THREAD LOOP",
         tm);pu;

@@ -132,13 +132,13 @@ private:
     int8_t status;      // Current processor status
     DigitalOut led, xled, psuOff;    // Access to blue LED
     Ticker blinker;     // Used to blink blue LED for status    
+	Mutex threadLock;
     // PROCESS DATA ------------------------------------------------------------
 	
 	//			INPUT			OUTPUT
 	bool		inFlag,			outFlag; 		// Track buffer state
 	Mutex		inFlagLock,		outFlagLock;	// Protect input flags
-	Mutex		inBufferLock,	outBufferLock;	// Protect buffers
-	
+
 	//			BUFFERS:
 	char		inBuffer[MAX_MESSAGE_LENGTH],
 				outBuffer[MAX_MESSAGE_LENGTH];
