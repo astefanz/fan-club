@@ -289,6 +289,10 @@ class FCSlave:
 		self.dataIndex = 0
 		self.dataIndexLock = threading.Lock()
 
+		# Drop index:
+		self.dropIndex = 0
+		self.dropIndexLock = threading.Lock()
+
 		# Initialize multithreading attributes .................................	
 		
 		# Threading lock:
@@ -850,6 +854,61 @@ class FCSlave:
 			self.misoIndexLock.release()
 		
 		# End setMISOIndex =====================================================
+	
+	def getDropIndex(self): # ==================================================
+		# ABOUT: Get current Drop index value.
+		# RETURNS: int, current Drop index value.
+		# NOTE: Thread-safe (blocks)
+
+		try:
+			self.dropIndexLock.acquire()
+
+			# Use placeholder to return value after releasing lock:
+			placeholder = self.dropIndex
+
+			# Notice finally clause will release lock
+			return placeholder
+
+		finally:
+			self.dropIndexLock.release()
+
+		# End getDropIndex =====================================================
+
+	def incrementDropIndex(self): # ============================================
+		# ABOUT: Increment Drop index value (by 1).
+		# NOTE: Blocks for thread-safety.
+		
+		try:
+			self.dropIndexLock.acquire()
+
+			self.dropIndex += 1
+
+		finally:
+			self.dropIndexLock.release()
+
+		# End incrementDropIndex ===============================================
+
+	def setDropIndex(self, newIndex): # ========================================
+		# ABOUT: Set Drop index to a given value.
+		# PARAMETERS:
+		# - newIndex: int, nonnegative new index value that may be zero.
+		# NOTE: Thread-safe (blocks)
+		
+		# Validate input:
+		if type(newIndex) is not int:
+			raise TypeError("Argument 'newIndex' must be of type int, not {}".\
+				format(type(newIndex)))
+
+		try:
+			self.dropIndexLock.acquire()
+			
+			self.dropIndex = newIndex
+
+		finally:
+			self.dropIndexLock.release()
+		
+		# End setDropIndex =====================================================
+
 
 	def getDataIndex(self): # ==================================================
 		# ABOUT: Get current data index value.
@@ -966,15 +1025,18 @@ class FCSlave:
 			self.misoIndexLock.acquire()
 			self.mosiIndexLock.acquire()
 			self.dataIndexLock.acquire()
+			self.dropIndexLock.acquire()
 
 			self.misoIndex = 0
 			self.mosiIndex = 0
 			self.dataIndex = 0
+			self.dropIndex = 0
 
 		finally:
 			self.misoIndexLock.release()
 			self.mosiIndexLock.release()
 			self.dataIndexLock.release()
+			self.dropIndexLock.release()
 
 		# End resetIndices =====================================================
 
@@ -1128,7 +1190,8 @@ class FCSlave:
 				self.getMOSIIndex(), 
 				self.getMISOIndex(),
 				self.getIP(),
-				self.getDataIndex()
+				self.getDataIndex(),
+				self.getDropIndex()
 				)
 			block = True
 
@@ -1147,7 +1210,8 @@ class FCSlave:
 				self.getMISOIndex(),
 				arrayValues,
 				self.getDataIndex(),
-				timeouts
+				timeouts,
+				self.getDropIndex()
 				)
 
 		else:
@@ -1156,6 +1220,7 @@ class FCSlave:
 				format(updateType))
 
 		# If execution made it this far, put update in misoQueue:
+		
 		self.misoQueue.put(update, block)
 
 		# End update ===========================================================

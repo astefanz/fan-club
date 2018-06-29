@@ -202,7 +202,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 				
 				 	if (this->_getTimeouts() == this->maxMasterTimeouts - 1){
 						// Ping Master before timing out
-						this->_send("|P");
+						this->_send("P");
 					}
 				}else{
 					// Past threshold:

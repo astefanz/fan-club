@@ -316,19 +316,18 @@ class FCInterface(Tk.Frame):
 			self.slaveList = ttk.Treeview(self.slaveListFrame, 
 				selectmode="browse", height = 5)
 			self.slaveList["columns"] = \
-				("Index", "Name","MAC","Status","IP","Fans")
+				("Index", "Name","MAC","Status","IP","Fans", "Version")
 
 			# Create columns:
 			self.slaveList.column('#0', width = 20, stretch = False)
 			self.slaveList.column("Index", width = 20, anchor = "center")
-			self.slaveList.column("Name", width = 50)
-			self.slaveList.column("MAC", width = 50, 
-				anchor = "center")
-			self.slaveList.column("Status", width = 50, 
-				anchor = "center")
-			self.slaveList.column("IP", width = 50, 
-				anchor = "center")
+			self.slaveList.column("Name", width = 40)
+			self.slaveList.column("MAC", width = 50, anchor = "center")
+			self.slaveList.column("Status", width = 30, anchor = "center")
+			self.slaveList.column("IP", width = 50, anchor = "center")
 			self.slaveList.column("Fans", width = 50, stretch = False, 
+				anchor = "center")
+			self.slaveList.column("Version", width = 50, 
 				anchor = "center")
 
 			# Configure column headings:
@@ -338,6 +337,7 @@ class FCInterface(Tk.Frame):
 			self.slaveList.heading("Status", text = "Status")
 			self.slaveList.heading("IP", text = "IP")
 			self.slaveList.heading("Fans", text = "Fans")
+			self.slaveList.heading("Version", text = "Version")
 
 			# Configure tags:
 			self.slaveList.tag_configure(
@@ -996,7 +996,7 @@ class FCInterface(Tk.Frame):
 			# Initialize Communicator ----------------------------------------------
 			self.printMain("Initializing Communicator...")
 			self.communicator = FCCommunicator.FCCommunicator(
-				slaveList = self.archiver.get(ac.slaveList),
+				savedSlaves = self.archiver.get(ac.savedSlaves),
 				mainQueueSize = self.archiver.get(ac.mainQueueSize),
 				broadcastPeriodS = self.archiver.get(ac.broadcastPeriodS),
 				periodMS = self.archiver.get(ac.periodMS),
@@ -1166,7 +1166,8 @@ class FCInterface(Tk.Frame):
 							fetched[1], # MAC 
 							sv.translate(fetched[2]), # Status as str
 							fetched[5],	 # IP as str
-							fetched[4]), # Active fans as int 
+							fetched[4], # Active fans as int 
+							fetched[12]),# Version
 							tag = sv.translate(fetched[2], True)),
 										#        \------/ Status (int)
 						index = fetched[8],
@@ -1191,7 +1192,7 @@ class FCInterface(Tk.Frame):
 			
 			# Schedule next call -----------------------------------------------
 			self.after(
-				self.archiver.get(ac.periodMS), self._newSlaveChecker)
+				self.archiver.get(ac.periodMS)/2, self._newSlaveChecker)
 
 		except Exception as e: # Print uncaught exceptions
 			self.printMain("[NS] UNCAUGHT EXCEPTION: \"{}\"".\

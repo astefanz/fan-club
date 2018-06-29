@@ -151,6 +151,8 @@ class SlaveContainer:
 		self.dataIndex.set("RIP")
 		self.timeouts = Tk.StringVar()
 		self.timeouts.set("RIP")
+		self.dropIndex = Tk.StringVar()
+		self.dropIndex.set("RIP")
 		
 		# MISO and MOSI queuing methods:
 		self.misoMethod = misoMethod
@@ -229,6 +231,7 @@ class SlaveContainer:
 						self.misoIndex.set("RIP")
 						self.dataIndex.set("RIP")
 						self.timeouts.set("RIP")
+						self.dropIndex.set("RIP")
 
 						# Reset fan array information:
 						for fan in self.fans:
@@ -242,6 +245,7 @@ class SlaveContainer:
 						self.timeouts.set('0')
 						self.ip.set(fetchedUpdate[4])
 						self.dataIndex.set(str(fetchedUpdate[5]))
+						self.dropIndex.set(str(fetchedUpdate[6]))
 
 						# Update fan activity:
 						for fan in self.fans[:self.activeFans]:
@@ -253,6 +257,7 @@ class SlaveContainer:
 					self.misoIndex.set(str(fetchedUpdate[2]))
 					self.dataIndex.set(str(fetchedUpdate[4]))	
 					self.timeouts.set(str(fetchedUpdate[5]))
+					self.dropIndex.set(str(fetchedUpdate[6]))
 					# Update fan array values:
 					
 					for i in range(self.activeFans):

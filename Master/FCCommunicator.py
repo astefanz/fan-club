@@ -64,7 +64,7 @@ class FCCommunicator:
 
 	def __init__(self,
 			# Network:
-			slaveList, mainQueueSize, broadcastPeriodS, periodMS, periodS,
+			savedSlaves, mainQueueSize, broadcastPeriodS, periodMS, periodS,
 			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
 			# Fan array:
 			defaultModuleDimensions, defaultModuleAssignment,
@@ -103,7 +103,6 @@ class FCCommunicator:
 			# Store parameters -------------------------------------------------
 
 			# Network:
-			self.slaveList = slaveList
 			self.mainQueueSize = mainQueueSize
 			self.broadcastPeriodS = broadcastPeriodS
 			self.periodMS = periodMS
@@ -234,12 +233,12 @@ class FCCommunicator:
 			# NOTE: This list will be a Numpy array of Slave objects.
 
 			# Create a numpy array for storage:
-			self.slaves = np.empty(len(slaveList), object)
+			self.slaves = np.empty(len(savedSlaves), object)
 				# Create an empty numpy array of objects w/ space for as many
-				# Slave units as there are in slaveList
-			# Loop over slaveList to instantiate any saved Slaves:
+				# Slave units as there are in savedSlaves
+			# Loop over savedSlaves to instantiate any saved Slaves:
 			print "Initializing Sv's"
-			for index in range(len(slaveList)):
+			for index in range(len(savedSlaves)):
 
 				# NOTE: Here each sub list, if any, contains data to initialize
 				# known Slaves, in the following order:
@@ -251,19 +250,19 @@ class FCCommunicator:
 
 				self.slaves[index] = \
 					sv.FCSlave(
-					name = slaveList[index][0],
-					mac = slaveList[index][1],
+					name = savedSlaves[index][0],
+					mac = savedSlaves[index][1],
 					status = sv.DISCONNECTED,
 					maxFans = self.maxFans,
-					activeFans = slaveList[index][2],
+					activeFans = savedSlaves[index][2],
 					routine = self._slaveRoutine,
 					routineArgs = (index,),
 					misoQueueSize = misoQueueSize,
 					index = index,
 					pinout = self.pinout,
-					coordinates = slaveList[index][3],
-					moduleDimensions = slaveList[index][4],
-					moduleAssignment = slaveList[index][5]
+					coordinates = savedSlaves[index][3],
+					moduleDimensions = savedSlaves[index][4],
+					moduleAssignment = savedSlaves[index][5]
 					)
 
 				# Start Slave thread:
@@ -777,12 +776,11 @@ class FCCommunicator:
 													timestampedRPMFirst = True
 										"""	
 									except Queue.Full:
-										# If there is no room for the queue, dismiss
-										# this update and warn the user:
+									
+										# If there is no room for this message,
+										# drop the packet and alert the user:
+										slave.incrementDropIndex()
 										
-										self.printM("[{}] WARNING: MISO Queue Full."\
-											" GUI thread falling behind. ".\
-										format(slave.getMAC()), "E")
 
 							elif reply[1] == 'I':
 								# Reset MISO index
@@ -1056,20 +1054,24 @@ class FCCommunicator:
 		# RAISES:
 		#	- KeyError if the given MAC address is not found.
 		
+		# Get target Slave:
+		target = self.slaves[index]
+
 		# Add Slave to Queue:
 		self.newSlaveQueue.put_nowait((
-			self.slaves[index].getName(),
-			self.slaves[index].getMAC(),
-			self.slaves[index].getStatus(),
-			self.slaves[index].getMaxFans(),
-			self.slaves[index].getActiveFans(),
-			self.slaves[index].getIP(),
-			self.slaves[index].getUpdate, # NOTE: Here the method itself is passed.
-			self.slaves[index].setMOSI,
+			target.getName(),
+			target.getMAC(),
+			target.getStatus(),
+			target.getMaxFans(),
+			target.getActiveFans(),
+			target.getIP(),
+			target.getUpdate, # NOTE: Here the method itself is passed.
+			target.setMOSI,
 			index,
-			self.slaves[index].getCoordinates(),
-			self.slaves[index].getModuleDimensions(),
-			self.slaves[index].getModuleAssignment()
+			target.getCoordinates(),
+			target.getModuleDimensions(),
+			target.getModuleAssignment(),
+			target.getVersion()
 			))
 
 		# Done

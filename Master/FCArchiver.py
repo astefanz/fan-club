@@ -71,7 +71,7 @@ passcode = 23
 
 # fan array:
 
-slaveList = 30
+savedSlaves = 30
 
 fanModel = 31
 fanMode =  32
@@ -151,7 +151,7 @@ class FCArchiver:
 		# Wind tunnel ----------------------------------------------------------
 		
 		# Slave list ...........................................................
-		self.profile[slaveList] = \
+		self.profile[savedSlaves] = \
 			[hc.DEF_SLAVELIST, list, threading.Lock()]
 
 		# End Slave list ....................................................... 

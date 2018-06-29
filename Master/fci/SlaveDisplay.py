@@ -153,6 +153,19 @@ class SlaveDisplay(Tk.Frame):
 			anchor = 'w', fill = Tk.X, expand = False)
 	
 		# ......................................................................
+		self.dropLabel = Tk.Label(self.topFrame, text = "Drops:",
+			bg = self.background, font = 'TkDefaultFont 8', 
+			fg = self.foreground)
+		self.dropLabel.pack(side = Tk.LEFT)
+
+		self.dropCounter = Tk.Label(self.topFrame, 
+			text = "RIP", relief = Tk.SUNKEN, bd = 1,
+			bg = "white", font = 'TkFixedFont 8',
+			width = 10, fg = self.foreground)
+		self.dropCounter.pack(side = Tk.LEFT, 
+			anchor = 'w', fill = Tk.X, expand = False)
+	
+		# ......................................................................
 		self.selectionCounterFrame = Tk.Frame(
 			self.topFrame,
 			bg = self.background,
@@ -365,7 +378,8 @@ class SlaveDisplay(Tk.Frame):
 		self.mosiIndexCounter.config(textvariable = self.target.mosiIndex)
 		self.dataIndexCounter.config(textvariable = self.target.dataIndex)
 		self.timeoutsCounter.config(textvariable = self.target.timeouts)
-		
+		self.dropCounter.config(textvariable = self.target.dropIndex)
+
 		# Adjust coordinates:
 		if self.target.coordinates is None:
 			self.coordinatesVar.set("No Coordinates")
