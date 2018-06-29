@@ -237,7 +237,6 @@ class FCCommunicator:
 				# Create an empty numpy array of objects w/ space for as many
 				# Slave units as there are in savedSlaves
 			# Loop over savedSlaves to instantiate any saved Slaves:
-			print "Initializing Sv's"
 			for index in range(len(savedSlaves)):
 
 				# NOTE: Here each sub list, if any, contains data to initialize
@@ -640,7 +639,8 @@ class FCCommunicator:
 			timeouts = 0
 			totalTimeouts = 0
 			message = None
-
+			previousMessage = "P"
+			
 			# TEMP. DEBUG:
 			timestampedRPMFirst = False
 			timestampedDCFirst = False
@@ -698,10 +698,13 @@ class FCCommunicator:
 						## print "[On positive state]"
 
 						# Check queue for message:
-						
 						command = slave.getMOSI()
-							
-						if command is not None:
+						
+						if command is None:
+							# Nothing to fetch. Send previous command
+							message = previousMessage
+
+						else:
 							# Classify command:
 							if command == "X":
 								# Disconnect message. Terminate connection.
@@ -711,18 +714,19 @@ class FCCommunicator:
 								# Standard command
 								message = "S|" + command
 
-							# Send message, if any:
-							self._send(message, slave, 2)
+						# Send message:
+						previousMessage = message
+						self._send(message, slave, 2)
+
+						"""
+						if not timestampedDCFirst:
+							self._saveTimeStamp(slave.getIndex(),
+							"First command out")
 						
-							"""
-							if not timestampedDCFirst:
-								self._saveTimeStamp(slave.getIndex(),
-								"First command out")
-							
-								timestampedDCFirst = True
-							"""	
-							# DEBUG: 
-							# print "Sent: {}".format(message)
+							timestampedDCFirst = True
+						"""	
+						# DEBUG: 
+						# print "Sent: {}".format(message)
 
 						# Get reply:
 						reply = self._receive(slave)
@@ -804,12 +808,16 @@ class FCCommunicator:
 								self.printM("[{}] ERROR: \"{}\"".format(
 									slave.getMAC(), reply[2]), "E")
 
+							elif reply[1] == 'Q':
+								# Ping reply. Pass
+								pass
+
 							else:
 								# Unrecognized command
 
 								self.printM("[{}] Warning, unrecognized "\
 									"message: \"{}\"".format(
-										slave.getMAC(), reply))
+										slave.getMAC(), reply), "W")
 
 						else:
 							timeouts += 1
@@ -827,7 +835,13 @@ class FCCommunicator:
 							"""
 
 							# Check timeout counter: - - - - - - - - - - - - - -
-							if timeouts < self.maxTimeouts:
+							if timeouts == self.maxTimeouts -1:
+								# If this Slave is about to time out, send a
+								# ping request
+
+								self._send("Q", slave, 2)
+							
+							elif timeouts < self.maxTimeouts:
 								# If there have not been enough timeouts to con-
 								# sider the connection compromised, continue.
 								# print "Reply missed ({}/{})".

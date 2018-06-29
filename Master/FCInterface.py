@@ -65,7 +65,7 @@ from auxiliary.debug import d
 ## CONSTANTS ###################################################################
 
 # Debug flag (for printing):
-DEBUG = True
+DEBUG = False
 
 # Selection change codes:
 INCREASE = True
@@ -93,12 +93,39 @@ class FCInterface(Tk.Frame):
 	def __init__(self, version, master=None): # ================================
 		
 		try:
-			
+
+
 			self.ableToPrint = False	# Keep track in case of an error during
 										# construction...
 
 			Tk.Frame.__init__(self, master)
 			
+			# Build "loading" window
+			init_lw = Tk.Toplevel()
+			init_lw.title("")
+			init_lw.lift()
+			init_lw.focus_force()
+			init_lw.grab_set()
+			
+			init_lw.geometry('+%d+%d' % ( \
+				(init_lw.winfo_screenwidth()/4),
+				(init_lw.winfo_screenheight()/7)
+				)
+			)
+			init_pbar = ttk.Progressbar(init_lw, orient = "horizontal", 
+				length = 490, mode = "determinate")	
+
+			init_pbar.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+			init_pbar["value"] = 0
+			init_pbar["maximum"] = 56
+
+			init_label = Tk.Label(init_lw, 
+				text = "FCMkII -- Loading", anchor = 'c')
+
+			init_label.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
+			init_pbar["value"] = 1
+
 			# Initialization order:
 			# 1. Build and display GUI
 			# 2. Build Archiver and Printer and try to load profile
@@ -109,7 +136,7 @@ class FCInterface(Tk.Frame):
 			# CONFIGURE MAIN WINDOW = = = = = = = = = = = = = = = = = = = = = = = =
 
 			# Set title:
-			self.master.title("Fan Club MkII [ALPHA]")
+			self.master.title("Fan Club MkII [BETA]")
 
 			# Set background:
 			self.background = "#e2e2e2"
@@ -119,12 +146,15 @@ class FCInterface(Tk.Frame):
 			# Set debug foreground:
 			self.debugColor = "#ff007f"
 
+			init_pbar["value"] = 2
 			# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
 			# MAIN FRAME -----------------------------------------------------------
 			self.main = Tk.Frame(self)
 			self.main.pack(fill = Tk.BOTH, expand = True)
 
+			
+			init_pbar["value"] = 3
 			# OPTIONS BAR ----------------------------------------------------------
 			self.optionsBarFrame = Tk.Frame(
 				self.main,
@@ -135,6 +165,7 @@ class FCInterface(Tk.Frame):
 
 			self.optionsBarFrame.pack(side = Tk.TOP, fill = Tk.X)
 
+			init_pbar["value"] = 4
 			# TERMINAL TOGGLE ......................................................
 			self.terminalToggleVar = Tk.BooleanVar()
 			self.terminalToggleVar.set(False)
@@ -146,6 +177,7 @@ class FCInterface(Tk.Frame):
 			self.terminalToggle.config( state = Tk.NORMAL)
 			self.terminalToggle.pack(side = Tk.LEFT)
 
+			init_pbar["value"] = 5
 			# SLAVE LIST TOGGLE ....................................................
 			self.slaveListToggleVar = Tk.BooleanVar()
 			self.slaveListToggleVar.set(False)
@@ -158,6 +190,7 @@ class FCInterface(Tk.Frame):
 			self.slaveListToggle.config( state = Tk.NORMAL)
 			self.slaveListToggle.pack(side = Tk.LEFT)
 
+			init_pbar["value"] = 6
 			# SLAVE DISPLAY TOGGLE .................................................
 			self.slaveDisplayToggleVar = Tk.BooleanVar()
 			self.slaveDisplayToggleVar.set(False)
@@ -170,6 +203,7 @@ class FCInterface(Tk.Frame):
 			self.slaveDisplayToggle.config( state = Tk.NORMAL)
 			self.slaveDisplayToggle.pack(side = Tk.LEFT)
 
+			init_pbar["value"] = 7
 			# SETTINGS BUTTON ......................................................
 			self.settingsButton = Tk.Button(
 				self.optionsBarFrame,
@@ -179,6 +213,7 @@ class FCInterface(Tk.Frame):
 			)
 			self.settingsButton.pack(side = Tk.RIGHT)	
 
+			init_pbar["value"] = 8
 			# SETTINGS BUTTON ......................................................
 			self.settingsButton = Tk.Button(
 				self.optionsBarFrame,
@@ -187,6 +222,7 @@ class FCInterface(Tk.Frame):
 			)
 			self.settingsButton.pack(side = Tk.RIGHT)	
 
+			init_pbar["value"] = 9
 			# PLOT BUTTON ..........................................................
 			self.plotButton = Tk.Button(
 				self.optionsBarFrame,
@@ -196,6 +232,7 @@ class FCInterface(Tk.Frame):
 			)
 			self.plotButton.pack(side = Tk.RIGHT)	
 
+			init_pbar["value"] = 10
 			# GRID BUTTON ..........................................................
 			self.gridButton = Tk.Button(
 				self.optionsBarFrame,
@@ -212,6 +249,7 @@ class FCInterface(Tk.Frame):
 			self.gridWindow = None
 			self.grid = None
 
+			init_pbar["value"] = 11
 			# MAIN DISPLAY ---------------------------------------------------------
 
 			# Main display frame ..................................................
@@ -221,12 +259,14 @@ class FCInterface(Tk.Frame):
 			#self.mainDisplayFrame.pack(
 				#fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
+			init_pbar["value"] = 12
 			# ARRAY ----------------------------------------------------------------
 
 			# Array Frame ..........................................................
 			self.arrayFrame = Tk.Frame(self.mainDisplayFrame, bg = 'white',
 				relief = Tk.SUNKEN, borderwidth = 3)
 			
+			init_pbar["value"] = 13
 			# TERMINAL -------------------------------------------------------------
 			self.terminalContainerFrame = Tk.Frame(self.main, bg = self.background)
 			self.terminalContainerFrame.pack(
@@ -237,6 +277,7 @@ class FCInterface(Tk.Frame):
 			#self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
 			# Comment out to not start w/ hidden terminal by default
 
+			init_pbar["value"] = 14
 			# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 			self.mainTerminal = ttk.Frame(self.terminalFrame)
 			self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
@@ -262,6 +303,7 @@ class FCInterface(Tk.Frame):
 			self.mainTText.tag_config(\
 				"D", foreground = self.debugColor)
 			
+			init_pbar["value"] = 15
 			# TERMINAL CONTROL FRAME ...............................................
 
 			self.terminalControlFrame = Tk.Frame(self.terminalFrame, 
@@ -291,6 +333,7 @@ class FCInterface(Tk.Frame):
 				text ="Terminal output", variable = self.terminalVar, 
 				bg = self.background, fg = self.foreground)
 
+			init_pbar["value"] = 16
 			# TERMINAL SETUP:
 
 			self.autoscrollButton.pack(side = Tk.LEFT)
@@ -298,6 +341,7 @@ class FCInterface(Tk.Frame):
 			self.terminalButton.pack(side = Tk.LEFT)
 			self.autoscrollButton.select()
 
+			init_pbar["value"] = 17
 			# SLAVE LIST -----------------------------------------------------------
 
 			# Slave list container .................................................
@@ -379,6 +423,7 @@ class FCInterface(Tk.Frame):
 			self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
 
 			
+			init_pbar["value"] = 18
 			# SLAVE DISPLAY --------------------------------------------------------
 			# Slave display frame ..................................................
 			self.slaveDisplayFrame = Tk.Frame(self.main,
@@ -397,6 +442,7 @@ class FCInterface(Tk.Frame):
 			self.controlFrame.pack(fill = Tk.X, expand = False)
 
 			
+			init_pbar["value"] = 19
 			# ARRAY CONTROL ........................................................
 
 			self.arrayControlFrame = Tk.Frame(self.controlFrame, 
@@ -489,6 +535,7 @@ class FCInterface(Tk.Frame):
 			self.selectAllButton.pack(side = Tk.RIGHT)
 
 
+			init_pbar["value"] = 20
 			# PRINTING -------------------------------------------------------------
 			self.printContainerFrame = Tk.Frame(self, 
 				relief = Tk.GROOVE, borderwidth = 1,
@@ -540,6 +587,7 @@ class FCInterface(Tk.Frame):
 
 			self.printTargetLabel.pack(side = Tk.LEFT)
 
+			init_pbar["value"] = 21
 			# Print target text field:
 
 			self.entryRedBG = "#ffc1c1"
@@ -601,6 +649,7 @@ class FCInterface(Tk.Frame):
 
 			self.printStartStopButton.pack(side = Tk.LEFT)
 			
+			init_pbar["value"] = 22
 			# STATUS ---------------------------------------------------------------
 			self.statusFrame = Tk.Frame(self, relief = Tk.GROOVE, borderwidth = 1,
 				 bg=self.background, height = 10)
@@ -810,6 +859,7 @@ class FCInterface(Tk.Frame):
 				)
 			self.selectedFansCounter.pack(side = Tk.LEFT)
 
+			init_pbar["value"] = 23
 			# THREAD ACTIVITY DISPLAYS .............................................
 
 			self.displayRED = "red"
@@ -880,10 +930,11 @@ class FCInterface(Tk.Frame):
 				self.connectSlave,
 				self.printMain)
 			
+			init_pbar["value"] = 24
 			# DRAW WINDOW = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 			
 			# Finally show window:
-			print "Calculating sizes... [1/6]"
+			#print "Calculating sizes... [1/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.pack(fill = Tk.BOTH, expand = True)
 			
@@ -900,7 +951,7 @@ class FCInterface(Tk.Frame):
 				(self.master.winfo_screenheight()/8)
 				)
 			)
-			print "Calculating sizes... [2/6]"
+			#print "Calculating sizes... [2/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.printMain("Fan Club MkII Interface initialized", "G")
 			
@@ -916,32 +967,36 @@ class FCInterface(Tk.Frame):
 			self.master.update() # Required to set minimum size	
 			"""
 
+			init_pbar["value"] = 28
 			# DETERMINE MINIMUM SIZES:
 			self.master.withdraw()
 			# When only the essential "bars" are packed:
-			print "Calculating sizes... [3/6]"
+			#print "Calculating sizes... [3/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.masterMinimumSize = \
 				(self.master.winfo_width(),self.master.winfo_height())
 
+			init_pbar["value"] = 32
 			# When only the slave display is packed:
 			self._slaveDisplayToggle(False)
-			print "Calculating sizes... [4/6]"
+			#print "Calculating sizes... [4/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.slaveDisplayMinimumSize = \
 				(self.master.winfo_width(),self.master.winfo_height())
 			
+			init_pbar["value"] = 36
 			# When the slave list is packed:	
 			self.slaveDisplayToggleVar.set(False)
 			self._slaveDisplayToggle(False)
 			self.slaveListToggleVar.set(True)
 			self._slaveListToggle(False)
 			
-			print "Calculating sizes... [5/6]"
+			#print "Calculating sizes... [5/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.slaveListMinimumSize = \
 				(self.master.winfo_width(),self.master.winfo_height())
 
+			init_pbar["value"] = 40
 			# When the terminal is packed:	
 			self.slaveDisplayToggleVar.set(False)
 			self._slaveDisplayToggle(False)
@@ -950,7 +1005,7 @@ class FCInterface(Tk.Frame):
 			self.terminalToggleVar.set(True)
 			self._terminalToggle(False)
 			
-			print "Calculating sizes... [5/6]"
+			#print "Calculating sizes... [5/6]"
 			self.master.update_idletasks() # Required to set minimum size	
 			self.terminalMinimumSize = \
 				(self.master.winfo_width(),self.master.winfo_height())
@@ -962,16 +1017,15 @@ class FCInterface(Tk.Frame):
 			self._slaveListToggle()
 			self.terminalToggleVar.set(False)
 			self._terminalToggle()
-			print "Calculating sizes... [6/6]"
+			init_pbar["value"] = 50
+			#print "Calculating sizes... [6/6]"
 			self.master.update_idletasks()
 			self.master.deiconify()
 
 		
-			# Focus on the main window:
-			self.master.lift()
-				
 			# INITIALIZATION STEP 2: BUILD AND START ARCHIVER AND PRINTER ##########
 
+			init_pbar["value"] = 51
 			# Initialize Archiver --------------------------------------------------
 			self.printMain("Initializing Archiver...")
 			self.archiver = ac.FCArchiver() 
@@ -1021,7 +1075,10 @@ class FCInterface(Tk.Frame):
 				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
 				pinout = self.archiver.get(ac.defaultPinout)
 				)
+			
 			self.printMain("Communicator initialized", "G")
+			
+			init_pbar["value"] = 55
 			# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = =
 			self._mainPrinterRoutine()
 			self.ableToPrint = True # Errors can now be printed using the 
@@ -1030,7 +1087,14 @@ class FCInterface(Tk.Frame):
 			self._newSlaveChecker()
 			self._broadcastThreadChecker()
 			self._listenerThreadChecker()
-		
+
+			init_pbar["value"] = 56
+			init_lw.destroy()
+			
+			# Focus on the main window:
+			self.master.lift()
+				
+
 		except Exception as e: # Print uncaught exceptions
 			self.printMain("[FCI init] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
@@ -1173,7 +1237,8 @@ class FCInterface(Tk.Frame):
 						index = fetched[8],
 						coordinates = fetched[9],
 						moduleDimensions = fetched[10],
-						moduleAssignment = fetched[11]
+						moduleAssignment = fetched[11],
+						version = fetched[12]
 					)
 				
 				# Add to SlaveContainer array:
@@ -1367,8 +1432,33 @@ class FCInterface(Tk.Frame):
 				self.gridWindow.protocol("WM_DELETE_WINDOW", 
 					self._gridDeactivationRoutine)
 
+				self.gridOuterFrame = Tk.Frame(
+					self.gridWindow, padx = 3, pady = 3, 
+					relief = Tk.RIDGE, borderwidth = 2, cursor = "hand1")
+
+				self.gridOuterFrame.pack(fill = Tk.BOTH, expand = True)
+
+
+				def _expand(event):
+					self.grid.destroy()
+					del self.grid
+					self.grid = mg.MainGrid(
+						self.gridOuterFrame,
+						self.archiver.get(ac.dimensions)[0],
+						self.archiver.get(ac.dimensions)[1],
+						0.9*(min(self.gridOuterFrame.winfo_height(),
+							self.gridOuterFrame.winfo_width(),))/\
+								(min(self.archiver.get(ac.dimensions)[0],
+								self.archiver.get(ac.dimensions)[1])),
+						self.slaveContainers,
+						self.archiver.get(ac.maxRPM)
+						)
+
+				self.gridOuterFrame.bind("<Button-1>", _expand)
+				self.gridOuterFrame.focus_set()
+
 				self.grid = mg.MainGrid(
-					self.gridWindow,
+					self.gridOuterFrame,
 					self.archiver.get(ac.dimensions)[0],
 					self.archiver.get(ac.dimensions)[1],
 					600/self.archiver.get(ac.dimensions)[0],

@@ -436,7 +436,7 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 			this->processor.get(processed);
 			
 			// Send message ----------------------------------------------------
-			this->_send(processed, 1, true);
+			this->_send(processed, 1, false); // false -> do not print to stdout
 			
 			Thread::wait(this->periodMS);
 			continue;
@@ -484,7 +484,8 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 			continue;
 		
 		} else if(this->getStatus() == CONNECTED) {
-			
+			// Send acknowledgement
+
 			// A message was received. Validate its content.
 			switch(specifier){
 				
@@ -542,6 +543,17 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					this->_resetTimeouts();
 
 					break;
+				}
+
+				case 'Q':{ // PING REQUEST
+					pl;printf(
+						"\n\r[%08dms][I] Ping req. received" , tm);pu;
+					
+					this->_send("Q", 2);
+
+					break;
+				
+				
 				}
 					
 				default:{

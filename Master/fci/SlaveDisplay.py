@@ -316,20 +316,15 @@ class SlaveDisplay(Tk.Frame):
 		# null values.
 
 		# DEBUG:
-		print "[DB] setMaxFans called"
 		# Destroy old values, if any exist:
 		if len(self.fans) > 0:
-			print "[DB] Old values found! Destroying..."
 			for fanDisplay in self.fans:
 				fanDisplay.pack_forget()
 				fanDisplay.destroy()
 				del fanDisplay
 			del self.selected
 			self.selected = []
-			print "[DB] Old values destroyed"
 			
-		print "[DB] Creating new values..."
-
 		# Create new values:
 		self.maxFans = newMaxFans
 
@@ -339,7 +334,6 @@ class SlaveDisplay(Tk.Frame):
 		for i in range(self.maxFans):
 			self.selected.append("0")
 
-		print "[DB] New values created"
 
 		# End setMaxFans =======================================================
 

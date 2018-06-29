@@ -1191,7 +1191,8 @@ class FCSlave:
 				self.getMISOIndex(),
 				self.getIP(),
 				self.getDataIndex(),
-				self.getDropIndex()
+				self.getDropIndex(),
+				self.getVersion()
 				)
 			block = True
 

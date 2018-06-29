@@ -49,7 +49,8 @@ class MainGrid(Tk.Frame, object):
 
 		# Call parent constructor (for class Frame):
 		super(MainGrid, self).__init__(master)
-		
+		self.config(cursor = "crosshair")
+
 		# Assign member variables:
 		self.rows = rows
 		self.columns = columns

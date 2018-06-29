@@ -55,7 +55,7 @@ class SlaveContainer:
 		name, mac, status, maxFans, maxRPM, activeFans, 
 		ip, misoMethod, mosiMethod,
 		master, periodMS, slaveListIID, index, coordinates, moduleDimensions,
-		moduleAssignment):
+		moduleAssignment, version):
 		# ABOUT: Constructor for class SlaveContainer.
 
 		# ATTRIBUTE SUMMARY ----------------------------------------------------
@@ -111,6 +111,9 @@ class SlaveContainer:
 
 		# Module assignment: 
 		self.moduleAssignment = moduleAssignment
+
+		# Version:
+		self.version = version
 
 		# Tkinter master:
 		self.master = master
@@ -195,8 +198,8 @@ class SlaveContainer:
 				if fetchedUpdate[0] == sv.STATUS_CHANGE:
 					
 					# Update status:
-				
-
+					
+					self.version = fetchedUpdate[7]
 					# Remove old status:
 					self.master.statusInts[self.status] -= 1
 					self.master.statusVars[self.status].set(
@@ -301,7 +304,8 @@ class SlaveContainer:
 							self.mac, 
 							self.statusStringVar.get(),
 							self.ip.get(), 
-							self.activeFans],
+							self.activeFans,
+							self.version],
 						tag = sv.translate(self.status, True)
 						)
 				elif fetchedUpdate[0] == sv.VALUE_UPDATE:
@@ -313,7 +317,8 @@ class SlaveContainer:
 							self.mac, 
 							self.statusStringVar.get(),
 							self.ip.get(), 
-							self.activeFans]
+							self.activeFans,
+							self.version]
 						)
 
 				# Update slaveDisplay ------------------------------------------

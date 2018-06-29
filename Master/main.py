@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"ES5\"" # Reference for consecutive versions
+VERSION = "\"ES7\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 import FCInterface as FCI
@@ -28,10 +28,12 @@ import time
 
 #### MAIN ######################################################################       
 
-print ">>> Started program: {}".format(time.strftime(
+print ">>> FCMkII Started on {}".format(time.strftime(
 	"%a %d %b %Y %H:%M:%S", time.localtime()))
 
 interface = FCI.FCInterface(VERSION) 
 interface.mainloop()
 
 
+print ">>> FCMkII Ended on {}\n".format(time.strftime(
+	"%a %d %b %Y %H:%M:%S", time.localtime()))
