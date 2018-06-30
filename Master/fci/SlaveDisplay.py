@@ -44,7 +44,7 @@ import FanDisplay as fd
 
 class SlaveDisplay(Tk.Frame):
 
-	def __init__(self, master, connectM, printM): # ============================
+	def __init__(self, master, connectM, disconnectM, killM, printM): # ============================
 		# ABOUT: Constructor for class SlaveDisplay.
 		# PARAMETERS:
 		# - master: Tkinter container widget.
@@ -59,6 +59,8 @@ class SlaveDisplay(Tk.Frame):
 		self.isPacked = False
 		self.printMain = printM
 		self.connectMethod = connectM
+		self.disconnectMethod = disconnectM
+		self.rebootMethod = killM
 		
 		# CONFIGURE ------------------------------------------------------------
 		Tk.Frame.__init__(self, master)
@@ -220,6 +222,32 @@ class SlaveDisplay(Tk.Frame):
 		)
 		self.connectButton.pack()
 		self.connectButtonShown = True
+		
+		self.disconnectButtonFrame = Tk.Frame(self.buttonFrame, bg = self.background,
+			padx = 2)
+		self.disconnectButtonFrame.pack(side = Tk.LEFT)
+
+		self.disconnectButton = Tk.Button(
+			self.disconnectButtonFrame,
+			text = "Disconnect",
+			command = self.disconnect,
+			highlightbackground = self.background
+		)
+		self.disconnectButton.pack()
+		self.disconnectButtonShown = True
+		
+		self.rebootButtonFrame = Tk.Frame(self.buttonFrame, bg = self.background,
+			padx = 2)
+		self.rebootButtonFrame.pack(side = Tk.LEFT)
+
+		self.rebootButton = Tk.Button(
+			self.rebootButtonFrame,
+			text = "Reboot",
+			command = self.reboot,
+			highlightbackground = self.background
+		)
+		self.rebootButton.pack()
+		self.rebootButtonShown = True
 
 		self.toggled = False
 
@@ -455,6 +483,17 @@ class SlaveDisplay(Tk.Frame):
 
 		if self.status == sv.AVAILABLE:
 			self.connectMethod(self.target.index)
+
+	def disconnect(self): # ====================================================
+		# ABOUT: Disconnect from a CONNECTED sv.
+
+		if self.status == CONNECTED:
+			self.disconnectMethod(self.target.index)
+
+	def reboot(self): # ========================================================
+		# ABOUT: Disconnect from a CONNECTED sv.
+		
+		self.rebootMethod(self.target.index)
 
 	def selectAll(self): # =====================================================
 		# ABOUT: Set all fans as selected:

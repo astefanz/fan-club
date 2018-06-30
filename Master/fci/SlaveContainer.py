@@ -274,7 +274,9 @@ class SlaveContainer:
 							self.master.grid.canvas.itemconfig(
 								self.fans[i].cell,
 								fill = cc.MAP_VIRIDIS[
-									int(255*(1.0*fetchedUpdate[3][0][i]/self.maxRPM))]
+									min(
+										int(255*(1.0*fetchedUpdate[3][0][i]/self.maxRPM)),
+										255)]
 								)
 							
 					# Update Printer (if it is active):

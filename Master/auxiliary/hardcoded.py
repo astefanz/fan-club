@@ -1214,8 +1214,8 @@ SLAVELIST_CAST_ALL = [\
 	],
 	[
 		"Module 144",
-		"00:80:e1:49:00:22",	
-		#"00:80:e1:3c:00:1b",
+		#"00:80:e1:49:00:22",	Alex's
+		"00:80:e1:3c:00:1b",
 		18,
 		(33,33),
 		SPEC_CAST_MODULE_DIMENSIONS,

@@ -197,7 +197,7 @@ class FCCommunicator:
 				str(self.broadcastSocket.getsockname()))
 
 			# Reset any existing phantom connections:
-			self._sendDisconnect()
+			self.sendDisconnect()
 
 			# SET UP MASTER THREADS ============================================
 
@@ -264,13 +264,15 @@ class FCCommunicator:
 					moduleAssignment = savedSlaves[index][5]
 					)
 
-				# Start Slave thread:
-				self.slaves[index].start()
 
 				# Add Slave to newSlaveQueue:
-				self.putNewSlave(index)
+				self.putNewSlave(index, True)
 		
 			# START MASTER THREADS =============================================
+			# Start Slave threads:
+			for slave in self.slaves:
+				slave.start()
+
 			self.listenerThread.start()
 			self.broadcastThread.start()
 			
@@ -640,7 +642,8 @@ class FCCommunicator:
 			totalTimeouts = 0
 			message = None
 			previousMessage = "P"
-			
+			tryBuffer = True
+
 			# TEMP. DEBUG:
 			timestampedRPMFirst = False
 			timestampedDCFirst = False
@@ -657,37 +660,54 @@ class FCCommunicator:
 					# Act according to Slave's state: 
 					if status == sv.KNOWN: # = = = = = = = = = = = = = = = =
 
+							
+						
 						# If the Slave is known, try to secure a connection:
 						# print "Attempting handshake"
 
 						# Check for signs of life w/ HSK message:
-						self._send(MHSK, slave, 1, True)
+						self._send(MHSK, slave, 2, True)
 
 						# Give time to process:
 						time.sleep(periodS)
 
-						# Try to receive reply:
-						reply = self._receive(slave)
-						# Check reply:
-						if reply is not None and reply[1] == "H":
-							# print "Processed reply: {}".format(reply), "G"
-							# print "Handshake confirmed"
-
-							# Mark as CONNECTED and get to work:
-							slave.setStatus(sv.CONNECTED, lock = False)
+						secondChance = True
+						while True:
 							
-							"""
-							self._saveTimeStamp(slave.getIndex(), "Connected")
-							"""
+							# Try to receive reply:
+							reply = self._receive(slave)
 
-						else:
-							self._send("X", slave, 1)
-							slave.setStatus(sv.DISCONNECTED, lock = False) 
-								# NOTE: This call also resets exchange 
-								# index.
+							# Check reply:
+							if reply is not None and reply[1] == "H":
+								# print "Processed reply: {}".format(reply), "G"
+								# print "Handshake confirmed"
+
+								# Mark as CONNECTED and get to work:
+								slave.setStatus(sv.CONNECTED, lock = False)
+								tryBuffer = True
+								break
+
+								"""
+								self._saveTimeStamp(slave.getIndex(), "Connected")
+								"""
+
+							elif reply is not None and reply[1] == "K":
+								# HSK acknowledged, give Slave time
+								continue
 							
+							elif secondChance:
+								# Try again:
+								self._send(MHSK, slave, 1, True)
+								secondChance = False
+							
+							else:
+								self._send("X", slave, 1)
+								slave.setStatus(sv.DISCONNECTED, lock = False) 
+									# NOTE: This call also resets exchange 
+									# index.
+								break
 
-					elif slave.getStatus() > 0: # = = = = = = = = = = = = = = = 
+					elif status > 0: # = = = = = = = = = = = = = = = = = = = 
 						# If the Slave's state is positive, it is online and 
 						# there is a connection to maintain.
 
@@ -698,24 +718,17 @@ class FCCommunicator:
 						## print "[On positive state]"
 
 						# Check queue for message:
-						command = slave.getMOSI()
+						message = slave.getMOSI()
 						
-						if command is None:
+						if message is None:
 							# Nothing to fetch. Send previous command
 							message = previousMessage
 
 						else:
-							# Classify command:
-							if command == "X":
-								# Disconnect message. Terminate connection.
-								message = "X"
-							
-							else: 
-								# Standard command
-								message = "S|" + command
+							# New message to be sent, save it
+							previousMessage = message 
 
 						# Send message:
-						previousMessage = message
 						self._send(message, slave, 2)
 
 						"""
@@ -796,10 +809,19 @@ class FCCommunicator:
 							elif reply[1] == 'P':
 								# Ping request
 								
-								self.send("P", slave)
+								self._send("P", slave)
+
+							elif reply[1] == 'Y':
+								# Reconnect reply
+
+								pass
 						
 							elif reply[1] == 'M':
 								# Maintain connection. Pass
+								pass
+
+							elif reply[1] == 'H':
+								# Old HSK message. Pass
 								pass
 
 							elif reply[1] == 'E':
@@ -851,6 +873,10 @@ class FCCommunicator:
 								# Restart loop:
 								pass
 
+							elif tryBuffer:
+								self._send("Y", slave, 2)
+								tryBuffer = False
+
 							else:
 								self.printM("[{}] Slave timed out".\
 									format(targetIndex + 1), "W")
@@ -880,10 +906,31 @@ class FCCommunicator:
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
 
-						command = "Blank"
-						
-					
-						pass
+						command = "P"
+						previousMessage = "P"
+
+						# Check if the Slave is mistakenly connected:
+						reply = self._receive(slave)
+
+						if reply is not None:
+							# Slave stuck! Send reconnect message:
+							if slave.getIP() is not None and \
+								slave.getMOSIPort() is not None:
+								self._send("Y", slave)
+
+								reply = self._receive(slave)
+								
+								if reply is not None and reply[1] == "Y":
+									# Slave reconnected!
+									slave.setStatus(sv.CONNECTED)
+							
+							else:
+								self.disconnectSlave(targetIndex)
+
+				except Exception as e: # Print uncaught exceptions
+					self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
+					   format(targetIndex + 1, traceback.format_exc()), "E")
+
 				finally:
 					# DEBUG DEACTV
 					## print "Slave lock released", "D"
@@ -1062,7 +1109,7 @@ class FCCommunicator:
 
 		# End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 	
-	def putNewSlave(self, index): # ============================================
+	def putNewSlave(self, index, fast = False): # ===============================
 		# ABOUT: Add relevant information of a new Slave to the newSlaveQueue,
 		# for the interface module to access.
 		# RAISES:
@@ -1072,7 +1119,7 @@ class FCCommunicator:
 		target = self.slaves[index]
 
 		# Add Slave to Queue:
-		self.newSlaveQueue.put_nowait((
+		self.newSlaveQueue.put_nowait(((
 			target.getName(),
 			target.getMAC(),
 			target.getStatus(),
@@ -1086,7 +1133,7 @@ class FCCommunicator:
 			target.getModuleDimensions(),
 			target.getModuleAssignment(),
 			target.getVersion()
-			))
+			), fast))
 
 		# Done
 		return
@@ -1130,7 +1177,7 @@ class FCCommunicator:
 			return True
 
 		except Queue.Full:
-			print "[ERROR][COMMS] Warning. Communications output queue full. "\
+			print "[WARNING] Communications output queue full. "\
 				"Could not print the following message:\n\r \"{}\"".\
 				format(output)
 			return False
@@ -1227,8 +1274,53 @@ class FCCommunicator:
 			return False
 
 		# End isListenerThreadAlive ============================================
+	
+	def disconnectSlave(self, target):
+		
+		try:
+			if self.slaves[target].getIP() is not None:
+				self.broadcastLock.acquire()
+				self.broadcastSocket.sendto(
+					"X|{}".format(self.passcode),
+					(self.slaves[target].getIP(), 65000))
 
-	def _sendDisconnect(self):
+		except Exception as e:
+			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
+			   format(traceback.format_exc()), "E")
+
+	def rebootSlave(self, target):
+		
+		try:
+			if self.slaves[target].getIP() is not None:
+				self.broadcastLock.acquire()
+				self.broadcastSocket.sendto(
+					"R|{}".format(self.passcode),
+					(self.slaves[target].getIP(), 65000))
+
+		except Exception as e:
+			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
+			   format(traceback.format_exc()), "E")
+
+
+	def sendReboot(self):
+		# ABOUT: Use broadcast socket to send a general "disconnect" message
+		# that terminates any existing connection.
+
+		try:
+			self.broadcastLock.acquire()
+			self.broadcastSocket.sendto(
+				"R|{}".format(self.passcode),
+				("<broadcast>", 65000))
+
+		except Exception as e:
+			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
+			   format(traceback.format_exc()), "E")
+
+		finally:
+			self.broadcastLock.release()
+
+
+	def sendDisconnect(self):
 		# ABOUT: Use broadcast socket to send a general "disconnect" message
 		# that terminates any existing connection.
 

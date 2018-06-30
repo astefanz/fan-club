@@ -506,9 +506,8 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					
 				case 'H':{ // HANDSHAKE
 					pl;printf(
-						"\n\r[%08dms][I][E] WARNING: HSK while connected", tm);pu;
-					this->_sendError("E|HSK while connected");
-
+						"\n\r[%08dms][I][N] NOTE: HSK while connected", tm);pu;
+					this->_send("H", 2);
 					break;
 				}
 				case 'X':{ // DISCONNECT
@@ -520,7 +519,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					break;
 				}
 					
-				case 'Z':{ // REBOOT
+				case 'R': case 'Z': { // REBOOT
 					pl;printf(
 						"\n\r[%08dms][I] Reboot message received."\
 							" Rebooting", tm);pu;
@@ -555,6 +554,18 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				
 				
 				}
+				case 'Y':{ // RECONNECT REQUEST RECEIVED
+					pl;printf(
+						"\n\r[%08dms][I] Reconn. req. received" , tm);pu;
+					
+					this->_send("Y", 2);
+					
+					this->_setStatus(CONNECTED);
+
+					break;
+				
+				
+				}
 					
 				default:{
 					pl;printf(
@@ -577,8 +588,11 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					pl;printf(
 						"\n\r[%08dms][I][E] WARNING: EMPTY HSK MESSAGE",
 						tm);pu;
+					this->_sendError("E|Empty HSK buffer");
 				}
 			 
+				this->_send("K", 2);
+
 				// Get network-related configuration
 				// Here the buffer is expected to be formatted as 
 				//
@@ -1028,6 +1042,7 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 
 			// Message approved. Modify MOSI index:
 			this->_setMOSIIndex(index);
+			this->_resetTimeouts();
 			return result;
 
 		} // End verify result

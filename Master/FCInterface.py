@@ -484,6 +484,8 @@ class FCInterface(Tk.Frame):
 
 			self.sendButton.pack(side = Tk.LEFT)
 
+			self.bind("<Return>", self._send)
+
 			# Hold toggle:
 			self.keepSelectionVar = Tk.BooleanVar()
 			self.keepSelectionVar.set(True)
@@ -508,6 +510,21 @@ class FCInterface(Tk.Frame):
 				highlightbackground = "#890c0c", text = "SHUTDOWN",
 				command = self._shutdownButton, font = 'TkFixedFont 12 bold ')
 			self.shutdownButton.pack()
+			
+			# Disconnect all button frame:
+			self.disconnectAllButtonFrame = Tk.Frame(
+				self.arrayControlFrame, 
+				relief = Tk.RIDGE, 
+				borderwidth = 1)
+			self.disconnectAllButtonFrame.pack(
+				side = Tk.RIGHT, expand = False)
+
+			# Disconnect all button:
+			self.disconnectAllButton = Tk.Button(self.disconnectAllButtonFrame,
+				highlightbackground = "#890c0c", text = "DISCONNECT ALL",
+				command = self._disconnectAllButton, font = 'TkFixedFont 12 bold ')
+			self.disconnectAllButton.pack()
+			
 			# Connect All button:
 			self.connectAllButtonFrame = Tk.Frame(
 				self.arrayControlFrame,
@@ -928,6 +945,8 @@ class FCInterface(Tk.Frame):
 			self.slaveDisplay = sd.SlaveDisplay(
 				self.slaveDisplayFrame, 
 				self.connectSlave,
+				self.disconnectSlave,
+				self.rebootSlave,
 				self.printMain)
 			
 			init_pbar["value"] = 24
@@ -1076,6 +1095,9 @@ class FCInterface(Tk.Frame):
 				pinout = self.archiver.get(ac.defaultPinout)
 				)
 			
+			self.master.protocol("WM_DELETE_WINDOW", 
+				self._deactivationRoutine)
+			
 			self.printMain("Communicator initialized", "G")
 			
 			init_pbar["value"] = 55
@@ -1096,8 +1118,6 @@ class FCInterface(Tk.Frame):
 				
 
 		except Exception as e: # Print uncaught exceptions
-			self.printMain("[FCI init] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")
 			
 			if not self.ableToPrint:
 				tkMessageBox.showerror("Warning: Uncaught exception in "\
@@ -1211,34 +1231,34 @@ class FCInterface(Tk.Frame):
 				# Create new SlaveContainer:
 				newSlaveContainer = \
 					sc.SlaveContainer(
-						name = fetched[0],
-						mac = fetched[1],
-						status = fetched[2],
-						maxFans = fetched[3],
+						name = fetched[0][0],
+						mac = fetched[0][1],
+						status = fetched[0][2],
+						maxFans = fetched[0][3],
 						maxRPM = self.archiver.get(ac.maxRPM),
-						activeFans = fetched[4],
-						ip = fetched[5],
-						misoMethod = fetched[6],
-						mosiMethod = fetched[7],
+						activeFans = fetched[0][4],
+						ip = fetched[0][5],
+						misoMethod = fetched[0][6],
+						mosiMethod = fetched[0][7],
 						master = self,
 						periodMS = self.archiver.get(ac.periodMS),
 						slaveListIID =	self.slaveList.insert(
 							'', 'end', 
 							values = (
-							fetched[8] + 1,
-							fetched[0], # name 
-							fetched[1], # MAC 
-							sv.translate(fetched[2]), # Status as str
-							fetched[5],	 # IP as str
-							fetched[4], # Active fans as int 
-							fetched[12]),# Version
-							tag = sv.translate(fetched[2], True)),
+							fetched[0][8] + 1,
+							fetched[0][0], # name 
+							fetched[0][1], # MAC 
+							sv.translate(fetched[0][2]), # Status as str
+							fetched[0][5],	 # IP as str
+							fetched[0][4], # Active fans as int 
+							fetched[0][12]),# Version
+							tag = sv.translate(fetched[0][2], True)),
 										#        \------/ Status (int)
-						index = fetched[8],
-						coordinates = fetched[9],
-						moduleDimensions = fetched[10],
-						moduleAssignment = fetched[11],
-						version = fetched[12]
+						index = fetched[0][8],
+						coordinates = fetched[0][9],
+						moduleDimensions = fetched[0][10],
+						moduleAssignment = fetched[0][11],
+						version = fetched[0][12]
 					)
 				
 				# Add to SlaveContainer array:
@@ -1250,14 +1270,18 @@ class FCInterface(Tk.Frame):
 
 				# Add to Printer's list:
 				self.printer.add(
-					mac = fetched[1], # MAC
-					index = fetched[8], # Index
-					activeFans = fetched[4], # Active fans
+					mac = fetched[0][1], # MAC
+					index = fetched[0][8], # Index
+					activeFans = fetched[0][4], # Active fans
 				)
 			
 			# Schedule next call -----------------------------------------------
-			self.after(
-				self.archiver.get(ac.periodMS)/2, self._newSlaveChecker)
+			if fetched is not None and fetched[1]:
+				self.after(
+					self.archiver.get(ac.periodMS)/10, self._newSlaveChecker)
+			else:
+				self.after(
+					self.archiver.get(ac.periodMS)/10, self._newSlaveChecker)
 
 		except Exception as e: # Print uncaught exceptions
 			self.printMain("[NS] UNCAUGHT EXCEPTION: \"{}\"".\
@@ -1827,11 +1851,16 @@ class FCInterface(Tk.Frame):
 	def _shutdownButton(self): # ===============================================
 		# ABOUT: To be bound to shutdownButton
 
-		self.printMain("Shutdown button pressed. Terminating connections", 
-			"E")
+		self.printMain("Shutting down fan array", "W")
 
-		for slaveContainer in self.slaveContainers:
-			slaveContainer.mosiMethod("X", False)
+		this.communicator.sendReboot();
+
+	def _disconnectAllButton(self): # ===============================================
+		# ABOUT: To be bound to disconnectAllButton
+
+		self.printMain("Shutting down fan array", "W")
+
+		this.communicator.sendDisconnect();
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList
@@ -1883,10 +1912,10 @@ class FCInterface(Tk.Frame):
 			commandKeyword = ""
 
 			if self.selectedCommand.get() == "Set Duty Cycle":
-				commandKeyword += "D:{}".format(float(
+				commandKeyword += "S|D:{}".format(float(
 					self.commandEntry.get())/100.0)
 			elif self.selectedCommand.get() == "Chase RPM":
-				commandKeyword += "C:{}".format(self.commandEntry.get())
+				commandKeyword += "S|C:{}".format(self.commandEntry.get())
 
 			else:
 				# Unrecognized command (wat):
@@ -1936,8 +1965,28 @@ class FCInterface(Tk.Frame):
 		self.communicator.add(targetIndex)
 
 		# End connectSlave =====================================================
+	
+	def disconnectSlave(self, targetIndex): # ==================================
+		# ABOUT: Tell Communicator to disconnect specified Slave.
 
-	def _connectAllSlaves(self): # =========================================
+		# NOTE: At least for now, this method is, no more than a wrapper around
+		# FCCommunicator's add() method...
+		
+		self.communicator.disconnectSlave(targetIndex)
+
+		# End disconnectSlave ==================================================
+	
+	def rebootSlave(self, targetIndex): # ======================================
+		# ABOUT: Tell Communicator to connect to specified Slave.
+
+		# NOTE: At least for now, this method is, no more than a wrapper around
+		# FCCommunicator's add() method...
+		
+		self.communicator.rebootSlave(targetIndex)
+
+		# End rebootSlave ======================================================
+
+	def _connectAllSlaves(self): # =============================================
 		# ABOUT: Connect to all AVAILABLE Slaves, if any.
 
 		# Loop over Slaves and add all AVAILABLE ones:
@@ -1945,7 +1994,18 @@ class FCInterface(Tk.Frame):
 			if slaveContainer.status == sv.AVAILABLE:
 				self.communicator.add(slaveContainer.index)
 
-		# End addAllSlaves =============================================
+		# End addAllSlaves =====================================================
+
+	def _deactivationRoutine(self):
+		# ABOUT: To be executed upon exit
+
+		# Reboot all Slaves:
+		self.communicator.sendDisconnect()
+
+		# Close:
+		self.master.quit()
+
+		# End _deactivationRoutine =============================================
 	
 	def _fileNameEntryCheck(self, *args): # ====================================
 		# ABOUT: Validate the file name entered.
