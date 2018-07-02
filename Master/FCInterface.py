@@ -1853,14 +1853,14 @@ class FCInterface(Tk.Frame):
 
 		self.printMain("Shutting down fan array", "W")
 
-		this.communicator.sendReboot();
+		self.communicator.sendReboot();
 
 	def _disconnectAllButton(self): # ===============================================
 		# ABOUT: To be bound to disconnectAllButton
 
 		self.printMain("Shutting down fan array", "W")
 
-		this.communicator.sendDisconnect();
+		self.communicator.sendDisconnect();
 
 	def _slaveListMethod(self, event): # =======================================
 		# ABOUT: Handle selections on SlaveList

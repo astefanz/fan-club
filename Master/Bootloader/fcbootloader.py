@@ -2,11 +2,12 @@ import socket as s
 import SimpleHTTPServer
 import SocketServer
 import threading
+
 import time
 
-FILENAME = "fc1_9a.bin"
-FILESIZE = 160792  # bytes 
-VERSION = "SP 1.9a"
+FILENAME = "fc1_9m.bin"
+FILESIZE = 136676  # bytes 
+VERSION = "SP 1.9m"
 
 SPAM_PERIOD = 1 # seconds
 

@@ -487,7 +487,7 @@ class SlaveDisplay(Tk.Frame):
 	def disconnect(self): # ====================================================
 		# ABOUT: Disconnect from a CONNECTED sv.
 
-		if self.status == CONNECTED:
+		if self.status == sv.CONNECTED:
 			self.disconnectMethod(self.target.index)
 
 	def reboot(self): # ========================================================

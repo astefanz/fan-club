@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "S1.17"
+#define FCIIB_VERSION "bt1"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -65,6 +65,7 @@
 #define SHUTDOWN_COMMAND 'R'
 #define LAUNCH_COMMAND 'L'
 #define DISCONNECT_COMMAND 'X'
+#define WAIT_COMMAND 'E'
 
 // Storage:
 #define FLASH_BUFFER_SIZE 1024*1000 // Have 1,000 KB download buffer
@@ -129,7 +130,7 @@ void _storeFragment(const char buffer[], size_t size);
 
 // Network ---------------------------------------------------------------------
 void sendError(const char message[], size_t length);	
-void _watchConnection(void);
+//void _watchConnection(void);
 
 //// MAIN //////////////////////////////////////////////////////////////////////
 int main() {
@@ -211,7 +212,11 @@ int main() {
 		if (result == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
 			// Check network status
-			
+			printf("\n\r\tWaiting [%10lu] (Connection: Unknown)",
+				timeouts++);
+		/*
+
+		
 			nsapi_connection_status_t cstatus = 
 				ethernet->get_connection_status();
 			switch(cstatus){
@@ -234,7 +239,7 @@ int main() {
 					printf("\n\rERROR: UNRECOGNIZED NETWORK STATUS CODE %d",
 						cstatus);
 			}
-			
+		*/	
 		} else if (result <= 0){
 			// Network error
 			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r", 
@@ -396,9 +401,9 @@ int main() {
 					printf("\n\rUpdating\n\r");
 					
 					// Start sentinel thread in case of mid-flash disconnection:
-					printf("\n\rActivating connection sentinel thread:");
-					connectionSentinel.set_priority(osPriorityBelowNormal);
-					connectionSentinel.start(_watchConnection);
+					//printf("\n\rActivating connection sentinel thread:");
+					//connectionSentinel.set_priority(osPriorityBelowNormal);
+					//connectionSentinel.start(_watchConnection);
 					printf("\n\r\tDone");
 					// Download file -------------------------------------------
 						
@@ -439,12 +444,14 @@ int main() {
 					// (Even if there is a disconnection, we do not want the
 					// flashing to the actual application memory to be cut
 					// short)
+					/*
 					printf("\n\rDeactivating connection sentinel thread:");
 					watchFlagLock.lock();
 					watchFlag = false;
 					watchFlagLock.unlock();
 					connectionSentinel.join();
 					printf("\n\r\tDone");
+					*/
 					BTUtils::setLED(BTUtils::RED, BTUtils::ON);
 	
 					// Flash file ----------------------------------------------
@@ -466,7 +473,10 @@ int main() {
 					}
 
 					BTFlash::flashIAP.deinit();
-					
+
+					printf("\n\rDeactivating network interface");
+					ethernet->disconnect();
+					printf("\n\r\tDone");
 
 					// Jump to MkII --------------------------------------------
 					BTUtils::launch();
@@ -487,6 +497,10 @@ int main() {
 						
 						// Detach ticker:
 						ticker.detach();
+
+						printf("\n\rDeactivating network interface");
+						ethernet->disconnect();
+						printf("\n\r\tDone");
 						
 						// Jump to MkII:
 						BTUtils::launch();
@@ -538,7 +552,13 @@ int main() {
 					}
 					
 					continue;
+					break;
 
+				case WAIT_COMMAND: // Stop timeout .............................
+					printf("\n\rTimeout counter reset");
+					timeouts = 0;
+
+					continue;
 					break;
 
 				default: // Unrecognized command specifier .....................
@@ -558,6 +578,10 @@ int main() {
 		} // End message reception test
 
 	} while(timeouts < MAX_TIMEOUTS);
+
+	printf("\n\rDeactivating network interface");
+	ethernet->disconnect();
+	printf("\n\r\tDone");					
 
 	// Launch MkII:
 	printf("\n\rTimeout limit reached. Launching MkII");
@@ -720,7 +744,7 @@ void sendError(const char message[], size_t length){
 	return;
 
 } // End sendError
-
+/*
 void _watchConnection(void){
 	// Check connection status in case of mid-flash disconnect
 	bool keepWatching = true;
@@ -746,3 +770,4 @@ void _watchConnection(void){
 	}
 
 } // End _watchConnection
+*/

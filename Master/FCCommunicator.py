@@ -319,24 +319,27 @@ class FCCommunicator:
 
 				self.broadcastLock.acquire()
 				self.broadcastSwitchLock.acquire()
-				try:
-					# Send broadcast only if self.broadcastSwitch is True:
-					if self.broadcastSwitch:
-						# Broadcast message:
-						for i in (1,2):
-							self.broadcastSocket.sendto(broadcastMessage, 
-								("<broadcast>", 65000))
+				# Send broadcast only if self.broadcastSwitch is True:
+				if self.broadcastSwitch:
+					# Broadcast message:
+					for i in (1,2):
+						self.broadcastSocket.sendto(broadcastMessage, 
+							("<broadcast>", 65000))
 
+				self.broadcastSwitchLock.release()
+				self.broadcastLock.release()
 
-				finally:
-					# Guarantee lock release:
-					self.broadcastSwitchLock.release()
-					self.broadcastLock.release()
+				# Guarantee lock release:
 			
 		except Exception as e:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
+			try:
+				self.broadcastSwitchLock.release()
+				self.broadcastLock.release()
+			except thread.error:
+				pass
 
 		# End _broadcastRoutine ================================================
 
@@ -1287,6 +1290,9 @@ class FCCommunicator:
 		except Exception as e:
 			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
 			   format(traceback.format_exc()), "E")
+		finally:
+			self.broadcastLock.release()
+
 
 	def rebootSlave(self, target):
 		
@@ -1300,6 +1306,9 @@ class FCCommunicator:
 		except Exception as e:
 			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
 			   format(traceback.format_exc()), "E")
+		finally:
+			self.broadcastLock.release()
+
 
 
 	def sendReboot(self):
