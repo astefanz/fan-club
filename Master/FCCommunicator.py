@@ -196,6 +196,52 @@ class FCCommunicator:
 			self.printM("\tbroadcastSocket initialized on " + \
 				str(self.broadcastSocket.getsockname()))
 
+			# Create reboot socket:
+			self.rebootSocket = socket.socket(
+				socket.AF_INET, socket.SOCK_DGRAM)
+
+			# Configure socket as "reusable" (in case of improper closure): 
+			self.rebootSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+			# Configure socket for rebooting:
+			self.rebootSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+			# Bind socket to "nothing" (Broadcast on all interfaces and let OS 
+			# assign port number):
+			self.rebootSocket.bind((FORCE_IP_ADDRESS, 0))
+
+			self.rebootSocketPort = self.rebootSocket.getsockname()[1]
+
+			self.rebootLock = threading.Lock()
+
+			self.printM("\trebootSocket initialized on " + \
+				str(self.rebootSocket.getsockname()))
+
+			# Create disconnect socket:
+			self.disconnectSocket = socket.socket(
+				socket.AF_INET, socket.SOCK_DGRAM)
+
+			# Configure socket as "reusable" (in case of improper closure): 
+			self.disconnectSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+			# Configure socket for disconnecting:
+			self.disconnectSocket.setsockopt(
+				socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+			# Bind socket to "nothing" (Broadcast on all interfaces and let OS 
+			# assign port number):
+			self.disconnectSocket.bind((FORCE_IP_ADDRESS, 0))
+
+			self.disconnectSocketPort = self.disconnectSocket.getsockname()[1]
+
+			self.disconnectLock = threading.Lock()
+
+			self.printM("\tdisconnectSocket initialized on " + \
+				str(self.disconnectSocket.getsockname()))
+
 			# Reset any existing phantom connections:
 			self.sendDisconnect()
 
@@ -317,8 +363,8 @@ class FCCommunicator:
 				# Wait designated period:
 				time.sleep(broadcastPeriod)
 
-				self.broadcastLock.acquire()
-				self.broadcastSwitchLock.acquire()
+				#self.broadcastLock.acquire()
+				#self.broadcastSwitchLock.acquire()
 				# Send broadcast only if self.broadcastSwitch is True:
 				if self.broadcastSwitch:
 					# Broadcast message:
@@ -326,8 +372,8 @@ class FCCommunicator:
 						self.broadcastSocket.sendto(broadcastMessage, 
 							("<broadcast>", self.broadcastPort))
 
-				self.broadcastSwitchLock.release()
-				self.broadcastLock.release()
+				#self.broadcastSwitchLock.release()
+				#self.broadcastLock.release()
 
 				# Guarantee lock release:
 			
@@ -335,11 +381,11 @@ class FCCommunicator:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
-			try:
-				self.broadcastSwitchLock.release()
-				self.broadcastLock.release()
-			except thread.error:
-				pass
+			#try:
+				#self.broadcastSwitchLock.release()
+				#self.broadcastLock.release()
+			#except thread.error:
+				#pass
 
 		# End _broadcastRoutine ================================================
 
@@ -599,12 +645,14 @@ class FCCommunicator:
 			# MISO:
 			misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			misoS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 			misoS.settimeout(self.periodS*2)
 			misoS.bind(('', 0))
 
 			# MOSI:
 			mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 			mosiS.settimeout(self.periodS)
 			mosiS.bind(('', 0))
 			
@@ -704,7 +752,7 @@ class FCCommunicator:
 								secondChance = False
 							
 							else:
-								self._send("X", slave, 1)
+								self._send("R", slave, 1)
 								slave.setStatus(sv.DISCONNECTED, lock = False) 
 									# NOTE: This call also resets exchange 
 									# index.
@@ -726,13 +774,20 @@ class FCCommunicator:
 						if message is None:
 							# Nothing to fetch. Send previous command
 							message = previousMessage
+							
+							# Send message:
+							self._send(message, slave, 2)
 
+						elif message == "X" or message == "R":
+							# Send disconnect or reboot messages to listener:
+							self._sendToListener(message, slave, 2)
+						
 						else:
 							# New message to be sent, save it
 							previousMessage = message 
 
-						# Send message:
-						self._send(message, slave, 2)
+							# Send message:
+							self._send(message, slave, 2)
 
 						"""
 						if not timestampedDCFirst:
@@ -887,7 +942,7 @@ class FCCommunicator:
 								# Terminate connection: ........................
 
 								# Send termination message:
-								self._send("X", slave)
+								self._sendToListener("X", slave)
 
 								# Reset timeout counter:
 								timeouts = 0
@@ -928,7 +983,7 @@ class FCCommunicator:
 									slave.setStatus(sv.CONNECTED)
 							
 							else:
-								self.disconnectSlave(targetIndex)
+								self._sendToListener("X", slave)
 
 				except Exception as e: # Print uncaught exceptions
 					self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
@@ -960,7 +1015,7 @@ class FCCommunicator:
 		# be accessed by the user of a Communicator instance, see INTERFACE ME-
 		# THODS below.
 
-	def _send(self, message, slave ,repeat = 1, hsk = False): # # # # # # # # # 
+	def _send(self, message, slave, repeat = 1, hsk = False): # # # # # # # # # 
 		# ABOUT: Send message to a KNOWN or CONNECTED sv. Automatically add
 		# index.
 		# PARAMETERS:
@@ -969,6 +1024,7 @@ class FCCommunicator:
 		#   undefined)
 		# - repeat: How many times to send message.
 		# - hsk: Bool, whether this message is a handshake message.
+		# - broadcast: Bool, whether to send this message as a broad
 		# WARNING: THIS METHOD ASSUMES THE SLAVE'S LOCK IS HELD BY ITS CALLER.
 
 		if not hsk:
@@ -978,10 +1034,11 @@ class FCCommunicator:
 			# Set index to zero:
 			slave.setMOSIIndex(0)
 
+		# Prepare message:
+		outgoing = "{}|{}".format(slave.getMOSIIndex(), message)
+
 		# Send message:
 		for i in range(repeat):
-			outgoing = "{}|{}".format(
-			slave.getMOSIIndex(), message)
 			slave._mosiSocket().sendto(outgoing,
 				(slave.ip, slave.getMOSIPort()))
 
@@ -990,6 +1047,28 @@ class FCCommunicator:
 		#   format(outgoing, (slave.ip, slave.mosiP), repeat))
 
 		# End _send # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+	def _sendToListener(self, message, slave, repeat = 1, targetted = True): # #
+		# ABOUT: Send a message to a given Slave's listener socket.
+
+
+		if targetted and slave.ip is not None:
+			# Send to listener socket:
+			# Prepare message:
+			outgoing = "{}|{}".format(message, self.passcode)
+			for i in range(repeat):
+				slave._mosiSocket().sendto(outgoing, 
+				(slave.ip, self.broadcastPort))	
+		else:
+			# Send through broadcast:
+			# Prepare message:
+			outgoing = "J|{}|{}|{}".format(
+				self.passcode, slave.getMAC(), message)
+			for i in range(repeat):
+				slave._mosiSocket().sendto(outgoing, 
+				("<broadcast>", self.broadcastPort))	
+
+		# End _sendToListener # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 	def _receive(self, slave): # # # # # # # # # # # # # # # # # # # # # # # # # 
 		# ABOUT: Receive a message on the given Slave's sockets (assumed to be
@@ -1278,46 +1357,13 @@ class FCCommunicator:
 
 		# End isListenerThreadAlive ============================================
 	
-	def disconnectSlave(self, target):
-		
-		try:
-			if self.slaves[target].getIP() is not None:
-				self.broadcastLock.acquire()
-				self.broadcastSocket.sendto(
-					"X|{}".format(self.passcode),
-					(self.slaves[target].getIP(), self.broadcastPort))
-
-		except Exception as e:
-			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
-			   format(traceback.format_exc()), "E")
-		finally:
-			self.broadcastLock.release()
-
-
-	def rebootSlave(self, target):
-		
-		try:
-			if self.slaves[target].getIP() is not None:
-				self.broadcastLock.acquire()
-				self.broadcastSocket.sendto(
-					"R|{}".format(self.passcode),
-					(self.slaves[target].getIP(), self.broadcastPort))
-
-		except Exception as e:
-			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
-			   format(traceback.format_exc()), "E")
-		finally:
-			self.broadcastLock.release()
-
-
-
 	def sendReboot(self):
 		# ABOUT: Use broadcast socket to send a general "disconnect" message
 		# that terminates any existing connection.
 
 		try:
-			self.broadcastLock.acquire()
-			self.broadcastSocket.sendto(
+			#self.broadcastLock.acquire()
+			self.rebootSocket.sendto(
 				"R|{}".format(self.passcode),
 				("<broadcast>", self.broadcastPort))
 
@@ -1325,17 +1371,17 @@ class FCCommunicator:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
 			   format(traceback.format_exc()), "E")
 
-		finally:
-			self.broadcastLock.release()
+		#finally:
+			#self.broadcastLock.release()
 
 
 	def sendDisconnect(self):
-		# ABOUT: Use broadcast socket to send a general "disconnect" message
+		# ABOUT: Use disconenct socket to send a general "disconnect" message
 		# that terminates any existing connection.
 
 		try:
-			self.broadcastLock.acquire()
-			self.broadcastSocket.sendto(
+			#self.broadcastLock.acquire()
+			self.disconnectSocket.sendto(
 				"X|{}".format(self.passcode),
 				("<broadcast>", self.broadcastPort))
 
@@ -1343,8 +1389,6 @@ class FCCommunicator:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
 			   format(traceback.format_exc()), "E")
 
-		finally:
-			self.broadcastLock.release()
 
 	"""
 	def _saveTimeStamp(self, index, message):

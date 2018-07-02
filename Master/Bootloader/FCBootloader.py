@@ -30,7 +30,6 @@ GUI for FC Bootloader
 
 ## DEPENDENCIES ################################################################
 from mttkinter import mtTkinter as Tk
-import tkFileDialog
 import tkMessageBox
 
 import socket as s
@@ -38,6 +37,10 @@ import SimpleHTTPServer
 import SocketServer
 import threading
 import traceback
+
+import FCBTSlaveTable as st
+import FCBTFileChooser as fr
+import FCBTCommunicator as cm
 
 ## AUXILIARY FUNCTIONS #########################################################
 
@@ -74,7 +77,6 @@ class FCBootloader:
 				self.container = self.root
 
 
-			self.container.pack(fill = Tk.BOTH, expand = True)
 			
 			self.root.title("FCMkII Bootloader")
 			self.root.lift()
@@ -86,31 +88,45 @@ class FCBootloader:
 			self.container.config(bg = self.background)
 
 			# File chooser -----------------------------------------------------
-			self.fileChooserFrame = Tk.Frame(self.container, bg = self.background)
-
-			self.topLabel = Tk.Label(self.fileChooserFrame, 
-				bg = self.background, fg = self.foreground, 
-				text = "Choose file pls")
-			self.topLabel.pack(expand = False, side = Tk.TOP, anchor = Tk.N)
-			self.fileChooserFrame.pack(side = Tk.TOP, expand = False)
-
-			# Broadcast control ------------------------------------------------
-			self.broadcastFrame = Tk.Frame(self.container, bg = "black")
+			self.fileChooserFrame = Tk.Frame(
+				self.container, bg = self.background)
+			self.fileChooser = 	fr.FCBTFileChooser(self.fileChooserFrame)
+			self.fileChooser.pack(
+				side = Tk.LEFT, fill = Tk.X, expand = True)
+			self.fileChooserFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True)
 			
+			# Communications control --------------------------------------------
+			self.communicatorFrame = Tk.Frame(self.container, 
+				bg = "red")
+
+			self.communicator = cm.FCBTCommunicator(self.communicatorFrame)			
+			self.communicator.pack(
+				fill = Tk.BOTH, expand = True)
+
+
+			self.communicatorFrame.pack( fill = Tk.BOTH,
+				expand = True)
+		
 			# List -------------------------------------------------------------
 			self.listFrame = Tk.Frame(self.container, bg= "black")
 
+			# Widget:
+			self.slaveTable = st.FCBTSlaveTable(self.listFrame)
+			self.slaveTable.pack(fill = Tk.BOTH, expand = True)
 			
-			# Status -----------------------------------------------------------
-			self.statusFrame = Tk.Frame(self.container, bg = "red")
+			self.listFrame.pack(fill = Tk.BOTH, expand = True)
 
-			# Slave list -------------------------------------------------------
+			# Status -----------------------------------------------------------
+			self.statusFrame = Tk.Frame(self.container, bg = self.background)
+
 
 			#self.root.pack()		
 			self.root.update()
 			self.root.geometry("400x300")
 			self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
 
+			self.container.pack(fill = Tk.BOTH, expand = True)
+			
 			if standalone:
 				self.root.mainloop()
 

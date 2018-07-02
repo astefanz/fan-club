@@ -1968,21 +1968,31 @@ class FCInterface(Tk.Frame):
 	
 	def disconnectSlave(self, targetIndex): # ==================================
 		# ABOUT: Tell Communicator to disconnect specified Slave.
-
-		# NOTE: At least for now, this method is, no more than a wrapper around
-		# FCCommunicator's add() method...
 		
-		self.communicator.disconnectSlave(targetIndex)
+		try:
+			self.slaveContainers[targetIndex].mosiMethod("X", False)
+		
+		except Queue.Full:
+			self.printMain( "[{}] "\
+				"Warning: Outgoing command Queue full. "\
+				"Could not send disconnect message".\
+				format(targetIndex + 1), "E")
+
 
 		# End disconnectSlave ==================================================
 	
 	def rebootSlave(self, targetIndex): # ======================================
-		# ABOUT: Tell Communicator to connect to specified Slave.
-
-		# NOTE: At least for now, this method is, no more than a wrapper around
-		# FCCommunicator's add() method...
+		# ABOUT: Tell Communicator to reboot specified Slave.
 		
-		self.communicator.rebootSlave(targetIndex)
+		try:
+			self.slaveContainers[targetIndex].mosiMethod("R", False)
+		
+		except Queue.Full:
+			self.printMain( "[{}] "\
+				"Warning: Outgoing command Queue full. "\
+				"Could not send reboot message".\
+				format(targetIndex + 1), "E")
+
 
 		# End rebootSlave ======================================================
 

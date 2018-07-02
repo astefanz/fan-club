@@ -21,7 +21,7 @@ const int
 	NO_TARGET = -1;
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
-PwmOut PWMS[24] = {
+PinName PWMS[24] = {
 	PB_11,	// A	// 0 --> A
 	PB_10,	// B
 	PE_14,	// C
@@ -170,7 +170,7 @@ Fan::Fan(){
     initialized = false;    
 } // End Fan constructor
 
-bool Fan::configure(PwmOut pwmPin, PinName tachPin, uint32_t frequencyHZ,
+bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
 		uint8_t maxTimeouts){
 	/* ABOUT: Configure a fan for usage. Can be called more than once.

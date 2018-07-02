@@ -20,7 +20,9 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCMKII_VERSION "SV1"
+#define FCMKII_VERSION "SV2"
+// Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
+// PwmOut
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 

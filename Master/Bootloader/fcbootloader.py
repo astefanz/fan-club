@@ -5,9 +5,9 @@ import threading
 
 import time
 
-FILENAME = "sp110l.bin"
-FILESIZE = 136796  # bytes 
-VERSION = "SP 1.10l"
+FILENAME = "SV1_a.bin"
+FILESIZE = 161100  # bytes 
+VERSION = "SV1"
 
 SPAM_PERIOD = 1 # seconds
 
