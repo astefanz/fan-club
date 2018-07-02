@@ -181,7 +181,6 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			if(this->getStatus() == CONNECTED){
 				// Connected to Master. Increment Master timeouts:
 				this->_incrementTimeouts();
-				/*
 				// Check network status:
 				nsapi_connection_status_t netStatus = 
 					this->ethernet.get_connection_status();
@@ -193,7 +192,6 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					// Set status to NO_NETWORK:
 					this->_setStatus(NO_NETWORK);
 				}
-				*/
 				// Check threshold:
 				//	this->maxMasterTimeoutsLock.lock();
 				if(this->_getTimeouts() < this->maxMasterTimeouts){
@@ -219,7 +217,6 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			}else{
 				// Not connected to Master.
 				// NOTE: CANNOT TEST NETWORK STATUS W/ MBED 5.4.9
-				/*
 				// Check network status:
 				nsapi_connection_status_t netStatus = 
 					this->ethernet.get_connection_status();
@@ -234,10 +231,6 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					pl;printf("\n\r[%08dms][L] Standing by...",tm);pu;
 				
 				}
-				*/
-				pl;printf("\n\r[%08dms][L] Standing by... (No network checks)",
-					tm);pu;
-
 			} // End if socket timeout
 
 			// Restart loop:
@@ -841,8 +834,8 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 		} else {
 			
 			pl;printf(
-				"\n\r[%08dms][I][E] WARNING: Could not classify message",
-				tm);pu;
+				"\n\r[%08dms][I][E] WARNING: Could not classify code \"%c\"",
+				tm, specifier);pu;
 		} // End verify reception
 
 	} // End MOSI loop =========================================================

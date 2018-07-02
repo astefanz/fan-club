@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "bt1"
+#define FCIIB_VERSION "BT1"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -149,7 +149,7 @@ int main() {
 	// Print initialization message:
 	printf("\n\n\r==========================================================="\
 	"=====================\n\r");
-	printf("FCMkII Bootloader (\"%s\") (%d KB) (Port: %d)\n\r", 
+	printf("FCMkII Bootloader (\"%s\") (%d KB) (Port: %d) (mbed-os 5.9...)\n\r", 
 		FCIIB_VERSION, FLASH_BUFFER_SIZE/1000, LISTENER_PORT);
 	printf("----------------------------------------------------------------"\
 		"----------------\n\r");
@@ -212,11 +212,7 @@ int main() {
 		if (result == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
 			// Check network status
-			printf("\n\r\tWaiting [%10lu] (Connection: Unknown)",
-				timeouts++);
-		/*
-
-		
+			
 			nsapi_connection_status_t cstatus = 
 				ethernet->get_connection_status();
 			switch(cstatus){
@@ -239,7 +235,6 @@ int main() {
 					printf("\n\rERROR: UNRECOGNIZED NETWORK STATUS CODE %d",
 						cstatus);
 			}
-		*/	
 		} else if (result <= 0){
 			// Network error
 			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r", 
@@ -474,7 +469,8 @@ int main() {
 
 					BTFlash::flashIAP.deinit();
 
-					printf("\n\rDeactivating network interface");
+					printf("\n\rDeactivating network interface and UDP Socket");
+					listenerSocket.close();
 					ethernet->disconnect();
 					printf("\n\r\tDone");
 
@@ -498,7 +494,9 @@ int main() {
 						// Detach ticker:
 						ticker.detach();
 
-						printf("\n\rDeactivating network interface");
+						printf(
+							"\n\rDeactivating network interface and UDP Socket");
+						listenerSocket.close();
 						ethernet->disconnect();
 						printf("\n\r\tDone");
 						
@@ -579,7 +577,8 @@ int main() {
 
 	} while(timeouts < MAX_TIMEOUTS);
 
-	printf("\n\rDeactivating network interface");
+	printf("\n\rDeactivating network interface and UDP Socket");
+	listenerSocket.close();
 	ethernet->disconnect();
 	printf("\n\r\tDone");					
 

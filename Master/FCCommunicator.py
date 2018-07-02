@@ -303,9 +303,9 @@ class FCCommunicator:
 
 			broadcastSocketPortCopy = self.broadcastSocketPort # Thread safety
 
-			self.printM("[BT] Broadcast thread started w/ period of {} "\
-				"second(s)"\
-				.format(broadcastPeriod), "G")
+			self.printM("[BT] Broadcast thread started w/ period of {}s "\
+				"on port {}"\
+				.format(broadcastPeriod, self.broadcastPort), "G")
 
 			count = 0
 
@@ -324,7 +324,7 @@ class FCCommunicator:
 					# Broadcast message:
 					for i in (1,2):
 						self.broadcastSocket.sendto(broadcastMessage, 
-							("<broadcast>", 65000))
+							("<broadcast>", self.broadcastPort))
 
 				self.broadcastSwitchLock.release()
 				self.broadcastLock.release()
@@ -1285,7 +1285,7 @@ class FCCommunicator:
 				self.broadcastLock.acquire()
 				self.broadcastSocket.sendto(
 					"X|{}".format(self.passcode),
-					(self.slaves[target].getIP(), 65000))
+					(self.slaves[target].getIP(), self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
@@ -1301,7 +1301,7 @@ class FCCommunicator:
 				self.broadcastLock.acquire()
 				self.broadcastSocket.sendto(
 					"R|{}".format(self.passcode),
-					(self.slaves[target].getIP(), 65000))
+					(self.slaves[target].getIP(), self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[rS] UNCAUGHT EXCEPTION: \"{}\"".
@@ -1319,7 +1319,7 @@ class FCCommunicator:
 			self.broadcastLock.acquire()
 			self.broadcastSocket.sendto(
 				"R|{}".format(self.passcode),
-				("<broadcast>", 65000))
+				("<broadcast>", self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
@@ -1337,7 +1337,7 @@ class FCCommunicator:
 			self.broadcastLock.acquire()
 			self.broadcastSocket.sendto(
 				"X|{}".format(self.passcode),
-				("<broadcast>", 65000))
+				("<broadcast>", self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".

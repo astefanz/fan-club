@@ -98,11 +98,11 @@ class FCBootloader:
 			self.broadcastFrame = Tk.Frame(self.container, bg = "black")
 			
 			# List -------------------------------------------------------------
-			self.listFrame = Tk.Frame(self.container, bg= "black"
+			self.listFrame = Tk.Frame(self.container, bg= "black")
 
 			
 			# Status -----------------------------------------------------------
-			self.statusFrame = Tk.Frame(self.container, bg = "red"
+			self.statusFrame = Tk.Frame(self.container, bg = "red")
 
 			# Slave list -------------------------------------------------------
 
