@@ -47,7 +47,7 @@ import FCInterface as FCI
 
 AVAILABLE = -2
 KNOWN = -1
-DISCONNECTED = 0
+DISCONNECTED = -3
 CONNECTED = 1
 
 # SLAVE UPDATE CODES:
@@ -92,9 +92,8 @@ class FCSlave:
 	# ABOUT: Representation of connected Slave model, primarily a container with
 	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, name, mac, status, maxFans, activeFans, routine, 
-		routineArgs, misoQueueSize, index, pinout, version = "MkII(?)",
-		coordinates = None, moduleDimensions = (0,0), moduleAssignment = "",
+	def __init__(self, mac, status, routine, 
+		routineArgs, misoQueueSize, index, version = "MkII(?)",
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None):
 		# ABOUT: Constructor for class Slave.
 	
@@ -106,15 +105,8 @@ class FCSlave:
 		#
 		#	ATTRIBUTE			KIND		MODIFIER		THREADING
 		#	--------------------------------------------------------------------
-		#	Name				constant	None (R.O)		Free (R.O)
 		#	MAC Address			constant	None (R.O)		Free (R.O)
 		#	Status				variable	LT & ST			Full lock on set
-		#	....................................................................
-		#	Max fans			constant	Any (R.O)		Free (R.O)
-		#	Active fans			constant	Any (R.O)		Free (R.O)	
-		#	Coordinates			variable	FCI				Locked get/set
-		#	Module Dimensions	variable	FCI				Locked get/set
-		#	Module Assignment	variable	FCI				Locket get/set
 		#	....................................................................
 		#	MOSI index			volatile	ST				Locked get/set
 		#	MISO index			volatile	ST (_receive)	Locked get/set
@@ -135,10 +127,7 @@ class FCSlave:
 		# Validate parameters ..................................................
 			# Because Lord knows something will go wrong.
 		
-		if type(name) is not str:
-			raise TypeError(
-				"Attribute 'name' must be str, not {}".format(type(name)))
-		elif type(mac) is not str:
+		if type(mac) is not str:
 			raise TypeError(
 				"Attribute 'mac' must be str, not {}".format(type(mac)))
 		elif type(status) is not int:
@@ -147,14 +136,6 @@ class FCSlave:
 		elif status not in (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE):
 			raise ValueError("Argument 'status' must be valid status code "\
 				"(not {})".format(status))
-		elif type(maxFans) is not int:
-			raise TypeError(
-				"Attribute 'maxFans' must be int, not {}".\
-				format(type(maxFans)))
-		elif type(activeFans) is not int:
-			raise TypeError(
-				"Attribute 'activeFans' must be int, not {}".\
-				format(type(activeFans)))
 		elif type(routine) is not type(self.getMAC):
 			raise TypeError(
 				"Attribute 'routine' must be function, not {}".\
@@ -179,27 +160,6 @@ class FCSlave:
 			raise TypeError(
 				"Attribute 'version' must be int, not {}".\
 				format(type(version)))
-		elif type(coordinates) not in (tuple, type(None)):
-			raise TypeError(
-				"Attribute 'coordinates' must be tuple or None, not {}".\
-				format(type(coordinates)))
-		elif type(moduleDimensions) is not tuple:
-			raise TypeError(
-				"Attribute 'moduleDimensions' must be tuple, not {}".\
-				format(type(coordinates)))
-		elif len(moduleDimensions) != 2:
-			raise ValueError(
-				"Attribute 'moduleDimensions' must be "\
-				"of length 2, not {}".\
-				format(len(moduleDimensions)))
-		elif type(moduleDimensions[0]) is not int or \
-			type(moduleDimensions[1]) is not int:
-				raise TypeError("Types of values in attribute "\
-					"'moduleDimensions' must be int and int, not {} and {}".\
-					format(type(moduleDimensions[0], moduleDimensions[1])))
-		elif type(moduleAssignment) is not str:
-			raise TypeError("Attribute 'moduleAssignment' must be str, not {}".\
-				format(type(moduleAssignment)))
 		elif type(ip) not in (str, type(None)):
 			raise TypeError(
 				"Attribute 'ip' must be str or None, not {}".\
@@ -242,22 +202,7 @@ class FCSlave:
 		# Initialize variable attributes .......................................
 		self.status = status
 		self.statusLock = threading.Lock()
-		
-		# Coordinates:
-		self.coordinates = coordinates
-		self.coordinatesLock = threading.Lock()
-		
-		# Module dimensions:
-		self.moduleDimensions = moduleDimensions
-		self.moduleDimensionsLock = threading.Lock()
-
-		# Module assignment:
-		self.moduleAssignment = moduleAssignment
-		self.moduleAssignmentLock = threading.Lock()
-
-		# Pinout and version:
-		self.pinout = pinout
-		self.pinoutLock = threading.Lock()
+			
 		self.version = version
 		self.versionLock = threading.Lock()
 
@@ -319,15 +264,7 @@ class FCSlave:
 		# End start ============================================================
 		
 	# GETTERS FOR CONSTANT ATTRIBUTES ##########################################
-
-	def getName(self): # =======================================================
-		# ABOUT: Getter for this Slave's name.
-		# NOTE: Since this attribute is "read only," lock usage is neglected.
-
-		return self.name
-
-		# End getName ==========================================================
-
+	
 	def getMAC(self): # ========================================================
 		# ABOUT: Getter for this Slave's MAC address.
 		# NOTE: Since this attribute is "read only," lock usage is neglected.
@@ -342,24 +279,6 @@ class FCSlave:
 		return self.index
 		
 		# End getIndex =========================================================
-	
-	def getActiveFans(self): # =================================================
-		# ABOUT: Getter for this Slave's active fan count.
-		# NOTE: Since this attribute is "read only," lock usage is neglected.
-
-		return self.activeFans
-
-		# End getActiveFans ====================================================
-
-	def getMaxFans(self): # ====================================================
-		# ABOUT: Getter for this Slave's max fan count.
-		# NOTE: Since this attribute is "read only," lock usage is neglected.
-
-		return self.maxFans
-
-		# End getMaxFans =======================================================
-
-	# METHODS FOR VARIABLE ATTRIBUTES ##########################################
 
 	def getStatus(self): # =====================================================
 		# ABOUT: Getter for status. (Uses locks for thread-safety.)
@@ -480,205 +399,6 @@ class FCSlave:
 				self.release()
 
 		# End setStatus ========================================================
-	
-	def getCoordinates(self): # ================================================
-		# ABOUT: Get coordinates of this Slave.
-		# RETURNS:
-		# - Tuple of ints if there are coordinates assigned, None otherwise.
-		# NOTE: Thread-safe (blocks)
-		
-		try:
-			self.coordinatesLock.acquire()
-			
-			# Use placeholder to return value after releasing lock:
-			placeholder = self.coordinates
-
-			# Lock will be released by finally clause
-			return placeholder
-
-		finally:
-			self.coordinatesLock.release()
-		
-		# End getCoordinates ===================================================
-
-	def setCoordinates(self, newCoordinates): # ================================
-		# ABOUT: Set coordinates.
-		# PARAMETERS:
-		# - newCoordinates: tuple of two nonnegative ints or None.
-		# NOTE: Thread-safe (blocks)
-		
-		# Validate input:
-		if type(newCoordinates) is tuple:
-			if len(newCoordinates) != 2:
-				raise ValueError("Tuple argument 'newCoordinates' must be of "\
-					"length 2, not {}".\
-					format(len(newCoordinates)))
-			elif type(newCoordinates[0]) is not int or type(newCoordinates[1])\
-				is not int:
-				raise TypeError("Argument 'newCoordinates' must be tuple of "\
-					"types int, int, not {}, {}".\
-					format(type(newCoordinates[0]), type(newCoordinates[1])))
-			elif newCoordinates[0] < 0 or newCoordinates[1] < 0:
-				raise ValueError("Argument 'newCoordinates' must be tuple of"\
-					" nonnegative integers, not {}".\
-						format(newCoordinates))
-		elif newCoordinates is not None:
-			raise TypeError("Argument 'newCoordinates' must be tuple of ints "\
-				"or None, not type {}".\
-				format(type(newCoordinates)))
-		try:
-			self.coordinatesLock.acquire()
-			
-			self.coordinates = newCoordinates
-
-		finally:
-			self.coordinatesLock.release()
-		
-		# End setCoordinates ===================================================
-
-	def getModuleDimensions(self): # ===========================================
-		# ABOUT: Get module dimensions of this Slave.
-		# RETURNS:
-		# - Tuple of ints.
-		# NOTE: Thread-safe (blocks)
-		
-		try:
-			self.moduleDimensionsLock.acquire()
-			
-			# Use placeholder to return value after releasing lock:
-			placeholder = self.moduleDimensions
-
-			# Lock will be released by finally clause
-			return placeholder
-
-		finally:
-			self.moduleDimensionsLock.release()
-		
-		# End getModuleDimensionss =============================================
-
-	def setModuleDimensions(self, newModuleDimensions): # ======================
-		# ABOUT: Set module dimensions.
-		# PARAMETERS:
-		# - newModuleDimensions: tuple of two nonnegative ints.
-		# NOTE: Thread-safe (blocks)
-		
-		# Validate input:
-		if type(newModuleDimensions) is tuple:
-			if len(newModuleDimensions) != 2:
-				raise ValueError("Tuple argument 'newModuleDimensions' "\
-					"must be of "\
-					"length 2, not {}".\
-					format(len(newModuleDimensions)))
-			elif type(newModuleDimensions[0]) is not int or \
-				type(newModuleDimensions[1]) is not int:
-				raise TypeError(
-					"Argument 'newModuleDimensions' must be tuple of "\
-					"types int, int, not {}, {}".\
-					format(
-						type(
-							newModuleDimensions[0]), 
-							type(newModuleDimensions[1])))
-			elif newModuleDimensions[0] < 0 or newModuleDimensions[1] < 0:
-				raise ValueError(
-						"Argument 'newModuleDimensions' must be tuple of"\
-					" nonnegative integers, not {}".\
-						format(newModuleDimensions))
-		elif newModuleDimensions is not None:
-			raise TypeError(
-					"Argument 'newModuleDimensions' must be tuple of ints "\
-				"or None, not type {}".\
-				format(type(newModuleDimensions)))
-		try:
-			self.moduleDimensionsLock.acquire()
-			
-			self.moduleDimensions = newModuleDimensions
-
-		finally:
-			self.moduleDimensionsLock.release()
-		
-		# End setModuledimensions ==============================================
-
-	def getModuleAssignment(self): # ===========================================
-		# ABOUT: Get module assignment of this Slave.
-		# RETURNS:
-		# - str, may be empty("").
-		# NOTE: Thread-safe (blocks)
-		
-		try:
-			self.moduleAssignmentLock.acquire()
-			
-			# Use placeholder to return value after releasing lock:
-			placeholder = self.moduleAssignment
-
-			# Lock will be released by finally clause
-			return placeholder
-
-		finally:
-			self.moduleAssignmentLock.release()
-		
-		# End getModuleAssignment ==============================================
-
-	def setModuleAssignment(self, newModuleAssignment): # ======================
-		# ABOUT: Set module assignment.
-		# PARAMETERS:
-		# - newModuleAssignment: str.
-		# NOTE: Thread-safe (blocks)
-		
-		# Validate input:
-		if type(newModuleAssignment) is not str:
-			raise TypeError("Argument 'newModuleAssignment' must be str, "\
-				"not {}".\
-				format(type(newModuleAssignment)))
-		try:
-			self.moduleAssignmentLock.acquire()
-			
-			self.moduleAssignment = newModuleAssignment
-
-		finally:
-			self.moduleAssignmentLock.release()
-		
-		# End setModuleAssignment ==============================================
-
-	def getPinout(self): # =====================================================
-		# ABOUT: Get pinout of this Slave.
-		# RETURNS:
-		# - str
-		# NOTE: Thread-safe (blocks)
-		
-		try:
-			self.pinoutLock.acquire()
-			
-			# Use placeholder to return value after releasing lock:
-			placeholder = self.pinout
-
-			# Lock will be released by finally clause
-			return placeholder
-
-		finally:
-			self.pinoutLock.release()
-		
-		# End getPinout ========================================================
-
-	def setPinout(self, newPinout): # ==========================================
-		# ABOUT: Set pinout.
-		# PARAMETERS:
-		# - newPinout: str.
-		# NOTE: Thread-safe (blocks)
-		
-		# Validate input:
-		if type(newPinout) is not str:
-			raise TypeError("Argument 'newPinout' must be str, "\
-				"not {}".\
-				format(type(newPinout)))
-		try:
-			self.pinoutLock.acquire()
-			
-			self.pinout = newPinout
-
-		finally:
-			self.pinoutLock.release()
-		
-		# End setPinout ========================================================
 
 	def getVersion(self): # ====================================================
 		# ABOUT: Get version of this Slave.
@@ -1160,73 +880,17 @@ class FCSlave:
 
 		# End getIP ============================================================
 
+	def setMISO(self, update, block = True): # ================================
+		# Add an update to the Slave's misoQueue
 
-	def update(self, updateType, arrayValues = None, timeouts = None):
-		# ABOUT: Store "update" in MISO queue for interface to retrieve.
-		# PARAMETERS:
-		# - updateType: int, must be valid integer code.
-		# - arrayValues: matrix (array of two arrays) containing duty cycles and
-		#	RPM's, if applicable.
-		# RAISES:
-		# - ValueError or TypeError upon incorrect or missing arguments.
-		# - Queue.Full if MISO queue is full when storing update.
-		# NOTE: This method is thread-safe with blocking.
-	
-		# Validate data --------------------------------------------------------
-
-		if type(updateType) is not int:
-			raise TypeError("Argument 'updateType' must be int, not {}".\
-				format(type(updateType)))
-
-		# Check update type ----------------------------------------------------
-
-		# Keep track of whether to when storing in Queue:
-		block = False
-	
-		if updateType is STATUS_CHANGE:
-			update = (
-				STATUS_CHANGE, 
-				self.getStatus(),	
-				self.getMOSIIndex(), 
-				self.getMISOIndex(),
-				self.getIP(),
-				self.getDataIndex(),
-				self.getDropIndex(),
-				self.getVersion()
-				)
-			block = True
-
-		elif updateType is VALUE_UPDATE:
-			# Check given values:
-			if arrayValues is None:
-				raise ValueError("Missing argument 'arrayValues' "\
-					"which is necessary for VALUE_UPDATE")
-			elif timeouts is None:
-				raise ValueError("Missing argument 'timeouts' "\
-					"which is necessary for VALUE_UPDATE")
-
-			update = (
-				VALUE_UPDATE,
-				self.getMOSIIndex(), 
-				self.getMISOIndex(),
-				arrayValues,
-				self.getDataIndex(),
-				timeouts,
-				self.getDropIndex()
-				)
-
-		else:
-
-			raise ValueError("Unrecognized update type code ({})".\
-				format(updateType))
-
-		# If execution made it this far, put update in misoQueue:
-		
 		self.misoQueue.put(update, block)
 
-		# End update ===========================================================
+		return
 
-	def getUpdate(self, block = False): # ======================================
+		# End setMISO ==========================================================
+
+
+	def getMISO(self, block = False): # ========================================
 		# ABOUT: Try to get an update from this Slave's misoQueue.
 		# PARAMETERS:
 		# - block: bool, whether to block until an update is received.

@@ -31,14 +31,15 @@ This module handles low-level socket communications w/ Slave units.
 
 # Network:
 import socket		# Networking
-import threading	# Multitasking
-import thread		# thread.error
 
 # System:
 import sys			# Exception handling
 import traceback	# More exception handling
 import random		# Random names, boy
 import resource		# Socket limit
+import threading	# Multitasking
+import thread		# thread.error
+import multiprocessing # The big guns
 
 # Data:
 import time			# Timing
@@ -58,21 +59,49 @@ VERSION = "Independent 0"
 FORCE_IP_ADDRESS = "0.0.0.0"
 	#= "192.168.1.129" # (Basement lab)
 
+# Commands:
+ADD = 1
+DISCONNECT = 2
+REBOOT = 3
+
+# Special values:
+NONE = -1
+ALL = -2
+
+FCPRCONSTS = (ADD, DISCONNECT, REBOOT)
+
+# Outputs:
+NEW = 11
+
+# MOSI commands:
+MOSI_NO_COMMAND = 20
+MOSI_DC = 21
+MOSI_CHASE = 22
+MOSI_DISCONNECT = 23
+MOSI_REBOOT = 24
+
+# Change codes:
+NO_CHANGE = 0
+CHANGE = 1
+
 ## CLASS DEFINITION ############################################################
 
 class FCCommunicator:
 
 	def __init__(self,
 			# Network:
-			savedSlaves, mainQueueSize, broadcastPeriodS, periodMS, periodS,
+			savedMACs, broadcastPeriodS, periodMS, periodS,
 			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
 			# Fan array:
-			defaultModuleDimensions, defaultModuleAssignment,
 			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
 			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout
+			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
+			# Multiprocessing:
+			matrixPipe,
+			commandPipe,
+			printQueue
 		): # ===================================================================
-		# ABOUT: Constructor for class Communicator.
+		# ABOUT: Constructor for class FCPRCommunicator.
 
 		try:
 			
@@ -103,7 +132,6 @@ class FCCommunicator:
 			# Store parameters -------------------------------------------------
 
 			# Network:
-			self.mainQueueSize = mainQueueSize
 			self.broadcastPeriodS = broadcastPeriodS
 			self.periodMS = periodMS
 			self.periodS = periodS
@@ -114,8 +142,6 @@ class FCCommunicator:
 			self.maxLength = maxLength
 
 			# Fan array:
-			self.defaultModuleDimensions = defaultModuleDimensions
-			self.defaultModuleAssignment = defaultModuleAssignment
 			self.maxFans = maxFans
 			self.fanMode = fanMode
 			self.targetRelation = targetRelation
@@ -128,9 +154,13 @@ class FCCommunicator:
 			self.chaserTolerance = chaserTolerance
 			self.maxFanTimeouts = maxFanTimeouts
 			self.pinout = pinout
+			
+			# Multiprocessing:
+			self.matrixPipe = matrixPipe
+			self.commandPipe = commandPipe
 
 			# Output queues:
-			self.mainQueue = Queue.Queue(mainQueueSize)
+			self.mainQueue = printQueue
 			self.newSlaveQueue = Queue.Queue()
 
 			# Initialize Slave-list-related data:
@@ -281,11 +311,11 @@ class FCCommunicator:
 			# NOTE: This list will be a Numpy array of Slave objects.
 
 			# Create a numpy array for storage:
-			self.slaves = np.empty(len(savedSlaves), object)
-				# Create an empty numpy array of objects w/ space for as many
-				# Slave units as there are in savedSlaves
+			self.slaves = np.empty(len(savedMACs), str)
+				# Create an empty numpy array
 			# Loop over savedSlaves to instantiate any saved Slaves:
-			for index in range(len(savedSlaves)):
+			newSlaves = []
+			for index in range(len(savedMACs)):
 
 				# NOTE: Here each sub list, if any, contains data to initialize
 				# known Slaves, in the following order:
@@ -297,25 +327,19 @@ class FCCommunicator:
 
 				self.slaves[index] = \
 					sv.FCSlave(
-					name = savedSlaves[index][0],
 					mac = savedSlaves[index][1],
 					status = sv.DISCONNECTED,
-					maxFans = self.maxFans,
-					activeFans = savedSlaves[index][2],
 					routine = self._slaveRoutine,
 					routineArgs = (index,),
 					misoQueueSize = misoQueueSize,
 					index = index,
-					pinout = self.pinout,
-					coordinates = savedSlaves[index][3],
-					moduleDimensions = savedSlaves[index][4],
-					moduleAssignment = savedSlaves[index][5]
 					)
 
+				# Add to list:
+				newSlaves.append(mac)
 
-				# Add Slave to newSlaveQueue:
-				self.putNewSlave(index, True)
-		
+			self.newSlaveQueue.put_nowait(newSlaves)
+
 			# START MASTER THREADS =============================================
 			# Start Slave threads:
 			for slave in self.slaves:
@@ -340,8 +364,72 @@ class FCCommunicator:
 				format(traceback.format_exc()), "E")
 
 		# End __init__ =========================================================
-
+	
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+	def _assemblerRoutine(self): # =============================================
+		
+		try:
+		
+			self.printM("Provisional assembler routine started", "W")
+			while True:
+				try:
+					# Output -------------------------------------------------------
+
+					# Check new Slaves:
+					newSlaves = self.getNewSlaves()
+					if newSlaves is not None:
+						self.commandPipe.send((NEW, newSlaves))
+
+					# Assemble output matrix:
+					output = []
+					
+					for slave in self.slaves:
+						output.append(slave.getMISO())
+					matrixPipe.send(output)
+
+					# Input --------------------------------------------------------
+					
+					# Check commands:
+					if commandPipe.poll():
+						command = commandPipe.recv()
+						
+						# Classify command:
+						if command[0] == ADD:
+							self.add(command[1])
+
+						elif command[0] == DISCONNECT:
+							if command[1] == ALL:
+								self.sendDisconnect()
+							else:
+								self.slaves[command[1]].setMOSI((MOSI_DISCONNECT,))
+
+						elif command[0] == REBOOT:
+							if command[1] == ALL:
+								self.sendReboot()
+							else:
+								self.slaves[command[1]].setMOSI((MOSI_REBOOT,))
+
+					# Check matrix:
+					if matrixPipe.poll():
+						matrix = matrixPipe.recv()
+
+						for slave in self.slaves:
+							if matrix[slave.index][0] is NO_COMMAND:
+								continue
+							else: 
+								slave.setMOSI(matrix[slave.index])
+				
+				except Exception as e: # Print uncaught exceptions
+					self.printM("EXCEPTION IN Comms. Assembler: "\
+						"\"{}\"".\
+						format(traceback.format_exc()), "E")
+
+		except Exception as e: # Print uncaught exceptions
+			self.printM("UNHANDLED EXCEPTION IN Communicator Assembler: "\
+				"\"{}\" (BROKE OUT OF LOOP)".\
+				format(traceback.format_exc()), "E")
+		# End _assemberRoutine =================================================
 
 	def _broadcastRoutine(self, broadcastMessage, broadcastPeriod): # ==========
 		""" ABOUT: This method is meant to run inside a Communicator instance's
@@ -531,25 +619,16 @@ class FCCommunicator:
 								self.slaves = np.concatenate(
 									(self.slaves, 
 										(sv.FCSlave(
-											name = random.choice(names.coolNames),
 											mac = mac,
 											status = sv.AVAILABLE,
-											maxFans = self.maxFans,
-											activeFans = self.maxFans,
 											routine = self._slaveRoutine,
 											routineArgs = (index, ),
-											pinout = self.pinout,
 											version = version,
 											misoQueueSize = self.misoQueueSize,
 											ip = senderAddress[0],
 											misoP = misoPort,
 											mosiP = mosiPort,
 											index = index,
-											coordinates = None,
-											moduleDimensions = 
-												self.defaultModuleDimensions,
-											moduleAssignment = 
-												self.defaultModuleAssignment
 											),
 										)
 									)
@@ -563,8 +642,7 @@ class FCCommunicator:
 								"""
 					
 								# Add new Slave's information to newSlaveQueue:
-								self.putNewSlave(index)
-
+								self.newSlaveQueue.put([mac])
 						
 						elif messageSplitted[3] == 'E':
 							# Error message
@@ -635,8 +713,6 @@ class FCCommunicator:
 		try:
 			
 			# Setup ============================================================
-			self.printM("[{}] Slave thread started".\
-				format(targetIndex + 1, "G"))
 
 			# Get reference to Slave: ------------------------------------------
 			slave = target
@@ -685,14 +761,16 @@ class FCCommunicator:
 						self.chaserTolerance,
 						self.maxFanTimeouts,
 						self.pinout)
+			
+			self.printM("[{}] Slave thread started".\
+				format(targetIndex + 1, "G"))
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()
 			periodS = self.periodS
 			timeouts = 0
 			totalTimeouts = 0
-			message = None
-			previousMessage = "P"
+			message = "P"
 			tryBuffer = True
 
 			# TEMP. DEBUG:
@@ -769,26 +847,52 @@ class FCCommunicator:
 						## print "[On positive state]"
 
 						# Check queue for message:
-						message = slave.getMOSI()
-						
+						fetchedMessage = slave.getMOSI()
+
 						if message is None:
 							# Nothing to fetch. Send previous command
-							message = previousMessage
 							
 							# Send message:
 							self._send(message, slave, 2)
 
-						elif message == "X" or message == "R":
-							# Send disconnect or reboot messages to listener:
-							self._sendToListener(message, slave, 2)
-						
-						else:
-							# New message to be sent, save it
-							previousMessage = message 
+						elif fetchedMessage[0] == MOSI_DC:
+							# Duty cycle assignment. format message to be sent
+							# Raw format: [MOSI_DC, DC, FAN1S,FAN2S...]
 
-							# Send message:
+							selection = ''
+							for fan in fetchedMessage[2]:
+								if fan == 1:
+									selection += '1'
+								else:
+									selection += '0'
+							
+							message = "S|D:{}:{}".format(
+								float(fetchedMessage[1])*0.1, selection)
+
 							self._send(message, slave, 2)
 
+						elif fetchedMessage[0] == MOSI_CHASE:
+							# Chase RPM
+							# Raw format: [MOSI_CHASE, RPM, FAN1S,FAN2S...]
+							
+							selection = ''
+							for fan in fetchedMessage[2]:
+								if fan == 1:
+									selection += '1'
+								else:
+									selection += '0'
+							
+							message = "S|C:{}:{}".format(
+								fetchedMessage[1], selection)
+
+							self._send(message, slave, 2)
+
+						elif fetchedMessage[0] == MOSI_DISCONNECT:
+							self.sendToListener("X", slave, 2)
+
+						elif fetchedMessage[0] == MOSI_REBOOT:
+							self._sendToListener("R", slave, 2)
+						
 						"""
 						if not timestampedDCFirst:
 							self._saveTimeStamp(slave.getIndex(),
@@ -829,16 +933,11 @@ class FCCommunicator:
 									try:
 										# Set up data placeholder as a tuple:
 										
-										slave.update(
-											sv.VALUE_UPDATE,
-											(
-												np.array(
-													map(int,reply[-2].split(',')))
-												,
-												np.array(
-													map(float,reply[-1].split(',')))
-											),
-											totalTimeouts)
+										slave.setMISO(
+											[slave.getStatus()] +
+											map(int,reply[-2].split(','))+
+											map(float,reply[-1].split(',')),
+											False)
 											# FORM: (RPMs, DCs)
 										"""		
 										if not timestampedRPMFirst:
@@ -965,7 +1064,7 @@ class FCCommunicator:
 						# contacted, wait for its state to change.
 
 						command = "P"
-						previousMessage = "P"
+						message = "P"
 
 						# Check if the Slave is mistakenly connected:
 						reply = self._receive(slave)
@@ -1191,46 +1290,9 @@ class FCCommunicator:
 
 		# End _receive # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 	
-	def putNewSlave(self, index, fast = False): # ===============================
-		# ABOUT: Add relevant information of a new Slave to the newSlaveQueue,
-		# for the interface module to access.
-		# RAISES:
-		#	- KeyError if the given MAC address is not found.
-		
-		# Get target Slave:
-		target = self.slaves[index]
-
-		# Add Slave to Queue:
-		self.newSlaveQueue.put_nowait(((
-			target.getName(),
-			target.getMAC(),
-			target.getStatus(),
-			target.getMaxFans(),
-			target.getActiveFans(),
-			target.getIP(),
-			target.getUpdate, # NOTE: Here the method itself is passed.
-			target.setMOSI,
-			index,
-			target.getCoordinates(),
-			target.getModuleDimensions(),
-			target.getModuleAssignment(),
-			target.getVersion()
-			), fast))
-
-		# Done
-		return
-
-		# End putNewSlave ======================================================
-
-	def getNewSlave(self): # ===================================================
-		# ABOUT: Check if there is at least one "new Slave" in the newSlaveQueue
-		# and retrieve and return its value. The data, if any, will be formatted
-		# as a tuple of the following form:
-		# 
-		# (Name, MAC_Address, Status, Max_Fans, Active_Fans, 
-		#	IP, getUpdate, setMOSI)
-		#
-		# If the newSlaveQueue is empty, return None.
+	def getNewSlaves(self): # ==================================================
+		# Get new Slaves, if any. Will return either a tuple of MAC addresses
+		# or None.
 
 		try:
 			return self.newSlaveQueue.get_nowait()
@@ -1238,7 +1300,7 @@ class FCCommunicator:
 		except Queue.Empty:
 			return None
 
-		# End getNewSlave ======================================================
+		# End getNewSlaves =====================================================
 
 	def printM(self, output, tag = 'S'): # =====================================
 		# ABOUT: Print on corresponding GUI terminal screen by adding a message 

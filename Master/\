@@ -44,7 +44,6 @@ import traceback
 import os # Get current working directory & check file names
 import sys # Exception handling
 import inspect # get line number for debugging
-import multiprocessing
 
 # Data:
 import numpy as np
@@ -55,9 +54,6 @@ import FCCommunicator
 import FCArchiver as ac
 import FCPrinter as pt
 import FCSlave as sv
-
-import fci.SlaveList as sl
-import fci.Terminal as tm
 
 from auxiliary.debug import d
 
@@ -94,6 +90,9 @@ class FCInterface(Tk.Frame):
 			self.foreground = "black"
 			self.config(bg = self.background)
 
+			# Set debug foreground:
+			self.debugColor = "#ff007f"
+
 			
 			# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = 
 
@@ -110,7 +109,7 @@ class FCInterface(Tk.Frame):
 			
 			# List toggle:
 			self.slaveListToggleVar = Tk.BooleanVar()
-			self.slaveListToggleVar.set(True)
+			self.slaveListToggleVar.set(False)
 
 			self.slaveListToggle = Tk.Checkbutton(self.toggleFrame,
 				text ="List", variable = self.slaveListToggleVar, 
@@ -122,7 +121,7 @@ class FCInterface(Tk.Frame):
 			
 			# Terminal toggle:
 			self.terminalToggleVar = Tk.BooleanVar()
-			self.terminalToggleVar.set(True)
+			self.terminalToggleVar.set(False)
 
 			self.terminalToggle = Tk.Checkbutton(self.toggleFrame, 
 				text ="Terminal", variable = self.terminalToggleVar, 
@@ -145,86 +144,26 @@ class FCInterface(Tk.Frame):
 				command = self._gridButtonRoutine
 			)
 			self.gridButton.pack(side = Tk.RIGHT)	
-
+			
 			# Keep track of grid activity:
 			self.isGridActive = False
 			# Placeholder for reference to popup window:
 			self.gridWindow = None
 			self.grid = None
-
-			# TODO: Implement grid:
-			self.gridButton.config(state = Tk.DISABLED)
+			# Plotter:
 
 			# Settings:
-			self.settingsButton = Tk.Button(
-				self.toolFrame,
-				text = "Settings",
-				width = 10,
-				highlightbackground = self.background,
-				command = self._settingsButtonRoutine
-			)
-			self.settingsButton.pack(side = Tk.RIGHT)	
-
-			# Keep track of settings activity:
-			self.isSettingsActive = False
-			# Placeholder for reference to popup window:
-			self.settingsWindow = None
-			self.settings = None
-
-			# TODO: Implement settings:
-			self.settingsButton.config(state = Tk.DISABLED)
 
 			# Bootloader:
-			self.bootloaderButton = Tk.Button(
-				self.toolFrame,
-				text = "Bootloader",
-				width = 10,
-				highlightbackground = self.background,
-				command = self._bootloaderButtonRoutine
-			)
-			self.bootloaderButton.pack(side = Tk.RIGHT)	
-
-			# Keep track of bootloader activity:
-			self.isBootloaderActive = False
-			# Placeholder for reference to popup window:
-			self.bootloaderWindow = None
-			self.bootloader = None
-
-			# TODO: Implement bootloader:
-			self.bootloaderButton.config(state = Tk.DISABLED)
 
 			# Pack tool frame ..................................................
 			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True,
 				anchor = "n")
 
+			# MAIN DISPLAY -----------------------------------------------------
 			# SLAVE LIST -------------------------------------------------------
-			self.slaveListFrame = Tk.Frame(self.main, bg = self.background,
-				relief = Tk.GROOVE, bd = 1)
-
-			self.slaveList = sl.SlaveList(self.slaveListFrame)
-			self.slaveList.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True,
-				anchor = "n")
-
-			self.slaveListFrame.pack(side = Tk.TOP, fill = Tk.BOTH, 
-				expand = True, anchor = "n")
-
-			# TERMINAL ---------------------------------------------------------
-
-			# Print queue:
-			self.printQ = multiprocessing.Queue()
-
-			self.terminalFrame = Tk.Frame(self.main, 
-				bg = self.background,relief = Tk.RIDGE, bd = 1)
-
-			self.terminal = tm.Terminal(self.terminalFrame, self.printQ,
-				self._terminalToggle, self.terminalToggleVar)
-
-			self.terminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
-			
-			self.terminalFrame.pack(
-				side = Tk.TOP, fill = Tk.BOTH, expand = True, anchor = "n")
-
 			# CONTROL ----------------------------------------------------------
+			# ARRAY CONTROL ....................................................
 			# STATUS -----------------------------------------------------------	
 			
 			# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = = 
@@ -232,22 +171,6 @@ class FCInterface(Tk.Frame):
 			# Focus on the main window:
 			self.master.lift()
 			self.pack(fill = Tk.BOTH, expand = True)
-
-			# MODULES ----------------------------------------------------------
-
-			# Inter-process communications:
-			self.matrixPipeFCI, self.matrixPipeFCC = multiprocessing.Pipe()
-			self.commandPipeFCI, self.commandPipeFCC = multiprocessing.Pipe()
-
-			self.comms = None
-			self.archiver = None
-	
-			self.managerThread = \
-				threading.Thread(target = self._managerRoutine)
-			self.managerThread.setDaemon(True)
-
-			self.managerThread.start()
-
 
 		except Exception as e: # Print uncaught exceptions
 			tkMessageBox.showerror(title = "FCMkII Fatal Error",
@@ -257,104 +180,21 @@ class FCInterface(Tk.Frame):
 		
 		# End FCInterface Constructor ==========================================
 
-	# THREADS AND ROUTINES -----------------------------------------------------
-
-	def _managerRoutine(self): # ===============================================
-
-	
-		# INITIALIZATION -------------------------------------------------------
-		try:
-			self.printM("GUI \"manager\" thread initializing")
-
-			self.printM("Initializing Archive")
-			self.archiver = ac.FCArchiver() 
-			self.printM("Archiver initialized", "G")
-
-			self.printM("Initializing Communicator...")
-			self.communicator = FCCommunicator.FCCommunicator(
-				savedMACs = [],
-				broadcastPeriodS = self.archiver.get(ac.broadcastPeriodS),
-				periodMS = self.archiver.get(ac.periodMS),
-				periodS = self.archiver.get(ac.periodS),
-				broadcastPort = self.archiver.get(ac.broadcastPort),
-				passcode = self.archiver.get(ac.passcode),
-				misoQueueSize = self.archiver.get(ac.misoQueueSize),
-				maxTimeouts = self.archiver.get(ac.maxTimeouts),
-				maxLength = self.archiver.get(ac.maxLength),
-				maxFans = self.archiver.get(ac.maxFans),
-				fanMode = self.archiver.get(ac.fanMode),
-				targetRelation = self.archiver.get(ac.targetRelation),
-				fanFrequencyHZ = self.archiver.get(ac.fanFrequencyHZ),
-				counterCounts = self.archiver.get(ac.counterCounts),
-				pulsesPerRotation = self.archiver.get(ac.pulsesPerRotation),
-				maxRPM = self.archiver.get(ac.maxRPM),
-				minRPM = self.archiver.get(ac.minRPM),
-				minDC = self.archiver.get(ac.minDC),
-				chaserTolerance = self.archiver.get(ac.chaserTolerance),
-				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
-				pinout = self.archiver.get(ac.defaultPinout),
-				matrixPipe = self.matrixPipeFCC,
-				commandPipe = self.commandPipeFCC,
-				printQueue = self.printQ
-				)
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("ERROR: Unhandled exception in GUI manager thread: "\
-				"\"{}\"".\
-				format(traceback.format_exc()), "E")
-		
-		# MAIN LOOP ------------------------------------------------------------
-			
-			# Get Communicator output and update GUI ---------------------------
-			
-
-
-			# Get GUI input and send to Communicator ---------------------------
-
-		# End _managerRoutine ==================================================
-
 	# CALLBACKS ----------------------------------------------------------------
 
 	def _terminalToggle(self): # ===============================================
-		# Check variable:
-		if self.terminalToggleVar.get():
-			# Build terminal:
-			self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
-		else:
-			# Hide terminal:
-			self.terminalFrame.pack_forget()
+		pass
+
 		# End terminal toggle ==================================================
 
 	def _slaveListToggle(self): # ==============================================
-		# Check variable:
-		if self.slaveListToggleVar.get():
-			# Build slaveList:
-			self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
-		else:
-			# Hide slaveList:
-			self.slaveListFrame.pack_forget()
+		
+		pass
 
 		# End _slaveList Toggle ================================================
 
 	def _gridButtonRoutine(self): # ============================================
+
 		pass 
 
 		# End _gridButtonRoutine ===============================================
-	
-	def _settingsButtonRoutine(self): # ========================================
-		pass 
-
-		# End _settingsButtonRoutine ===========================================
-
-	def _bootloaderButtonRoutine(self): # ========================================
-		pass 
-
-		# End _bootloaderButtonRoutine ===========================================
-
-
-	# UTILITY FUNCTIONS --------------------------------------------------------
-
-	def printM(self, message, tag = 'S'): # ====================================
-		self.printQ.put_nowait((message, tag))
-
-		# End printM ===========================================================
