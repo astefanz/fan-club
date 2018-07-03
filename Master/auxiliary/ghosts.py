@@ -39,6 +39,8 @@ import random		# Random names, boy
 import numpy		# Fast arrays and matrices
 import resource
 
+from hardcoded import SLAVELIST_CAST_ALL
+
 class GhostSlave:
 	# NEEDS:
 	# - listener thread to answer to broadcasts
@@ -54,7 +56,10 @@ class GhostSlave:
 		# Constructor for GhostSlave
 		
 		# Basic attributes:
-		self.mac = "{:014d}:XX".format(number)
+		if number < len(SLAVELIST_CAST_ALL):
+			self.mac = SLAVELIST_CAST_ALL[number][1]
+		else:
+			self.mac = "{:014d}:XX".format(number)
 		
 		self.misoI = 0
 		self.mosiI = 0
@@ -169,7 +174,7 @@ class GhostSlave:
 		while(True):
 			if self.connected:
 				print "will wait {}s".format(self.periodMS/1000.0)
-				time.sleep(float(self.periodMS)/1000.0)
+				time.sleep(self.periodMS*2/1000.0)
 				dataIndex += 1
 				# Fake data:
 				frpm = ''
