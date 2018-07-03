@@ -55,7 +55,7 @@ from auxiliary import names
 
 DEBUG = False
 VERSION = "Independent 0"
-FORCE_IP_ADDRESS = ""
+FORCE_IP_ADDRESS = "0.0.0.0"
 	#= "192.168.1.129" # (Basement lab)
 
 ## CLASS DEFINITION ############################################################
@@ -136,6 +136,7 @@ class FCCommunicator:
 			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
 
+			"""
 			# Create a temporary socket to obtain Master's IP address:
 			temp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			temp.connect(('192.0.0.8', 1027))
@@ -143,7 +144,8 @@ class FCCommunicator:
 			temp.close()
 			
 			self.printM("\tHost IP: {}".format(self.hostIP))
-			
+			"""
+
 			# Use resource library to get OS to give extra sockets, for good
 			# measure:
 			resource.setrlimit(resource.RLIMIT_NOFILE, 
@@ -407,16 +409,14 @@ class FCCommunicator:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
 				
-				""" DEBUG
 				print "Message recevied: {}".format(messageReceived)
-				"""
 
 				""" NOTE: The message received from Slave, at this point, 
 					should have one of the following forms:
 
 					- STD from MkII:
-						A|PCODE|SV:MA:CA:DD:RE:SS|SMISO|SMOSI|VERSION
-						0     1                 2     3     4       5
+						A|PCODE|SV:MA:CA:DD:RE:SS|N|SMISO|SMOSI|VERSION
+						0     1                 2 3     4     5 6
 					- STD from Bootloader:
 						B|PCODE|SV:MA:CA:DD:RE:SS|
 
@@ -440,7 +440,7 @@ class FCCommunicator:
 						"from {}".format(messageSplitted[1], 
 						senderAddress[0]), 'E')
 					
-					print "Wrong passcode"
+					#print "Wrong passcode"
 
 					continue
 
@@ -580,7 +580,7 @@ class FCCommunicator:
 					except IndexError:
 						self.printM("Invalid message \"{}\" discarded; "\
 							"sent by {}".format(
-								senderAddress[0], messageReceived), "W")
+								messageReceived,senderAddress), "W")
 
 				elif messageSplitted[0][0] == 'B':
 					# This message comes from the Bootloader

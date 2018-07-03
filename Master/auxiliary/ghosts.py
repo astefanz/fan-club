@@ -113,12 +113,12 @@ class GhostSlave:
 		self.st.start()
 		
 	
-		self.ls.sendto('{}|good_luck|{}|{}|{}'.\
-			format(self.misoI, 
+		self.ls.sendto('A|CT|{}|N|{}|{}|Ghost'.\
+			format( 
 			self.mac,
 			self.ss.getsockname()[1],
 			self.rs.getsockname()[1]),
-			self.mbAddress)
+			mba)
 		
 		self.dc = 0.0
 		print "[{}] Ghost reporting".format(self.mac)
@@ -136,29 +136,29 @@ class GhostSlave:
 
 			# Check message:
 			splitted = message.split("|")
-			if splitted [0] <= self.mosiI:
-				continue
 
-			if splitted[1] == "MHSK":
+			if int(splitted[0]) == 0 and splitted[1] == "H":
 				# Handshake
 				sp2 = splitted[2].split(",")
 				self.masterIP = sender[0]
 				self.masterPort = int(sp2[0])
 				self.periodMS = int(sp2[2])
 				self.misoI = 1
-				for i in (1,2):
-					self.rs.sendto("1|SHSK", (self.masterIP, self.masterPort))
-					self.misoI += 1
+				self.rs.sendto("1|H", (self.masterIP, self.masterPort))
+				self.misoI += 1
 				
 				self.connected = True
 			
-			elif splitted[1] == "MSTD":
-				ss = splitted[2].split("~")
+			elif int(splitted[0]) <= self.mosiI:
+				continue
+
+			elif splitted[1] == "S":
+				ss = splitted[2].split(":")
 				self.dc = float(ss[1])
 				
 			else:
 				pass
-			
+	
 		# End _receiveR --------------------------------------------------------
 		
 
@@ -174,22 +174,25 @@ class GhostSlave:
 				# Fake data:
 				frpm = ''
 				fdc = ''
-				for i in range(21):
+				for i in range(18):
 					
-					#frpm += str(random.randint(0,11500)) + ","
-					#fdc += str(random.randint(0,100)) + ","
+					frpm += str(random.randint(0,11500)) + ","
+					fdc += str(random.randint(0,100)) + ","
 
-					frpm += str(int(self.dc*11500)) + ","
-					fdc += str(self.dc) + ","
-				for i in range(3):
-					m = "{}|SSTD|{}|{}|{}".\
-						format(self.mosiI,dataIndex,frpm[:-1],fdc[:-1])
-					self.ss.sendto(m,
-						(self.masterIP, self.masterPort)
-					)
-					print m
+					#frpm += str(int(self.dc*11500)) + ","
+					#fdc += str(self.dc) + ","
 
-					self.mosiI += 1
+					#frpm += str(int(self.dc*11500*random.randint(9, 11))) + ","
+					#fdc += str(self.dc) + ","
+				#for i in range(3):
+				m = "{}|T|{}|{}|{}".\
+					format(self.mosiI,dataIndex,frpm[:-1],fdc[:-1])
+				self.ss.sendto(m,
+					(self.masterIP, self.masterPort)
+				)
+				print m
+
+				self.mosiI += 1
 				
 
 
@@ -200,9 +203,14 @@ resource.setrlimit(
 	(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]
 	))
 numT = int(raw_input("Number of GhostSlaves? "))
+
 gs = []
 
 
+
+mba = ("", int(raw_input("Master listener port? ")))
+
+"""
 ## LISTENER:
 ls = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)				  
 # Configure socket as "reusable" (in case of improper closure):
@@ -213,6 +221,7 @@ ls.bind(("", 65000))
 print ls.getsockname()
 
 print "Listening for Master broadcast..."
+
 while(True):
 
 	message, sender = ls.recvfrom(256)
@@ -225,11 +234,9 @@ while(True):
 
 print "Found Master as {}".format(str(mba))
 ls.close()
-
+"""
 for i in range(numT):
 	gs.append(GhostSlave(i, mba))
 	
 raw_input("Press enter to exit")
 sys.exit()
-
-
