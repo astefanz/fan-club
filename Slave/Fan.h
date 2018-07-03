@@ -22,6 +22,9 @@
 #include "settings.h"
 
 
+// Forward declarations:
+class FastPWM;
+
 // CONSTANT DECLARATIONS ///////////////////////////////////////////////////////
 extern const int 
 	NO_TARGET;
@@ -89,6 +92,7 @@ extern PinName tachIn[MAX_FANS];
 #endif // ----------------------------------------------------------------------
            
 // CLASS INTERFACE /////////////////////////////////////////////////////////////
+
 
 class Fan{
 public:
@@ -174,7 +178,7 @@ public:
 private:
 
 	// General:
-    PwmOut*  pwmPin;        // PWM pin that connects to this fan
+    FastPWM*  pwmPin;        // PWM pin that connects to this fan
     PinName* tachPin;        // Tachometer input pin that connects to this fan
     bool initialized;       // Whether fan object has pins assigned
 

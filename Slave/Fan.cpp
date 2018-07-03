@@ -16,6 +16,8 @@
 #include "Fan.h"
 #include "print.h"
 
+#include "FastPWM.h"
+
 // CONSTANT DEFINITIONS ////////////////////////////////////////////////////////
 const int 
 	NO_TARGET = -1;
@@ -191,9 +193,9 @@ bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 		delete this->tachPin;
 	}
 
-    this->pwmPin = new PwmOut(pwmPin);
+    this->pwmPin = new FastPWM(pwmPin);
  	this->frequencyHZ = frequencyHZ;
-    (*this->pwmPin).period_us(1000000/this->frequencyHZ);
+    (*this->pwmPin).period_us(double(1000000/this->frequencyHZ));
     this->tachPin = new PinName(tachPin);
 	this->counterCounts = counterCounts;
 	this->pulsesPerRotation = pulsesPerRotation;
@@ -206,7 +208,7 @@ bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 
 	this->timeouts = 0;
 	
-	this->pwmPin->write(0);
+	this->pwmPin->write(double(0));
     initialized = true;
 
 	return true;
@@ -270,7 +272,7 @@ bool Fan::write(float newDC){
 			this->dc = newDC;
 		}
 
-        this->pwmPin->write(this->dc);
+        this->pwmPin->write(double(this->dc));
   
         return true;
     }
