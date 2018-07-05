@@ -43,7 +43,18 @@ import sys # Exception handling
 import inspect # get line number for debugging
 import traceback
 
+# FCMkII:
+import FCSlave as sv
+
+## CONSTANTS ###################################################################
+
+## CLASS DEFINITION ############################################################
+
 class SlaveList(Tk.Frame): # ===================================================
+
+	# NOTE: Slaves are stored as: 
+	# [Index + 1, MAC, status, fans, version, iid]
+	#          0    1       2     3    4      5
 
 	def __init__(self, master): # ==============================================
 		try:
@@ -54,16 +65,17 @@ class SlaveList(Tk.Frame): # ===================================================
 			# - Fans
 			# - Version
 
-			# CONFIGURE ------------------------------------------------------------
+			# CONFIGURE --------------------------------------------------------
 			Tk.Frame.__init__(self, master)
 			self.background = "#d3d3d3"
 			self.foreground = "black"
-			self.config(bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
+			self.config(
+				bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
 		
-			# BUILD ----------------------------------------------------------------
+			# BUILD ------------------------------------------------------------
 			# Create list:
 			self.slaveList = ttk.Treeview(self, 
-				selectmode="browse", height = 5)
+				selectmode="none")
 			self.slaveList["columns"] = \
 				("Index","MAC","Status","Fans", "Version")
 
@@ -123,9 +135,10 @@ class SlaveList(Tk.Frame): # ===================================================
 
 			self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
 
-			# DATA -----------------------------------------------------------------
+			# DATA -------------------------------------------------------------
 			self.slaves = []
-
+			self.numSlaves = 0
+		
 		except Exception as e: # Print uncaught exceptions
 			tkMessageBox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
@@ -134,8 +147,42 @@ class SlaveList(Tk.Frame): # ===================================================
 		
 		# End __init__ =========================================================
 
-	"""
 	def add(self, newSlave): # =================================================
+		# Expected format:
+		# (MAC, Status, Fans, Version)
+	
+		self.slaves.append(
+			[self.numSlaves + 1,      	# Index (W/ start at 1)
+			newSlave[0],  				# MAC
+			sv.translate(newSlave[1]),	# Status
+			newSlave[2], 				# Fans
+			newSlave[3]])				# Version
 
-	def update(self, 
-	"""
+		# Add to list and append IID:
+		self.slaves[self.numSlaves].append(self.slaveList.insert(
+			'', 'end', 
+			values = self.slaves[self.numSlaves],# Version
+			tag = sv.translate(newSlave[1], True)))
+		# Increase count:
+		self.numSlaves += 1	
+
+		# End add ==============================================================
+
+	def setStatus(self, index, newStatus): # ===================================
+
+		self.slaves[index][2] = sv.translate(newStatus)
+		self.slaveList.item(self.slaves[index][-1], # <- IID 
+			values = self.slaves[index],
+			tag = sv.translate(newStatus, True))
+
+		# Move atop due to activity
+		self.slaveList.move(self.slaves[index][-1], '', 0)
+			
+		# End setStatus ========================================================
+
+	#def remove(self, iid): # ===================================================
+
+	#def getSelection(self): # ==================================================
+
+	def setSelection(self, selected): # ========================================
+		pass

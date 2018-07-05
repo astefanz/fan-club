@@ -71,7 +71,7 @@ class Terminal(Tk.Frame): # ====================================================
 			self.mainTerminal = ttk.Frame(self)
 			self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
 			self.mainTLock = threading.Lock()
-			self.mainTText = Tk.Text(self.mainTerminal, height = 10, 
+			self.mainTText = Tk.Text(self.mainTerminal, 
 				fg = "#424242", bg=self.background, font = ('TkFixedFont'),
 				selectbackground = "#cecece",
 				state = Tk.DISABLED)
@@ -155,7 +155,19 @@ class Terminal(Tk.Frame): # ====================================================
 				else: 
 					try:
 						# Fetch message to print:
-						output, tag = self.mainQueue.get(True)
+						message = self.mainQueue.get(True)
+						if type(message) is not tuple and len(message) is not 2:
+							
+							self.toggleVar.set(True)
+							self.toggleF()
+
+							self.mainTText.config(state = Tk.NORMAL)
+								# Must change state to add text.
+							self.mainTText.insert(
+								Tk.END, "Bad message format: \"{}\:\n".\
+								format(message), "E")
+							self.mainTText.config(state = Tk.DISABLED)
+							
 
 					except Queue.Empty:
 						# If there is nothing to print, try again.
@@ -168,20 +180,21 @@ class Terminal(Tk.Frame): # ====================================================
 						# message arrives
 						
 						# Check for debug tag:
-						if tag is "D" and self.debugVar.get() == 0:
+						if message[1] is "D" and self.debugVar.get() == 0:
 							# Do not print if the debug variable is set to 0
 							pass
 
 						else:
 
 							# Switch focus to this tab in case of errors of warnings:
-							if tag is "E":
+							if message[1] is "E":
 								self.toggleVar.set(True)
 								self.toggleF()
 
 							self.mainTText.config(state = Tk.NORMAL)
 								# Must change state to add text.
-							self.mainTText.insert(Tk.END, output + "\n", tag)
+							self.mainTText.insert(
+								Tk.END, message[0] + "\n", message[1])
 							self.mainTText.config(state = Tk.DISABLED)
 
 							# Check for auto scroll:
@@ -190,7 +203,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 			except Exception as e: # Print uncaught exceptions
 				tkMessageBox.showerror(
-					title = "FCMkII Fatal Error",
+					title = "FCMkII Error",
 					message = "Warning: Uncaught exception in Terminal "\
 					"printer routine: \"{}\"".\
 					format(traceback.format_exc()))

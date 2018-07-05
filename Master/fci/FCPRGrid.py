@@ -22,7 +22,7 @@
 
 ## ABOUT #######################################################################
 """
-This module is a multiprocessing wrapper around FCCommunicator.
+This module is a multiprocessing wrapper around the FC Grid widget.
 
 """
 ################################################################################
@@ -48,14 +48,13 @@ import Queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
-import FCInterface
-import FCSlave as sv
+import MainGrid as mg
 
 ## CONSTANTS ###################################################################
 
 ## AUXILIARY ROUTINE ###########################################################
 
-def _communicatorProcessRoutine(
+def _gridProcessRoutine(
 		# Network:
 		savedMACs, broadcastPeriodS, periodMS, periodS,
 		broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
@@ -67,8 +66,7 @@ def _communicatorProcessRoutine(
 		outMatrixPipe,
 		commandPipe,
 		inMatrixQueue,
-		printQueue,
-		shutdownPipe
+		printQueue
 	): # ===================================================================
 	try:
 
@@ -91,21 +89,7 @@ def _communicatorProcessRoutine(
 			)
 
 		while True:
-
-			if shutdownPipe.poll():
-				message = shutdownPipe.recv()
-				if message == 1:
-					printQueue.put_nowait(("Shutting down comms.","W"))
-					comms.shutdown()
-					break
-
-				else:
-					printQueue.put_nowait(
-						("WARNING: Unrecognized message in comms. "\
-						"shutdown pipe (ignored): \"{}\"".\
-						format(message),"E"))
-					continue
-					
+			pass
 
 	except Exception as e: # Print uncaught exceptions
 		printQueue.put(("UNHANDLED EXCEPTION terminated Comms. Process: "\
@@ -114,16 +98,15 @@ def _communicatorProcessRoutine(
 
 	# End _communicatorProcessRoutine ======================================
 
-class FCPRCommunicator:
+class FCPRGrid:
 	
 	def __init__(self,
-			# Network:
-			savedMACs,broadcastPeriodS, periodMS, periodS,
-			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-			# Fan array:
-			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
+			# Grid parameters:
+			rows,
+			columns,
+			cellLength,
+			slaves,
+			maxRPM,
 			# Multiprocessing:
 			printQueue
 		): # ===================================================================
@@ -133,6 +116,9 @@ class FCPRCommunicator:
 			printQueue.put(("Initializing Comms. worker process","S"))
 
 			# Create inter-process communication facilities:
+				# NOTE: Here RE stands for "ReceiverEnd," SE stands for 
+				# "SenderEnd" and the "I" in "IRE" and "ISE" stands for 
+				# "Internal"
 			
 			# Output matrix:
 			self.outMatrixReceivePipe, self.outMatrixSendPipe = pr.Pipe(False)
@@ -146,9 +132,6 @@ class FCPRCommunicator:
 			# Console feedback:
 			self.printQ = printQueue
 			
-			# Pipe for shutdown message:
-			self.shutdownReceiverPipe, self.shutdownSenderPipe = pr.Pipe(False)
-
 			self.communicatorProcess = pr.Process(
 				target = _communicatorProcessRoutine,
 				name = "FCMkII_Comms",
@@ -164,8 +147,7 @@ class FCPRCommunicator:
 				self.outMatrixSendPipe,
 				self.commandInternal,
 				self.inMatrixQueue,
-				self.printQ,
-				self.shutdownReceiverPipe
+				self.printQ
 					)
 				)
 		
@@ -273,32 +255,3 @@ class FCPRCommunicator:
 			return None
 
 		# End getPrintM ========================================================
-
-	def getStatus(self): # =====================================================
-		# Get Communicator status as an integer code defined in 
-		# FCCommunicator.py.
-		# Possible status codes:
-		# - CONNECTING
-		# - CONNECTED
-		# - DISCONNECTED
-
-		# TODO: IMPLEMENT
-		pass
-
-		# End setStatus ========================================================
-
-	def shutdown(self): # ======================================================
-		# "Shutdown" Communicator by closing all sockets and terminating 
-		# the Communicator process, performing any necessary cleanup.
-
-		self.shutdownSenderPipe.send(1)
-		self.communicatorProcess.join()
-
-		# End shutdown =========================================================
-
-	def restart(self, args = None): # ==========================================
-		
-		# TODO: IMPLEMENT
-		pass
-
-		# End restart ==========================================================

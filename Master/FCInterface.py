@@ -51,13 +51,17 @@ import numpy as np
 import Queue
 
 # FCMkII:
-import FCCommunicator
+import FCCommunicator as cm
+import FCPRCommunicator as pc
 import FCArchiver as ac
 import FCPrinter as pt
 import FCSlave as sv
 
+import fci.MainGrid as mg
 import fci.SlaveList as sl
 import fci.Terminal as tm
+import fci.StatusBar as sb
+import fci.BasicController as bc
 
 from auxiliary.debug import d
 
@@ -152,8 +156,6 @@ class FCInterface(Tk.Frame):
 			self.gridWindow = None
 			self.grid = None
 
-			# TODO: Implement grid:
-			self.gridButton.config(state = Tk.DISABLED)
 
 			# Settings:
 			self.settingsButton = Tk.Button(
@@ -224,9 +226,12 @@ class FCInterface(Tk.Frame):
 			self.terminalFrame.pack(
 				side = Tk.TOP, fill = Tk.BOTH, expand = True, anchor = "n")
 
-			# CONTROL ----------------------------------------------------------
+
 			# STATUS -----------------------------------------------------------	
-			
+			self.statusBar = sb.StatusBar(self, version)
+			self.statusBar.pack(side = Tk.BOTTOM, anchor = "s",
+				fill = Tk.X, expand = True)
+
 			# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = = 
 			
 			# Focus on the main window:
@@ -235,18 +240,15 @@ class FCInterface(Tk.Frame):
 
 			# MODULES ----------------------------------------------------------
 
-			# Inter-process communications:
-			self.matrixPipeFCI, self.matrixPipeFCC = multiprocessing.Pipe()
-			self.commandPipeFCI, self.commandPipeFCC = multiprocessing.Pipe()
 
 			self.comms = None
 			self.archiver = None
 	
-			self.managerThread = \
-				threading.Thread(target = self._managerRoutine)
-			self.managerThread.setDaemon(True)
+			self.outputHandlerThread = \
+				threading.Thread(target = self._outputHandlerRoutine)
+			self.outputHandlerThread.setDaemon(True)
 
-			self.managerThread.start()
+			self.outputHandlerThread.start()
 
 
 		except Exception as e: # Print uncaught exceptions
@@ -254,13 +256,13 @@ class FCInterface(Tk.Frame):
 				message = "Warning: Uncaught exception in "\
 				"GUI constructor: \"{}\"".\
 				format(traceback.format_exc()))
+			self.master.quit()
 		
 		# End FCInterface Constructor ==========================================
 
 	# THREADS AND ROUTINES -----------------------------------------------------
 
-	def _managerRoutine(self): # ===============================================
-
+	def _outputHandlerRoutine(self): # =========================================
 	
 		# INITIALIZATION -------------------------------------------------------
 		try:
@@ -270,9 +272,12 @@ class FCInterface(Tk.Frame):
 			self.archiver = ac.FCArchiver() 
 			self.printM("Archiver initialized", "G")
 
+			macs = []
+			for slave in self.archiver.get(ac.savedSlaves):
+				macs.append(slave[1])
 			self.printM("Initializing Communicator...")
-			self.communicator = FCCommunicator.FCCommunicator(
-				savedMACs = [],
+			self.communicator = pc.FCPRCommunicator(
+				savedMACs = macs,
 				broadcastPeriodS = self.archiver.get(ac.broadcastPeriodS),
 				periodMS = self.archiver.get(ac.periodMS),
 				periodS = self.archiver.get(ac.periodS),
@@ -293,24 +298,41 @@ class FCInterface(Tk.Frame):
 				chaserTolerance = self.archiver.get(ac.chaserTolerance),
 				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
 				pinout = self.archiver.get(ac.defaultPinout),
-				matrixPipe = self.matrixPipeFCC,
-				commandPipe = self.commandPipeFCC,
 				printQueue = self.printQ
 				)
 
-		except Exception as e: # Print uncaught exceptions
-			self.printM("ERROR: Unhandled exception in GUI manager thread: "\
+			# Setup shutdown:
+			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
+
+		except Exception as e:
+			self.printM("ERROR: Unhandled exception in output handler setup: "\
 				"\"{}\"".\
 				format(traceback.format_exc()), "E")
-		
-		# MAIN LOOP ------------------------------------------------------------
-			
-			# Get Communicator output and update GUI ---------------------------
-			
 
+		# MAIN LOOP ------------------------------------------------------------
+		while True:
+			try:
+				# Get Communicator output and update GUI -----------------------
+				
+				# COMMAND PIPE -------------------------------------------------
+				update = self.communicator.commandOut()
+				if update is not None:	
+					if update[0] == cm.NEW:
+						for newSlave in update[1]:
+							# TODO: Add Slave data structure
+							self.slaveList.add(newSlave)
+						
+				# OUTPUT MATRIX ------------------------------------------------
+				matrix = self.communicator.matrixOut()
+				if matrix is not None:
+					del matrix
+			
+			except Exception as e:
+				self.printM("ERROR: Unhandled exception in GUI output"\
+					" routine: \"{}\"".\
+					format(traceback.format_exc()), "E")
 
 			# Get GUI input and send to Communicator ---------------------------
-
 		# End _managerRoutine ==================================================
 
 	# CALLBACKS ----------------------------------------------------------------
@@ -329,28 +351,147 @@ class FCInterface(Tk.Frame):
 		# Check variable:
 		if self.slaveListToggleVar.get():
 			# Build slaveList:
-			self.slaveListFrame.pack(fill = Tk.BOTH, expand = True)
+			self.slaveListFrame.pack(side = Tk.TOP,
+				fill = Tk.BOTH, expand = True)
 		else:
 			# Hide slaveList:
 			self.slaveListFrame.pack_forget()
 
 		# End _slaveList Toggle ================================================
 
+	def _gridDeactivationRoutine(self): # ======================================
+			# ABOUT: Dismantle grid and grid's popup window.
+			
+		try:
+			
+			# Error-check:
+			if not self.isGridActive:
+				raise RuntimeError("Grid deactivation routine called on "\
+					"inactive grid.")
+			# Disable button to avoid conflicts:
+			self.gridButton.config( state = Tk.DISABLED)
+
+			# Destroy grid:
+			self.grid.destroy()
+			self.grid = None
+
+			# Destroy popup window:
+			self.gridWindow.destroy()
+			self.gridWindow = None
+
+			# Update sentinel:
+			self.isGridActive = False
+
+			# Reconfigure button:
+			self.gridButton.config(
+				text = "Activate Grid",
+				state = Tk.NORMAL)
+			
+			# Done
+			return
+
+		except Exception as e: # Print uncaught exceptions
+			self.printM("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+		# End _gridDeactivationRoutine =========================================
+
 	def _gridButtonRoutine(self): # ============================================
-		pass 
+		try:
+			# Check status:
+			if not self.isGridActive:
+				# If the grid is not active, this method activates the grid:
+				
+				# Error-check:
+				if self.gridWindow is not None:
+					raise RuntimeError("Grid activation routine called while "\
+						"grid window placeholder is active.")
+
+				# Activate grid:
+				self.gridWindow = Tk.Toplevel()
+				self.gridWindow.protocol("WM_DELETE_WINDOW", 
+					self._gridDeactivationRoutine)
+
+				self.gridOuterFrame = Tk.Frame(
+					self.gridWindow, padx = 3, pady = 3, 
+					relief = Tk.RIDGE, borderwidth = 2, cursor = "hand1")
+
+				self.gridOuterFrame.pack(fill = Tk.BOTH, expand = True)
+
+
+				def _expand(event):
+					self.grid.destroy()
+					del self.grid
+					self.grid = mg.MainGrid(
+						self.gridOuterFrame,
+						self.archiver.get(ac.dimensions)[0],
+						self.archiver.get(ac.dimensions)[1],
+						0.9*(min(self.gridOuterFrame.winfo_height(),
+							self.gridOuterFrame.winfo_width(),))/\
+								(min(self.archiver.get(ac.dimensions)[0],
+								self.archiver.get(ac.dimensions)[1])),
+						[],
+						self.archiver.get(ac.maxRPM)
+						)
+
+				self.gridOuterFrame.bind("<Button-1>", _expand)
+				self.gridOuterFrame.focus_set()
+
+				self.grid = mg.MainGrid(
+					self.gridOuterFrame,
+					self.archiver.get(ac.dimensions)[0],
+					self.archiver.get(ac.dimensions)[1],
+					600/self.archiver.get(ac.dimensions)[0],
+					[],
+					self.archiver.get(ac.maxRPM)
+					)
+			
+				# Update button format:
+				self.gridButton.config(text = "Deactivate Grid")
+				
+				# Update sentinel:
+				self.isGridActive = True
+
+			else:
+				# If the grid is active, this method deactivates the grid:
+
+				# Error-check:
+				if self.gridWindow is  None:
+					raise RuntimeError("Grid deactivation routine called while "\
+						"grid window placeholder is inactive.")
+
+				# Call the designated grid deactivation routine:
+				self._gridDeactivationRoutine()
+
+		except Exception as e: # Print uncaught exceptions
+			self.printM("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
 
 		# End _gridButtonRoutine ===============================================
 	
 	def _settingsButtonRoutine(self): # ========================================
-		pass 
+		# TODO: IMPLEMENT
+		
+		pass
 
 		# End _settingsButtonRoutine ===========================================
 
-	def _bootloaderButtonRoutine(self): # ========================================
+	def _bootloaderButtonRoutine(self): # ======================================
+		# TODO: IMPLEMENT
+		
 		pass 
 
-		# End _bootloaderButtonRoutine ===========================================
+		# End _bootloaderButtonRoutine =========================================
 
+	def _deactivationRoutine(self): # ==========================================
+		
+		# Shutdown processes:
+		self.communicator.shutdown()
+
+		# Close GUI:
+		self.master.quit()
+
+		# End _deactivationRoutine =============================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 

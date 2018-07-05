@@ -97,8 +97,9 @@ class FCCommunicator:
 			pulsesPerRotation,
 			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
 			# Multiprocessing:
-			matrixPipe,
+			outMatrixPipe,
 			commandPipe,
+			inMatrixQueue,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
@@ -156,8 +157,9 @@ class FCCommunicator:
 			self.pinout = pinout
 			
 			# Multiprocessing:
-			self.matrixPipe = matrixPipe
+			self.outMatrixPipe = outMatrixPipe
 			self.commandPipe = commandPipe
+			self.inMatrixQueue = inMatrixQueue
 
 			# Output queues:
 			self.mainQueue = printQueue
@@ -307,13 +309,24 @@ class FCCommunicator:
 			# Set thread as daemon (background task for automatic closure):
 			self.listenerThread.setDaemon(True)
 
+			# INITIALIZE INPUT AND OUTPUT THREADS ------------------------------
+			self.outputThread  = threading.Thread(
+				name = "FCMkII_output",
+				target = self._outputRoutine) 
+			self.outputThread.setDaemon(True)
+
+			self.inputThread = threading.Thread(
+				name = "FCMkII_input",
+				target = self._inputRoutine) 
+			self.inputThread.setDaemon(True)
+
 			# SET UP LIST OF KNOWN SLAVES  =====================================
 			# NOTE: This list will be a Numpy array of Slave objects.
 
 			# Create a numpy array for storage:
-			self.slaves = np.empty(len(savedMACs), str)
+			self.slaves = np.empty(len(savedMACs), object)
 				# Create an empty numpy array
-			# Loop over savedSlaves to instantiate any saved Slaves:
+			# Loop over savedMACs to instantiate any saved Slaves:
 			newSlaves = []
 			for index in range(len(savedMACs)):
 
@@ -327,7 +340,7 @@ class FCCommunicator:
 
 				self.slaves[index] = \
 					sv.FCSlave(
-					mac = savedSlaves[index][1],
+					mac = savedMACs[index],
 					status = sv.DISCONNECTED,
 					routine = self._slaveRoutine,
 					routineArgs = (index,),
@@ -336,18 +349,28 @@ class FCCommunicator:
 					)
 
 				# Add to list:
-				newSlaves.append(mac)
+				newSlaves.append(
+					(savedMACs[index], 
+					sv.DISCONNECTED, 
+					self.maxFans,
+					self.slaves[index].getVersion()))
 
 			self.newSlaveQueue.put_nowait(newSlaves)
 
-			# START MASTER THREADS =============================================
+			# START THREADS:
+
+			# Start inter-process threads:
+			self.outputThread.start()
+			self.inputThread.start()
+
+			# Start Master threads:
+			self.listenerThread.start()
+			self.broadcastThread.start()
+			
 			# Start Slave threads:
 			for slave in self.slaves:
 				slave.start()
 
-			self.listenerThread.start()
-			self.broadcastThread.start()
-			
 			# DONE
 			self.printM("Communicator ready", "G")
 		
@@ -367,32 +390,54 @@ class FCCommunicator:
 	
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 
-	def _assemblerRoutine(self): # =============================================
-		
+	def _outputRoutine(self): # ================================================
+		# Summarize asynchronous output from each Slave thread into a matrix
+		# and send out status changes
+
 		try:
 		
-			self.printM("Provisional assembler routine started", "W")
+			self.printM("Prototype output routine started", "G")
 			while True:
 				try:
 					# Output -------------------------------------------------------
 
-					# Check new Slaves:
+					# Check for new Slaves:
 					newSlaves = self.getNewSlaves()
 					if newSlaves is not None:
 						self.commandPipe.send((NEW, newSlaves))
+
 
 					# Assemble output matrix:
 					output = []
 					
 					for slave in self.slaves:
 						output.append(slave.getMISO())
-					matrixPipe.send(output)
 
+					self.outMatrixPipe.send(output)
+
+				except Exception as e: # Print uncaught exceptions
+					self.printM("EXCEPTION IN Comms. outp. thread: "\
+						"\"{}\"".\
+						format(traceback.format_exc()), "E")
+
+		except Exception as e: # Print uncaught exceptions
+			self.printM("UNHANDLED EXCEPTION in Communicator output thread: "\
+				"\"{}\" (BROKE OUT OF LOOP)".\
+				format(traceback.format_exc()), "E")
+		# End _outputRoutine ===================================================
+
+	def _inputRoutine(self): # =================================================
+
+		try:
+		
+			self.printM("Prototype input routine started","G")
+			while True:
+				try:
 					# Input --------------------------------------------------------
 					
 					# Check commands:
-					if commandPipe.poll():
-						command = commandPipe.recv()
+					if self.commandPipe.poll():
+						command = self.commandPipe.recv()
 						
 						# Classify command:
 						if command[0] == ADD:
@@ -411,25 +456,27 @@ class FCCommunicator:
 								self.slaves[command[1]].setMOSI((MOSI_REBOOT,))
 
 					# Check matrix:
-					if matrixPipe.poll():
-						matrix = matrixPipe.recv()
+					matrix = self.inMatrixQueue.get_nowait()
+					index = 0
+					for row in matrix:
+						if row[0] is not NO_COMMAND:
+							self.slaves[index].setMOSI(row)
 
-						for slave in self.slaves:
-							if matrix[slave.index][0] is NO_COMMAND:
-								continue
-							else: 
-								slave.setMOSI(matrix[slave.index])
+						index += 1
 				
+				except Queue.Empty:
+					continue
+
 				except Exception as e: # Print uncaught exceptions
-					self.printM("EXCEPTION IN Comms. Assembler: "\
+					self.printM("EXCEPTION IN Comms. outp. thread: "\
 						"\"{}\"".\
 						format(traceback.format_exc()), "E")
 
 		except Exception as e: # Print uncaught exceptions
-			self.printM("UNHANDLED EXCEPTION IN Communicator Assembler: "\
+			self.printM("UNHANDLED EXCEPTION in Communicator output thread: "\
 				"\"{}\" (BROKE OUT OF LOOP)".\
 				format(traceback.format_exc()), "E")
-		# End _assemberRoutine =================================================
+		# End _inputRoutine ====================================================
 
 	def _broadcastRoutine(self, broadcastMessage, broadcastPeriod): # ==========
 		""" ABOUT: This method is meant to run inside a Communicator instance's
@@ -497,8 +544,6 @@ class FCCommunicator:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
 				
-				print "Message recevied: {}".format(messageReceived)
-
 				""" NOTE: The message received from Slave, at this point, 
 					should have one of the following forms:
 
@@ -633,6 +678,13 @@ class FCCommunicator:
 										)
 									)
 								)
+								
+								# Add new Slave's information to newSlaveQueue:
+								self.newSlaveQueue.put(
+									((mac, 
+									sv.AVAILABLE,
+									self.maxFans, 
+									version),))
 
 								# Start Slave thread:
 								self.slaves[index].start()
@@ -641,8 +693,6 @@ class FCCommunicator:
 								self._saveTimeStamp(index, "Discovered")
 								"""
 					
-								# Add new Slave's information to newSlaveQueue:
-								self.newSlaveQueue.put([mac])
 						
 						elif messageSplitted[3] == 'E':
 							# Error message
@@ -735,11 +785,11 @@ class FCCommunicator:
 			# Assign sockets:
 			slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
 
-			self.printM("[{}] Sockets set up successfully: \
-			 \n\t\tMMISO: {}\n\t\tMMOSI:{}".\
+			self.printM("[{:3d}] Slave thread connected: \
+			 MMISO: {} MMOSI:{}".\
 				format(targetIndex + 1,
-					slave._misoSocket().getsockname(), 
-					slave._mosiSocket().getsockname()))
+					slave._misoSocket().getsockname()[1], 
+					slave._mosiSocket().getsockname()[1]))
 
 			# HSK message ------------------------------------------------------
 
@@ -751,7 +801,7 @@ class FCCommunicator:
 						self.maxTimeouts,
 
 						self.fanMode,
-						self.slaves[targetIndex].activeFans,
+						self.maxFans,
 						self.fanFrequencyHZ,
 						self.counterCounts,
 						self.pulsesPerRotation,
@@ -762,8 +812,6 @@ class FCCommunicator:
 						self.maxFanTimeouts,
 						self.pinout)
 			
-			self.printM("[{}] Slave thread started".\
-				format(targetIndex + 1, "G"))
 
 			# Set up placeholders and sentinels --------------------------------
 			slave.resetIndices()
@@ -849,7 +897,7 @@ class FCCommunicator:
 						# Check queue for message:
 						fetchedMessage = slave.getMOSI()
 
-						if message is None:
+						if fetchedMessage is None:
 							# Nothing to fetch. Send previous command
 							
 							# Send message:
@@ -860,14 +908,14 @@ class FCCommunicator:
 							# Raw format: [MOSI_DC, DC, FAN1S,FAN2S...]
 
 							selection = ''
-							for fan in fetchedMessage[2]:
+							for fan in fetchedMessage[2:]:
 								if fan == 1:
 									selection += '1'
 								else:
 									selection += '0'
 							
 							message = "S|D:{}:{}".format(
-								float(fetchedMessage[1])*0.1, selection)
+								fetchedMessage[1]*0.01, selection)
 
 							self._send(message, slave, 2)
 
@@ -1419,7 +1467,7 @@ class FCCommunicator:
 
 		# End isListenerThreadAlive ============================================
 	
-	def sendReboot(self):
+	def sendReboot(self): # ====================================================
 		# ABOUT: Use broadcast socket to send a general "disconnect" message
 		# that terminates any existing connection.
 
@@ -1436,8 +1484,9 @@ class FCCommunicator:
 		#finally:
 			#self.broadcastLock.release()
 
+		# End sendReboot =======================================================
 
-	def sendDisconnect(self):
+	def sendDisconnect(self): # ================================================
 		# ABOUT: Use disconenct socket to send a general "disconnect" message
 		# that terminates any existing connection.
 
@@ -1450,6 +1499,19 @@ class FCCommunicator:
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
 			   format(traceback.format_exc()), "E")
+
+		# End sendDisconnect ===================================================
+	
+	def shutdown(self): # ======================================================
+		# Cleanup routine for termination.
+
+		# Send disconnect signal:
+		self.sendDisconnect()
+
+		# NOTE: All threads are set as Daemon and all sockets as reusable.
+		return
+
+		# End shutdown =========================================================
 
 
 	"""

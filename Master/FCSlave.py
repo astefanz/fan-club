@@ -148,14 +148,6 @@ class FCSlave:
 			raise TypeError(
 				"Attribute 'index' must be int, not {}".\
 				format(type(index)))
-		elif type(pinout) is not str:
-			raise TypeError(
-				"Attribute 'pinout' must be str, not {}".\
-				format(type(index)))
-		elif (len(pinout)-1)/2 != activeFans:
-			raise ValueError(
-				"Attribute 'pinout' must span {} fans, not {}".\
-				format(activeFans, (len(pinout)-1)/2))
 		elif type(version) is not str:
 			raise TypeError(
 				"Attribute 'version' must be int, not {}".\
@@ -184,18 +176,10 @@ class FCSlave:
 				format(type(mosiS)))
 		
 		# Initialize constant attributes .......................................
-
-		# Name:
-		self.name = name + mac[-3:]
-		# NOTE: Append last characters of MAC in case of identical names.
 		
 		# MAC:
 		self.mac = mac
 	
-		# Fan numbers:
-		self.maxFans = maxFans
-		self.activeFans = activeFans
-		
 		# Index:
 		self.index = index
 
@@ -390,9 +374,6 @@ class FCSlave:
 
 			# Update status ----------------------------------------------------
 			self.status = newStatus
-
-			# Store in MISO queue:
-			self.update(STATUS_CHANGE)
 
 		finally:
 			if lock:
