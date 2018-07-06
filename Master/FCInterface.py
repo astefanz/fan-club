@@ -44,7 +44,7 @@ import traceback
 import os # Get current working directory & check file names
 import sys # Exception handling
 import inspect # get line number for debugging
-import multiprocessing
+import multiprocessing as pr
 
 # Data:
 import numpy as np
@@ -213,12 +213,12 @@ class FCInterface(Tk.Frame):
 			# TERMINAL ---------------------------------------------------------
 
 			# Print queue:
-			self.printQ = multiprocessing.Queue()
+			self.printQueue = pr.Queue()
 
 			self.terminalFrame = Tk.Frame(self.main, 
 				bg = self.background,relief = Tk.RIDGE, bd = 1)
 
-			self.terminal = tm.Terminal(self.terminalFrame, self.printQ,
+			self.terminal = tm.Terminal(self.terminalFrame, self.printQueue,
 				self._terminalToggle, self.terminalToggleVar)
 
 			self.terminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
@@ -240,10 +240,24 @@ class FCInterface(Tk.Frame):
 
 			# MODULES ----------------------------------------------------------
 
+			# Inter-process communication:
+			self.updatePipeOut, self.updatePipeIn = pr.Pipe(None)
+			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(None)
 
-			self.comms = None
+			self._updateIn = lambda: None
+			self._misoIn = lambda: None
+
+			self.inputLock = threading.Lock()
+
+			# Data structures:
+			self.dataPipeline = [self]
+			self.numModules = 0
+
+			# Base modules:
+
+			self.communicator = None
 			self.archiver = None
-	
+
 			self.outputHandlerThread = \
 				threading.Thread(target = self._outputHandlerRoutine)
 			self.outputHandlerThread.setDaemon(True)
@@ -275,7 +289,7 @@ class FCInterface(Tk.Frame):
 			macs = []
 			for slave in self.archiver.get(ac.savedSlaves):
 				macs.append(slave[1])
-			self.printM("Initializing Communicator...")
+			self.printM("[UI][OR] Initializing Communicator")
 			self.communicator = pc.FCPRCommunicator(
 				savedMACs = macs,
 				broadcastPeriodS = self.archiver.get(ac.broadcastPeriodS),
@@ -298,10 +312,14 @@ class FCInterface(Tk.Frame):
 				chaserTolerance = self.archiver.get(ac.chaserTolerance),
 				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
 				pinout = self.archiver.get(ac.defaultPinout),
-				printQueue = self.printQ
+				printQueue = self.printQueue
 				)
 
-			# Setup shutdown:
+			# Set up data pipeline:
+			self.setIn(self.communicator.updateOut, self.communicator.misoOut)
+			self.communicator.setIn(self.updateOut, self.misoOut)
+
+			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
 		except Exception as e:
@@ -315,7 +333,7 @@ class FCInterface(Tk.Frame):
 				# Get Communicator output and update GUI -----------------------
 				
 				# COMMAND PIPE -------------------------------------------------
-				update = self.communicator.commandOut()
+				update = self.updateIn()
 				if update is not None:	
 					if update[0] == cm.NEW:
 						for newSlave in update[1]:
@@ -323,7 +341,7 @@ class FCInterface(Tk.Frame):
 							self.slaveList.add(newSlave)
 						
 				# OUTPUT MATRIX ------------------------------------------------
-				matrix = self.communicator.matrixOut()
+				matrix = self.misoIn()
 				if matrix is not None:
 					del matrix
 			
@@ -332,7 +350,6 @@ class FCInterface(Tk.Frame):
 					" routine: \"{}\"".\
 					format(traceback.format_exc()), "E")
 
-			# Get GUI input and send to Communicator ---------------------------
 		# End _managerRoutine ==================================================
 
 	# CALLBACKS ----------------------------------------------------------------
@@ -495,7 +512,75 @@ class FCInterface(Tk.Frame):
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 
+	def updateIn(self): # ======================================================
+		# Fetch update from Communicator, return it, and place it in own 
+		# update pipe.
+
+		try:
+			self.inputLock.acquire()
+			update = self._updateIn()
+			
+			if update is not None:
+				self.updatePipeIn.send(update)
+			
+			return update
+
+		finally:
+			self.inputLock.release()
+
+		# End updateIn =========================================================
+
+	def updateOut(self): # =====================================================
+		# Fetch update from own update pipe
+
+		if self.updatePipeOut.poll():
+			return self.updatePipeOut.recv()
+		else:
+			return None
+		# End updateOut ========================================================
+
+	def misoIn(self): # ========================================================
+		# Fetch MISO matrix from Communicator, return it, and place it in own
+		# MISO matrix pipe.
+
+		try:
+			self.inputLock.acquire()
+			misoM = self._misoIn()
+
+			if misoM is not None:
+				self.misoMatrixPipeIn.send(misoM)
+
+			return misoM
+
+		finally:
+			self.inputLock.release()
+
+		# End misoIn ===========================================================
+
+	def misoOut(self): # =======================================================
+		# Fetch MISO matrix from own MISO matrix pipe.
+
+		if self.misoMatrixPipeOut.poll():
+			return self.misoMatrixOut.recv()
+
+		else:
+			return None
+
+		# End misoOut ==========================================================
+
+	def setIn(self, newUpdateIn, newMISOIn): # =================================
+		try:
+			self.inputLock.acquire()
+
+			self._updateIn = newUpdateIn
+			self._misoIn = newMISOIn
+
+		finally:
+			self.inputLock.release()
+		# End setIn ============================================================
+
 	def printM(self, message, tag = 'S'): # ====================================
-		self.printQ.put_nowait((message, tag))
+		self.printQueue.put_nowait((message, tag))
 
 		# End printM ===========================================================
+

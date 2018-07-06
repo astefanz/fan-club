@@ -97,9 +97,10 @@ class FCCommunicator:
 			pulsesPerRotation,
 			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
 			# Multiprocessing:
-			outMatrixPipe,
-			commandPipe,
-			inMatrixQueue,
+			commandQueue,
+			updatePipeIn,
+			mosiMatrixQueue,
+			misoMatrixPipeIn,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
@@ -157,12 +158,13 @@ class FCCommunicator:
 			self.pinout = pinout
 			
 			# Multiprocessing:
-			self.outMatrixPipe = outMatrixPipe
-			self.commandPipe = commandPipe
-			self.inMatrixQueue = inMatrixQueue
+			self.misoMatrixPipeIn = misoMatrixPipeIn
+			self.commandQueue = commandQueue
+			self.updatePipeIn = updatePipeIn
+			self.mosiMatrixQueue = mosiMatrixQueue
 
 			# Output queues:
-			self.mainQueue = printQueue
+			self.printQueue = printQueue
 			self.newSlaveQueue = Queue.Queue()
 
 			# Initialize Slave-list-related data:
@@ -390,54 +392,17 @@ class FCCommunicator:
 	
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
 
-	def _outputRoutine(self): # ================================================
-		# Summarize asynchronous output from each Slave thread into a matrix
-		# and send out status changes
-
-		try:
-		
-			self.printM("Prototype output routine started", "G")
-			while True:
-				try:
-					# Output -------------------------------------------------------
-
-					# Check for new Slaves:
-					newSlaves = self.getNewSlaves()
-					if newSlaves is not None:
-						self.commandPipe.send((NEW, newSlaves))
-
-
-					# Assemble output matrix:
-					output = []
-					
-					for slave in self.slaves:
-						output.append(slave.getMISO())
-
-					self.outMatrixPipe.send(output)
-
-				except Exception as e: # Print uncaught exceptions
-					self.printM("EXCEPTION IN Comms. outp. thread: "\
-						"\"{}\"".\
-						format(traceback.format_exc()), "E")
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("UNHANDLED EXCEPTION in Communicator output thread: "\
-				"\"{}\" (BROKE OUT OF LOOP)".\
-				format(traceback.format_exc()), "E")
-		# End _outputRoutine ===================================================
-
 	def _inputRoutine(self): # =================================================
 
-		try:
-		
-			self.printM("Prototype input routine started","G")
+		try:		
+			self.printM("[CM][IR] Prototype input routine started","G")
 			while True:
 				try:
 					# Input --------------------------------------------------------
 					
 					# Check commands:
-					if self.commandPipe.poll():
-						command = self.commandPipe.recv()
+					if not self.commandQueue.empty():
+						command = self.commandQueue.get_nowait()
 						
 						# Classify command:
 						if command[0] == ADD:
@@ -456,7 +421,7 @@ class FCCommunicator:
 								self.slaves[command[1]].setMOSI((MOSI_REBOOT,))
 
 					# Check matrix:
-					matrix = self.inMatrixQueue.get_nowait()
+					matrix = self.mosiMatrixQueue.get_nowait()
 					index = 0
 					for row in matrix:
 						if row[0] is not NO_COMMAND:
@@ -468,6 +433,42 @@ class FCCommunicator:
 					continue
 
 				except Exception as e: # Print uncaught exceptions
+					self.printM("[CM][IR] EXCEPTION: "\
+						"\"{}\"".\
+						format(traceback.format_exc()), "E")
+
+		except Exception as e: # Print uncaught exceptions
+			self.printM("[CM][IR] UNHANDLED EXCEPTION: "\
+				"\"{}\" (BROKE OUT OF LOOP)".\
+				format(traceback.format_exc()), "E")
+		# End _inputRoutine ====================================================
+
+	def _outputRoutine(self): # ================================================
+		# Summarize asynchronous output from each Slave thread into a matrix
+		# and send out status changes
+
+		try:
+		
+			self.printM("Prototype output routine started", "G")
+			while True:
+				try:
+					# Output -------------------------------------------------------
+
+					# Check for new Slaves:
+					newSlaves = self.getNewSlaves()
+					if newSlaves is not None:
+						self.updatePipeIn.send((NEW, newSlaves))
+
+
+					# Assemble output matrix:
+					output = []
+					
+					for slave in self.slaves:
+						output.append(slave.getMISO())
+
+					self.misoMatrixPipeIn.send(output)
+
+				except Exception as e: # Print uncaught exceptions
 					self.printM("EXCEPTION IN Comms. outp. thread: "\
 						"\"{}\"".\
 						format(traceback.format_exc()), "E")
@@ -476,7 +477,7 @@ class FCCommunicator:
 			self.printM("UNHANDLED EXCEPTION in Communicator output thread: "\
 				"\"{}\" (BROKE OUT OF LOOP)".\
 				format(traceback.format_exc()), "E")
-		# End _inputRoutine ====================================================
+		# End _outputRoutine ===================================================
 
 	def _broadcastRoutine(self, broadcastMessage, broadcastPeriod): # ==========
 		""" ABOUT: This method is meant to run inside a Communicator instance's
@@ -1365,7 +1366,7 @@ class FCCommunicator:
 			print "[DEBUG][COMMS] " + output
 
 		try:
-			self.mainQueue.put_nowait((output, tag))
+			self.printQueue.put_nowait((output, tag))
 			return True
 
 		except Queue.Full:
