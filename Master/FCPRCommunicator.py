@@ -173,8 +173,8 @@ class FCPRCommunicator:
 			self.shutdownPipeOut, self.shutdownPipeIn = pr.Pipe(False)
 
 			self.communicatorProcess = pr.Process(
-				target = _communicatorProcessRoutine,
 				name = "FCMkII_Comms",
+				target = _communicatorProcessRoutine,
 				args = (	
 				# Network:
 				savedMACs, broadcastPeriodS, periodMS, periodS,

@@ -57,7 +57,7 @@ import FCArchiver as ac
 import FCPrinter as pt
 import FCSlave as sv
 
-import fci.MainGrid as mg
+import fci.FCPRGrid as gd
 import fci.SlaveList as sl
 import fci.Terminal as tm
 import fci.StatusBar as sb
@@ -322,6 +322,9 @@ class FCInterface(Tk.Frame):
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
+			# Add Grid:
+			self.addModule(gd.FCPRGrid)
+
 		except Exception as e:
 			self.printM("ERROR: Unhandled exception in output handler setup: "\
 				"\"{}\"".\
@@ -504,6 +507,9 @@ class FCInterface(Tk.Frame):
 		
 		# Shutdown processes:
 		self.communicator.shutdown()
+		
+		for module in self.dataPipeline:
+			module.shutdown()
 
 		# Close GUI:
 		self.master.quit()
@@ -584,3 +590,35 @@ class FCInterface(Tk.Frame):
 
 		# End printM ===========================================================
 
+	def addModule(self, newModuleConstructor): # ===============================
+		# Add an FCMkII module to the dataPipeline
+		# NOTE: Here newModule is expected to be the constructor of a 
+		# standardized FCMkII module:
+
+		newModule = newModuleConstructor(
+			self.archiver.getProfile(),
+			self.communicator.commandQueue,
+			self.communicator.mosiMatrixQueue,
+			self.printQueue
+		)
+
+		# Connect newModule's output to pipeline's end:
+		self.communicator.setIn(newModule.updateOut, newModule.misoOut)
+
+		# Connect newModule's input to pipeline's last output:
+		newModule.setIn(
+			self.dataPipeline[-1].updateOut, 
+			self.dataPipeline[-1].misoOut
+		)
+
+		# Add newModule to list:
+		self.dataPipeline.append(newModule)
+
+		# End addModule ========================================================
+
+	def shutdown(self): # ======================================================
+		# NOTE: Added for standard compliance
+
+		self.printM("[UI] Shutting down...")
+
+		# End shutdown =========================================================

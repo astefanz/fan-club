@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" ## File: FCPRCommunicator.py            ##
+## Project: Fan Club Mark II "Master" ## File: FCPRGrid.py                    ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -55,203 +55,245 @@ import MainGrid as mg
 ## AUXILIARY ROUTINE ###########################################################
 
 def _gridProcessRoutine(
-		# Network:
-		savedMACs, broadcastPeriodS, periodMS, periodS,
-		broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-		# Fan array:
-		maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-		pulsesPerRotation,
-		maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-		# Multiprocessing:
-		outMatrixPipe,
-		commandPipe,
-		inMatrixQueue,
-		printQueue
-	): # ===================================================================
+	profile,
+	updateIn,
+	misoIn,
+	commandQueue,
+	mosiQueue,
+	shutdownPipe,
+	printQueue
+): # ===========================================================================
 	try:
 
-		printQueue.put_nowait(("Starting Comms. Process", 'S'))
+		# SETUP ----------------------------------------------------------------
+	
+		printQueue.put_nowait(("[UI][GD][GP] Grid ready", "G"))
 
-		# Create Communicator:
-		comms = cm.FCCommunicator(
-			# Network:
-			savedMACs, broadcastPeriodS, periodMS, periodS,
-			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-			# Fan array:
-			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-			# Multiprocessing:
-			outMatrixPipe,
-			commandPipe,
-			inMatrixQueue,
-			printQueue
-			)
-
+		# MAIN LOOP ------------------------------------------------------------
 		while True:
-			pass
+			try:
+				
+				# Check shutdown flag:
+				if shutdownPipe.poll():
+					shutdownCode = shutdownPipe.recv()
+					if shutdownCode is 1:
+						# TODO: Shutdown sequence
+						break
+					else:
+						raise RuntimeError("Invalid shutdown code \"{}\"".\
+							format(shutdownCode))
+		
+				# Update input values:
+				# TODO
+				updateIn()
+				misoIn()
+				
+
+			except Exception as e: # Print uncaught exceptions
+				printQueue.put(("[UI][GD][GP] EXCEPTION: "\
+					"\"{}\"".format(traceback.format_exc()), "E")
+					)
+
+		printQueue.put_nowait(("[UI][GD][GP] Grid process ended"))
 
 	except Exception as e: # Print uncaught exceptions
-		printQueue.put(("UNHANDLED EXCEPTION terminated Comms. Process: "\
+		printQueue.put(("[UI][GD][GP] EXCEPTION (GP terminated): "\
 			"\"{}\"".format(traceback.format_exc()), "E")
 			)
 
-	# End _communicatorProcessRoutine ======================================
+	# End _communicatorProcessRoutine ==========================================
 
 class FCPRGrid:
 	
 	def __init__(self,
-			# Grid parameters:
-			rows,
-			columns,
-			cellLength,
-			slaves,
-			maxRPM,
-			# Multiprocessing:
-			printQueue
+			profile,
+			commandQueue,
+			mosiQueue,
+			printQueue,
+			updateIn = lambda: None,
+			misoIn = lambda: None,
 		): # ===================================================================
-		# ABOUT: Constructor for class FCPRCommunicator.
+		# ABOUT: Constructor for class FCPRGrid.
+		
+		self.printQueue = None
+
 		try:
 			
-			printQueue.put(("Initializing Comms. worker process","S"))
+			self.printQueue = printQueue
+			self._printM("[UI][GD][init] Initializing Grid handler")
 
-			# Create inter-process communication facilities:
-				# NOTE: Here RE stands for "ReceiverEnd," SE stands for 
-				# "SenderEnd" and the "I" in "IRE" and "ISE" stands for 
-				# "Internal"
+			self.profile = profile
 			
-			# Output matrix:
-			self.outMatrixReceivePipe, self.outMatrixSendPipe = pr.Pipe(False)
+			# Set up standard data pipeline and inter-process communication:
 			
-			# Command input and new Slave and status change output:
-			self.commandExternal, self.commandInternal = pr.Pipe(True)
+			# Arguments:
+			self.__updateIn = updateIn
+			self.__misoIn = misoIn
+			self.commandQueue = commandQueue
+			self.mosiQueue = mosiQueue
+			self.printQueue = printQueue
 
-			# Input matrix:
-			self.inMatrixQueue = pr.Queue()
+			# Internals:
+			self.inputLock = threading.Lock()
 
-			# Console feedback:
-			self.printQ = printQueue
-			
-			self.communicatorProcess = pr.Process(
-				target = _communicatorProcessRoutine,
-				name = "FCMkII_Comms",
-				args = (	
-				# Network:
-				savedMACs, broadcastPeriodS, periodMS, periodS,
-				broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-				# Fan array:
-				maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-				pulsesPerRotation,
-				maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-				# Multiprocessing:
-				self.outMatrixSendPipe,
-				self.commandInternal,
-				self.inMatrixQueue,
-				self.printQ
-					)
+			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
+			self.misoPipeOut, self.misoPipeIn = pr.Pipe(False)
+
+			self.activeFlag = False
+			self.activeLock = threading.Lock()
+
+			self.shutdownPipeOut, self.shutdownPipeIn = pr.Pipe(False)
+
+			self.process = pr.Process(
+				name = "FCMkII_Grid",
+				target = _gridProcessRoutine,
+				args = (
+					profile,
+					self._updateIn,
+					self._misoIn,
+					commandQueue,
+					mosiQueue,
+					self.shutdownPipeOut,
+					printQueue
 				)
-		
-			self.communicatorProcess.start()
-			printQueue.put(("Comms. worker process initialized", "G"))
+			)
+
+			self.process.start()
+
 		except Exception as e: # Print uncaught exceptions
-			self.printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
+			self._printM("[UI][GD][init] EXCEPTION: "\
 				"\"{}\"".\
 				format(traceback.format_exc()), "E")
 
 		# End __init__ =========================================================
 
-	# "PRIVATE" METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+	def _commandOut(self, command): # ==========================================
+		self.commandQueue.put_nowait(command)
+		# End _commandOut ======================================================
+
+	def _updateIn(self): # =====================================================
+		try:
+			self.inputLock.acquire()
+			update = self.__updateIn()
+			
+			if update is not None:
+				self.updatePipeIn.send(update)
+
+			return update
+
+		finally:
+			self.inputLock.release()
+
+		# End _updateIn ========================================================
+
+	def updateOut(self): # =====================================================
+		
+		if self.updatePipeOut.poll():
+			return self.updatePipeOut.recv()
+		else:
+			return None
+
+		# End updateOut ========================================================
+
+	def _misoIn(self): # =======================================================
+		try:
+			self.inputLock.acquire()
+			miso = self.__misoIn()
+
+			if miso is not None:
+				self.misoPipeIn.send(miso)
+
+			return miso
+
+		finally:
+			self.inputLock.release()
+
+		# End _misoIn ==========================================================
+
+
+	def misoOut(self): # =======================================================
+		if self.misoPipeOut.poll():
+			return self.misoPipeOut.recv()
+		else:
+			return None
+
+		# End misoOut ==========================================================
+
+	def setIn(self, newUpdateIn, newMISOIn): # =================================
+		try:
+			self.inputLock.acquire()
+			
+			self.__updateIn = newUpdateIn
+			self.__misoIn = newMISOIn
+
+		finally:
+			self.inputLock.release()
+
+		# End setIn ============================================================
+
+	def start(self): # =========================================================
+		# Start up grid 
+		if not self._isActive():
+			# TODO: startup sequence
+			
+			self._setActive(True)
+
+		else:
+			raise RuntimeError("Tried to start already active FCGrid")
+
+		# End start ============================================================
+
+	def stop(self): # ==========================================================
+		# Stop grid
+		if self._isActive():
+			# TODO: Stop sequence
+
+			self._setActive(False)
+
+		else:
+			raise RuntimeError("Tried to stop already inactive FCGrid")
+
+		# End stop =============================================================
+	 
+	def shutdown(self): # ======================================================
+		
+		self._printM("[UI][GD][sd] Shutting down Grid process", "W")
+		
+		# Stop grid if it is active:
+		if self._isActive():
+			self.stop()
+
+		# Cleanly terminate process:
+		self._printM("[UI][GD][sd] Joining Grid Process")
+		self.shutdownPipeIn.send(1)
+		self.process.join()
+		
+		self._printM("[UI][GD][sd] Grid shutdown complete")
+		# End shutdown =========================================================
 	
-	def printM(self, output, tag = 'S'): # =====================================
-		
+	def _isActive(self): # =====================================================
 		try:
-			self.printQ.put_nowait((output, tag))
-			return True
+			self.activeLock.acquire()
+			value = self.activeFlag
+			return value
+		finally:
+			self.activeLock.release()
 
-		except Queue.Full:
-			print "[WARNING] Communications output queue full. "\
-				"Could not print the following message:\n\r \"{}\"".\
-				format(output)
-			return False
+		# End _isActive ========================================================
 
-		# End printM ===========================================================
-
-	# "PUBLIC" METHODS # # # # # # # # # # # # # # # # # # # # # # # # # # # # #	
-
-	def matrixIn(self, matrix): # ==============================================
-		# Input a control matrix into the Communicator Process. The matrix is
-		# expected to have the following form, as a numpy matrix:
-		#
-		#	      	|COMMAND| FAN1| FAN2| FAN3 |.... |FANN|
-		# MODULE 1  |       |     |
-		# ----------+-------+-----+-----
-        # MODULE 2  |
-		#   ...     .
-		# MODULE N  | 
-		#
-		# Where COMMAND is an integer code simbolizing a command to be sent.
-
-		self.inMatrixQueue.put_nowait()
-		# End matrixIn =========================================================
-
-	def matrixOut(self): # =====================================================
-		# Try to fetch an output matrix from the Communicator Process. The 
-		# matrix is expected to have the following form, as a numpy matrix:
-		#
-		#	      	|CHANGE |STATUS |RPM1 |RPM2 |... | DC 1 |.... |DC 2|
-		# MODULE 1  |       |       |
-		# ----------+-------+-------+-----
-        # MODULE 2  |
-		#   ...     .
-		# MODULE N  | 
-		#
-		# If there is no matrix to fetch, None is returned.		
-
-		if self.outMatrixReceivePipe.poll():
-			return self.outMatrixReceivePipe.recv()
-		else:
-			return None
-		# End matrixOut ========================================================
-
-	def commandIn(self, command): # ============================================
-		# Send a command to the Communicator Process. The command is expected
-		# to be a numpy array of integers of the form:
-		#         					(COMMAND, VALUE)
-		# Where COMMAND must be a valid FCPRC constant.
-		
-		if command in FCPRCONSTS:	
-			self.commandExternal.send(command)
-		else:
-			raise ValueError("Given command must be a valid constant, not {}".\
-				format(command))	
-		# End commandIn ========================================================
-
-	def commandOut(self): # ====================================================
-		# Get output from the Communicator Process, if any is available.
-		# The following possible outputs are expected:
-		#
-		# - New Slave(s): 
-		#					(NEW, (Slave...))
-		#		Where the second item is a list of Slave MAC address - version
-		#       pairs in the order in which they have been indexed
-		#
-		# - If there is no output to fetch, None is returned.
-
-		if self.commandExternal.poll():
-			return self.commandExternal.recv()
-		else:
-			return None
-
-		# End commandOut =======================================================
-
-	def printOut(self): # ======================================================
-		# Get console output from the Communicator Process, if any.
-		# Returns console output in the form (message, tag) or None if there is
-		# nothing to return
+	def _setActive(self, newValue): # ==========================================
 
 		try:
-			return self.printQ.get_nowait()		
-		except Queue.Full:
-			return None
+			self.activeLock.acquire()
+			self.activeFlag = newValue
 
-		# End getPrintM ========================================================
+		finally:
+			self.activeLock.release()
+
+		# End _setActive =======================================================
+
+	def _printM(self, message, tag = 'S'): # ===================================
+		self.printQueue.put_nowait((message, tag))
+		# End _printM ==========================================================
+
+

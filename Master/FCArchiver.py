@@ -188,6 +188,7 @@ class FCArchiver:
 			[hc.DEF_MODULE_ASSIGNMENT, str, threading.Lock()]
 		self.profile[defaultPinout] = \
 			[hc.DEF_PINOUT, str, threading.Lock()]
+
 	# End FCArchiver constructor ===============================================
 
 	def get(self, param): # ====================================================
@@ -251,6 +252,24 @@ class FCArchiver:
 		raise IOError("FCArchiver save functionality not yet implemented!")
 
 		# End save =============================================================
+
+	def getProfile(self): # ====================================================
+		# Get a copy of the current profile as a dictionary of the form:
+		# 		ACCODE -> VALUE
+		# NOTE: Be advised, this process is bulky and should be used only during
+		# initialization
+
+		profile = {}
+		for itemKey in self.profile:
+			try:
+				self.profile[itemKey][LOCK].acquire()
+				profile[itemKey] = self.profile[itemKey][VALUE]
+			finally:
+				self.profile[itemKey][LOCK].release()
+
+		return profile
+		
+		# End getProfile =======================================================
 
 	# NOTE: How to load files? How to deal with multiple profiles? 
 	# L-> IDEA: If there is one profile, load it; if there are no profile or 
