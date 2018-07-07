@@ -324,6 +324,8 @@ class FCInterface(Tk.Frame):
 
 			# Add Grid:
 			self.addModule(gd.FCPRGrid)
+			self.grid = self.dataPipeline[-1]
+			self.grid.temp_external_close = self._gridButtonRoutine
 
 		except Exception as e:
 			self.printM("ERROR: Unhandled exception in output handler setup: "\
@@ -379,113 +381,23 @@ class FCInterface(Tk.Frame):
 
 		# End _slaveList Toggle ================================================
 
-	def _gridDeactivationRoutine(self): # ======================================
-			# ABOUT: Dismantle grid and grid's popup window.
-			
-		try:
-			
-			# Error-check:
-			if not self.isGridActive:
-				raise RuntimeError("Grid deactivation routine called on "\
-					"inactive grid.")
-			# Disable button to avoid conflicts:
-			self.gridButton.config( state = Tk.DISABLED)
-
-			# Destroy grid:
-			self.grid.destroy()
-			self.grid = None
-
-			# Destroy popup window:
-			self.gridWindow.destroy()
-			self.gridWindow = None
-
-			# Update sentinel:
-			self.isGridActive = False
-
-			# Reconfigure button:
-			self.gridButton.config(
-				text = "Activate Grid",
-				state = Tk.NORMAL)
-			
-			# Done
-			return
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")
-		# End _gridDeactivationRoutine =========================================
 
 	def _gridButtonRoutine(self): # ============================================
+
 		try:
-			# Check status:
-			if not self.isGridActive:
-				# If the grid is not active, this method activates the grid:
-				
-				# Error-check:
-				if self.gridWindow is not None:
-					raise RuntimeError("Grid activation routine called while "\
-						"grid window placeholder is active.")
 
-				# Activate grid:
-				self.gridWindow = Tk.Toplevel()
-				self.gridWindow.protocol("WM_DELETE_WINDOW", 
-					self._gridDeactivationRoutine)
-
-				self.gridOuterFrame = Tk.Frame(
-					self.gridWindow, padx = 3, pady = 3, 
-					relief = Tk.RIDGE, borderwidth = 2, cursor = "hand1")
-
-				self.gridOuterFrame.pack(fill = Tk.BOTH, expand = True)
-
-
-				def _expand(event):
-					self.grid.destroy()
-					del self.grid
-					self.grid = mg.MainGrid(
-						self.gridOuterFrame,
-						self.archiver.get(ac.dimensions)[0],
-						self.archiver.get(ac.dimensions)[1],
-						0.9*(min(self.gridOuterFrame.winfo_height(),
-							self.gridOuterFrame.winfo_width(),))/\
-								(min(self.archiver.get(ac.dimensions)[0],
-								self.archiver.get(ac.dimensions)[1])),
-						[],
-						self.archiver.get(ac.maxRPM)
-						)
-
-				self.gridOuterFrame.bind("<Button-1>", _expand)
-				self.gridOuterFrame.focus_set()
-
-				self.grid = mg.MainGrid(
-					self.gridOuterFrame,
-					self.archiver.get(ac.dimensions)[0],
-					self.archiver.get(ac.dimensions)[1],
-					600/self.archiver.get(ac.dimensions)[0],
-					[],
-					self.archiver.get(ac.maxRPM)
-					)
-			
+			if self.grid.isActive():
+				self.grid.stop()
+				self.gridButton.config(text = "Activate Grid")
+			else:
+				self.grid.start()
 				# Update button format:
 				self.gridButton.config(text = "Deactivate Grid")
-				
-				# Update sentinel:
-				self.isGridActive = True
-
-			else:
-				# If the grid is active, this method deactivates the grid:
-
-				# Error-check:
-				if self.gridWindow is  None:
-					raise RuntimeError("Grid deactivation routine called while "\
-						"grid window placeholder is inactive.")
-
-				# Call the designated grid deactivation routine:
-				self._gridDeactivationRoutine()
+			
 
 		except Exception as e: # Print uncaught exceptions
 			self.printM("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
-
 
 		# End _gridButtonRoutine ===============================================
 	
@@ -567,7 +479,7 @@ class FCInterface(Tk.Frame):
 		# Fetch MISO matrix from own MISO matrix pipe.
 
 		if self.misoMatrixPipeOut.poll():
-			return self.misoMatrixOut.recv()
+			return self.misoMatrixPipeOut.recv()
 
 		else:
 			return None

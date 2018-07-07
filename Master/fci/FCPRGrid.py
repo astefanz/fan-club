@@ -29,9 +29,12 @@ This module is a multiprocessing wrapper around the FC Grid widget.
 
 ## DEPENDENCIES ################################################################
 
-# FCMkII:
-import FCCommunicator as cm
-import FCSlave as sv
+# GUI:
+from mttkinter import mtTkinter as Tk
+import tkFileDialog 
+import tkMessageBox
+import tkFont
+import ttk # "Notebooks"
 
 # System:
 import sys			# Exception handling
@@ -49,6 +52,11 @@ import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
 import MainGrid as mg
+import FCCommunicator as cm
+import FCSlave as sv
+import FCArchiver as ac
+
+from auxiliary.debug import d
 
 ## CONSTANTS ###################################################################
 
@@ -64,20 +72,74 @@ def _gridProcessRoutine(
 	printQueue
 ): # ===========================================================================
 	try:
-
+		
 		# SETUP ----------------------------------------------------------------
-	
+		# TODO: startup sequence
+		printQueue.put(("[UI][GD] Activating Grid",'S'))
+		
+		# Build window:
+		window = Tk.Toplevel()
+		window.title("FCMkII Grid")
+
+		# TODO: window.protocol("WM_DELETE_WINDOW")	
+		d()
+		# Build widget:
+		gridOuterFrame = Tk.Frame(
+			window, padx = 3, pady = 3, 
+			relief = Tk.RIDGE, borderwidth = 2, cursor = "hand1")
+
+		d()
+		gridOuterFrame.pack(fill = Tk.BOTH, expand = True)
+		"""
+		d()
+		grid = mg.MainGrid(
+			gridOuterFrame,
+			profile[ac.dimensions][0],
+			profile[ac.dimensions][1],
+			600/profile[ac.dimensions][0],
+			[],
+			profile[ac.maxRPM]
+			)
+				
+		
+		d()
+		def _expand(event):
+			grid.destroy()
+			del grid
+			grid = mg.MainGrid(
+				gridOuterFrame,
+				profile[ac.dimensions][0],
+				profile[ac.dimensions][1],
+				0.9*(min(gridOuterFrame.winfo_height(),
+					gridOuterFrame.winfo_width(),))/\
+						(min(profile[ac.dimensions][0],
+						profile[ac.dimensions][1])),
+				[],
+				profile[ac.maxRPM]
+				)
+		
+		d()
+		gridOuterFrame.bind("<Button-1>", _expand)
+		"""
+		gridOuterFrame.focus_set()
 		printQueue.put_nowait(("[UI][GD][GP] Grid ready", "G"))
 
+		d()
 		# MAIN LOOP ------------------------------------------------------------
 		while True:
 			try:
 				
+				d()
 				# Check shutdown flag:
 				if shutdownPipe.poll():
 					shutdownCode = shutdownPipe.recv()
 					if shutdownCode is 1:
 						# TODO: Shutdown sequence
+						# destroy grid:
+						grid.destroy()
+
+						# destroy popup window:
+						window.destroy()
 						break
 					else:
 						raise RuntimeError("Invalid shutdown code \"{}\"".\
@@ -89,6 +151,7 @@ def _gridProcessRoutine(
 				misoIn()
 				
 
+				d()
 			except Exception as e: # Print uncaught exceptions
 				printQueue.put(("[UI][GD][GP] EXCEPTION: "\
 					"\"{}\"".format(traceback.format_exc()), "E")
@@ -144,21 +207,11 @@ class FCPRGrid:
 
 			self.shutdownPipeOut, self.shutdownPipeIn = pr.Pipe(False)
 
-			self.process = pr.Process(
-				name = "FCMkII_Grid",
-				target = _gridProcessRoutine,
-				args = (
-					profile,
-					self._updateIn,
-					self._misoIn,
-					commandQueue,
-					mosiQueue,
-					self.shutdownPipeOut,
-					printQueue
-				)
-			)
+			self.process = None 
+			self.temp_external_close = lambda: None
 
-			self.process.start()
+			# Placeholders for graphical interface:
+			self.window = None
 
 		except Exception as e: # Print uncaught exceptions
 			self._printM("[UI][GD][init] EXCEPTION: "\
@@ -231,23 +284,43 @@ class FCPRGrid:
 
 		# End setIn ============================================================
 
-	def start(self): # =========================================================
+	def start(self, readyCallback = lambda: None): # ===========================
 		# Start up grid 
-		if not self._isActive():
-			# TODO: startup sequence
-			
+		if not self.isActive():
+			self.process = pr.Process(
+				name = "FCMkII_Grid",
+				target = _gridProcessRoutine,
+				args = (
+					self.profile,
+					self._updateIn,
+					self._misoIn,
+					self.commandQueue,
+					self.mosiQueue,
+					self.shutdownPipeOut,
+					self.printQueue
+				)
+			)
+			self.process.start()
 			self._setActive(True)
-
+			readyCallback()
 		else:
 			raise RuntimeError("Tried to start already active FCGrid")
 
 		# End start ============================================================
 
-	def stop(self): # ==========================================================
+	def stop(self, readyCallback = lambda: None): # ============================
 		# Stop grid
-		if self._isActive():
+		if self.isActive():
 			# TODO: Stop sequence
 
+			self._printM("[UI][GD] Deactivating Grid")
+
+			# End process:
+			self.shutdown(False)
+			self.process = None
+			
+
+			self.temp_external_close()
 			self._setActive(False)
 
 		else:
@@ -255,23 +328,24 @@ class FCPRGrid:
 
 		# End stop =============================================================
 	 
-	def shutdown(self): # ======================================================
+	def shutdown(self, checkActive = True): # ==================================
 		
 		self._printM("[UI][GD][sd] Shutting down Grid process", "W")
 		
 		# Stop grid if it is active:
-		if self._isActive():
+		if checkActive and self.isActive():
 			self.stop()
 
 		# Cleanly terminate process:
-		self._printM("[UI][GD][sd] Joining Grid Process")
-		self.shutdownPipeIn.send(1)
-		self.process.join()
+		if self.process is not None:
+			self._printM("[UI][GD][sd] Joining Grid Process")
+			self.shutdownPipeIn.send(1)
+			self.process.join()
 		
 		self._printM("[UI][GD][sd] Grid shutdown complete")
 		# End shutdown =========================================================
 	
-	def _isActive(self): # =====================================================
+	def isActive(self): # =====================================================
 		try:
 			self.activeLock.acquire()
 			value = self.activeFlag
@@ -279,7 +353,7 @@ class FCPRGrid:
 		finally:
 			self.activeLock.release()
 
-		# End _isActive ========================================================
+		# End isActive ========================================================
 
 	def _setActive(self, newValue): # ==========================================
 
