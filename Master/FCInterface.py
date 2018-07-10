@@ -32,6 +32,7 @@ User interface module
 
 # GUI:
 from mttkinter import mtTkinter as Tk
+#import Tkinter as Tk
 import tkFileDialog 
 import tkMessageBox
 import tkFont
@@ -60,8 +61,6 @@ import FCSlave as sv
 import fci.FCPRGrid as gd
 import fci.SlaveList as sl
 import fci.Terminal as tm
-import fci.StatusBar as sb
-import fci.BasicController as bc
 
 from auxiliary.debug import d
 
@@ -80,6 +79,29 @@ NORMAL = 4
 RESTORE = 5
 
 ## CLASS DEFINITION ############################################################
+
+SPAWN = 1
+TERMINATE = 2
+
+def f():
+	tl = Tk.Toplevel()
+	tl.mainloop()
+
+
+def spawn(prs):
+	prs.append(pr.Process(target = f))
+	prs[-1].daemon = True
+	prs[-1].start()
+
+def spawner(pipeOut):
+	pl = []
+	while True:
+		if pipeOut.poll():
+			msg = pipeOut.recv()
+			if msg is SPAWN:
+				spawn(pl)
+			elif msg is TERMINATE:
+				break
 
 class FCInterface(Tk.Frame):      
 
@@ -140,23 +162,6 @@ class FCInterface(Tk.Frame):
 			self.widgetButtonFrame = Tk.Frame(
 				self.toolFrame, bg=self.background)
 	
-			# Grid:
-			self.gridButton = Tk.Button(
-				self.toolFrame,
-				text = "Activate Grid",
-				width = 10,
-				highlightbackground = self.background,
-				command = self._gridButtonRoutine
-			)
-			self.gridButton.pack(side = Tk.RIGHT)	
-
-			# Keep track of grid activity:
-			self.isGridActive = False
-			# Placeholder for reference to popup window:
-			self.gridWindow = None
-			self.grid = None
-
-
 			# Settings:
 			self.settingsButton = Tk.Button(
 				self.toolFrame,
@@ -228,10 +233,11 @@ class FCInterface(Tk.Frame):
 
 
 			# STATUS -----------------------------------------------------------	
+			"""
 			self.statusBar = sb.StatusBar(self, version)
 			self.statusBar.pack(side = Tk.BOTTOM, anchor = "s",
 				fill = Tk.X, expand = True)
-
+			"""
 			# START UPDATE ROUTINES = = = = = = = = = = = = = = = = = = = = = = 
 			
 			# Focus on the main window:
@@ -241,8 +247,8 @@ class FCInterface(Tk.Frame):
 			# MODULES ----------------------------------------------------------
 
 			# Inter-process communication:
-			self.updatePipeOut, self.updatePipeIn = pr.Pipe(None)
-			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(None)
+			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
+			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
 
 			self._updateIn = lambda: None
 			self._misoIn = lambda: None
@@ -250,11 +256,9 @@ class FCInterface(Tk.Frame):
 			self.inputLock = threading.Lock()
 
 			# Data structures:
-			self.dataPipeline = [self]
-			self.numModules = 0
+			self.fcWidgets = []
 
 			# Base modules:
-
 			self.communicator = None
 			self.archiver = None
 
@@ -264,6 +268,22 @@ class FCInterface(Tk.Frame):
 
 			self.outputHandlerThread.start()
 
+			pipeOut, pipeIn = pr.Pipe(False)
+
+			def sendSpawn():
+				pipeIn.send(SPAWN)
+
+			def sendTerminate():
+				pipeIn.send(TERMINATE)
+
+			self.spawnProcess = pr.Process(target = spawner, args = (pipeOut,))
+			self.spawnProcess.start()
+
+			self.spawnButton = Tk.Button(self, text = "Spawn", command = sendSpawn)
+			self.spawnButton.pack()
+
+			self.termButton = Tk.Button(self, text = "Terminate", command = sendTerminate)
+			self.termButton.pack()
 
 		except Exception as e: # Print uncaught exceptions
 			tkMessageBox.showerror(title = "FCMkII Fatal Error",
@@ -315,17 +335,30 @@ class FCInterface(Tk.Frame):
 				printQueue = self.printQueue
 				)
 
-			# Set up data pipeline:
-			self.setIn(self.communicator.updateOut, self.communicator.misoOut)
-			self.communicator.setIn(self.updateOut, self.misoOut)
+			# Get Comms. output:
+			updatePipeOut, misoMatrixPipeOut = \
+				self.communicator.getOutputPipes()
+
+			# Get Comms. Input:
+			commandQueue, mosiQueue = \
+				self.communicator.getInputQueues()
 
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
-			# Add Grid:
-			self.addModule(gd.FCPRGrid)
-			self.grid = self.dataPipeline[-1]
-			self.grid.temp_external_close = self._gridButtonRoutine
+			# Set up widgets:
+			
+			# Grid:
+			self.grid = gd.FCPRGrid(
+				self.toolFrame, 
+				self.archiver.getProfile(),
+				commandQueue, 
+				mosiQueue, 
+				self.printQueue)
+
+			self.grid.pack(side = Tk.RIGHT)
+
+			self.fcWidgets.append(self.grid)
 
 		except Exception as e:
 			self.printM("ERROR: Unhandled exception in output handler setup: "\
@@ -338,16 +371,17 @@ class FCInterface(Tk.Frame):
 				# Get Communicator output and update GUI -----------------------
 				
 				# COMMAND PIPE -------------------------------------------------
-				update = self.updateIn()
-				if update is not None:	
+				if updatePipeOut.poll():
+					update = updatePipeOut.recv()
+
 					if update[0] == cm.NEW:
 						for newSlave in update[1]:
 							# TODO: Add Slave data structure
 							self.slaveList.add(newSlave)
 						
 				# OUTPUT MATRIX ------------------------------------------------
-				matrix = self.misoIn()
-				if matrix is not None:
+				if misoMatrixPipeOut.poll():
+					matrix = misoMatrixPipeOut.recv()
 					del matrix
 			
 			except Exception as e:
@@ -380,26 +414,6 @@ class FCInterface(Tk.Frame):
 			self.slaveListFrame.pack_forget()
 
 		# End _slaveList Toggle ================================================
-
-
-	def _gridButtonRoutine(self): # ============================================
-
-		try:
-
-			if self.grid.isActive():
-				self.grid.stop()
-				self.gridButton.config(text = "Activate Grid")
-			else:
-				self.grid.start()
-				# Update button format:
-				self.gridButton.config(text = "Deactivate Grid")
-			
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("[_gridButtonRoutine] UNCAUGHT EXCEPTION: \"{}\"".\
-				format(traceback.format_exc()), "E")
-
-		# End _gridButtonRoutine ===============================================
 	
 	def _settingsButtonRoutine(self): # ========================================
 		# TODO: IMPLEMENT
@@ -420,8 +434,8 @@ class FCInterface(Tk.Frame):
 		# Shutdown processes:
 		self.communicator.shutdown()
 		
-		for module in self.dataPipeline:
-			module.shutdown()
+		for fcWidget in self.fcWidgets:
+			fcWidget.stop()
 
 		# Close GUI:
 		self.master.quit()
@@ -429,108 +443,7 @@ class FCInterface(Tk.Frame):
 		# End _deactivationRoutine =============================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
-
-	def updateIn(self): # ======================================================
-		# Fetch update from Communicator, return it, and place it in own 
-		# update pipe.
-
-		try:
-			self.inputLock.acquire()
-			update = self._updateIn()
-			
-			if update is not None:
-				self.updatePipeIn.send(update)
-			
-			return update
-
-		finally:
-			self.inputLock.release()
-
-		# End updateIn =========================================================
-
-	def updateOut(self): # =====================================================
-		# Fetch update from own update pipe
-
-		if self.updatePipeOut.poll():
-			return self.updatePipeOut.recv()
-		else:
-			return None
-		# End updateOut ========================================================
-
-	def misoIn(self): # ========================================================
-		# Fetch MISO matrix from Communicator, return it, and place it in own
-		# MISO matrix pipe.
-
-		try:
-			self.inputLock.acquire()
-			misoM = self._misoIn()
-
-			if misoM is not None:
-				self.misoMatrixPipeIn.send(misoM)
-
-			return misoM
-
-		finally:
-			self.inputLock.release()
-
-		# End misoIn ===========================================================
-
-	def misoOut(self): # =======================================================
-		# Fetch MISO matrix from own MISO matrix pipe.
-
-		if self.misoMatrixPipeOut.poll():
-			return self.misoMatrixPipeOut.recv()
-
-		else:
-			return None
-
-		# End misoOut ==========================================================
-
-	def setIn(self, newUpdateIn, newMISOIn): # =================================
-		try:
-			self.inputLock.acquire()
-
-			self._updateIn = newUpdateIn
-			self._misoIn = newMISOIn
-
-		finally:
-			self.inputLock.release()
-		# End setIn ============================================================
-
 	def printM(self, message, tag = 'S'): # ====================================
 		self.printQueue.put_nowait((message, tag))
 
 		# End printM ===========================================================
-
-	def addModule(self, newModuleConstructor): # ===============================
-		# Add an FCMkII module to the dataPipeline
-		# NOTE: Here newModule is expected to be the constructor of a 
-		# standardized FCMkII module:
-
-		newModule = newModuleConstructor(
-			self.archiver.getProfile(),
-			self.communicator.commandQueue,
-			self.communicator.mosiMatrixQueue,
-			self.printQueue
-		)
-
-		# Connect newModule's output to pipeline's end:
-		self.communicator.setIn(newModule.updateOut, newModule.misoOut)
-
-		# Connect newModule's input to pipeline's last output:
-		newModule.setIn(
-			self.dataPipeline[-1].updateOut, 
-			self.dataPipeline[-1].misoOut
-		)
-
-		# Add newModule to list:
-		self.dataPipeline.append(newModule)
-
-		# End addModule ========================================================
-
-	def shutdown(self): # ======================================================
-		# NOTE: Added for standard compliance
-
-		self.printM("[UI] Shutting down...")
-
-		# End shutdown =========================================================

@@ -1503,7 +1503,7 @@ class FCCommunicator:
 
 		# End sendDisconnect ===================================================
 	
-	def shutdown(self): # ======================================================
+	def stop(self): # ==========================================================
 		# Cleanup routine for termination.
 
 		# Send disconnect signal:

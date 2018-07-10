@@ -31,10 +31,6 @@ This module is a multiprocessing wrapper around the FC Grid widget.
 
 # GUI:
 from mttkinter import mtTkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
 
 # System:
 import sys			# Exception handling
@@ -51,323 +47,291 @@ import Queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
-import MainGrid as mg
+import fci.MainGrid as mg
 import FCCommunicator as cm
 import FCSlave as sv
 import FCArchiver as ac
 
+import auxiliary.spawner as sp
 from auxiliary.debug import d
 
 ## CONSTANTS ###################################################################
 
-## AUXILIARY ROUTINE ###########################################################
+# Commands:
+STOP = -1
+# Button text:
+START_TEXT = "Activate Grid"
+STOP_TEXT = "Deactivate Grid"
+STARTING_TEXT = "Activating Grid"
+STOPPING_TEXT = "Deactivating Grid"
 
-def _gridProcessRoutine(
+## PROCESS ROUTINE #############################################################
+
+def testRoutine():
+	import Tkinter as Tk
+	print " test routine"
+	tl = Tk.Toplevel()
+	print " activating mainloop"
+	tl.mainloop()
+
+def _FCPRGridProcessRoutine(
 	profile,
-	updateIn,
-	misoIn,
-	commandQueue,
+	commandPipeOut,
+	updatePipeOut,
+	misoPipeOut,
 	mosiQueue,
-	shutdownPipe,
-	printQueue
-): # ===========================================================================
-	try:
+	commandQueue,
+	printQueue): # =============================================================
+
+	#try:	
+
+	print "FCPR Process started"
+	itl = Tk.Toplevel()
+	print "Starting mainloop"
+	itl.mainloop()
+	print " FCPR Process done"
+
+	# End _FCPRGridProcessRoutine ==============================================
 		
-		# SETUP ----------------------------------------------------------------
-		# TODO: startup sequence
-		printQueue.put(("[UI][GD] Activating Grid",'S'))
+
+## CLASS DEFINITION ############################################################
+
+class FCPRGrid(Tk.Frame): 
+
+	def __init__(self, master, profile, commandQueue, mosiQueue,  printQueue):
 		
-		# Build window:
-		window = Tk.Toplevel()
-		window.title("FCMkII Grid")
-
-		# TODO: window.protocol("WM_DELETE_WINDOW")	
-		d()
-		# Build widget:
-		gridOuterFrame = Tk.Frame(
-			window, padx = 3, pady = 3, 
-			relief = Tk.RIDGE, borderwidth = 2, cursor = "hand1")
-
-		d()
-		gridOuterFrame.pack(fill = Tk.BOTH, expand = True)
-		"""
-		d()
-		grid = mg.MainGrid(
-			gridOuterFrame,
-			profile[ac.dimensions][0],
-			profile[ac.dimensions][1],
-			600/profile[ac.dimensions][0],
-			[],
-			profile[ac.maxRPM]
-			)
-				
-		
-		d()
-		def _expand(event):
-			grid.destroy()
-			del grid
-			grid = mg.MainGrid(
-				gridOuterFrame,
-				profile[ac.dimensions][0],
-				profile[ac.dimensions][1],
-				0.9*(min(gridOuterFrame.winfo_height(),
-					gridOuterFrame.winfo_width(),))/\
-						(min(profile[ac.dimensions][0],
-						profile[ac.dimensions][1])),
-				[],
-				profile[ac.maxRPM]
-				)
-		
-		d()
-		gridOuterFrame.bind("<Button-1>", _expand)
-		"""
-		gridOuterFrame.focus_set()
-		printQueue.put_nowait(("[UI][GD][GP] Grid ready", "G"))
-
-		d()
-		# MAIN LOOP ------------------------------------------------------------
-		while True:
-			try:
-				
-				d()
-				# Check shutdown flag:
-				if shutdownPipe.poll():
-					shutdownCode = shutdownPipe.recv()
-					if shutdownCode is 1:
-						# TODO: Shutdown sequence
-						# destroy grid:
-						grid.destroy()
-
-						# destroy popup window:
-						window.destroy()
-						break
-					else:
-						raise RuntimeError("Invalid shutdown code \"{}\"".\
-							format(shutdownCode))
-		
-				# Update input values:
-				# TODO
-				updateIn()
-				misoIn()
-				
-
-				d()
-			except Exception as e: # Print uncaught exceptions
-				printQueue.put(("[UI][GD][GP] EXCEPTION: "\
-					"\"{}\"".format(traceback.format_exc()), "E")
-					)
-
-		printQueue.put_nowait(("[UI][GD][GP] Grid process ended"))
-
-	except Exception as e: # Print uncaught exceptions
-		printQueue.put(("[UI][GD][GP] EXCEPTION (GP terminated): "\
-			"\"{}\"".format(traceback.format_exc()), "E")
-			)
-
-	# End _communicatorProcessRoutine ==========================================
-
-class FCPRGrid:
-	
-	def __init__(self,
-			profile,
-			commandQueue,
-			mosiQueue,
-			printQueue,
-			updateIn = lambda: None,
-			misoIn = lambda: None,
-		): # ===================================================================
-		# ABOUT: Constructor for class FCPRGrid.
-		
-		self.printQueue = None
+		canPrint = False
 
 		try:
+
+			# DATA -------------------------------------------------------------
 			
+			# Store arguments:
 			self.printQueue = printQueue
-			self._printM("[UI][GD][init] Initializing Grid handler")
+			canPrint = True
+
+			self.master = master
 
 			self.profile = profile
-			
-			# Set up standard data pipeline and inter-process communication:
-			
-			# Arguments:
-			self.__updateIn = updateIn
-			self.__misoIn = misoIn
-			self.commandQueue = commandQueue
 			self.mosiQueue = mosiQueue
-			self.printQueue = printQueue
+			self.commandQueue = commandQueue
 
-			# Internals:
-			self.inputLock = threading.Lock()
-
+			self.printM("Initializing Grid widget")
+			
+			# Create data members:
+			self.commandPipeOut, self.commandPipeIn = pr.Pipe(False)
 			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
 			self.misoPipeOut, self.misoPipeIn = pr.Pipe(False)
-
+			
+			self.stopFlag = False	
 			self.activeFlag = False
-			self.activeLock = threading.Lock()
+			self.watchdogThread = False
 
-			self.shutdownPipeOut, self.shutdownPipeIn = pr.Pipe(False)
+			# INTERFACE WIDGET -------------------------------------------------
+			Tk.Frame.__init__(self, master)
+		
+			self.bg = "#e2e2e2"
+			self.fg = "black"
 
-			self.process = None 
-			self.temp_external_close = lambda: None
+			# Build button: 
+			self.button = Tk.Button(
+				self,
+				text = START_TEXT, 
+				width = 10,
+				bg = self.bg,
+				highlightbackground = self.bg,
+				fg = self.fg,
+				command = self.start
+			)
 
-			# Placeholders for graphical interface:
-			self.window = None
+			self.button.pack()
+
+			self.printM("Grid widget initialized", "G")
 
 		except Exception as e: # Print uncaught exceptions
-			self._printM("[UI][GD][init] EXCEPTION: "\
-				"\"{}\"".\
-				format(traceback.format_exc()), "E")
+			if not canPrint:
+				tkMessageBox.showerror(title = "FCMkII Constructor Error",
+					message = "Warning: Uncaught exception in "\
+					"FCPRGrid constructor: \"{}\"".\
+					format(traceback.format_exc()))
+			else:
+				self.printM("Warning: Uncaught exception in "\
+					"FCPRGrid constructor: \"{}\"".\
+					format(traceback.format_exc()), "E")
 
 		# End __init__ =========================================================
 
-	def _commandOut(self, command): # ==========================================
-		self.commandQueue.put_nowait(command)
-		# End _commandOut ======================================================
-
-	def _updateIn(self): # =====================================================
-		try:
-			self.inputLock.acquire()
-			update = self.__updateIn()
-			
-			if update is not None:
-				self.updatePipeIn.send(update)
-
-			return update
-
-		finally:
-			self.inputLock.release()
-
-		# End _updateIn ========================================================
-
-	def updateOut(self): # =====================================================
+	def inputCommand(self, command): # =========================================
 		
-		if self.updatePipeOut.poll():
-			return self.updatePipeOut.recv()
+		if self.isActive():
+			self.commandPipeIn.send(command)
+
 		else:
-			return None
-
-		# End updateOut ========================================================
-
-	def _misoIn(self): # =======================================================
-		try:
-			self.inputLock.acquire()
-			miso = self.__misoIn()
-
-			if miso is not None:
-				self.misoPipeIn.send(miso)
-
-			return miso
-
-		finally:
-			self.inputLock.release()
-
-		# End _misoIn ==========================================================
-
-
-	def misoOut(self): # =======================================================
-		if self.misoPipeOut.poll():
-			return self.misoPipeOut.recv()
-		else:
-			return None
-
-		# End misoOut ==========================================================
-
-	def setIn(self, newUpdateIn, newMISOIn): # =================================
-		try:
-			self.inputLock.acquire()
-			
-			self.__updateIn = newUpdateIn
-			self.__misoIn = newMISOIn
-
-		finally:
-			self.inputLock.release()
-
-		# End setIn ============================================================
-
-	def start(self, readyCallback = lambda: None): # ===========================
-		# Start up grid 
-		if not self.isActive():
-			self.process = pr.Process(
-				name = "FCMkII_Grid",
-				target = _gridProcessRoutine,
-				args = (
-					self.profile,
-					self._updateIn,
-					self._misoIn,
-					self.commandQueue,
-					self.mosiQueue,
-					self.shutdownPipeOut,
-					self.printQueue
-				)
+			self.printM(
+				"WARNING: Tried to send command \"{}\" to inactive Grid".\
+				format(command)
 			)
-			self.process.start()
-			self._setActive(True)
-			readyCallback()
+
+		# End inputCommand =====================================================
+
+	def inputUpdate(self, update): # ===========================================
+		
+		if self.isActive():
+			self.updatePipeIn.send(update)
+
 		else:
-			raise RuntimeError("Tried to start already active FCGrid")
+			self.printM(
+				"WARNING: Tried to send update \"{}\" to inactive Grid".\
+				format(command)
+			)
+
+		# End inputUpdate ======================================================
+
+	def inputMISO(self, miso): # ===============================================
+		
+		if self.isActive():
+			self.misoPipeIn.send(miso)
+
+		else:
+			self.printM(
+				"WARNING: Tried to send MISO matrix to inactive Grid")
+
+
+		# End inputMISO ========================================================
+
+	def isActive(self): # ======================================================
+	
+		return self.activeFlag
+		
+		# End isActive =========================================================
+
+	def updateProfile(self, newProfile): # =====================================
+		
+		self.profile = newProfile
+		
+		# End updateProfile ====================================================
+
+	def start(self): # =========================================================
+
+		# Check activity:
+		if not self.isActive():
+			
+			# Start watchdog routine:
+			self.watchdogThread = threading.Thread(
+				name = "FCMkII_Grid_watchdog",
+				target = self._watchdogRoutine
+			)
+
+			self.watchdogThread.setDaemon(True)
+			self.watchdogThread.start()
+
+		
+		else:
+			self.printM("WARNING: Tried to start active Grid", 'E')
 
 		# End start ============================================================
 
-	def stop(self, readyCallback = lambda: None): # ============================
-		# Stop grid
+	def stop(self): # ==========================================================
+		
+		# Check state:
 		if self.isActive():
-			# TODO: Stop sequence
-
-			self._printM("[UI][GD] Deactivating Grid")
-
-			# End process:
-			self.shutdown(False)
-			self.process = None
 			
+			# Change button state:
+			self.button.config(
+			text = STOPPING_TEXT,
+				state = Tk.DISABLED
+			)
+			# Set stop flag:
+			self.stopFlag = True
 
-			self.temp_external_close()
-			self._setActive(False)
 
 		else:
-			raise RuntimeError("Tried to stop already inactive FCGrid")
+			self.printM("WARNING: Tried to stop inactive Grid", 'E')
+		
+
+		# NOTE: Handle case of widget window closure
 
 		# End stop =============================================================
-	 
-	def shutdown(self, checkActive = True): # ==================================
-		
-		self._printM("[UI][GD][sd] Shutting down Grid process", "W")
-		
-		# Stop grid if it is active:
-		if checkActive and self.isActive():
-			self.stop()
 
-		# Cleanly terminate process:
-		if self.process is not None:
-			self._printM("[UI][GD][sd] Joining Grid Process")
-			self.shutdownPipeIn.send(1)
-			self.process.join()
-		
-		self._printM("[UI][GD][sd] Grid shutdown complete")
-		# End shutdown =========================================================
+	def printM(self, message, tag = 'S'): # ====================================
 	
-	def isActive(self): # =====================================================
+		self.printQueue.put_nowait(("[GD] " + message, tag))
+		# End printM ===========================================================
+
+	def _watchdogRoutine(self): # ==============================================
 		try:
-			self.activeLock.acquire()
-			value = self.activeFlag
-			return value
-		finally:
-			self.activeLock.release()
+			
+			self.printM("[WD] Starting Grid")
 
-		# End isActive ========================================================
+			if self.isActive():
+				self.printM("[WD] WARNING: watchdog thread started with an "\
+					"already active process", 'E')
+				return
 
-	def _setActive(self, newValue): # ==========================================
+			# Lock button:
+			self.button.config(
+				state = Tk.DISABLED,
+				text = STARTING_TEXT
+			)
 
-		try:
-			self.activeLock.acquire()
-			self.activeFlag = newValue
+			self.printM("[WD] Spawning process")
+			sp.spawn(givenTarget = testRoutine)
+			"""
+				givenArgs = (
+					self.profile,
+					self.commandPipeOut,
+					self.updatePipeOut,
+					self.misoPipeOut,
+					self.commandQueue,
+					self.mosiQueue,
+					self.printQueue
+				)
+			)
+			"""
 
-		finally:
-			self.activeLock.release()
 
-		# End _setActive =======================================================
+			# Update state:
+			self.stopFlag = False
+			self.activeFlag = True
 
-	def _printM(self, message, tag = 'S'): # ===================================
-		self.printQueue.put_nowait((message, tag))
-		# End _printM ==========================================================
+			self.button.config(
+				text = STOP_TEXT,
+				state = Tk.NORMAL,
+				command = self.stop
+			)
+			
+
+			self.printM("[WD] Process spawned")
+			while True:
+				
+				if self.stopFlag:
+					self.printM("[WD] Grid stop flag detected")
+					
+					self.commandPipeIn.send((STOP))
+
+					break
+		
+			# Check for anomalous termination:
+			if not self.stopFlag:
+				self.printM(
+					"[WD] WARNING: Grid process terminated w/o stop flag", 'E')
+
+			# Restore state:
+			self.stopFlag  = False
+
+			self.button.config(
+				text = START_TEXT,
+				command = self.start,
+				state = Tk.NORMAL
+
+			)
+	
+		except Exception as e:
+			self.printM("ERROR: Unhandled exception in Grid watchdog routine: "\
+				"\"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		# End _activityWatchdog ================================================
+
 
 

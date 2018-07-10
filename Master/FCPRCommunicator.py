@@ -64,8 +64,6 @@ def _communicatorProcessRoutine(
 		pulsesPerRotation,
 		maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
 		# Multiprocessing:
-		updateIn,
-		misoIn,
 		printQueue,
 		commandQueue,
 		mosiMatrixQueue,
@@ -110,13 +108,6 @@ def _communicatorProcessRoutine(
 						"shutdown pipe (ignored): \"{}\"".\
 						format(message),"E"))
 					continue
-					
-			# Check STD input stream -------------------------------------------
-			update = updateIn()
-			del update
-
-			miso = misoIn()
-			del miso
 
 	except Exception as e: # Print uncaught exceptions
 		printQueue.put(("UNHANDLED EXCEPTION terminated Comms. Process: "\
@@ -161,11 +152,6 @@ class FCPRCommunicator:
 			#	NOTE: Output... use pipe
 			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
 
-			# Input functions:
-			self._updateIn = lambda: None
-			self._misoIn = lambda: None
-			self.inputLock = threading.Lock()
-
 			# FCI terminal output:
 			self.printQueue = printQueue
 			
@@ -184,8 +170,6 @@ class FCPRCommunicator:
 				pulsesPerRotation,
 				maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
 				# Multiprocessing:
-				self.updateIn,
-				self.misoIn,
 				self.printQueue,
 				self.commandQueue,
 				self.mosiMatrixQueue,
@@ -194,7 +178,9 @@ class FCPRCommunicator:
 				self.shutdownPipeOut
 					)
 				)
-		
+	
+			self.communicatorProcess.daemon = True
+
 			self.communicatorProcess.start()
 			printQueue.put(("Comms. worker process initialized", "G"))
 		except Exception as e: # Print uncaught exceptions
@@ -204,119 +190,23 @@ class FCPRCommunicator:
 
 		# End __init__ =========================================================
 
-	def commandIn(self, command): # ============================================
-		# Send a command to the Communicator Process. The command is expected
-		# to be an iterable of integers of the form:
-		#         					(COMMAND, VALUE)
-		# Where COMMAND must be a valid FCPRC constant.
+	def getOutputPipes(self): # ================================================
+		# Get receiving end of Communicator's output pipes as a tuple of the
+		# form
+		#				(UPDATE_PIPE_OUT, MISO_PIPE_OUT)
+		# Where both items are Connection objects from the corresponding pipes.
+
+		return (self.updatePipeOut, self.misoMatrixPipeOut)
+
+		# End getOutputPipes ===================================================
+
+	def getInputQueues(self): # ================================================
+		# Get a reference to Communicator's input Queues as a tuple of the form
+		#				(COMMAND_QUEUE, MOSI_QUEUE)
 		
-		if command in FCPRCONSTS:	
-			self.commandQueue.put_nowait(command)
-		else:
-			raise ValueError("Given command must be a valid constant, not {}".\
-				format(command))	
-		# End commandIn ========================================================
+		return (self.commandQueue, self.mosiMatrixQueue)
 
-	def setIn(self, newUpdateIn, newMISOIn): # =================================
-		# Set input methods
-		try:
-			self.inputLock.acquire()
-			self._updateIn = newUpdateIn
-			self._misoIn = newMISOIn
-		finally:
-			self.inputLock.release()
-		# End setIn ============================================================
-
-	def updateIn(self): # ======================================================
-		# Fetch update from Communicator, return it, and place it in own 
-		# update pipe.
-
-		try:
-			self.inputLock.acquire()
-			update = self._updateIn()
-			return update
-
-		finally:
-			self.inputLock.release()
-
-		# End updateIn =========================================================
-
-
-	def updateOut(self): # =====================================================
-		# Get output from the Communicator Process, if any is available.
-		# The following possible outputs are expected:
-		#
-		# - New Slave(s): 
-		#					(NEW, (Slave...))
-		#		Where the second item is a list of Slave MAC address - version
-		#       pairs in the order in which they have been indexed
-		#
-		# - If there is no output to fetch, None is returned.
-
-		if self.updatePipeOut.poll():
-			return self.updatePipeOut.recv()
-		else:
-			return None
-
-		# End updateOut =======================================================
-
-	def mosiIn(self, matrix): # ===============================================
-		# Input a control matrix into the Communicator Process. The matrix is
-		# expected to have the following form, as a numpy matrix:
-		#
-		#	      	|COMMAND| FAN1| FAN2| FAN3 |.... |FANN|
-		# MODULE 1  |       |     |
-		# ----------+-------+-----+-----
-        # MODULE 2  |
-		#   ...     .
-		# MODULE N  | 
-		#
-		# Where COMMAND is an integer code simbolizing a command to be sent.
-
-		self.mosiMatrixQueue.put_nowait(matrix)
-		# End matrixIn =========================================================
-	
-	def misoIn(self): # ========================================================
-		# Fetch MISO matrix from Communicator, return it, and place it in own
-		# MISO matrix pipe.
-
-		try:
-			self.inputLock.acquire()
-			misoM = self._misoIn()
-			return misoM
-
-		finally:
-			self.inputLock.release()
-
-		# End misoIn ===========================================================
-	def misoOut(self): # =======================================================
-		# Try to fetch an output matrix from the Communicator Process. The 
-		# matrix is expected to have the following form, as a numpy matrix:
-		#
-		#	      	|CHANGE |STATUS |RPM1 |RPM2 |... | DC 1 |.... |DC 2|
-		# MODULE 1  |       |       |
-		# ----------+-------+-------+-----
-        # MODULE 2  |
-		#   ...     .
-		# MODULE N  | 
-		#
-		# If there is no matrix to fetch, None is returned.		
-
-		if self.misoMatrixPipeOut.poll():
-			return self.misoMatrixPipeOut.recv()
-		else:
-			return None
-		# End misoOut ==========================================================
-	
-	def setInput(self, newUpdateIn, newMISOIn): # ==============================
-		# Set input methods for FCMkII data pipeline
-		# NOTE: In this case, this method only exists for consistency with the
-		# pipeline's standards, since the FCPRCommunicator automatically
-		# deletes update and MISO input.
-
-		pass
-
-		# End setInput =========================================================
+		# End getInputQueues ===================================================
 
 	def printM(self, output, tag = 'S'): # =====================================
 		
@@ -340,23 +230,3 @@ class FCPRCommunicator:
 		self.communicatorProcess.join()
 
 		# End shutdown =========================================================
-
-	def getStatus(self): # =====================================================
-		# Get Communicator status as an integer code defined in 
-		# FCCommunicator.py.
-		# Possible status codes:
-		# - CONNECTING
-		# - CONNECTED
-		# - DISCONNECTED
-
-		# TODO: IMPLEMENT
-		pass
-
-		# End setStatus ========================================================
-
-	def restart(self, args = None): # ==========================================
-		
-		# TODO: IMPLEMENT
-		pass
-
-		# End restart ==========================================================

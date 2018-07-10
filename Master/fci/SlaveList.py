@@ -31,7 +31,8 @@ Custom Tkinter widget to display Slave statuses.
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
+#from mttkinter import mtTkinter as Tk
+import Tkinter as Tk
 import tkFileDialog 
 import tkMessageBox
 import tkFont
