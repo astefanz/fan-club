@@ -29,10 +29,6 @@ This module is a multiprocessing wrapper around FCCommunicator.
 
 ## DEPENDENCIES ################################################################
 
-# FCMkII:
-import FCCommunicator as cm
-import FCSlave as sv
-
 # System:
 import sys			# Exception handling
 import traceback	# More exception handling
@@ -48,7 +44,7 @@ import Queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
-import FCInterface
+import FCCommunicator as cm
 import FCSlave as sv
 
 ## CONSTANTS ###################################################################

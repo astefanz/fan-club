@@ -47,7 +47,6 @@ import Queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
-import FCInterface
 import FCSlave as sv
 import FCPrinter
 from auxiliary import names

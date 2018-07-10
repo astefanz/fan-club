@@ -162,7 +162,7 @@ class FCWidget:
 			else:
 				# Cannot start process
 				self._printM(
-					"WARNING: Tried to stop non-active widget", 'E')
+					"WARNING: Tried to stop non-active widget", 'W')
 
 		except Exception as e:
 			self._printE(e, "Error in stop:")
@@ -282,6 +282,11 @@ class FCWidget:
 					elif message is sw.STOPPED and status is STOPPING:
 						# Widget successfully stopped:
 						self._setStatus(INACTIVE)
+						break
+
+					elif message is sw.ERROR:
+						self._printM("WARNING: Failed to start process", 'E')
+						self._setStatus(INACTIVE))
 						break
 
 					else:

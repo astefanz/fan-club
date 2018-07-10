@@ -36,9 +36,6 @@ import socket
 import Queue	  # Communication between threads
 import threading   # Thread-safe access
 
-# FCMkII:
-import FCInterface as FCI
-
 ## CONSTANT VALUES #############################################################
 
 # SLAVE STATUS CODES:

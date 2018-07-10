@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" # File: FCInterface.py                  ##
+## Project: Fan Club Mark II "Master" # File: FCMainWindow.py                 ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -22,7 +22,7 @@
 
 ## ABOUT #######################################################################
 """
-User interface module
+Main GUI module for FCMkII
 
 """
 ################################################################################
@@ -80,32 +80,13 @@ RESTORE = 5
 
 ## CLASS DEFINITION ############################################################
 
-SPAWN = 1
-TERMINATE = 2
+class FCMainWindow(Tk.Frame):      
 
-def f():
-	tl = Tk.Toplevel()
-	tl.mainloop()
-
-
-def spawn(prs):
-	prs.append(pr.Process(target = f))
-	prs[-1].daemon = True
-	prs[-1].start()
-
-def spawner(pipeOut):
-	pl = []
-	while True:
-		if pipeOut.poll():
-			msg = pipeOut.recv()
-			if msg is SPAWN:
-				spawn(pl)
-			elif msg is TERMINATE:
-				break
-
-class FCInterface(Tk.Frame):      
-
-	def __init__(self, version, master = None): # ==============================
+	def __init__(self, 
+		version,
+		spawnQueue,
+		printQueue,
+		master = None): # ======================================================
 
 		try:
 			
@@ -120,7 +101,8 @@ class FCInterface(Tk.Frame):
 			self.foreground = "black"
 			self.config(bg = self.background)
 
-			
+			self.spawnQueue = spawnQueue
+
 			# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = 
 
 			# MAIN FRAME -------------------------------------------------------
@@ -218,7 +200,7 @@ class FCInterface(Tk.Frame):
 			# TERMINAL ---------------------------------------------------------
 
 			# Print queue:
-			self.printQueue = pr.Queue()
+			self.printQueue = printQueue
 
 			self.terminalFrame = Tk.Frame(self.main, 
 				bg = self.background,relief = Tk.RIDGE, bd = 1)
@@ -267,24 +249,7 @@ class FCInterface(Tk.Frame):
 			self.outputHandlerThread.setDaemon(True)
 
 			self.outputHandlerThread.start()
-
-			pipeOut, pipeIn = pr.Pipe(False)
-
-			def sendSpawn():
-				pipeIn.send(SPAWN)
-
-			def sendTerminate():
-				pipeIn.send(TERMINATE)
-
-			self.spawnProcess = pr.Process(target = spawner, args = (pipeOut,))
-			self.spawnProcess.start()
-
-			self.spawnButton = Tk.Button(self, text = "Spawn", command = sendSpawn)
-			self.spawnButton.pack()
-
-			self.termButton = Tk.Button(self, text = "Terminate", command = sendTerminate)
-			self.termButton.pack()
-
+		
 		except Exception as e: # Print uncaught exceptions
 			tkMessageBox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\

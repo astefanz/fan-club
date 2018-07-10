@@ -23,17 +23,27 @@
 VERSION = "\"MT1\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
-import FCInterface as FCI
+# System:
+import multiprocessing as mp
 import time
 
+# FCMkII:
+import FCMainWindow as mw
+import FCSpawner as sw
+import auxiliary.errorPopup as ep
 #### MAIN ######################################################################       
 
 print ">>> FCMkII Started on {}".format(time.strftime(
 	"%a %d %b %Y %H:%M:%S", time.localtime()))
 
-interface = FCI.FCInterface(VERSION) 
-interface.mainloop()
-
+try:
+	printQueue = mp.Queue()
+	spawner = sw.FCSpawner(printQueue)
+	interface = mw.FCMainWindow(VERSION, spawner.getSpawnQueue, printQueue) 
+	interface.mainloop()
+	spawner.end()
+except:
+	ep.errorPopup(Exception(), "UNHANDLED EXCEPTION AT FCMAIN: ")	
 
 print ">>> FCMkII Ended on {}\n".format(time.strftime(
 	"%a %d %b %Y %H:%M:%S", time.localtime()))
