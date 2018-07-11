@@ -48,7 +48,7 @@ import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
 import FCSlave as sv
-import FCPrinter
+import FCArchiver as ac
 from auxiliary import names
 
 ## CONSTANT DEFINITIONS ########################################################
@@ -88,18 +88,10 @@ CHANGE = 1
 class FCCommunicator:
 
 	def __init__(self,
-			# Network:
-			savedMACs, broadcastPeriodS, periodMS, periodS,
-			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-			# Fan array:
-			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
+			profile,
 			# Multiprocessing:
 			commandQueue,
-			updatePipeIn,
 			mosiMatrixQueue,
-			misoMatrixPipeIn,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
@@ -132,29 +124,31 @@ class FCCommunicator:
 
 			# Store parameters -------------------------------------------------
 
+			self.profile = profile
+
 			# Network:
-			self.broadcastPeriodS = broadcastPeriodS
-			self.periodMS = periodMS
-			self.periodS = periodS
-			self.broadcastPort = broadcastPort
-			self.passcode = passcode
-			self.misoQueueSize = misoQueueSize
-			self.maxTimeouts = maxTimeouts
-			self.maxLength = maxLength
+			self.broadcastPeriodS = profile[ac.broadcastPeriodS]
+			self.periodMS = profile[ac.periodMS]
+			self.periodS = profile[ac.periodS]
+			self.broadcastPort = profile[ac.broadcastPort]
+			self.passcode = profile[ac.passcode]
+			self.misoQueueSize = profile[ac.misoQueueSize]
+			self.maxTimeouts = profile[ac.maxTimeouts]
+			self.maxLength = profile[ac.maxLength]
 
 			# Fan array:
-			self.maxFans = maxFans
-			self.fanMode = fanMode
-			self.targetRelation = targetRelation
-			self.fanFrequencyHZ = fanFrequencyHZ
-			self.counterCounts = counterCounts
-			self.pulsesPerRotation = pulsesPerRotation
-			self.maxRPM = maxRPM
-			self.minRPM = minRPM
-			self.minDC = minDC
-			self.chaserTolerance = chaserTolerance
-			self.maxFanTimeouts = maxFanTimeouts
-			self.pinout = pinout
+			self.maxFans = profile[ac.maxFans]
+			self.fanMode = profile[ac.fanMode]
+			self.targetRelation = profile[ac.targetRelation]
+			self.fanFrequencyHZ = profile[ac.fanFrequencyHZ]
+			self.counterCounts = profile[ac.counterCounts]
+			self.pulsesPerRotation = profile[ac.pulsesPerRotation]
+			self.maxRPM = profile[ac.maxRPM]
+			self.minRPM = profile[ac.minRPM]
+			self.minDC = profile[ac.minDC]
+			self.chaserTolerance = profile[ac.chaserTolerance]
+			self.maxFanTimeouts = profile[ac.maxFanTimeouts]
+			self.pinout = profile[ac.pinout]
 			
 			# Multiprocessing:
 			self.misoMatrixPipeIn = misoMatrixPipeIn

@@ -45,27 +45,21 @@ import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
 import FCCommunicator as cm
+import FCWidget as wg
 import FCSlave as sv
 
 ## CONSTANTS ###################################################################
 
 ## AUXILIARY ROUTINE ###########################################################
 
-def _communicatorProcessRoutine(
-		# Network:
-		savedMACs, broadcastPeriodS, periodMS, periodS,
-		broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-		# Fan array:
-		maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-		pulsesPerRotation,
-		maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-		# Multiprocessing:
-		printQueue,
+def _communicatorRoutine(
+		stopPipeOut,
+		profile,
 		commandQueue,
 		mosiMatrixQueue,
 		updatePipeIn,
 		misoMatrixPipeIn,
-		shutdownPipeOut
+		printQueue,
 	): # ===================================================================
 	try:
 
@@ -73,17 +67,10 @@ def _communicatorProcessRoutine(
 
 		# Create Communicator:
 		comms = cm.FCCommunicator(
-			# Network:
-			savedMACs, broadcastPeriodS, periodMS, periodS,
-			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-			# Fan array:
-			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-			# Multiprocessing:
+			profile,
 			commandQueue,
-			updatePipeIn,
 			mosiMatrixQueue,
+			updatePipeIn,
 			misoMatrixPipeIn,
 			printQueue
 			)
@@ -91,8 +78,8 @@ def _communicatorProcessRoutine(
 		while True:
 			
 			# Check shutdown flag ----------------------------------------------
-			if shutdownPipeOut.poll():
-				message = shutdownPipeOut.recv()
+			if stopPipeOut.poll():
+				message = stopPipeOut.recv()
 				if message == 1:
 					printQueue.put_nowait(("Shutting down comms.","W"))
 					comms.shutdown()
@@ -110,19 +97,14 @@ def _communicatorProcessRoutine(
 			"\"{}\"".format(traceback.format_exc()), "E")
 			)
 
-	# End _communicatorProcessRoutine ==========================================
+	# End _communicatorRoutine =================================================
 
-class FCPRCommunicator:
+class FCPRCommunicator(wg.FCWidget):
 	
 	def __init__(self,
-			# Network:
-			savedMACs,broadcastPeriodS, periodMS, periodS,
-			broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-			# Fan array:
-			maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-			pulsesPerRotation,
-			maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-			# Multiprocessing:
+			master,
+			profile,
+			spawnQueue,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
@@ -148,39 +130,51 @@ class FCPRCommunicator:
 			#	NOTE: Output... use pipe
 			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
 
-			# FCI terminal output:
+			# Spawner queue:
+			self.spawnQueue = spawnQueue
+
+			# MW terminal output:
 			self.printQueue = printQueue
-			
-			# Pipe for shutdown message:
-			self.shutdownPipeOut, self.shutdownPipeIn = pr.Pipe(False)
 
-			self.communicatorProcess = pr.Process(
-				name = "FCMkII_Comms",
-				target = _communicatorProcessRoutine,
-				args = (	
-				# Network:
-				savedMACs, broadcastPeriodS, periodMS, periodS,
-				broadcastPort, passcode, misoQueueSize, maxTimeouts, maxLength,
-				# Fan array:
-				maxFans, fanMode, targetRelation, fanFrequencyHZ, counterCounts, 
-				pulsesPerRotation,
-				maxRPM, minRPM, minDC, chaserTolerance, maxFanTimeouts, pinout,
-				# Multiprocessing:
-				self.printQueue,
-				self.commandQueue,
-				self.mosiMatrixQueue,
-				self.updatePipeIn,
-				self.misoMatrixPipeIn,
-				self.shutdownPipeOut
-					)
-				)
-	
-			self.communicatorProcess.daemon = True
+			# Call parent constructor:
+			super(FCPRCommunicator, self).__init__(
+				_communicatorRoutine,
+				(profile, 
+					self.commandQueue, 
+					self.mosiMatrixQueue,
+					self.updatePipeIn,
+					self.misoMatrixPipeIn,
+					printQueue),
+				spawnQueue,
+				printQueue,
+				"CM"
+			)
 
-			self.communicatorProcess.start()
-			printQueue.put(("Comms. worker process initialized", "G"))
+			# Build widget:
+			self.bg = "#e2e2e2"
+			self.fg = "black"
+			self.green = "#168e07"
+			self.red = "red"
+			self.mainFrame = Tk.Frame(master)
+			self.statusLabel = Tk.Label(
+				self.mainFrame,
+				text = "Disconnected",
+				bg = self.bg,
+				fg = self.red)
+			self.button = Tk.Button(
+				text = "Connect",
+				bg = self.bg,
+				highlightbackground = self.bg,
+				fg = self.fg,
+				command = super(FCPRCommunicator, self).start()
+			)
+
+			self.statusLabel.pack(side = Tk.LEFT)
+			self.button.pack(side = Tk.LEFT)
+			self.mainFrame.pack()
+
 		except Exception as e: # Print uncaught exceptions
-			self.printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
+			self._printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
 				"\"{}\"".\
 				format(traceback.format_exc()), "E")
 
@@ -204,25 +198,25 @@ class FCPRCommunicator:
 
 		# End getInputQueues ===================================================
 
-	def printM(self, output, tag = 'S'): # =====================================
+	def _setStatus(self, newStatus): # =========================================
+
+		# Update widget:
+
+		# Update widget status:
+		super(FCPRCommunicator, self)._setStatus(newStatus)
+
+		# End _setStatus =======================================================
+
+	def setProfile(self, newProfile): # ========================================
 		
-		try:
-			self.printQueue.put_nowait((output, tag))
-			return True
+		self.profile = newProfile
 
-		except Queue.Full:
-			print "[WARNING] Communications output queue full. "\
-				"Could not print the following message:\n\r \"{}\"".\
-				format(output)
-			return False
+		super(FCPRCommunicator, self).setArgs(
+				(newProfile, 
+					self.commandQueue, 
+					self.mosiMatrixQueue,
+					self.updatePipeIn,
+					self.misoMatrixPipeIn,
+					self.printQueue))
 
-		# End printM ===========================================================
-
-	def shutdown(self): # ======================================================
-		# "Shutdown" Communicator by closing all sockets and terminating 
-		# the Communicator process, performing any necessary cleanup.
-
-		self.shutdownPipeIn.send(1)
-		self.communicatorProcess.join()
-
-		# End shutdown =========================================================
+		# End setProfile =======================================================

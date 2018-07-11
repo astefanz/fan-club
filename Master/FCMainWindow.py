@@ -276,27 +276,9 @@ class FCMainWindow(Tk.Frame):
 				macs.append(slave[1])
 			self.printM("[UI][OR] Initializing Communicator")
 			self.communicator = pc.FCPRCommunicator(
-				savedMACs = macs,
-				broadcastPeriodS = self.archiver.get(ac.broadcastPeriodS),
-				periodMS = self.archiver.get(ac.periodMS),
-				periodS = self.archiver.get(ac.periodS),
-				broadcastPort = self.archiver.get(ac.broadcastPort),
-				passcode = self.archiver.get(ac.passcode),
-				misoQueueSize = self.archiver.get(ac.misoQueueSize),
-				maxTimeouts = self.archiver.get(ac.maxTimeouts),
-				maxLength = self.archiver.get(ac.maxLength),
-				maxFans = self.archiver.get(ac.maxFans),
-				fanMode = self.archiver.get(ac.fanMode),
-				targetRelation = self.archiver.get(ac.targetRelation),
-				fanFrequencyHZ = self.archiver.get(ac.fanFrequencyHZ),
-				counterCounts = self.archiver.get(ac.counterCounts),
-				pulsesPerRotation = self.archiver.get(ac.pulsesPerRotation),
-				maxRPM = self.archiver.get(ac.maxRPM),
-				minRPM = self.archiver.get(ac.minRPM),
-				minDC = self.archiver.get(ac.minDC),
-				chaserTolerance = self.archiver.get(ac.chaserTolerance),
-				maxFanTimeouts = self.archiver.get(ac.maxFanTimeouts),
-				pinout = self.archiver.get(ac.defaultPinout),
+				master = self,
+				profile = self.profile,
+				spawnQueue = self.spawnQueue,
 				printQueue = self.printQueue
 				)
 
