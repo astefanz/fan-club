@@ -30,6 +30,7 @@ import time
 # FCMkII:
 import FCMainWindow as mw
 import FCSpawner as sw
+import FCPRCommunicator as cr
 import auxiliary.errorPopup as ep
 #### MAIN ######################################################################       
 
@@ -37,13 +38,16 @@ print ">>> FCMkII Started on {}".format(time.strftime(
 	"%a %d %b %Y %H:%M:%S", time.localtime()))
 
 try:
-	printQueue = mp.Queue()
-	spawner = sw.FCSpawner(printQueue)
-	interface = mw.FCMainWindow(VERSION, spawner.getSpawnQueue, printQueue) 
+
+	manager = mp.Manager()
+	printQueue = manager.Queue()
+	spawnQueue = manager.Queue()
+	spawner = sw.FCSpawner(spawnQueue, printQueue)
+	interface = mw.FCMainWindow(VERSION, spawnQueue, printQueue) 
 	interface.mainloop()
 	spawner.end()
 except:
-	ep.errorPopup(Exception(), "UNHANDLED EXCEPTION AT FCMAIN: ")	
+	ep.errorPopup("UNHANDLED EXCEPTION AT FCMAIN: ")	
 
 print ">>> FCMkII Ended on {}\n".format(time.strftime(
 	"%a %d %b %Y %H:%M:%S", time.localtime()))

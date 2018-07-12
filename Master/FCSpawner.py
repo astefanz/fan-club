@@ -107,6 +107,7 @@ def _spawnerRoutine(stopPipeOut, spawnQueue, printQueue): # ====================
 
 				# Add new process:
 				try:
+					print "Something was received: {}".format(spawnTuple)
 					
 					newProcess = mp.Process(
 						name = "FCMkII_Widget",
@@ -181,23 +182,32 @@ def translate(code): # ---------------------------------------------------------
 	# End translate ------------------------------------------------------------
 
 # Spawn tuple:
-# Expected form: 			(target_method, args, pipeIn)
-#								0			1		2
+# Expected form: 			(target_method)
+#								0
 # NOTE: Here args is expected to be a tuple of arguments to be passed to
 # target_method
 
-TARGET = 0
-ARGS = 1
-PIPE = 2
-PROCESS = 3
+# Resource dictionary:
+PIPE = -1
+PROCESS = -2
+MP_ARGS = -3
 
+# EXPECTED PROCESS ARGUMENT ORDER:
+# shutdownPipe
+# commandQueue
+# MOSI Queue
+# printQueue
+# INTERPROCESS_ARGS
+# SERIALIZABLE_ARGS
 
+SPAWNER_SIDE = 0
+CALLER_SIDE = 1
 
 ## CLASS DEFINITION ############################################################
 
 class FCSpawner:
 
-	def __init__(self, printQueue): # ==========================================
+	def __init__(self, spawnQueue, printQueue): # ==============================
 		self.canPrint = False
 		self.symbol = "[SW] "
 		try:
@@ -207,7 +217,7 @@ class FCSpawner:
 			self.active = False
 
 			# Inter-process communication:
-			self.spawnQueue = mp.Queue()
+			self.spawnQueue = spawnQueue
 			self.stopPipeOut, self.stopPipeIn = mp.Pipe(False)
 
 			# Process:
@@ -221,7 +231,7 @@ class FCSpawner:
 			self.active = True
 
 		except:
-			self.printE("SPAWNER INIT. ERROR")
+			self._printE("SPAWNER INIT. ERROR")
 			# NOTE: traceback.format_exc() will automatically fetch the latest
 			# Exception data
 	
@@ -243,7 +253,7 @@ class FCSpawner:
 
 	def terminate(self): # =====================================================
 		self.spawnerProcess.terminate()
-		self.printE("WARNING: Spawner process terminated")
+		self._printE("WARNING: Spawner process terminated")
 		self.active = False
 
 		# End terminate ========================================================

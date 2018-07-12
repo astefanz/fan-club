@@ -40,7 +40,7 @@ import sys
 
 ## DEFINITION ##################################################################
 
-def errorPopup(exception, preamble = ''): # ====================================
+def errorPopup(preamble = ''): # ===============================================
 	# Given an exception, report it to the user in a popup window.
 
 	tkMessageBox.showerror(

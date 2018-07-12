@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" # File: FCCWidget.py (NOTE)             ##
+## Project: Fan Club Mark II "Master" # File: FCCStatusBar.py                 ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -22,7 +22,7 @@
 
 ## ABOUT #######################################################################
 """
-Custom Tkinter widget to display general parameters
+Display connection status
 
 """
 ################################################################################
@@ -32,10 +32,8 @@ Custom Tkinter widget to display general parameters
 
 # GUI:
 from mttkinter import mtTkinter as Tk
-import tkFileDialog 
 import tkMessageBox
 import tkFont
-import ttk # "Notebooks"
 
 # System:
 import os # Get current working directory & check file names

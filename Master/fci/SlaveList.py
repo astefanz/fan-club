@@ -31,8 +31,7 @@ Custom Tkinter widget to display Slave statuses.
 ## DEPENDENCIES ################################################################
 
 # GUI:
-#from mttkinter import mtTkinter as Tk
-import Tkinter as Tk
+from mttkinter import mtTkinter as Tk
 import tkFileDialog 
 import tkMessageBox
 import tkFont
@@ -80,12 +79,12 @@ class SlaveList(Tk.Frame): # ===================================================
 			self.slaveList = ttk.Treeview(self, 
 				selectmode="extended")
 			self.slaveList["columns"] = \
-				("Index","cm.MAC","Status","Fans", "Version")
+				("Index","MAC","Status","Fans", "Version")
 
 			# Create columns:
 			self.slaveList.column('#0', width = 20, stretch = False)
 			self.slaveList.column("Index", width = 20, anchor = "center")
-			self.slaveList.column("cm.MAC", width = 50, anchor = "center")
+			self.slaveList.column("MAC", width = 50, anchor = "center")
 			self.slaveList.column("Status", width = 30, anchor = "center")
 			self.slaveList.column("Fans", width = 50, stretch = False, 
 				anchor = "center")
@@ -94,7 +93,7 @@ class SlaveList(Tk.Frame): # ===================================================
 
 			# Configure column headings:
 			self.slaveList.heading("Index", text = "Index")
-			self.slaveList.heading("cm.MAC", text = "cm.MAC")
+			self.slaveList.heading("MAC", text = "MAC")
 			self.slaveList.heading("Status", text = "Status")
 			self.slaveList.heading("Fans", text = "Fans")
 			self.slaveList.heading("Version", text = "Version")
@@ -258,7 +257,7 @@ class SlaveList(Tk.Frame): # ===================================================
 		for iid in self.slaveList.selection():
 			selection.append(self.slaveList.item(iid)['values'][cm.INDEX])
 
-		print selection
+		return selection
 
 		# End getSelection =====================================================
 

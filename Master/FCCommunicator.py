@@ -415,7 +415,15 @@ class FCCommunicator:
 						
 						# Classify command:
 						if command[0] == ADD:
-							self.add(command[1])
+							if command[1] == ALL:
+								for index in self.slaves:
+									self.add(index)
+										# NOTE: Unapplicable Slaves will be
+										# automatically ignored
+									
+							else:
+								self.add(command[1])
+
 
 						elif command[0] == DISCONNECT:
 							if command[1] == ALL:
@@ -1407,8 +1415,11 @@ class FCCommunicator:
 			self._saveTimeStamp(targetIndex, "Connecting")
 			"""
 		else:
+			pass
+			"""
 			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
 				format(targetIndex + 1, sv.translate(status)))
+			"""
 
 		# End add ==============================================================
 

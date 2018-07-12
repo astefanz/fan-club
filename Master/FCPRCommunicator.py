@@ -29,6 +29,8 @@ This module is a multiprocessing wrapper around FCCommunicator.
 
 ## DEPENDENCIES ################################################################
 
+from mttkinter import mtTkinter as Tk
+
 # System:
 import sys			# Exception handling
 import traceback	# More exception handling
@@ -47,12 +49,18 @@ import numpy as np	# Fast arrays and matrices
 import FCCommunicator as cm
 import FCWidget as wg
 import FCSlave as sv
+import auxiliary.errorPopup as ep
 
 ## CONSTANTS ###################################################################
 
+COMMAND_QUEUE = 0
+MOSI_QUEUE = 1
+UPDATE_PIPE = 2
+MISO_MATRIX_PIPE = 3
+
 ## AUXILIARY ROUTINE ###########################################################
 
-def _communicatorRoutine(
+def _processRoutine(
 		stopPipeOut,
 		profile,
 		commandQueue,
@@ -109,18 +117,22 @@ class FCPRCommunicator(wg.FCWidget):
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
 		try:
-			
+			self.printQueue = printQueue
+			self.canPrint = True
+			self.symbol = "YT"
 			printQueue.put(("Initializing Comms. worker process","S"))
 
 			# Create inter-process communication facilities:
 
+			self.manager = pr.Manager()
+
 			# Communicator commands:
 			#	NOTE: Input... Use queue
-			self.commandQueue = pr.Queue()
+			self.commandQueue = self.manager.Queue()
 
 			# MOSI matrix:
 			#	NOTE: Input... Use queue
-			self.mosiMatrixQueue = pr.Queue()
+			self.mosiMatrixQueue = self.manager.Queue()
 
 			# Updates:
 			#	NOTE: Output... use pipe
@@ -137,18 +149,21 @@ class FCPRCommunicator(wg.FCWidget):
 			self.printQueue = printQueue
 
 			# Call parent constructor:
-			super(FCPRCommunicator, self).__init__(
-				_communicatorRoutine,
-				(profile, 
-					self.commandQueue, 
-					self.mosiMatrixQueue,
-					self.updatePipeIn,
-					self.misoMatrixPipeIn,
-					printQueue),
-				spawnQueue,
-				printQueue,
-				"CM"
-			)
+			try:
+				super(FCPRCommunicator, self).__init__(
+					_communicatorRoutine,
+					spawnQueue,
+					printQueue,
+					(profile, 
+						self.commandQueue, 
+						self.mosiMatrixQueue,
+						self.updatePipeIn,
+						self.misoMatrixPipeIn,
+						printQueue),
+					"CM"
+				)
+			except:
+				ep.errorPopup()	
 
 			# Build widget:
 			self.bg = "#e2e2e2"
@@ -166,7 +181,7 @@ class FCPRCommunicator(wg.FCWidget):
 				bg = self.bg,
 				highlightbackground = self.bg,
 				fg = self.fg,
-				command = super(FCPRCommunicator, self).start()
+				command = super(FCPRCommunicator, self).start
 			)
 
 			self.statusLabel.pack(side = Tk.LEFT)

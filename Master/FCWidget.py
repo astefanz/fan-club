@@ -35,7 +35,7 @@ import multiprocessing as mp
 import threading as tr
 
 # FCMkII:
-import FCSpawner.py as sw
+import FCSpawner as sw
 import auxiliary.errorPopup as ep
 import traceback
 
@@ -65,32 +65,31 @@ def translate(code): # ---------------------------------------------------------
 
 ## CLASS DEFINITION ############################################################
 
-class FCWidget:
+class FCWidget(object):
 	
 	def __init__(
 		self, 
 		process,
-		args = (),
 		spawnQueue,
 		printQueue,
+		args = (),
 		symbol = "WG"
 		): # ===================================================================
-		
-		canPrint = False
+	
+		self.canPrint = False
 
 		try:
+			self.symbol =  "[{}] ".format(symbol)
+			self.printQueue = printQueue
+			self.canPrint = True
 
 			# Store arguments:
 			self.process = process
 			self.args = args
 			self.argsLock = tr.Lock()
 			self.spawnQueue = spawnQueue
-			self.printQueue = printQueue
 
 			# Create member attributes:
-			self.symbol =  "[{}] ".format(symbol)
-			
-			canPrint = True
 
 			# Pipes for inter-process communication:
 			self.spawnPipeOut, self.spawnPipeIn = mp.Pipe(False)
@@ -105,8 +104,8 @@ class FCWidget:
 		
 		except Exception as e:
 
-			if not canPrint:
-				ep.errorPopup(e, "Exception in base FCWidget constructor:")
+			if not self.canPrint:
+				ep.errorPopup("Exception in base FCWidget constructor:")
 
 			else:
 				self._printM(
@@ -118,22 +117,20 @@ class FCWidget:
 	def start(self): # =========================================================
 		# Start process, if possible
 		try:
+
 			# Check status
 			if self.getStatus() is INACTIVE:
-				# Can start process
-				
+				# Can start process	
 
 				# Set status to starting:
 				self._setStatus(STARTING)
-
-				# Send request to spawner Process:
+				
 				self.spawnQueue.put_nowait(
 					(self.process, 
 					(self.stopPipeOut,) + self.args, 
 					self.spawnPipeIn))
 
 				self._startWatchdog()
-
 			else:
 				# Cannot start process
 				self._printM(
@@ -227,10 +224,14 @@ class FCWidget:
 
 	def _printM(self, message, tag = 'S'): # ===================================
 		try:
-			self.printQueue.put_nowait((self.symbol + message, tag))
+			if self.canPrint:
+				self.printQueue.put_nowait((self.symbol + message, tag))
+			
+			else:
+				ep.errorPopup("Could not print")
 
 		except Exception as e:
-			ep.errorPopup(e, "Exception is base FCWidget print:")
+			ep.errorPopup("Exception is base FCWidget print:")
 
 		# End _printM ==========================================================
 
@@ -239,7 +240,7 @@ class FCWidget:
 			self._printM("{} {}".format(preamble, traceback.format_exc()), 'E')
 		
 		except Exception as e:
-			ep.errorPopup(e, "Exception is base FCWidget print-E:")	
+			ep.errorPopup("Exception is base FCWidget print-E:")	
 
 		# End _printE ==========================================================
 
@@ -265,7 +266,7 @@ class FCWidget:
 				"({})".format(translate(status)), 'E')
 
 	def _watchdogRoutine(self): # ==============================================
-		self.printM("Watchdog started", 'D')
+		self._printM("Watchdog started", 'D')
 
 		while True:
 			try:
@@ -286,7 +287,7 @@ class FCWidget:
 
 					elif message is sw.ERROR:
 						self._printM("WARNING: Failed to start process", 'E')
-						self._setStatus(INACTIVE))
+						self._setStatus(INACTIVE)
 						break
 
 					else:
@@ -300,6 +301,6 @@ class FCWidget:
 			except Exception as e:
 				self._printE(e, "ERROR in watchdog:")
 
-		self.printM("Watchdog ended", 'D')
+		self._printM("Watchdog ended", 'D')
 		# _watchdogRoutine =====================================================
 

@@ -229,11 +229,11 @@ class FCMainWindow(Tk.Frame):
 			# MODULES ----------------------------------------------------------
 
 			# Inter-process communication:
-			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
-			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
+			#self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
+			#self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
 
-			self._updateIn = lambda: None
-			self._misoIn = lambda: None
+			#self._updateIn = lambda: None
+			#self._misoIn = lambda: None
 
 			self.inputLock = threading.Lock()
 
@@ -269,6 +269,7 @@ class FCMainWindow(Tk.Frame):
 
 			self.printM("Initializing Archive")
 			self.archiver = ac.FCArchiver() 
+			self.profile = self.archiver.getProfile()
 			self.printM("Archiver initialized", "G")
 
 			macs = []
@@ -379,7 +380,7 @@ class FCMainWindow(Tk.Frame):
 	def _deactivationRoutine(self): # ==========================================
 		
 		# Shutdown processes:
-		self.communicator.shutdown()
+		self.communicator.stop()
 		
 		for fcWidget in self.fcWidgets:
 			fcWidget.stop()
