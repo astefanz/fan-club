@@ -58,6 +58,22 @@ VERSION = "Independent 0"
 FORCE_IP_ADDRESS = "0.0.0.0"
 	#= "192.168.1.129" # (Basement lab)
 
+# Communicator status codes:
+CONNECTED = 31
+CONNECTING = 32
+DISCONNECTED = 33
+DISCONNECTING = 34
+
+# Slave data tuple indices:
+# Expected form: (INDEX, MAC, STATUS, FANS, VERSION) + IID
+#					0		1	2		3		4		5
+INDEX = 0
+MAC = 1
+STATUS = 2
+FANS = 3
+VERSION = 4
+IID = 5
+
 # Commands:
 ADD = 1
 DISCONNECT = 2

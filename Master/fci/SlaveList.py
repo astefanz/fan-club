@@ -46,32 +46,24 @@ import traceback
 
 # FCMkII:
 import FCSlave as sv
+import FCCommunicator as cm
 
 ## CONSTANTS ###################################################################
 
-# Slave data tuple indices:
-# Expected form: (INDEX, MAC, STATUS, FANS, VERSION) + IID
-#					0		1	2		3		4		5
-INDEX = 0
-MAC = 1
-STATUS = 2
-FANS = 3
-VERSION = 4
-IID = 5
 
 ## CLASS DEFINITION ############################################################
 
 class SlaveList(Tk.Frame): # ===================================================
 
 	# NOTE: Slaves are stored as: 
-	# [Index + 1, MAC, status, fans, version, iid]
+	# [Index + 1, cm.MAC, status, fans, version, iid]
 	#          0    1       2     3    4      5
 
 	def __init__(self, master): # ==============================================
 		try:
 			# Parameters displayed:
 			# - Index 
-			# - MAC
+			# - cm.MAC
 			# - Status
 			# - Fans
 			# - Version
@@ -88,12 +80,12 @@ class SlaveList(Tk.Frame): # ===================================================
 			self.slaveList = ttk.Treeview(self, 
 				selectmode="extended")
 			self.slaveList["columns"] = \
-				("Index","MAC","Status","Fans", "Version")
+				("Index","cm.MAC","Status","Fans", "Version")
 
 			# Create columns:
 			self.slaveList.column('#0', width = 20, stretch = False)
 			self.slaveList.column("Index", width = 20, anchor = "center")
-			self.slaveList.column("MAC", width = 50, anchor = "center")
+			self.slaveList.column("cm.MAC", width = 50, anchor = "center")
 			self.slaveList.column("Status", width = 30, anchor = "center")
 			self.slaveList.column("Fans", width = 50, stretch = False, 
 				anchor = "center")
@@ -102,7 +94,7 @@ class SlaveList(Tk.Frame): # ===================================================
 
 			# Configure column headings:
 			self.slaveList.heading("Index", text = "Index")
-			self.slaveList.heading("MAC", text = "MAC")
+			self.slaveList.heading("cm.MAC", text = "cm.MAC")
 			self.slaveList.heading("Status", text = "Status")
 			self.slaveList.heading("Fans", text = "Fans")
 			self.slaveList.heading("Version", text = "Version")
@@ -165,25 +157,25 @@ class SlaveList(Tk.Frame): # ===================================================
 
 	def add(self, newSlave): # =================================================
 		# Expected format:
-		# (Index, MAC, Status, Fans, Version)
+		# (Index, cm.MAC, Status, Fans, Version)
 	
-		if newSlave[INDEX] in self.slaves:
+		if newSlave[cm.INDEX] in self.slaves:
 			raise ValueError("Tried to 'add' existing Slave index ({})".\
-				format(newSlave[INDEX]))
+				format(newSlave[cm.INDEX]))
 
 		else:
-			index = newSlave[INDEX]
+			index = newSlave[cm.INDEX]
 			iid = self.slaveList.insert(
 				'', 
 				0,
 				values = (
 					index,
-					newSlave[MAC],
-					sv.translate(newSlave[STATUS]),
-					newSlave[FANS],
-					newSlave[VERSION]
+					newSlave[cm.MAC],
+					sv.translate(newSlave[cm.STATUS]),
+					newSlave[cm.FANS],
+					newSlave[cm.VERSION]
 					),
-				tag = sv.translate(newSlave[STATUS], True)
+				tag = sv.translate(newSlave[cm.STATUS], True)
 			)
 			self.slaves[index] = newSlave + (iid,)
 		
@@ -191,10 +183,10 @@ class SlaveList(Tk.Frame): # ===================================================
 
 	def update(self, newValues): # =============================================
 		# Expected format:
-		# (Index, MAC, Status, Fans, Version)
+		# (Index, cm.MAC, Status, Fans, Version)
 		
-		index = newValues[INDEX]
-		iid = self.slaves[index][IID]
+		index = newValues[cm.INDEX]
+		iid = self.slaves[index][cm.IID]
 
 		self.slaves[index] = newValues + (iid,)
 
@@ -202,15 +194,15 @@ class SlaveList(Tk.Frame): # ===================================================
 			iid,	
 			values = (
 					index,
-					newValues[MAC],
-					sv.translate(newValues[STATUS]),
-					newValues[FANS],
-					newValues[VERSION]
+					newValues[cm.MAC],
+					sv.translate(newValues[cm.STATUS]),
+					newValues[cm.FANS],
+					newValues[cm.VERSION]
 					),
-			tag = sv.translate(newValues[STATUS], True)
+			tag = sv.translate(newValues[cm.STATUS], True)
 		)	
 
-		if newValues[STATUS] is not sv.CONNECTED:
+		if newValues[cm.STATUS] is not sv.CONNECTED:
 			self.slaveList.move(
 				iid,
 				'',
@@ -223,18 +215,18 @@ class SlaveList(Tk.Frame): # ===================================================
 	def setStatus(self, index, newStatus): # ===================================
 
 		slave =	self.slaves[index]
-		self.slaves[index] = slave[:STATUS] + (newStatus,) + slave[STATUS+1:]
+		self.slaves[index] = slave[:cm.STATUS] + (newStatus,) + slave[cm.STATUS+1:]
 
 		self.slaveList.item(
-			self.slaves[index][IID],
-			values = slave[:STATUS] + (sv.translate(newStatus),) + 
-				slave[STATUS+1:],
+			self.slaves[index][cm.IID],
+			values = slave[:cm.STATUS] + (sv.translate(newStatus),) + 
+				slave[cm.STATUS+1:],
 			tag = sv.translate(newStatus, True)
 		)
 
 		if newStatus is not sv.CONNECTED:
 			self.slaveList.move(
-				self.slaves[index][IID],
+				self.slaves[index][cm.IID],
 				'',
 				0,
 			)
@@ -245,7 +237,7 @@ class SlaveList(Tk.Frame): # ===================================================
 		# Empty slave list.
 
 		for index in self.slaves:
-			self.slaveList.delete(self.slaves[index][IID])
+			self.slaveList.delete(self.slaves[index][cm.IID])
 
 		del self.slaves
 		self.slaves = {}
@@ -255,7 +247,7 @@ class SlaveList(Tk.Frame): # ===================================================
 	def remove(self, index): # =================================================
 		# Remove one Slave from list and data structure
 
-		self.slaveList.delete(self.slaves[index][IID])
+		self.slaveList.delete(self.slaves[index][cm.IID])
 		del self.slaves[index]
 
 		# End remove ===========================================================
@@ -264,7 +256,7 @@ class SlaveList(Tk.Frame): # ===================================================
 	
 		selection = []
 		for iid in self.slaveList.selection():
-			selection.append(self.slaveList.item(iid)['values'][INDEX])
+			selection.append(self.slaveList.item(iid)['values'][cm.INDEX])
 
 		print selection
 
@@ -284,10 +276,10 @@ class SlaveList(Tk.Frame): # ===================================================
 			iterable = selection
 		
 		for index in iterable:
-			if status is None or self.slaves[index][STATUS] == status:
-				#iids.append(self.slaves[index][IID])
-				self.slaveList.selection_add(self.slaves[index][IID])
-				#print "Selected {}: {}".format(index, self.slaves[index][IID])
+			if status is None or self.slaves[index][cm.STATUS] == status:
+				#iids.append(self.slaves[index][cm.IID])
+				self.slaveList.selection_add(self.slaves[index][cm.IID])
+				#print "Selected {}: {}".format(index, self.slaves[index][cm.IID])
 		
 		#self.slaveList.selection_add(tuple(iids))
 
@@ -295,20 +287,20 @@ class SlaveList(Tk.Frame): # ===================================================
 
 	def selectAll(self, event): # ==============================================
 		for index in self.slaves:
-			#iids.append(self.slaves[index][IID])
-			self.slaveList.selection_add(self.slaves[index][IID])
+			#iids.append(self.slaves[index][cm.IID])
+			self.slaveList.selection_add(self.slaves[index][cm.IID])
 
 		# End selectAll ========================================================
 	
 	def toggleAll(self, event): # ==============================================
 		for index in self.slaves:
-			#iids.append(self.slaves[index][IID])
-			self.slaveList.selection_toggle(self.slaves[index][IID])
+			#iids.append(self.slaves[index][cm.IID])
+			self.slaveList.selection_toggle(self.slaves[index][cm.IID])
 
 		# End toggleAll ========================================================
 	
 	def deselectAll(self, event): # ============================================
-		#iids.append(self.slaves[index][IID])
+		#iids.append(self.slaves[index][cm.IID])
 		self.slaveList.selection_set(())
 
 		# End deselectAll ======================================================
@@ -317,7 +309,7 @@ class SlaveList(Tk.Frame): # ===================================================
 	def setStatus(self, index, newStatus): # ===================================
 
 		self.slaves[index][2] = sv.translate(newStatus)
-		self.slaveList.item(self.slaves[index][-1], # <- IID 
+		self.slaveList.item(self.slaves[index][-1], # <- cm.IID 
 			values = self.slaves[index],
 			tag = sv.translate(newStatus, True))
 
@@ -330,7 +322,7 @@ class SlaveList(Tk.Frame): # ===================================================
 	def setVersion(self, index, newVersion): # =================================
 
 		self.slaves[index][4] = sv.translate(newVersion)
-		self.slaveList.item(self.slaves[index][-1], # <- IID 
+		self.slaveList.item(self.slaves[index][-1], # <- cm.IID 
 			values = self.slaves[index],
 			
 		# End setVersion ========================================================
