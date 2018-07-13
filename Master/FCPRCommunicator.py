@@ -50,6 +50,7 @@ import numpy as np	# Fast arrays and matrices
 import FCCommunicator as cm
 import FCWidget as wg
 import FCSlave as sv
+import FCSpawner as sw
 
 import fci.FCCSlaveList as sl
 import fci.FCCControlBar as cb
@@ -77,7 +78,7 @@ def _communicatorRoutine(
 	): # ===================================================================
 	try:
 
-		printQueue.put_nowait(("Starting Comms. Process", 'S'))
+		printQueue.put_nowait(("[CR] Starting Comms. Process", 'S'))
 
 		# Create Communicator:
 		comms = cm.FCCommunicator(
@@ -96,18 +97,22 @@ def _communicatorRoutine(
 				message = stopPipeOut.recv()
 				if message == 1:
 					printQueue.put_nowait(("Shutting down comms.","W"))
-					comms.sendDisconnect()
+					comms.stop()
 					break
 
 				else:
 					printQueue.put_nowait(
-						("WARNING: Unrecognized message in comms. "\
+						("[CR] WARNING: Unrecognized message in comms. "\
 						"shutdown pipe (ignored): \"{}\"".\
 						format(message),"E"))
 					continue
 
+			elif comms.stoppedFlag:
+				printQueue.put_nowait(("[CR] Communications down ",'E'))
+				break
+
 	except Exception as e: # Print uncaught exceptions
-		printQueue.put(("UNHANDLED EXCEPTION terminated Comms. Process: "\
+		printQueue.put(("[CR] UNHANDLED EXCEPTION terminated Comms. Process: "\
 			"\"{}\"".format(traceback.format_exc()), "E")
 			)
 
@@ -226,6 +231,7 @@ class FCPRCommunicator(wg.FCWidget):
 
 			self.statusBar.pack(fill = Tk.X, expand = False)
 
+			self._scheduledUpdate()
 
 		except Exception as e: # Print uncaught exceptions
 			self._printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
@@ -307,4 +313,38 @@ class FCPRCommunicator(wg.FCWidget):
 
 		# End _toggle ==========================================================
 
+	def _scheduledUpdate(self): # ==============================================
+
+		try:
+
+			# Check status:
+			if self.getStatus() is not wg.ACTIVE:
+				return
+
+			elif self.updatePipeOut.poll():
+				# Try to fetch update:
+				update = self.updatePipeOut.recv()
+				print("fetched: ",update)
+
+				# Apply:
+				if update[0] is cm.NEW:
+					self.slaveList.addSlaves(update[1])
+					self.statusBar.addSlaves(update[1])
+
+				if update[0] is cm.UPDATE:
+					self.slaveList.updateSlaves(update[1])
+					self.statusBar.updateSlaves(update[1])
+
+			elif self.spawnPipeOut.poll():
+				message = self.spawnPipeOut.recv()
+				if message is sw.STOPPED:
+					self._setStatus(wg.INACTIVE)
+		
+		except:
+			self._printE("ERROR in scheduled Comms. Updater:")
 	
+		finally: 
+			self.frame.after(100, self._scheduledUpdate)
+
+		# End _scheduledUpdate =================================================
+

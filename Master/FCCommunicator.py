@@ -87,6 +87,7 @@ FCPRCONSTS = (ADD, DISCONNECT, REBOOT)
 
 # Outputs:
 NEW = 11
+UPDATE = 12
 
 # MOSI commands:
 MOSI_NO_COMMAND = 20
@@ -173,6 +174,7 @@ class FCCommunicator:
 			self.commandQueue = commandQueue
 			self.updatePipeIn = updatePipeIn
 			self.mosiMatrixQueue = mosiMatrixQueue
+			self.stoppedFlag = False
 
 			# Output queues:
 			self.printQueue = printQueue
@@ -371,8 +373,10 @@ class FCCommunicator:
 					sv.DISCONNECTED, 
 					self.maxFans,
 					self.slaves[index].getVersion()))
-
+			"""
 			self.newSlaveQueue.put_nowait(newSlaves)
+			"""
+			self.updatePipeIn.send((NEW, newSlaves))
 
 			# START THREADS:
 
@@ -418,16 +422,18 @@ class FCCommunicator:
 					# Check commands:
 					if not self.commandQueue.empty():
 						command = self.commandQueue.get_nowait()
-						
+						print("Command fetched: ", command)	
 						# Classify command:
 						if command[0] == ADD:
+							print("Command is 'ADD'")
 							if command[1] == ALL:
-								for index in self.slaves:
+								for index, slave in enumerate(self.slaves):
 									self.add(index)
 										# NOTE: Unapplicable Slaves will be
 										# automatically ignored
 									
 							else:
+								print("Adding ",command[1])
 								self.add(command[1])
 
 
@@ -476,21 +482,23 @@ class FCCommunicator:
 			while True:
 				try:
 					# Output -------------------------------------------------------
-
+					
+					"""
 					# Check for new Slaves:
 					newSlaves = self.getNewSlaves()
 					if newSlaves is not None:
+						print("New Slaves sent")
 						self.updatePipeIn.send((NEW, newSlaves))
-
 
 					# Assemble output matrix:
 					output = []
-					
+					"""
+					"""
 					for slave in self.slaves:
 						output.append(slave.getMISO())
 
 					self.misoMatrixPipeIn.send(output)
-
+					"""
 				except Exception as e: # Print uncaught exceptions
 					self.printM("EXCEPTION IN Comms. outp. thread: "\
 						"\"{}\"".\
@@ -537,7 +545,12 @@ class FCCommunicator:
 				#self.broadcastLock.release()
 
 				# Guarantee lock release:
-			
+		
+		except socket.error:
+			self.printM("[BT] NETWORK ERROR. COMMUNICATIONS DOWN ({})".\
+				format(traceback.format_exc()),'E')
+			self.stop()
+
 		except Exception as e:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
@@ -586,7 +599,7 @@ class FCCommunicator:
 					Where SMISO and SMOSI are the Slave's MISO and MOSI 
 					port numbers, respectively. Notice separators.
 				"""
-				messageSplitted = messageReceived.split("|")
+				messageSplitted = messageReceived.decode('ascii').split("|")
 					# NOTE: messageSplitted is a list of strings, each of which
 					# is expected to contain a string as defined in the comment
 					# above.
@@ -657,6 +670,8 @@ class FCCommunicator:
 									# their already existing Slave thread)
 
 									# Update status and networking information:
+									self.setSlaveStatus(self.slaves[index],sv.KNOWN)
+									"""
 									self.slaves[index].setStatus(
 										sv.KNOWN,
 										senderAddress[0],
@@ -664,8 +679,16 @@ class FCCommunicator:
 										mosiPort,
 										version
 									)
+									self.updatePipeIn.send(
+										(UPDATE,(
+										(index,
+										self.slaves[index].getMAC(),
+										sv.KNOWN,
+										self.maxFans,
+										version),
+										)))
 									
-									
+									"""
 								else:
 									# All other statuses should be ignored for 
 									# now.
@@ -704,12 +727,23 @@ class FCCommunicator:
 								)
 								
 								# Add new Slave's information to newSlaveQueue:
-								self.newSlaveQueue.put(
+								self.updatePipeIn.send(
+									(NEW, 
 									((index,
 									mac, 
 									sv.AVAILABLE,
 									self.maxFans, 
 									version),))
+								)
+								"""
+								self.newSlaveQueue.put_nowait(
+									((index,
+									mac, 
+									sv.AVAILABLE,
+									self.maxFans, 
+									version),))
+								print ("Queue: ",self.newSlaveQueue.qsize())
+								"""
 
 								# Start Slave thread:
 								self.slaves[index].start()
@@ -855,15 +889,13 @@ class FCCommunicator:
 				time.sleep(periodS)
 				try:
 
-					# Acquire lock:
+
 					slave.acquire()	
 					status = slave.getStatus()
 
 					# Act according to Slave's state: 
 					if status == sv.KNOWN: # = = = = = = = = = = = = = = = =
 
-							
-						
 						# If the Slave is known, try to secure a connection:
 						# print "Attempting handshake"
 
@@ -885,7 +917,8 @@ class FCCommunicator:
 								# print "Handshake confirmed"
 
 								# Mark as CONNECTED and get to work:
-								slave.setStatus(sv.CONNECTED, lock = False)
+								#slave.setStatus(sv.CONNECTED, lock = False)
+								self.setSlaveStatus(slave,sv.CONNECTED,False)
 								tryBuffer = True
 								break
 
@@ -904,7 +937,10 @@ class FCCommunicator:
 							
 							else:
 								self._send("R", slave, 1)
-								slave.setStatus(sv.DISCONNECTED, lock = False) 
+								#slave.setStatus(sv.DISCONNECTED, lock = False) 
+							
+								self.setSlaveStatus(
+									slave,sv.DISCONNECTED,False)
 									# NOTE: This call also resets exchange 
 									# index.
 								break
@@ -1121,9 +1157,12 @@ class FCCommunicator:
 								totalTimeouts = 0
 
 								# Update Slave status:
+								"""
 								slave.setStatus(
 									sv.DISCONNECTED, lock = False)
-
+								"""
+								self.setSlaveStatus(
+									slave,sv.DISCONNECTED, False)
 								# Restart loop:
 								pass
 
@@ -1152,7 +1191,9 @@ class FCCommunicator:
 								
 								if reply is not None and reply[1] == "Y":
 									# Slave reconnected!
-									slave.setStatus(sv.CONNECTED)
+									#slave.setStatus(sv.CONNECTED)
+									self.setSlaveStatus(
+										slave,sv.CONNECTED, False)
 							
 							else:
 								self._sendToListener("X", slave)
@@ -1280,7 +1321,7 @@ class FCCommunicator:
 
 				try:
 					# Split message: -------------------------------------------
-					splitted = message.split("|")
+					splitted = message.decode('ascii').split("|")
 
 					# Verify index:
 					index = int(splitted[0])
@@ -1417,9 +1458,18 @@ class FCCommunicator:
 		status = self.slaves[targetIndex].getStatus()
 
 		if status == sv.AVAILABLE:
-			self.slaves[targetIndex].setStatus(sv.KNOWN)
+			self.setSlaveStatus(self.slaves[targetIndex],sv.KNOWN)
 			"""
-			self._saveTimeStamp(targetIndex, "Connecting")
+			self.slaves[targetIndex].setStatus(sv.KNOWN)
+			self.updatePipeIn.send(
+				(UPDATE,(
+				(targetIndex,
+				self.slaves[targetIndex].getMAC(),
+				sv.KNOWN,
+				self.maxFans,
+				self.slaves[targetIndex].getVersion()),
+				)))
+			#self._saveTimeStamp(targetIndex, "Connecting")
 			"""
 		else:
 			pass
@@ -1529,12 +1579,34 @@ class FCCommunicator:
 			   format(traceback.format_exc()), "E")
 
 		# End sendDisconnect ===================================================
-	
+
+	def setSlaveStatus(self, slave, newStatus, lock = True): # =================
+			
+		# Update status:
+		slave.setStatus(newStatus, lock = False)
+
+		# Send update to handlers:
+		self.updatePipeIn.send(
+			(UPDATE,
+				(
+					(slave.index,
+					slave.mac,
+					newStatus,
+					self.maxFans,
+					slave.version
+					)
+				,)
+			)
+		)
+
+		# End setSlaveStatus ===================================================
+
 	def stop(self): # ==========================================================
 		# Cleanup routine for termination.
 
 		# Send disconnect signal:
 		self.sendDisconnect()
+		self.stoppedFlag = True
 
 		# NOTE: All threads are set as Daemon and all sockets as reusable.
 		return

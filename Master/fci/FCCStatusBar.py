@@ -301,17 +301,22 @@ class FCCStatusBar(Tk.Frame): # ================================================
 		
 		# End __init__ =========================================================
 
-	def add(self, index, status): # ============================================
+	def addSlaves(self, newSlaves): # ==========================================
 
-		self.slaves[index] = status
+		for newSlave in newSlaves:
+			
+			index = newSlave[cm.INDEX]
+			status = newSlave[cm.STATUS]
 
-		self.statusInts[status] += 1
-		self.statusVars[status].set(self.statusInts[status])
+			self.slaves[index] = status
 
-		self.totalSlaves += 1
-		self.totalSlavesVar.set(self.totalSlaves)
+			self.statusInts[status] += 1
+			self.statusVars[status].set(self.statusInts[status])
 
-		# End add ==============================================================
+			self.totalSlaves += 1
+			self.totalSlavesVar.set(self.totalSlaves)
+
+		# End addSlaves ========================================================
 
 	def setSlaveStatus(self, index, newStatus): # ==============================
 
@@ -330,6 +335,14 @@ class FCCStatusBar(Tk.Frame): # ================================================
 			self.statusVars[newStatus].set(self.statusInts[newStatus])
 
 		# End setSlaveStatus ===================================================
+	
+	def updateSlaves(self, slaves): # ==========================================
+		
+		for slave in slaves:
+			self.setSlaveStatus(slave[cm.INDEX], slave[cm.STATUS])
+
+		# End updateSlaves =====================================================
+
 
 	def remove(self, index): # =================================================
 		

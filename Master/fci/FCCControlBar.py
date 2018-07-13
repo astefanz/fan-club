@@ -1,4 +1,4 @@
-################################################################################
+###############################################################################
 ## Project: Fan Club Mark II "Master" # File: FCCControlBar.py                ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
@@ -374,7 +374,7 @@ class FCCControlBar(Tk.Frame, object):
 		if self.selectedTarget.get() == "All":
 			targets = [cm.ALL]
 		else:
-			targets = self.selectionSource.getSelection()
+			targets = map(lambda x: x-1,self.selectionSource.getSelection())
 	
 		# Assemble message:
 		if self.selectedCommand.get() == "Disconnect":
@@ -392,7 +392,7 @@ class FCCControlBar(Tk.Frame, object):
 
 		# Store in Queue:
 		for target in targets:
-			self.commandQueue.put_nowait((target, commandCode))
+			self.commandQueue.put_nowait((commandCode, target))
 
 		# End _send ============================================================
 

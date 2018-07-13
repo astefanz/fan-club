@@ -184,33 +184,34 @@ class FCCSlaveList(Tk.Frame): # ================================================
 		
 		# End add ==============================================================
 
-	def update(self, newValues): # =============================================
+	def updateSlaves(self, slaves): # ==========================================
 		# Expected format:
 		# (Index, cm.MAC, Status, Fans, Version)
-		
-		index = newValues[cm.INDEX]
-		iid = self.slaves[index][cm.IID]
+	
+		for newValues in slaves:
+			index = newValues[cm.INDEX]
+			iid = self.slaves[index][cm.IID]
 
-		self.slaves[index] = newValues + (iid,)
+			self.slaves[index] = newValues + (iid,)
 
-		self.slaveList.item(
-			iid,	
-			values = (
-					index,
-					newValues[cm.MAC],
-					sv.translate(newValues[cm.STATUS]),
-					newValues[cm.FANS],
-					newValues[cm.VERSION]
-					),
-			tag = sv.translate(newValues[cm.STATUS], True)
-		)	
+			self.slaveList.item(
+				iid,	
+				values = (
+						index + 1,
+						newValues[cm.MAC],
+						sv.translate(newValues[cm.STATUS]),
+						newValues[cm.FANS],
+						newValues[cm.VERSION]
+						),
+				tag = sv.translate(newValues[cm.STATUS], True)
+			)	
 
-		if newValues[cm.STATUS] is not sv.CONNECTED:
-			self.slaveList.move(
-				iid,
-				'',
-				0,
-			)
+			if newValues[cm.STATUS] is not sv.CONNECTED:
+				self.slaveList.move(
+					iid,
+					'',
+					0,
+				)
 
 
 		# End update ===========================================================
@@ -222,8 +223,13 @@ class FCCSlaveList(Tk.Frame): # ================================================
 
 		self.slaveList.item(
 			self.slaves[index][cm.IID],
-			values = slave[:cm.STATUS] + (sv.translate(newStatus),) + 
-				slave[cm.STATUS+1:],
+			values = (
+				index + 1,
+				slave[cm.MAC],
+				slave[cm.STATUS],
+				slave[cm.FANS],
+				slave[cm.VERSION]
+				),
 			tag = sv.translate(newStatus, True)
 		)
 
