@@ -32,15 +32,15 @@ Custom Tkinter widget to print text output
 
 # GUI:
 #from mttkinter import mtTkinter as Tk
-import Tkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+import tkinter as Tk
+import tkinter.filedialog 
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import threading
-import Queue
+import queue
 import os # Get current working directory & check file names
 import sys # Exception handling
 import inspect # get line number for debugging
@@ -69,7 +69,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 			# BUILD ------------------------------------------------------------
 
-			self.mainTerminal = ttk.Frame(self)
+			self.mainTerminal = tkinter.ttk.Frame(self)
 			self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
 			self.mainTLock = threading.Lock()
 			self.mainTText = Tk.Text(self.mainTerminal, 
@@ -137,7 +137,7 @@ class Terminal(Tk.Frame): # ====================================================
 			self.terminalThread.start()
 
 		except Exception as e: # Print uncaught exceptions
-			tkMessageBox.showerror(title = "FCMkII Fatal Error",
+			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
 				"GUI Terminal constructor: \"{}\"".\
 				format(traceback.format_exc()))
@@ -170,7 +170,7 @@ class Terminal(Tk.Frame): # ====================================================
 							self.mainTText.config(state = Tk.DISABLED)
 							
 
-					except Queue.Empty:
+					except queue.Empty:
 						# If there is nothing to print, try again.
 						continue
 					else:
@@ -203,7 +203,7 @@ class Terminal(Tk.Frame): # ====================================================
 								self.mainTText.see("end")
 
 			except Exception as e: # Print uncaught exceptions
-				tkMessageBox.showerror(
+				tkinter.messagebox.showerror(
 					title = "FCMkII Error",
 					message = "Warning: Uncaught exception in Terminal "\
 					"printer routine: \"{}\"".\

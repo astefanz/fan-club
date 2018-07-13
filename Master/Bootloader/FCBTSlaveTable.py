@@ -30,9 +30,9 @@ Custom Tkinter widget to represent a table of bootloader-relevant Slave data.
 
 ## DEPENDENCIES ################################################################
 from mttkinter import mtTkinter as Tk
-import tkFileDialog
-import tkMessageBox
-import ttk
+import tkinter.filedialog
+import tkinter.messagebox
+import tkinter.ttk
 
 import threading
 import traceback
@@ -45,7 +45,7 @@ class FCBTSlaveTable(Tk.Frame):
 		Tk.Frame.__init__(self, master)
 
 		# Create list:
-		self.slaveList = ttk.Treeview(self, 
+		self.slaveList = tkinter.ttk.Treeview(self, 
 			selectmode="extended", height = 5)
 		self.slaveList["columns"] = \
 			("Index","MAC", "IP", "Version", "Last Reply")

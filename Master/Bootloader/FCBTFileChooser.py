@@ -31,8 +31,8 @@ Custom Tkinter widget for a graphical file-choosing utiliy.
 
 ## DEPENDENCIES ################################################################
 from mttkinter import mtTkinter as Tk
-import tkFileDialog
-import tkMessageBox
+import tkinter.filedialog
+import tkinter.messagebox
 
 ## CONSTANT DEFINITIONS ########################################################i
 

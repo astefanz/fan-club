@@ -32,10 +32,10 @@ User interface module
 
 # GUI:
 from mttkinter import mtTkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+import tkinter.filedialog 
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import threading
@@ -47,7 +47,7 @@ import inspect # get line number for debugging
 
 # Data:
 import numpy as np
-import Queue
+import queue
 
 # FCMkII:
 import FCCommunicator
@@ -112,7 +112,7 @@ class FCInterface(Tk.Frame):
 				(init_lw.winfo_screenheight()/7)
 				)
 			)
-			init_pbar = ttk.Progressbar(init_lw, orient = "horizontal", 
+			init_pbar = tkinter.ttk.Progressbar(init_lw, orient = "horizontal", 
 				length = 490, mode = "determinate")	
 
 			init_pbar.pack(side = Tk.TOP, fill = Tk.X, expand = True)
@@ -279,7 +279,7 @@ class FCInterface(Tk.Frame):
 
 			init_pbar["value"] = 14
 			# MAIN TERMINAL - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-			self.mainTerminal = ttk.Frame(self.terminalFrame)
+			self.mainTerminal = tkinter.ttk.Frame(self.terminalFrame)
 			self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
 			self.mainTLock = threading.Lock()
 			self.mainTText = Tk.Text(self.mainTerminal, height = 10, 
@@ -357,7 +357,7 @@ class FCInterface(Tk.Frame):
 			# List of Slaves .......................................................
 
 			# Create list:
-			self.slaveList = ttk.Treeview(self.slaveListFrame, 
+			self.slaveList = tkinter.ttk.Treeview(self.slaveListFrame, 
 				selectmode="browse", height = 5)
 			self.slaveList["columns"] = \
 				("Index", "Name","MAC","Status","IP","Fans", "Version")
@@ -1120,7 +1120,7 @@ class FCInterface(Tk.Frame):
 		except Exception as e: # Print uncaught exceptions
 			
 			if not self.ableToPrint:
-				tkMessageBox.showerror("Warning: Uncaught exception in "\
+				tkinter.messagebox.showerror("Warning: Uncaught exception in "\
 					"Terminal printer routine: \"{}\"".\
 					format(traceback.format_exc()), "E")
 		
@@ -1168,7 +1168,7 @@ class FCInterface(Tk.Frame):
 						if self.autoscrollVar.get() == 1:
 							self.mainTText.see("end")
 
-				except Queue.Empty:
+				except queue.Empty:
 					# If there is nothing to print, try again.
 					pass
 
@@ -1202,14 +1202,14 @@ class FCInterface(Tk.Frame):
 						if self.autoscrollVar.get() == 1:
 							self.mainTText.see("end")
 
-				except Queue.Empty:
+				except queue.Empty:
 					# If there is nothing to print, try again.
 					pass
 
 			self.mainTText.after(100, self._mainPrinterRoutine)
 	
 		except Exception as e: # Print uncaught exceptions
-			tkMessageBox.showerror("Warning: Uncaught exception in Terminal "\
+			tkinter.messagebox.showerror("Warning: Uncaught exception in Terminal "\
 				"printer routine: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
@@ -1404,7 +1404,7 @@ class FCInterface(Tk.Frame):
 		#	ror or "G" for "Green". Defaults to "S"
 
 		if DEBUG:
-			print "[DEBUG] " + output
+			print(("[DEBUG] " + output))
 	
 		if self.terminalVar.get() == 0:
 			return
@@ -1600,7 +1600,7 @@ class FCInterface(Tk.Frame):
 				# Disable print button while choosing file:
 				self.printStartStopButton.config(state = Tk.DISABLED)
 
-				self.printTargetVar.set(tkFileDialog.asksaveasfilename(
+				self.printTargetVar.set(tkinter.filedialog.asksaveasfilename(
 					initialdir = os.getcwd(), # Get current working directory
 					title = "Choose file",
 					filetypes = (("Text files","*.txt"),("CSV files", "*.csv"),
@@ -1941,7 +1941,7 @@ class FCInterface(Tk.Frame):
 						# Update sentinel:
 						sent = True
 						
-					except Queue.Full:
+					except queue.Full:
 						self.printMain( "[{}] "\
 							"Warning: Outgoing command Queue full. "\
 							"Could not send message".\
@@ -1972,7 +1972,7 @@ class FCInterface(Tk.Frame):
 		try:
 			self.slaveContainers[targetIndex].mosiMethod("X", False)
 		
-		except Queue.Full:
+		except queue.Full:
 			self.printMain( "[{}] "\
 				"Warning: Outgoing command Queue full. "\
 				"Could not send disconnect message".\
@@ -1987,7 +1987,7 @@ class FCInterface(Tk.Frame):
 		try:
 			self.slaveContainers[targetIndex].mosiMethod("R", False)
 		
-		except Queue.Full:
+		except queue.Full:
 			self.printMain( "[{}] "\
 				"Warning: Outgoing command Queue full. "\
 				"Could not send reboot message".\

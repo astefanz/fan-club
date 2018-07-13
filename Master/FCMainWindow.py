@@ -31,12 +31,12 @@ Main GUI module for FCMkII
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
-#import Tkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
+import tkinter.filedialog 
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import threading
@@ -49,7 +49,7 @@ import multiprocessing as pr
 
 # Data:
 import numpy as np
-import Queue
+import queue
 
 # FCMkII:
 import FCCommunicator as cm
@@ -59,7 +59,6 @@ import FCPrinter as pt
 import FCSlave as sv
 
 import fci.FCPRGrid as gd
-import fci.SlaveList as sl
 import fci.Terminal as tm
 
 from auxiliary.debug import d
@@ -84,6 +83,8 @@ class FCMainWindow(Tk.Frame):
 
 	def __init__(self, 
 		version,
+		commandQueue,
+		mosiMatrixQueue,
 		spawnQueue,
 		printQueue,
 		master = None): # ======================================================
@@ -101,6 +102,8 @@ class FCMainWindow(Tk.Frame):
 			self.foreground = "black"
 			self.config(bg = self.background)
 
+			self.commandQueue = commandQueue
+			self.mosiMatrixQueue = mosiMatrixQueue
 			self.spawnQueue = spawnQueue
 
 			# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -116,17 +119,6 @@ class FCMainWindow(Tk.Frame):
 			# Base widget toggles ..............................................
 			self.toggleFrame = Tk.Frame(self.toolFrame, bg = self.background)
 			
-			# List toggle:
-			self.slaveListToggleVar = Tk.BooleanVar()
-			self.slaveListToggleVar.set(True)
-
-			self.slaveListToggle = Tk.Checkbutton(self.toggleFrame,
-				text ="List", variable = self.slaveListToggleVar, 
-				bg = self.background, fg = self.foreground,
-				command = self._slaveListToggle)
-
-			self.slaveListToggle.config( state = Tk.NORMAL)
-			self.slaveListToggle.pack(side = Tk.LEFT)
 			
 			# Terminal toggle:
 			self.terminalToggleVar = Tk.BooleanVar()
@@ -186,17 +178,6 @@ class FCMainWindow(Tk.Frame):
 			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True,
 				anchor = "n")
 
-			# SLAVE LIST -------------------------------------------------------
-			self.slaveListFrame = Tk.Frame(self.main, bg = self.background,
-				relief = Tk.GROOVE, bd = 1)
-
-			self.slaveList = sl.SlaveList(self.slaveListFrame)
-			self.slaveList.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True,
-				anchor = "n")
-
-			self.slaveListFrame.pack(side = Tk.TOP, fill = Tk.BOTH, 
-				expand = True, anchor = "n")
-
 			# TERMINAL ---------------------------------------------------------
 
 			# Print queue:
@@ -251,7 +232,7 @@ class FCMainWindow(Tk.Frame):
 			self.outputHandlerThread.start()
 		
 		except Exception as e: # Print uncaught exceptions
-			tkMessageBox.showerror(title = "FCMkII Fatal Error",
+			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
 				"GUI constructor: \"{}\"".\
 				format(traceback.format_exc()))
@@ -279,6 +260,8 @@ class FCMainWindow(Tk.Frame):
 			self.communicator = pc.FCPRCommunicator(
 				master = self,
 				profile = self.profile,
+				commandQueue = self.commandQueue,
+				mosiMatrixQueue = self.mosiMatrixQueue,
 				spawnQueue = self.spawnQueue,
 				printQueue = self.printQueue
 				)
@@ -321,11 +304,7 @@ class FCMainWindow(Tk.Frame):
 				# COMMAND PIPE -------------------------------------------------
 				if updatePipeOut.poll():
 					update = updatePipeOut.recv()
-
-					if update[0] == cm.NEW:
-						for newSlave in update[1]:
-							# TODO: Add Slave data structure
-							self.slaveList.add(newSlave)
+					del update
 						
 				# OUTPUT MATRIX ------------------------------------------------
 				if misoMatrixPipeOut.poll():
@@ -351,18 +330,6 @@ class FCMainWindow(Tk.Frame):
 			self.terminalFrame.pack_forget()
 		# End terminal toggle ==================================================
 
-	def _slaveListToggle(self): # ==============================================
-		# Check variable:
-		if self.slaveListToggleVar.get():
-			# Build slaveList:
-			self.slaveListFrame.pack(side = Tk.TOP,
-				fill = Tk.BOTH, expand = True)
-		else:
-			# Hide slaveList:
-			self.slaveListFrame.pack_forget()
-
-		# End _slaveList Toggle ================================================
-	
 	def _settingsButtonRoutine(self): # ========================================
 		# TODO: IMPLEMENT
 		

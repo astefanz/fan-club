@@ -31,8 +31,9 @@ Report exceptions in popups
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
-import tkMessageBox
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
+import tkinter.messagebox
 
 # System:
 import traceback
@@ -43,7 +44,7 @@ import sys
 def errorPopup(preamble = ''): # ===============================================
 	# Given an exception, report it to the user in a popup window.
 
-	tkMessageBox.showerror(
+	tkinter.messagebox.showerror(
 		title = "FCMkII Error",
 		message = "{} \"{}\"".format(preamble, traceback.format_exc()))
 

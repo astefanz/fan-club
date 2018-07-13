@@ -162,7 +162,7 @@ class FCArchiver:
 		# Fan array ------------------------------------------------------------
 		self.profile[fanModel] = [hc.DEF_FAN_MODEL, str, threading.Lock()]
 		self.profile[fanMode]  = [SINGLE, int, threading.Lock()]
-	 	self.profile[targetRelation] = \
+		self.profile[targetRelation] = \
 			[hc.DEF_TARGET_RELATION, tuple, threading.Lock()]
 		self.profile[chaserTolerance]  = \
 			[hc.DEF_CHASER_TOLERANCE, float, threading.Lock()]
@@ -255,7 +255,7 @@ class FCArchiver:
 
 	def getProfile(self): # ====================================================
 		# Get a copy of the current profile as a dictionary of the form:
-		# 		ACCODE -> VALUE
+		#		ACCODE -> VALUE
 		# NOTE: Be advised, this process is bulky and should be used only during
 		# initialization
 
@@ -280,16 +280,16 @@ class FCArchiver:
 	#		that it is okay to start w/ null values.
 
 	# NOTE: Another idea... Use some sort of "getAll" function to procedurally
-	# 		get all parameters and their values. This way, we can generate
+	#		get all parameters and their values. This way, we can generate
 	#		settings" displays easily!
 
 
 ## INDEPENDENT TEST SUITE ######################################################
 
 if __name__ == "__main__":
-	print "#### FCMkII: FCArchiver version \"{}\" test suite started ".\
-		format(VERSION)
+	print(("#### FCMkII: FCArchiver version \"{}\" test suite started ".\
+		format(VERSION)))
 	
-	print "No singly-testable code here..."
+	print("No singly-testable code here...")
 
-	print "#### FCMkII: FCArchiver test suite terminated"
+	print("#### FCMkII: FCArchiver test suite terminated")

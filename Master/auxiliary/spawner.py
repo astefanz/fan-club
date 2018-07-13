@@ -35,27 +35,27 @@ import multiprocessing as pr
 
 def _spawnRoutine(givenTarget, givenArgs = None): # ============================
 
-	print " in spawn routine"
+	print(" in spawn routine")
 	if givenArgs is not None:
 		newProcess = pr.Process(target = givenTarget, args = givenArgs)
 
 	else:
 		newProcess = pr.Process(target = givenTarget)
 
-	print "spawning process"
+	print("spawning process")
 	newProcess.start()
-	print "spawnRoutine done"
+	print("spawnRoutine done")
 
 	# End _spawnRoutine ========================================================
 
 def spawn(givenTarget, givenArgs = None): # ====================================
-	print "in spawn"
+	print("in spawn")
 	spawnProcess = pr.Process(
 		target = _spawnRoutine, args = (givenTarget, givenArgs))
 	
 	spawnProcess.start()
-	print "joining spawnProcess"
+	print("joining spawnProcess")
 	spawnProcess.join()
-	print "spawn done"
+	print("spawn done")
 
 	# End spawn ================================================================

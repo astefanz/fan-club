@@ -37,7 +37,7 @@ import sys # Exception handling
 import inspect # get line number for debugging
 
 # Data:
-import Queue
+import queue
 import time
 import numpy as np
 
@@ -78,7 +78,7 @@ class FCPrinter:
 		self.queueSize = queueSize
 		
 		# Printer queue:
-		self.mainQueue = Queue.Queue(queueSize)
+		self.mainQueue = queue.Queue(queueSize)
 
 		# Placeholder for Printer thread:
 		self.thread = None
@@ -235,7 +235,7 @@ class FCPrinter:
 								# Loop over all DC's:
 								for dc in fetched[1]:
 									dcs += str(dc) + ','
-							except Queue.Empty:
+							except queue.Empty:
 								# If the Queue is empty, fill portion w/ '':
 								
 								for NaN in range(slave[2]):
@@ -340,7 +340,7 @@ class FCPrinter:
 				(
 			 	self.slaves,
 				((index, mac, activeFans,
-				  Queue.Queue(self.queueSize)),)
+				  queue.Queue(self.queueSize)),)
 				)
 			)
 
@@ -363,7 +363,7 @@ class FCPrinter:
 		# ABOUT: Start the printer thread.
 		try:
 			# Validate input:
-			if type(fileName) not in (str, unicode):
+			if type(fileName) not in (str, str):
 				raise TypeError("Argument 'fileName' must be of type str, "\
 					"not {}".format(type(fileName)))
 			elif type(profileName) is not str:
@@ -468,7 +468,7 @@ class FCPrinter:
 			
 			self.slaves[index][3].put_nowait(data)
 
-		except Queue.Full as e:
+		except queue.Full as e:
 			raise e
 		except Exception as e:
 

@@ -31,9 +31,10 @@ Display connection status
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
-import tkMessageBox
-import tkFont
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
+import tkinter.messagebox
+import tkinter.font
 
 # System:
 import os # Get current working directory & check file names
@@ -292,11 +293,8 @@ class FCCStatusBar(Tk.Frame): # ================================================
 			self.networkStatusLabel.pack(side = Tk.LEFT)
 			self.networkStatusFrame.pack(side = Tk.RIGHT)
 
-
-			self.pack(fill = Tk.X, expand = False)
-
 		except Exception as e: # Print uncaught exceptions
-			tkMessageBox.showerror(title = "FCMkII Fatal Error",
+			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
 				"StatusBar constructor: \"{}\"".\
 				format(traceback.format_exc()))
@@ -389,10 +387,10 @@ if __name__ == "__main__":
 	import time as tm
 
 	def c():	
-		print "Connect called"
+		print("Connect called")
 
 	def d():
-		print "Disconnect called"
+		print("Disconnect called")
 
 	testWindow = Tk.Frame(None)
 	testWindow.master.title("FC Communicator Status Bar Unit Test")

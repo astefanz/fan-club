@@ -30,11 +30,11 @@ GUI for FC Bootloader
 
 ## DEPENDENCIES ################################################################
 from mttkinter import mtTkinter as Tk
-import tkMessageBox
+import tkinter.messagebox
 
 import socket as s
-import SimpleHTTPServer
-import SocketServer
+import http.server
+import socketserver
 import threading
 import traceback
 
@@ -48,11 +48,11 @@ def printEx(m = None): # =======================================================
 	# Print error messages
 
 	if m is not None:
-		tkMessageBox.showerror(title = "FCMkII Bootloader Error", 
+		tkinter.messagebox.showerror(title = "FCMkII Bootloader Error", 
 			message = "Error: {}".format(traceback.format_exc()))
 
 	else:
-		tkMessageBox.showerror(title = "FCMkII Bootloader Error", 
+		tkinter.messagebox.showerror(title = "FCMkII Bootloader Error", 
 			message = "Error message: \n".format( m))
 		
 	# End printEx ==============================================================

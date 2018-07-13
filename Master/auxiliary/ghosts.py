@@ -30,16 +30,16 @@ This is an auxiliary module to simulate "dummy" FCMkII Slaves over a network.
 ## DEPENDENCIES ################################################################
 import socket     	# Networking
 import threading  	# Multitasking
-import thread     	# thread.error
+import _thread     	# thread.error
 import time       	# Timing
-import Queue
+import queue
 import sys        	# Exception handling
 import traceback  	# More exception handling
 import random		# Random names, boy
 import numpy		# Fast arrays and matrices
 import resource
 
-from hardcoded import SLAVELIST_CAST_ALL
+from .hardcoded import SLAVELIST_CAST_ALL
 
 class GhostSlave:
 	# NEEDS:
@@ -126,7 +126,7 @@ class GhostSlave:
 			mba)
 		
 		self.dc = 0.0
-		print "[{}] Ghost reporting".format(self.mac)
+		print(("[{}] Ghost reporting".format(self.mac)))
 		# End __init__ ---------------------------------------------------------
 
 	def _receiverR(self):
@@ -137,7 +137,7 @@ class GhostSlave:
 			# Get message:
 			message, sender = self.rs.recvfrom(256)
 
-			print "{} RR: {}".format(self.mac, message)
+			print(("{} RR: {}".format(self.mac, message)))
 
 			# Check message:
 			splitted = message.split("|")
@@ -173,7 +173,7 @@ class GhostSlave:
 		dataIndex = 0
 		while(True):
 			if self.connected:
-				print "will wait {}s".format(self.periodMS/1000.0)
+				print(("will wait {}s".format(self.periodMS/1000.0)))
 				time.sleep(self.periodMS*2/1000.0)
 				dataIndex += 1
 				# Fake data:
@@ -195,7 +195,7 @@ class GhostSlave:
 				self.ss.sendto(m,
 					(self.masterIP, self.masterPort)
 				)
-				print m
+				print(m)
 
 				self.mosiI += 1
 				
@@ -207,13 +207,13 @@ resource.setrlimit(
 	resource.RLIMIT_NOFILE, 
 	(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]
 	))
-numT = int(raw_input("Number of GhostSlaves? "))
+numT = int(eval(input("Number of GhostSlaves? ")))
 
 gs = []
 
 
 
-mba = ("", int(raw_input("Master listener port? ")))
+mba = ("", int(eval(input("Master listener port? "))))
 
 """
 ## LISTENER:
@@ -243,5 +243,5 @@ ls.close()
 for i in range(numT):
 	gs.append(GhostSlave(i, mba))
 	
-raw_input("Press enter to exit")
+eval(input("Press enter to exit"))
 sys.exit()

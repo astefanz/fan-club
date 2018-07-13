@@ -33,7 +33,7 @@ OOP representation of Slave units.
 import socket
 
 # Data:
-import Queue	  # Communication between threads
+import queue	  # Communication between threads
 import threading   # Thread-safe access
 
 ## CONSTANT VALUES #############################################################
@@ -161,14 +161,14 @@ class FCSlave:
 			raise TypeError(
 				"Attribute 'mosiP' must be int or None, not {}".\
 				format(type(mosiP)))
-		elif type(misoS) not in (socket._socketobject, type(None)):
+		elif type(misoS) not in (socket.socket, type(None)):
 			raise TypeError(
-				"Attribute 'misoS' must be socket._socketobject or None, "\
+				"Attribute 'misoS' must be socket.socket or None, "\
 				"not {}".\
 				format(type(misoS)))
-		elif type(mosiS) not in (socket._socketobject, type(None)):
+		elif type(mosiS) not in (socket.socket, type(None)):
 			raise TypeError(
-				"Attribute 'mosiS' must be socket._socketobject or None, "\
+				"Attribute 'mosiS' must be socket.socket or None, "\
 				"not {}".\
 				format(type(mosiS)))
 		
@@ -225,8 +225,8 @@ class FCSlave:
 		self.lock = threading.Lock()
 
 		# Queues:
-		self.mosiQueue = Queue.Queue(2)
-		self.misoQueue = Queue.Queue(misoQueueSize)		
+		self.mosiQueue = queue.Queue(2)
+		self.misoQueue = queue.Queue(misoQueueSize)		
 
 		# Handler thread:
 		self.thread = threading.Thread(
@@ -328,8 +328,8 @@ class FCSlave:
 				#self._setPorts(None, None)
 				#self._setIP(None)
 				
-				print "DEBUG: SLAVE {} DISCONNECTED W/ MISO INDEX {}".format(
-				   self.mac, self.misoIndex)
+				print(("DEBUG: SLAVE {} DISCONNECTED W/ MISO INDEX {}".format(
+				   self.mac, self.misoIndex)))
 				
 				self.resetIndices()
 				self._emptyMISOBuffer()
@@ -472,19 +472,19 @@ class FCSlave:
 		# WARNING: THIS METHOD ASSUMES THE CALLER HAS ALREADY PROPERLY SHUTDOWN
 		# THE PAST SOCKETS, IF ANY.
 		# RAISES:
-		# - TypeError if arguments are not of type socket._socketobject .
+		# - TypeError if arguments are not of type socket.socket .
 
 		try:
 			self.socketLock.acquire()
 			
 			# Validate arguments:
-			if type(newMISOS) is not socket._socketobject:
+			if type(newMISOS) is not socket.socket:
 				raise TypeError("Argument 'newMISOS' must be of type "\
-					"socket._socketobject, not {}".\
+					"socket.socket, not {}".\
 					format(type(newMISOS)))
-			elif type(newMOSIS) is not socket._socketobject:
+			elif type(newMOSIS) is not socket.socket:
 				raise TypeError("Argument 'newMOSIS' must be of type"\
-					"socket._socketobject, not {}".\
+					"socket.socket, not {}".\
 					format(type(newMOSIS)))
 
 			# Assign new values:
@@ -832,7 +832,7 @@ class FCSlave:
 
 			return command
 
-		except Queue.Empty:
+		except queue.Empty:
 			
 			return None
 
@@ -878,7 +878,7 @@ class FCSlave:
 		try:
 			return self.misoQueue.get(block)
 
-		except Queue.Empty:
+		except queue.Empty:
 			return None
 
 		# End getUpdate ========================================================

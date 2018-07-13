@@ -36,12 +36,12 @@ import traceback	# More exception handling
 import random		# Random names, boy
 import resource		# Socket limit
 import threading	# Multitasking
-import thread		# thread.error
+import _thread		# thread.error
 import multiprocessing as pr # The big guns
 
 # Data:
 import time			# Timing
-import Queue
+import queue
 import numpy as np	# Fast arrays and matrices
 
 ## CLASS DEFINITION ############################################################

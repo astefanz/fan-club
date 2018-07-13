@@ -29,7 +29,8 @@ This module is a multiprocessing wrapper around FCCommunicator.
 
 ## DEPENDENCIES ################################################################
 
-from mttkinter import mtTkinter as Tk
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
 
 # System:
 import sys			# Exception handling
@@ -37,18 +38,23 @@ import traceback	# More exception handling
 import random		# Random names, boy
 import resource		# Socket limit
 import threading	# Multitasking
-import thread		# thread.error
+import _thread		# thread.error
 import multiprocessing as pr # The big guns
 
 # Data:
 import time			# Timing
-import Queue
+import queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
 import FCCommunicator as cm
 import FCWidget as wg
 import FCSlave as sv
+
+import fci.FCCSlaveList as sl
+import fci.FCCControlBar as cb
+import fci.FCCStatusBar as sb
+
 import auxiliary.errorPopup as ep
 
 ## CONSTANTS ###################################################################
@@ -60,14 +66,14 @@ MISO_MATRIX_PIPE = 3
 
 ## AUXILIARY ROUTINE ###########################################################
 
-def _processRoutine(
+def _communicatorRoutine(
 		stopPipeOut,
-		profile,
 		commandQueue,
 		mosiMatrixQueue,
-		updatePipeIn,
-		misoMatrixPipeIn,
 		printQueue,
+		profile,
+		updatePipeIn,
+		misoMatrixPipeIn
 	): # ===================================================================
 	try:
 
@@ -90,7 +96,7 @@ def _processRoutine(
 				message = stopPipeOut.recv()
 				if message == 1:
 					printQueue.put_nowait(("Shutting down comms.","W"))
-					comms.shutdown()
+					comms.sendDisconnect()
 					break
 
 				else:
@@ -112,27 +118,21 @@ class FCPRCommunicator(wg.FCWidget):
 	def __init__(self,
 			master,
 			profile,
+			commandQueue,
+			mosiMatrixQueue,
 			spawnQueue,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
 		try:
-			self.printQueue = printQueue
-			self.canPrint = True
-			self.symbol = "YT"
-			printQueue.put(("Initializing Comms. worker process","S"))
-
+			printQueue.put(("[CM] Initializing Comms. worker process","S"))
+			
 			# Create inter-process communication facilities:
-
-			self.manager = pr.Manager()
-
-			# Communicator commands:
-			#	NOTE: Input... Use queue
-			self.commandQueue = self.manager.Queue()
-
-			# MOSI matrix:
-			#	NOTE: Input... Use queue
-			self.mosiMatrixQueue = self.manager.Queue()
+			
+			self.master = master
+			self.profile = profile
+			self.commandQueue = commandQueue
+			self.mosiMatrixQueue = mosiMatrixQueue
 
 			# Updates:
 			#	NOTE: Output... use pipe
@@ -155,38 +155,77 @@ class FCPRCommunicator(wg.FCWidget):
 					spawnQueue,
 					printQueue,
 					(profile, 
-						self.commandQueue, 
-						self.mosiMatrixQueue,
 						self.updatePipeIn,
-						self.misoMatrixPipeIn,
-						printQueue),
+						self.misoMatrixPipeIn),
 					"CM"
 				)
 			except:
 				ep.errorPopup()	
 
-			# Build widget:
+			# Build Graphical Interface:
+			
+			"""
+			+-------------------------------------------------------------------
+			|[x] Communications
+			| [ LIST]
+			+-------------------------------------------------------------------
+			|...
+			"""
+
+			self.statusMap = {
+				wg.ACTIVE : cm.CONNECTED,
+				wg.INACTIVE : cm.DISCONNECTED,
+				wg.STARTING : cm.CONNECTING,
+				wg.STOPPING : cm.DISCONNECTING
+			}
+
 			self.bg = "#e2e2e2"
 			self.fg = "black"
-			self.green = "#168e07"
-			self.red = "red"
-			self.mainFrame = Tk.Frame(master)
-			self.statusLabel = Tk.Label(
-				self.mainFrame,
-				text = "Disconnected",
-				bg = self.bg,
-				fg = self.red)
-			self.button = Tk.Button(
-				text = "Connect",
-				bg = self.bg,
-				highlightbackground = self.bg,
-				fg = self.fg,
-				command = super(FCPRCommunicator, self).start
-			)
 
-			self.statusLabel.pack(side = Tk.LEFT)
-			self.button.pack(side = Tk.LEFT)
-			self.mainFrame.pack()
+			self.frame = Tk.Frame(
+				self.master,
+				bg = self.bg
+			)
+			self.toggleFrame = Tk.Frame(
+				self.frame,
+				bg = self.bg
+			)
+			self.checkButtonVar = Tk.BooleanVar()
+			self.checkButtonVar.set(True)
+			self.packed = True
+			self.checkButton = Tk.Checkbutton(
+				self.toggleFrame,
+				text = "Communications",
+				bg = self.bg,
+				fg = self.fg,
+				command = self._toggle,
+				variable = self.checkButtonVar
+			)
+			self.checkButton.pack(side = Tk.LEFT)
+			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+
+			self.frame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
+			self.widgetFrame = Tk.Frame(
+				self.frame,
+				bg = self.bg
+			)
+			self.widgetFrame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
+			self.slaveList = sl.FCCSlaveList(self.widgetFrame)
+			self.slaveList.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
+			self.controlBar = cb.FCCControlBar(
+				self.widgetFrame, self.slaveList, self.commandQueue) 
+			self.controlBar.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+			self.controlBar.setStatus(cm.DISCONNECTED)
+
+			self.statusBar = sb.FCCStatusBar(
+				self.widgetFrame, self.start, self.stop)
+			self.statusBar.setStatus(cm.DISCONNECTED)
+
+			self.statusBar.pack(fill = Tk.X, expand = False)
+
 
 		except Exception as e: # Print uncaught exceptions
 			self._printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
@@ -220,6 +259,13 @@ class FCPRCommunicator(wg.FCWidget):
 		# Update widget status:
 		super(FCPRCommunicator, self)._setStatus(newStatus)
 
+		# Update GUI:
+		self.controlBar.setStatus(self.statusMap[newStatus])
+		self.statusBar.setStatus(self.statusMap[newStatus])
+
+		if newStatus is (wg.INACTIVE):
+			self.slaveList.clear()
+
 		# End _setStatus =======================================================
 
 	def setProfile(self, newProfile): # ========================================
@@ -235,3 +281,16 @@ class FCPRCommunicator(wg.FCWidget):
 					self.printQueue))
 
 		# End setProfile =======================================================
+
+
+	def _toggle(self, event = None): # =========================================
+		
+		if self.checkButtonVar.get() and not self.packed:
+			self.widgetFrame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			self.packed = True
+
+		elif not self.checkButtonVar.get() and self.packed:
+			self.widgetFrame.pack_forget()
+			self.packed = False
+
+		# End _toggle ==========================================================

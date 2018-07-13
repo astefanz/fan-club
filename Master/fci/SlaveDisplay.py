@@ -37,8 +37,8 @@ from mttkinter import mtTkinter as Tk
 
 # FCMkII:
 import FCSlave as sv
-import FanContainer as fr
-import FanDisplay as fd
+from . import FanContainer as fr
+from . import FanDisplay as fd
 
 ## CLASS DEFINITION ############################################################
 

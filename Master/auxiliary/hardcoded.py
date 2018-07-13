@@ -27,7 +27,7 @@ Auxiliary file for provisional, pre-defined profile values.
 """
 ################################################################################
 import random # Random names, boy
-import names
+from . import names
 
 
 # SPECIAL VALUES ===============================================================

@@ -30,7 +30,8 @@ This module is a multiprocessing wrapper around the FC Grid widget.
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
 
 # System:
 import sys			# Exception handling
@@ -38,12 +39,12 @@ import traceback	# More exception handling
 import random		# Random names, boy
 import resource		# Socket limit
 import threading	# Multitasking
-import thread		# thread.error
+import _thread		# thread.error
 import multiprocessing as pr # The big guns
 
 # Data:
 import time			# Timing
-import Queue
+import queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
@@ -68,10 +69,10 @@ STOPPING_TEXT = "Deactivating Grid"
 ## PROCESS ROUTINE #############################################################
 
 def testRoutine():
-	import Tkinter as Tk
-	print " test routine"
+	import tkinter as Tk
+	print(" test routine")
 	tl = Tk.Toplevel()
-	print " activating mainloop"
+	print(" activating mainloop")
 	tl.mainloop()
 
 def _FCPRGridProcessRoutine(
@@ -85,11 +86,11 @@ def _FCPRGridProcessRoutine(
 
 	#try:	
 
-	print "FCPR Process started"
+	print("FCPR Process started")
 	itl = Tk.Toplevel()
-	print "Starting mainloop"
+	print("Starting mainloop")
 	itl.mainloop()
-	print " FCPR Process done"
+	print(" FCPR Process done")
 
 	# End _FCPRGridProcessRoutine ==============================================
 		

@@ -28,8 +28,9 @@ Graphical representation of the fan array as a TkInter widget.
 ################################################################################
 
 ## DEPENDENCIES ################################################################
-from mttkinter import mtTkinter as Tk
-import cellcolors as cc
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
+from . import cellcolors as cc
 
 ## CONSTANTS ###################################################################
 
@@ -262,7 +263,7 @@ class MainGrid(Tk.Frame, object):
 						)
 					
                                                 # Decrement counter
-                                        fansToLink -= 1
+						fansToLink -= 1
 
 		# End _linkSlave =======================================================
 

@@ -31,10 +31,11 @@ Simple controls for FCCommunicator.
 ## DEPENDENCIES ################################################################
 
 # GUI:
-from mttkinter import mtTkinter as Tk
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+#from mttkinter import mtTkinter as Tk
+import tkinter as Tk
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import os # Get current working directory & check file names
@@ -79,7 +80,7 @@ class FCCControlBar(Tk.Frame, object):
 		
 			self.activeWidgets = []
 
-			self.notebook = ttk.Notebook(
+			self.notebook = tkinter.ttk.Notebook(
 				self	
 			)
 
@@ -406,19 +407,19 @@ class FCCControlBar(Tk.Frame, object):
 if __name__ is '__main__':
 
 	import threading as tr
-	import Queue
+	import queue
 	import time as tm
 
 	frame = Tk.Frame(None)
 	frame.master.title("FCMkII FCCControlBar Unit Test")
 	frame.master.minsize(width = 800, height = 10)
 
-	commandQueue = Queue.Queue()
+	commandQueue = queue.Queue()
 
 	class DummySource:
 		
 		def getSelection(self):
-			print "[ss] Returning..{}".format([1,2,3,4])
+			print(("[ss] Returning..{}".format([1,2,3,4])))
 			return [1,2,3,4]
 
 	cb = FCCControlBar(frame, DummySource(), commandQueue)
@@ -434,8 +435,8 @@ if __name__ is '__main__':
 
 		while(True):
 			try:
-				print q.get_nowait()
-			except Queue.Empty:
+				print((q.get_nowait()))
+			except queue.Empty:
 				pass
 
 	testThread = tr.Thread(

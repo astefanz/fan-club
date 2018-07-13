@@ -32,10 +32,10 @@ Custom Tkinter widget to display general parameters
 
 # GUI:
 from mttkinter import mtTkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+import tkinter.filedialog 
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import os # Get current working directory & check file names
@@ -338,7 +338,7 @@ class StatusBar(Tk.Frame): # ===================================================
 			self.listenerBLUE = self.displayBLUE
 			
 		except Exception as e: # Print uncaught exceptions
-			tkMessageBox.showerror(title = "FCMkII Fatal Error",
+			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
 				"StatusBar constructor: \"{}\"".\
 				format(traceback.format_exc()))

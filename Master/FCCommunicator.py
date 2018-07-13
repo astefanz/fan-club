@@ -38,12 +38,12 @@ import traceback	# More exception handling
 import random		# Random names, boy
 import resource		# Socket limit
 import threading	# Multitasking
-import thread		# thread.error
+import _thread		# thread.error
 import multiprocessing # The big guns
 
 # Data:
 import time			# Timing
-import Queue
+import queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
@@ -108,6 +108,8 @@ class FCCommunicator:
 			# Multiprocessing:
 			commandQueue,
 			mosiMatrixQueue,
+			updatePipeIn,
+			misoMatrixPipeIn,
 			printQueue
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
@@ -164,7 +166,7 @@ class FCCommunicator:
 			self.minDC = profile[ac.minDC]
 			self.chaserTolerance = profile[ac.chaserTolerance]
 			self.maxFanTimeouts = profile[ac.maxFanTimeouts]
-			self.pinout = profile[ac.pinout]
+			self.pinout = profile[ac.defaultPinout]
 			
 			# Multiprocessing:
 			self.misoMatrixPipeIn = misoMatrixPipeIn
@@ -174,7 +176,7 @@ class FCCommunicator:
 
 			# Output queues:
 			self.printQueue = printQueue
-			self.newSlaveQueue = Queue.Queue()
+			self.newSlaveQueue = queue.Queue()
 
 			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
@@ -302,9 +304,9 @@ class FCCommunicator:
 			self.broadcastThread = threading.Thread(
 				name = "FCMkII_broadcast",
 				target = self._broadcastRoutine,
-				args = ["N|{}|{}".format(
+				args = [bytearray("N|{}|{}".format(
 							self.passcode, 
-							self.listenerPort), 
+							self.listenerPort),'ascii'), 
 						self.broadcastPeriodS]
 				)
 
@@ -335,6 +337,9 @@ class FCCommunicator:
 			# NOTE: This list will be a Numpy array of Slave objects.
 
 			# Create a numpy array for storage:
+			savedMACs = []
+			for slave in self.profile[ac.savedSlaves]:
+				savedMACs.append(slave[1])
 			self.slaves = np.empty(len(savedMACs), object)
 				# Create an empty numpy array
 			# Loop over savedMACs to instantiate any saved Slaves:
@@ -355,13 +360,14 @@ class FCCommunicator:
 					status = sv.DISCONNECTED,
 					routine = self._slaveRoutine,
 					routineArgs = (index,),
-					misoQueueSize = misoQueueSize,
+					misoQueueSize = self.misoQueueSize,
 					index = index,
 					)
 
 				# Add to list:
 				newSlaves.append(
-					(savedMACs[index], 
+					(index,
+					savedMACs[index], 
 					sv.DISCONNECTED, 
 					self.maxFans,
 					self.slaves[index].getVersion()))
@@ -446,7 +452,7 @@ class FCCommunicator:
 
 						index += 1
 				
-				except Queue.Empty:
+				except queue.Empty:
 					continue
 
 				except Exception as e: # Print uncaught exceptions
@@ -699,7 +705,8 @@ class FCCommunicator:
 								
 								# Add new Slave's information to newSlaveQueue:
 								self.newSlaveQueue.put(
-									((mac, 
+									((index,
+									mac, 
 									sv.AVAILABLE,
 									self.maxFans, 
 									version),))
@@ -739,7 +746,7 @@ class FCCommunicator:
 							# TODO: Handle update possibility
 
 							self.listenerSocket.sendto(
-								launchMessage,
+								bytearray(launchMessage,'ascii'),
 								senderAddress)
 				
 						elif messageSplitted[3] == 'E':
@@ -1001,8 +1008,8 @@ class FCCommunicator:
 										
 										slave.setMISO(
 											[slave.getStatus()] +
-											map(int,reply[-2].split(','))+
-											map(float,reply[-1].split(',')),
+											list(map(int,reply[-2].split(',')))+
+											list(map(float,reply[-1].split(','))),
 											False)
 											# FORM: (RPMs, DCs)
 										"""		
@@ -1015,7 +1022,7 @@ class FCCommunicator:
 														"First nonzero RPM confirmed")
 													timestampedRPMFirst = True
 										"""	
-									except Queue.Full:
+									except queue.Full:
 									
 										# If there is no room for this message,
 										# drop the packet and alert the user:
@@ -1027,7 +1034,7 @@ class FCCommunicator:
 								
 								slave.setMISOIndex(0)
 								self.printM("[{}] MISO Index reset".format(
-									slave.getMAC))
+									slave.getMAC()))
 
 							elif reply[1] == 'P':
 								# Ping request
@@ -1161,7 +1168,7 @@ class FCCommunicator:
 
 					try:
 						slave.lock.release()
-					except thread.error:
+					except _thread.error:
 						pass
 
 				# End Slave loop (while(True)) =================================
@@ -1204,7 +1211,7 @@ class FCCommunicator:
 
 		# Send message:
 		for i in range(repeat):
-			slave._mosiSocket().sendto(outgoing,
+			slave._mosiSocket().sendto(bytearray(outgoing,'ascii'),
 				(slave.ip, slave.getMOSIPort()))
 
 		# Notify user:
@@ -1222,7 +1229,7 @@ class FCCommunicator:
 			# Prepare message:
 			outgoing = "{}|{}".format(message, self.passcode)
 			for i in range(repeat):
-				slave._mosiSocket().sendto(outgoing, 
+				slave._mosiSocket().sendto(bytearray(outgoing,'ascii'), 
 				(slave.ip, self.broadcastPort))	
 		else:
 			# Send through broadcast:
@@ -1230,7 +1237,7 @@ class FCCommunicator:
 			outgoing = "J|{}|{}|{}".format(
 				self.passcode, slave.getMAC(), message)
 			for i in range(repeat):
-				slave._mosiSocket().sendto(outgoing, 
+				slave._mosiSocket().sendto(bytearray(outgoing,'ascii'), 
 				("<broadcast>", self.broadcastPort))	
 
 		# End _sendToListener # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1363,7 +1370,7 @@ class FCCommunicator:
 		try:
 			return self.newSlaveQueue.get_nowait()
 
-		except Queue.Empty:
+		except queue.Empty:
 			return None
 
 		# End getNewSlaves =====================================================
@@ -1380,16 +1387,16 @@ class FCCommunicator:
 
 		# Place item in corresponding output Queue:
 		if DEBUG:
-			print "[DEBUG][COMMS] " + output
+			print(("[DEBUG][COMMS] " + output))
 
 		try:
 			self.printQueue.put_nowait((output, tag))
 			return True
 
-		except Queue.Full:
-			print "[WARNING] Communications output queue full. "\
+		except queue.Full:
+			print(("[WARNING] Communications output queue full. "\
 				"Could not print the following message:\n\r \"{}\"".\
-				format(output)
+				format(output)))
 			return False
 		# End printM ===========================================================
 
@@ -1495,7 +1502,7 @@ class FCCommunicator:
 		try:
 			#self.broadcastLock.acquire()
 			self.rebootSocket.sendto(
-				"R|{}".format(self.passcode),
+				bytearray("R|{}".format(self.passcode),'ascii'),
 				("<broadcast>", self.broadcastPort))
 
 		except Exception as e:
@@ -1514,7 +1521,7 @@ class FCCommunicator:
 		try:
 			#self.broadcastLock.acquire()
 			self.disconnectSocket.sendto(
-				"X|{}".format(self.passcode),
+				bytearray("X|{}".format(self.passcode),'ascii'),
 				("<broadcast>", self.broadcastPort))
 
 		except Exception as e:
@@ -1549,8 +1556,8 @@ class FCCommunicator:
 
 if __name__ == "__main__":
 
-	print "FANCLUB MARK II COMMUNICATOR MODULE TEST SUITE INITIATED."
-	print "VERSION = " + VERSION
+	print("FANCLUB MARK II COMMUNICATOR MODULE TEST SUITE INITIATED.")
+	print(("VERSION = " + VERSION))
 
 
-	print "NO TEST SUITE IMPLEMENTED IN THIS VERSION. TERMINATING."
+	print("NO TEST SUITE IMPLEMENTED IN THIS VERSION. TERMINATING.")

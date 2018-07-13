@@ -1,10 +1,10 @@
 # GUI:
 from mttkinter import mtTkinter as Tk
 #import Tkinter as Tk
-import tkFileDialog 
-import tkMessageBox
-import tkFont
-import ttk # "Notebooks"
+import tkinter.filedialog 
+import tkinter.messagebox
+import tkinter.font
+import tkinter.ttk # "Notebooks"
 
 # System:
 import threading
@@ -17,7 +17,7 @@ import multiprocessing as mp
 
 # Data:
 import numpy as np
-import Queue
+import queue
 
 # FCMkII:
 import FCCommunicator as cm

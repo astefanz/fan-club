@@ -29,8 +29,8 @@ Custom Tkinter widget for bootloader-relevant communications.
 
 ## DEPENDENCIES ################################################################
 from mttkinter import mtTkinter as Tk
-import tkFileDialog
-import tkMessageBox
+import tkinter.filedialog
+import tkinter.messagebox
 
 ## CONSTANT DEFINITIONS ########################################################i
 

@@ -124,12 +124,12 @@ class FCWidget(object):
 
 				# Set status to starting:
 				self._setStatus(STARTING)
-				
+				self.argsLock.acquire()	
 				self.spawnQueue.put_nowait(
 					(self.process, 
 					(self.stopPipeOut,) + self.args, 
 					self.spawnPipeIn))
-
+				
 				self._startWatchdog()
 			else:
 				# Cannot start process
@@ -139,6 +139,12 @@ class FCWidget(object):
 
 		except Exception as e:
 			self._printE(e, "Error in start:")
+
+		finally:
+			try:
+				self.argsLock.release()
+			except:
+				pass
 
 		# End start ============================================================
 

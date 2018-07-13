@@ -36,13 +36,13 @@ import traceback
 from mttkinter import mtTkinter as Tk
 
 # Data:
-import Queue
+import queue
 
 # FCMkII:
 import FCSlave as sv
 import FCPrinter as pt
-import cellcolors as cc
-import FanContainer as fr
+from . import cellcolors as cc
+from . import FanContainer as fr
 
 ## CLASS DEFINITION ############################################################
 
@@ -288,7 +288,7 @@ class SlaveContainer:
 							)
 						else:
 							format(self.master.printer.status)
-					except Queue.Full:
+					except queue.Full:
 						pass
 				else:
 					self.master.\

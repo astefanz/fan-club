@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"MT1\"" # Reference for consecutive versions
+VERSION = "\"MP1\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 # System:
@@ -34,20 +34,37 @@ import FCPRCommunicator as cr
 import auxiliary.errorPopup as ep
 #### MAIN ######################################################################       
 
-print ">>> FCMkII Started on {}".format(time.strftime(
-	"%a %d %b %Y %H:%M:%S", time.localtime()))
+print((">>> FCMkII Started on {}".format(time.strftime(
+	"%a %d %b %Y %H:%M:%S", time.localtime()))))
+"""
+# Backup original AutoProxy function
+backup_autoproxy = mp.managers.AutoProxy
 
+# Defining a new AutoProxy that handles unwanted key argument 'manager_owned'
+def redefined_autoproxy(token, serializer, manager=None, authkey=None,
+          exposed=None, incref=True, manager_owned=True):
+    # Calling original AutoProxy without the unwanted key argument
+    return backup_autoproxy(token, serializer, manager, authkey,
+                     exposed, incref)
+
+# Updating AutoProxy definition in mp.managers package
+mp.managers.AutoProxy = redefined_autoproxy
+"""
 try:
 
 	manager = mp.Manager()
+	
+	commandQueue = manager.Queue()
+	misoMatrixQueue  = manager.Queue()
 	printQueue = manager.Queue()
-	spawnQueue = manager.Queue()
-	spawner = sw.FCSpawner(spawnQueue, printQueue)
-	interface = mw.FCMainWindow(VERSION, spawnQueue, printQueue) 
+	spawnQueue = manager.Queue()	
+
+	spawner = sw.FCSpawner(commandQueue, misoMatrixQueue, spawnQueue, printQueue)
+	interface = mw.FCMainWindow(VERSION, commandQueue, misoMatrixQueue, spawnQueue, printQueue) 
 	interface.mainloop()
 	spawner.end()
 except:
 	ep.errorPopup("UNHANDLED EXCEPTION AT FCMAIN: ")	
 
-print ">>> FCMkII Ended on {}\n".format(time.strftime(
-	"%a %d %b %Y %H:%M:%S", time.localtime()))
+print((">>> FCMkII Ended on {}\n".format(time.strftime(
+	"%a %d %b %Y %H:%M:%S", time.localtime()))))

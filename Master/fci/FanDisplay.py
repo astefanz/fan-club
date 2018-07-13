@@ -33,7 +33,7 @@ Custom TkInter widget to display fan-specific information.
 from mttkinter import mtTkinter as Tk
 
 # FCMkII:
-import FanContainer as fr
+from . import FanContainer as fr
 
 ## CLASS DEFINITION ############################################################
 

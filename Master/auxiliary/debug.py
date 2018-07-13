@@ -38,7 +38,7 @@ db = 0
 def d():
 
 	# Will print the line number of function call
-	print inspect.currentframe().f_back.f_lineno
+	print((inspect.currentframe().f_back.f_lineno))
 		
 	# End d()
 

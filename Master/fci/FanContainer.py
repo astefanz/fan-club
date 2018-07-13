@@ -36,10 +36,10 @@ import traceback
 from mttkinter import mtTkinter as Tk
 
 # Data:
-import Queue
+import queue
 
 # FCMkII:
-import MainGrid as mg
+from . import MainGrid as mg
 
 ## CONSTANTS ###################################################################
 

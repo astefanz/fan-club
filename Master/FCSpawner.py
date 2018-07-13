@@ -40,7 +40,8 @@ import traceback
 
 ## AUXILIARY DEFINITIONS #######################################################
 
-def _spawnerRoutine(stopPipeOut, spawnQueue, printQueue): # ====================
+def _spawnerRoutine(
+	stopPipeOut, commandQueue, mosiMatrixQueue, spawnQueue, printQueue):
 
 	# SETUP --------------------------------------------------------------------
 
@@ -107,12 +108,11 @@ def _spawnerRoutine(stopPipeOut, spawnQueue, printQueue): # ====================
 
 				# Add new process:
 				try:
-					print "Something was received: {}".format(spawnTuple)
 					
 					newProcess = mp.Process(
 						name = "FCMkII_Widget",
-						target = spawnQueue[TARGET],
-						args = spawnQueue[ARGS]
+						target = spawnTuple[TARGET],
+						args = (spawnTuple[ARGS][0],commandQueue,mosiMatrixQueue,printQueue) + spawnTuple[ARGS][1:]
 					)
 					newProcess.daemon = True
 					
@@ -148,10 +148,10 @@ def _spawnerRoutine(stopPipeOut, spawnQueue, printQueue): # ====================
 					# Process ended, send notification to handler and delete it
 					# from the process list
 
-					processTuple[i][PIPE].send(STOPPED)
+					processTuples[i][PIPE].send(STOPPED)
 					
 					# Delete from list:
-					del processTuple[i]		
+					del processTuples[i]		
 
 		except:
 			_printE()
@@ -182,15 +182,17 @@ def translate(code): # ---------------------------------------------------------
 	# End translate ------------------------------------------------------------
 
 # Spawn tuple:
-# Expected form: 			(target_method)
+# Expected form: 			(target_method, args, spawn_pipe)
 #								0
 # NOTE: Here args is expected to be a tuple of arguments to be passed to
 # target_method
 
-# Resource dictionary:
-PIPE = -1
-PROCESS = -2
-MP_ARGS = -3
+
+
+TARGET = 0
+ARGS = 1
+PIPE = 2
+PROCESS = 3
 
 # EXPECTED PROCESS ARGUMENT ORDER:
 # shutdownPipe
@@ -207,7 +209,7 @@ CALLER_SIDE = 1
 
 class FCSpawner:
 
-	def __init__(self, spawnQueue, printQueue): # ==============================
+	def __init__(self, commandQueue, mosiMatrixQueue, spawnQueue, printQueue):
 		self.canPrint = False
 		self.symbol = "[SW] "
 		try:
@@ -217,6 +219,8 @@ class FCSpawner:
 			self.active = False
 
 			# Inter-process communication:
+			self.commandQueue = commandQueue
+			self.mosiMatrixQueue = mosiMatrixQueue
 			self.spawnQueue = spawnQueue
 			self.stopPipeOut, self.stopPipeIn = mp.Pipe(False)
 
@@ -224,7 +228,11 @@ class FCSpawner:
 			self.spawnerProcess = mp.Process(
 				name = "FCMkII_Spawner",
 				target = _spawnerRoutine,
-				args = (self.stopPipeOut, self.spawnQueue, printQueue)
+				args = (self.stopPipeOut, 
+					self.commandQueue, 
+					self.mosiMatrixQueue, 
+					self.spawnQueue, 
+					printQueue)
 			)
 
 			self.spawnerProcess.start()
