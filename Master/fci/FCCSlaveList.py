@@ -156,29 +156,31 @@ class FCCSlaveList(Tk.Frame): # ================================================
 		
 		# End __init__ =========================================================
 
-	def add(self, newSlave): # =================================================
+	def addSlaves(self, newSlaves): # ==========================================
 		# Expected format:
 		# (Index, cm.MAC, Status, Fans, Version)
 	
-		if newSlave[cm.INDEX] in self.slaves:
-			raise ValueError("Tried to 'add' existing Slave index ({})".\
-				format(newSlave[cm.INDEX]))
+		for newSlave in newSlaves:
 
-		else:
-			index = newSlave[cm.INDEX]
-			iid = self.slaveList.insert(
-				'', 
-				0,
-				values = (
-					index + 1,
-					newSlave[cm.MAC],
-					sv.translate(newSlave[cm.STATUS]),
-					newSlave[cm.FANS],
-					newSlave[cm.VERSION]
-					),
-				tag = sv.translate(newSlave[cm.STATUS], True)
-			)
-			self.slaves[index] = newSlave + (iid,)
+			if newSlave[cm.INDEX] in self.slaves:
+				raise ValueError("Tried to 'add' existing Slave index ({})".\
+					format(newSlave[cm.INDEX]))
+
+			else:
+				index = newSlave[cm.INDEX]
+				iid = self.slaveList.insert(
+					'', 
+					0,
+					values = (
+						index + 1,
+						newSlave[cm.MAC],
+						sv.translate(newSlave[cm.STATUS]),
+						newSlave[cm.FANS],
+						newSlave[cm.VERSION]
+						),
+					tag = sv.translate(newSlave[cm.STATUS], True)
+				)
+				self.slaves[index] = newSlave + (iid,)
 		
 		# End add ==============================================================
 
@@ -213,7 +215,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 
 		# End update ===========================================================
 
-	def setStatus(self, index, newStatus): # ===================================
+	def setSlaveStatus(self, index, newStatus): # ==============================
 
 		slave =	self.slaves[index]
 		self.slaves[index] = slave[:cm.STATUS] + (newStatus,) + slave[cm.STATUS+1:]
@@ -364,7 +366,7 @@ if __name__ is '__main__':
 		tm.sleep(.2)
 		sl.add((3, 'Doodle', sv.DISCONNECTED, 22, 'Doods'))
 		tm.sleep(.2)
-		sl.setStatus(3, sv.KNOWN)
+		sl.setSlaveStatus(3, sv.KNOWN)
 		tm.sleep(.2)
 		sl.setSelection(selection = None, status = sv.DISCONNECTED)
 

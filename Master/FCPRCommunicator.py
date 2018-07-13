@@ -234,6 +234,17 @@ class FCPRCommunicator(wg.FCWidget):
 
 		# End __init__ =========================================================
 
+	def getMISOMatrix(self): # =================================================
+
+		if self.misoMatrixPipeOut.poll():
+			return self.misoMatrixPipeOut.recv()
+
+		else:	
+			return None
+
+		# End getMISOMatrix ====================================================
+
+	""""
 	def getOutputPipes(self): # ================================================
 		# Get receiving end of Communicator's output pipes as a tuple of the
 		# form
@@ -251,6 +262,7 @@ class FCPRCommunicator(wg.FCWidget):
 		return (self.commandQueue, self.mosiMatrixQueue)
 
 		# End getInputQueues ===================================================
+	"""
 
 	def _setStatus(self, newStatus): # =========================================
 
@@ -265,6 +277,7 @@ class FCPRCommunicator(wg.FCWidget):
 
 		if newStatus is (wg.INACTIVE):
 			self.slaveList.clear()
+			self.statusBar.clear()
 
 		# End _setStatus =======================================================
 
@@ -282,7 +295,6 @@ class FCPRCommunicator(wg.FCWidget):
 
 		# End setProfile =======================================================
 
-
 	def _toggle(self, event = None): # =========================================
 		
 		if self.checkButtonVar.get() and not self.packed:
@@ -294,3 +306,5 @@ class FCPRCommunicator(wg.FCWidget):
 			self.packed = False
 
 		# End _toggle ==========================================================
+
+	

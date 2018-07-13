@@ -225,27 +225,8 @@ class FCMainWindow(Tk.Frame):
 			self.communicator = None
 			self.archiver = None
 
-			self.outputHandlerThread = \
-				threading.Thread(target = self._outputHandlerRoutine)
-			self.outputHandlerThread.setDaemon(True)
-
-			self.outputHandlerThread.start()
 		
-		except Exception as e: # Print uncaught exceptions
-			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
-				message = "Warning: Uncaught exception in "\
-				"GUI constructor: \"{}\"".\
-				format(traceback.format_exc()))
-			self.master.quit()
-		
-		# End FCInterface Constructor ==========================================
-
-	# THREADS AND ROUTINES -----------------------------------------------------
-
-	def _outputHandlerRoutine(self): # =========================================
-	
-		# INITIALIZATION -------------------------------------------------------
-		try:
+			# INITIALIZATION -------------------------------------------------------
 			self.printM("GUI \"manager\" thread initializing")
 
 			self.printM("Initializing Archive")
@@ -266,14 +247,6 @@ class FCMainWindow(Tk.Frame):
 				printQueue = self.printQueue
 				)
 
-			# Get Comms. output:
-			updatePipeOut, misoMatrixPipeOut = \
-				self.communicator.getOutputPipes()
-
-			# Get Comms. Input:
-			commandQueue, mosiQueue = \
-				self.communicator.getInputQueues()
-
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
@@ -283,32 +256,35 @@ class FCMainWindow(Tk.Frame):
 			self.grid = gd.FCPRGrid(
 				self.toolFrame, 
 				self.archiver.getProfile(),
-				commandQueue, 
-				mosiQueue, 
+				self.commandQueue, 
+				self.mosiMatrixQueue, 
 				self.printQueue)
 
 			self.grid.pack(side = Tk.RIGHT)
 
 			self.fcWidgets.append(self.grid)
 
-		except Exception as e:
-			self.printM("ERROR: Unhandled exception in output handler setup: "\
-				"\"{}\"".\
-				format(traceback.format_exc()), "E")
+		except Exception as e: # Print uncaught exceptions
+			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
+				message = "Warning: Uncaught exception in "\
+				"GUI constructor: \"{}\"".\
+				format(traceback.format_exc()))
+			self.master.quit()
+		
+		# End FCInterface Constructor ==========================================
 
+	# THREADS AND ROUTINES -----------------------------------------------------
+
+	def _outputHandlerRoutine(self): # =========================================
+	
 		# MAIN LOOP ------------------------------------------------------------
 		while True:
 			try:
 				# Get Communicator output and update GUI -----------------------
-				
-				# COMMAND PIPE -------------------------------------------------
-				if updatePipeOut.poll():
-					update = updatePipeOut.recv()
-					del update
 						
 				# OUTPUT MATRIX ------------------------------------------------
-				if misoMatrixPipeOut.poll():
-					matrix = misoMatrixPipeOut.recv()
+				matrix = self.communicator.getMISOMatrix()
+				if matrix is not None:
 					del matrix
 			
 			except Exception as e:
@@ -346,14 +322,14 @@ class FCMainWindow(Tk.Frame):
 
 	def _deactivationRoutine(self): # ==========================================
 		
+		# Close GUI:
+		self.master.quit()
+		
 		# Shutdown processes:
 		self.communicator.stop()
 		
 		for fcWidget in self.fcWidgets:
 			fcWidget.stop()
-
-		# Close GUI:
-		self.master.quit()
 
 		# End _deactivationRoutine =============================================
 

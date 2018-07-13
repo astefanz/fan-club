@@ -129,12 +129,13 @@ class Terminal(Tk.Frame): # ====================================================
 			self.autoscrollButton.select()
 
 			# RUN --------------------------------------------------------------
+			"""
 			self.terminalThread = threading.Thread(target = 
 				self._terminalRoutine)
 		
 			self.terminalThread.setDaemon(True)
-
-			self.terminalThread.start()
+			"""
+			self.terminalUpdater()
 
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
@@ -144,7 +145,72 @@ class Terminal(Tk.Frame): # ====================================================
 
 		# End __init__ =========================================================
 
+	
+	def terminalUpdater(self): # ===============================================
+		# ABOUT: Keep main terminal window updated w/ Communicator output. 
+		# Uses Tkinter scheduler instead of thread.
+	
+		try:
+			if self.terminalVar.get() == 0 or self.mainQueue.empty():
+				return
 
+			else: 
+				for i in range(self.mainQueue.qsize()):
+					# Fetch message to print:
+					message = self.mainQueue.get(True)
+					if type(message) is not tuple and len(message) is not 2:
+						
+						self.toggleVar.set(True)
+						self.toggleF()
+
+						self.mainTText.config(state = Tk.NORMAL)
+							# Must change state to add text.
+						self.mainTText.insert(
+							Tk.END, "Bad message format: \"{}\:\n".\
+							format(message), "E")
+						self.mainTText.config(state = Tk.DISABLED)
+							
+					# If there is an item, print it (otherwise, Empty exception is
+					# raised and handled)
+
+					# NOTE: The current setting should remain blocked until a 
+					# message arrives
+					
+					# Check for debug tag:
+					if message[1] is "D" and self.debugVar.get() == 0:
+						# Do not print if the debug variable is set to 0
+						pass
+
+					else:
+
+						# Switch focus to this tab in case of errors of warnings:
+						if message[1] is "E":
+							self.toggleVar.set(True)
+							self.toggleF()
+
+						self.mainTText.config(state = Tk.NORMAL)
+							# Must change state to add text.
+						self.mainTText.insert(
+							Tk.END, message[0] + "\n", message[1])
+						self.mainTText.config(state = Tk.DISABLED)
+
+						# Check for auto scroll:
+						if self.autoscrollVar.get() == 1:
+							self.mainTText.see("end")
+
+		except Exception as e: # Print uncaught exceptions
+			tkinter.messagebox.showerror(
+				title = "FCMkII Error",
+				message = "Warning: Uncaught exception in Terminal "\
+				"printer routine: \"{}\"".\
+				format(traceback.format_exc()))
+
+		finally:
+			self.after(100, self.terminalUpdater)
+
+		# End terminalUpdater ==================================================
+
+	
 	def _terminalRoutine(self): # ==============================================
 		# ABOUT: Keep main terminal window updated w/ Communicator output. To be
 	
