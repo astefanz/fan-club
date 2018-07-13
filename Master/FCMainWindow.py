@@ -323,6 +323,7 @@ class FCMainWindow(Tk.Frame):
 	def _deactivationRoutine(self): # ==========================================
 		
 		# Close GUI:
+		self.destroy()
 		self.master.quit()
 		
 		# Shutdown processes:
