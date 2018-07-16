@@ -59,6 +59,7 @@ import FCPrinter as pt
 import FCSlave as sv
 
 import fci.FCPRGrid as gd
+import fci.LiveTable as lt
 import fci.Terminal as tm
 
 from auxiliary.debug import d
@@ -252,10 +253,12 @@ class FCMainWindow(Tk.Frame):
 
 			# Set up widgets:
 			
+			profile = self.archiver.getProfile()
+
 			# Grid:
 			self.grid = gd.FCPRGrid(
 				self.toolFrame, 
-				self.archiver.getProfile(),
+				profile,
 				self.commandQueue, 
 				self.mosiMatrixQueue, 
 				self.printQueue)
@@ -263,6 +266,16 @@ class FCMainWindow(Tk.Frame):
 			self.grid.pack(side = Tk.RIGHT)
 
 			self.fcWidgets.append(self.grid)
+
+			self.liveTable = lt.LiveTable(
+				self.toolFrame,
+				profile,
+				self.spawnQueue,
+				self.printQueue
+			)
+			self.liveTable.pack(side = Tk.RIGHT)
+
+			self.fcWidgets.append(self.liveTable)
 
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",

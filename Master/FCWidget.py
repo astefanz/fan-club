@@ -30,7 +30,10 @@ Base class for FCMkII GUI Widgets
 
 ## DEPENDENCIES ################################################################
 
-# Systen:
+# GUI:
+import tkinter as Tk
+
+# System:
 import multiprocessing as mp
 import threading as tr
 
@@ -65,10 +68,11 @@ def translate(code): # ---------------------------------------------------------
 
 ## CLASS DEFINITION ############################################################
 
-class FCWidget(object):
+class FCWidget(Tk.Frame):
 	
 	def __init__(
 		self, 
+		master,
 		process,
 		spawnQueue,
 		printQueue,
@@ -79,6 +83,8 @@ class FCWidget(object):
 		self.canPrint = False
 
 		try:
+			Tk.Frame.__init__(self, master)
+			self.master = master
 			self.symbol =  "[{}] ".format(symbol)
 			self.printQueue = printQueue
 			self.canPrint = True
@@ -101,7 +107,10 @@ class FCWidget(object):
 
 			# Start watchdog thread:
 			self.watchdogThread = None
-		
+			
+			# Launch periodic updates:
+			self._periodicUpdate()
+
 		except Exception as e:
 
 			if not self.canPrint:
@@ -309,4 +318,37 @@ class FCWidget(object):
 
 		self._printM("Watchdog ended", 'D')
 		# _watchdogRoutine =====================================================
+
+	def _updateMethod(self): # =================================================
+		# NOTE: To be overridden by child classes
+		pass
+
+		# ======================================================================
+
+	def _periodicUpdate(self): # ===============================================
+		# Use Tkinter's "after" to schedule periodic updates and check
+		# Process status.	
+		try:
+
+			# Check status:
+			if self.getStatus() is not ACTIVE:
+				return
+
+			elif self.spawnPipeOut.poll():
+				message = self.spawnPipeOut.recv()
+				if message is sw.STOPPED:
+					self._setStatus(INACTIVE)
+
+			else:
+				self._updateMethod()
+
+		except:
+			self._printE("ERROR in scheduled Comms. Updater:")
+	
+		finally: 
+			self.after(100, self._periodicUpdate)
+
+		# End _periodicUpdate # ================================================
+
+
 

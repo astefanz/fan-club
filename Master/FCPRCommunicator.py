@@ -96,13 +96,13 @@ def _communicatorRoutine(
 			if stopPipeOut.poll():
 				message = stopPipeOut.recv()
 				if message == 1:
-					printQueue.put_nowait(("Shutting down comms.","W"))
+					printQueue.put_nowait(("[CR] Shutting down network","W"))
 					comms.stop()
 					break
 
 				else:
 					printQueue.put_nowait(
-						("[CR] WARNING: Unrecognized message in comms. "\
+						("[CR] WARNING: Unrecognized message in C-Routine "\
 						"shutdown pipe (ignored): \"{}\"".\
 						format(message),"E"))
 					continue
@@ -112,7 +112,7 @@ def _communicatorRoutine(
 				break
 
 	except Exception as e: # Print uncaught exceptions
-		printQueue.put(("[CR] UNHANDLED EXCEPTION terminated Comms. Process: "\
+		printQueue.put(("[CR] UNHANDLED EXCEPTION terminated Network Process: "\
 			"\"{}\"".format(traceback.format_exc()), "E")
 			)
 
@@ -134,7 +134,6 @@ class FCPRCommunicator(wg.FCWidget):
 			
 			# Create inter-process communication facilities:
 			
-			self.master = master
 			self.profile = profile
 			self.commandQueue = commandQueue
 			self.mosiMatrixQueue = mosiMatrixQueue
@@ -156,6 +155,7 @@ class FCPRCommunicator(wg.FCWidget):
 			# Call parent constructor:
 			try:
 				super(FCPRCommunicator, self).__init__(
+					master,
 					_communicatorRoutine,
 					spawnQueue,
 					printQueue,
@@ -230,8 +230,6 @@ class FCPRCommunicator(wg.FCWidget):
 			self.statusBar.setStatus(cm.DISCONNECTED)
 
 			self.statusBar.pack(fill = Tk.X, expand = False)
-
-			self._scheduledUpdate()
 
 		except Exception as e: # Print uncaught exceptions
 			self._printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
@@ -313,38 +311,22 @@ class FCPRCommunicator(wg.FCWidget):
 
 		# End _toggle ==========================================================
 
-	def _scheduledUpdate(self): # ==============================================
+	def _updateMethod(self): # =================================================
 
-		try:
 
-			# Check status:
-			if self.getStatus() is not wg.ACTIVE:
-				return
+		if self.updatePipeOut.poll():
+			# Try to fetch update:
+			update = self.updatePipeOut.recv()
+			print("fetched: ",update)
 
-			elif self.updatePipeOut.poll():
-				# Try to fetch update:
-				update = self.updatePipeOut.recv()
-				print("fetched: ",update)
+			# Apply:
+			if update[0] is cm.NEW:
+				self.slaveList.addSlaves(update[1])
+				self.statusBar.addSlaves(update[1])
 
-				# Apply:
-				if update[0] is cm.NEW:
-					self.slaveList.addSlaves(update[1])
-					self.statusBar.addSlaves(update[1])
+			if update[0] is cm.UPDATE:
+				self.slaveList.updateSlaves(update[1])
+				self.statusBar.updateSlaves(update[1])
 
-				if update[0] is cm.UPDATE:
-					self.slaveList.updateSlaves(update[1])
-					self.statusBar.updateSlaves(update[1])
-
-			elif self.spawnPipeOut.poll():
-				message = self.spawnPipeOut.recv()
-				if message is sw.STOPPED:
-					self._setStatus(wg.INACTIVE)
-		
-		except:
-			self._printE("ERROR in scheduled Comms. Updater:")
-	
-		finally: 
-			self.frame.after(100, self._scheduledUpdate)
-
-		# End _scheduledUpdate =================================================
+		# End _updateMethod ====================================================
 

@@ -146,7 +146,8 @@ mbed_mem_trace_set_callback(printHeapStats);
         
     
     // Initialize modules = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-
+    PwmOut p(PD_15);
+    p.write(0);
 
 
     T.start();

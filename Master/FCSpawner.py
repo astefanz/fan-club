@@ -112,7 +112,9 @@ def _spawnerRoutine(
 					newProcess = mp.Process(
 						name = "FCMkII_Widget",
 						target = spawnTuple[TARGET],
-						args = (spawnTuple[ARGS][0],commandQueue,mosiMatrixQueue,printQueue) + spawnTuple[ARGS][1:]
+						args = (spawnTuple[ARGS][0],
+						commandQueue,
+						mosiMatrixQueue,printQueue) + spawnTuple[ARGS][1:]
 					)
 					newProcess.daemon = True
 					

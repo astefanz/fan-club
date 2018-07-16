@@ -179,6 +179,7 @@ class FCCommunicator:
 			# Output queues:
 			self.printQueue = printQueue
 			self.newSlaveQueue = queue.Queue()
+			self.slaveUpdateQueue = queue.Queue()
 
 			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
@@ -480,9 +481,17 @@ class FCCommunicator:
 		
 			self.printM("Prototype output routine started", "G")
 			while True:
+				time.sleep(self.periodS)
 				try:
 					# Output -------------------------------------------------------
 					
+					updates = ()
+					for i in range(self.slaveUpdateQueue.qsize()):
+						updates += self.slaveUpdateQueue.get_nowait()
+					
+					if len(updates) > 0:
+						self.updatePipeIn.send((UPDATE, updates))
+
 					"""
 					# Check for new Slaves:
 					newSlaves = self.getNewSlaves()
@@ -670,7 +679,16 @@ class FCCommunicator:
 									# their already existing Slave thread)
 
 									# Update status and networking information:
-									self.setSlaveStatus(self.slaves[index],sv.KNOWN)
+									self.setSlaveStatus(
+										self.slaves[index],
+										sv.KNOWN,
+										netargs = (
+											senderAddress[0],
+											misoPort,
+											mosiPort,
+											version
+											)
+										)
 									"""
 									self.slaves[index].setStatus(
 										sv.KNOWN,
@@ -1580,12 +1598,25 @@ class FCCommunicator:
 
 		# End sendDisconnect ===================================================
 
-	def setSlaveStatus(self, slave, newStatus, lock = True): # =================
+	def setSlaveStatus(self, slave, newStatus, lock = True, netargs = None): # =
 			
 		# Update status:
-		slave.setStatus(newStatus, lock = False)
+		if netargs is None:
+			slave.setStatus(newStatus, lock = lock)
+		
+		else:
+			
+			slave.setStatus(
+				newStatus,
+				netargs[0],
+				netargs[1],
+				netargs[2],
+				netargs[3],
+				lock = lock,
+			)
 
 		# Send update to handlers:
+		"""
 		self.updatePipeIn.send(
 			(UPDATE,
 				(
@@ -1598,7 +1629,15 @@ class FCCommunicator:
 				,)
 			)
 		)
-
+		"""
+		self.slaveUpdateQueue.put_nowait(
+					((slave.index,
+					slave.mac,
+					newStatus,
+					self.maxFans,
+					slave.version
+					),)
+			)	
 		# End setSlaveStatus ===================================================
 
 	def stop(self): # ==========================================================
@@ -1607,6 +1646,7 @@ class FCCommunicator:
 		# Send disconnect signal:
 		self.sendDisconnect()
 		self.stoppedFlag = True
+
 
 		# NOTE: All threads are set as Daemon and all sockets as reusable.
 		return
