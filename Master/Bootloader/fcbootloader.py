@@ -5,7 +5,7 @@ import threading
 
 import time
 
-FILENAME = "SV1_a.bin"
+FILENAME = "ws.bin"
 FILESIZE = 161100  # bytes 
 VERSION = "SV1"
 

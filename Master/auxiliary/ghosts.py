@@ -118,11 +118,13 @@ class GhostSlave:
 		self.st.start()
 		
 	
-		self.ls.sendto('A|CT|{}|N|{}|{}|Ghost'.\
-			format( 
-			self.mac,
-			self.ss.getsockname()[1],
-			self.rs.getsockname()[1]),
+		self.ls.sendto(
+			bytearray('A|CT|{}|N|{}|{}|Ghost'.\
+				format( 
+					self.mac,
+					self.ss.getsockname()[1],
+					self.rs.getsockname()[1]),
+				'ascii'),
 			mba)
 		
 		self.dc = 0.0
@@ -137,7 +139,7 @@ class GhostSlave:
 			# Get message:
 			message, sender = self.rs.recvfrom(256)
 
-			print(("{} RR: {}".format(self.mac, message)))
+			print(("{} RR: {}".format(self.mac, message.decode('ascii'))))
 
 			# Check message:
 			splitted = message.split("|")
@@ -149,7 +151,8 @@ class GhostSlave:
 				self.masterPort = int(sp2[0])
 				self.periodMS = int(sp2[2])
 				self.misoI = 1
-				self.rs.sendto("1|H", (self.masterIP, self.masterPort))
+				self.rs.sendto(bytearray("1|H",'ascii'), 
+					(self.masterIP, self.masterPort))
 				self.misoI += 1
 				
 				self.connected = True
@@ -192,7 +195,7 @@ class GhostSlave:
 				#for i in range(3):
 				m = "{}|T|{}|{}|{}".\
 					format(self.mosiI,dataIndex,frpm[:-1],fdc[:-1])
-				self.ss.sendto(m,
+				self.ss.sendto(bytearray(m,'ascii'),
 					(self.masterIP, self.masterPort)
 				)
 				print(m)
@@ -231,7 +234,7 @@ while(True):
 
 	message, sender = ls.recvfrom(256)
 	
-	splitted = message.split('|')
+	splitted = message.decode('ascii').split('|')
 	
 	if splitted[1] == "good_luck":	
 		mba = (sender[0], int(splitted[2]))
@@ -243,5 +246,5 @@ ls.close()
 for i in range(numT):
 	gs.append(GhostSlave(i, mba))
 	
-eval(input("Press enter to exit"))
+input("Press Enter to exit")
 sys.exit()

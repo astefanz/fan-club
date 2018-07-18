@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "BT1"
+#define FCIIB_VERSION "BT1-j"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -140,8 +140,11 @@ int main() {
 	BTUtils::setLED(BTUtils::RED, BTUtils::ON);
 
 	// Optional PSU pin:
-	DigitalOut PSU_off(D9);
-	PSU_off.write(true);
+	// 	NOTE: Setting D9 to high will set PWM pin PD_15 (not present in all 
+	//	pinouts) to high.
+	
+	//DigitalOut PSU_off(D9);
+	//PSU_off.write(true);
 
 	// Prepare Serial communications:
 	Serial PC(USBTX, USBRX, BAUDRATE);
