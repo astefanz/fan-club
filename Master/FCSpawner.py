@@ -73,6 +73,7 @@ def _spawnerRoutine(
 	_printM("Spawner ready", 'G')
 
 	processTuples = []
+	queues = (commandQueue, mosiMatrixQueue, printQueue)
 
 	# MAIN LOOP ----------------------------------------------------------------
 	while True:
@@ -112,9 +113,7 @@ def _spawnerRoutine(
 					newProcess = mp.Process(
 						name = "FCMkII_Widget",
 						target = spawnTuple[TARGET],
-						args = (spawnTuple[ARGS][0],
-						commandQueue,
-						mosiMatrixQueue,printQueue) + spawnTuple[ARGS][1:]
+						args = queues + spawnTuple[ARGS]
 					)
 					newProcess.daemon = True
 					

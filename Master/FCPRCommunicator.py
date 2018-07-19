@@ -68,13 +68,14 @@ MISO_MATRIX_PIPE = 3
 ## AUXILIARY ROUTINE ###########################################################
 
 def _communicatorRoutine(
-		stopPipeOut,
 		commandQueue,
 		mosiMatrixQueue,
 		printQueue,
 		profile,
-		updatePipeIn,
-		misoMatrixPipeIn
+		updatePipeOut,
+		oldMISOMatrixPipeOut,
+		networkUpdatePipeIn,
+		newMISOMatrixPipeIn,
 	): # ===================================================================
 	try:
 
@@ -82,33 +83,20 @@ def _communicatorRoutine(
 
 		# Create Communicator:
 		comms = cm.FCCommunicator(
-			profile,
-			commandQueue,
-			mosiMatrixQueue,
-			updatePipeIn,
-			misoMatrixPipeIn,
-			printQueue
+			profile = profile,
+			commandQueue = commandQueue,
+			mosiMatrixQueue = mosiMatrixQueue,
+			printQueue = printQueue,
+			updatePipeOut = updatePipeOut,
+			networkUpdatePipeIn = networkUpdatePipeIn,
+			newMISOMatrixPipeIn = newMISOMatrixPipeIn
 			)
 
 		while True:
 			
 			# Check shutdown flag ----------------------------------------------
-			if stopPipeOut.poll():
-				message = stopPipeOut.recv()
-				if message == 1:
-					printQueue.put_nowait(("[CR] Shutting down network","W"))
-					comms.stop()
-					break
-
-				else:
-					printQueue.put_nowait(
-						("[CR] WARNING: Unrecognized message in C-Routine "\
-						"shutdown pipe (ignored): \"{}\"".\
-						format(message),"E"))
-					continue
-
-			elif comms.stoppedFlag:
-				printQueue.put_nowait(("[CR] Communications down ",'E'))
+			if comms.stoppedFlag:
+				printQueue.put_nowait(("[CR] Communications stopped",'W'))
 				break
 
 	except Exception as e: # Print uncaught exceptions
@@ -138,13 +126,13 @@ class FCPRCommunicator(wg.FCWidget):
 			self.commandQueue = commandQueue
 			self.mosiMatrixQueue = mosiMatrixQueue
 
+
 			# Updates:
 			#	NOTE: Output... use pipe
-			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
+			self.networkUpdatePipeOut, self.networkUpdatePipeIn = pr.Pipe(False)
 
-			# MISO matrix:
-			#	NOTE: Output... use pipe
-			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
+			# New MISO matrices:
+			self.newMISOMatrixPipeOut, self.newMISOMatrixPipeIn = pr.Pipe(False)
 
 			# Spawner queue:
 			self.spawnQueue = spawnQueue
@@ -155,14 +143,16 @@ class FCPRCommunicator(wg.FCWidget):
 			# Call parent constructor:
 			try:
 				super(FCPRCommunicator, self).__init__(
-					master,
-					_communicatorRoutine,
-					spawnQueue,
-					printQueue,
-					(profile, 
-						self.updatePipeIn,
-						self.misoMatrixPipeIn),
-					"CM"
+					master = master,
+					process = _communicatorRoutine,
+					spawnQueue = spawnQueue,
+					printQueue = printQueue,
+					profile = profile,
+					specialArguments = (	
+						self.networkUpdatePipeIn,
+						self.newMISOMatrixPipeIn
+					),
+					symbol = "CM"
 				)
 			except:
 				ep.errorPopup()	
@@ -240,13 +230,32 @@ class FCPRCommunicator(wg.FCWidget):
 
 	def getMISOMatrix(self): # =================================================
 
-		if self.misoMatrixPipeOut.poll():
-			return self.misoMatrixPipeOut.recv()
+		if self.newMISOMatrixPipeOut.poll():
+			return self.newMISOMatrixPipeOut.recv()
 
 		else:	
 			return None
 
 		# End getMISOMatrix ====================================================
+
+	def getNetworkUpdate(self): # ==============================================
+
+		if self.networkUpdatePipeOut.poll():
+			return self.networkUpdatePipeOut.recv()
+
+		else:
+			return None
+
+		# End getNetworkUpdate =================================================
+
+	def misoMatrixIn(self, matrix): # ==========================================
+		# Input a new MISO matrix
+		# NOTE: This widget does not need "old" MISO matrices 
+
+		del matrix
+
+		# End misoMatrixIn =====================================================
+
 
 	""""
 	def getOutputPipes(self): # ================================================
@@ -285,20 +294,6 @@ class FCPRCommunicator(wg.FCWidget):
 
 		# End _setStatus =======================================================
 
-	def setProfile(self, newProfile): # ========================================
-		
-		self.profile = newProfile
-
-		super(FCPRCommunicator, self).setArgs(
-				(newProfile, 
-					self.commandQueue, 
-					self.mosiMatrixQueue,
-					self.updatePipeIn,
-					self.misoMatrixPipeIn,
-					self.printQueue))
-
-		# End setProfile =======================================================
-
 	def _toggle(self, event = None): # =========================================
 		
 		if self.checkButtonVar.get() and not self.packed:
@@ -314,9 +309,9 @@ class FCPRCommunicator(wg.FCWidget):
 	def _updateMethod(self): # =================================================
 
 
-		if self.updatePipeOut.poll():
+		if self.networkUpdatePipeOut.poll():
 			# Try to fetch update:
-			update = self.updatePipeOut.recv()
+			update = self.networkUpdatePipeOut.recv()
 			print("fetched: ",update)
 
 			# Apply:

@@ -53,8 +53,11 @@ import FCCommunicator as cm
 import FCSlave as sv
 import FCWidget as wg
 import FCArchiver as ac
+import FCMainWindow as mw
 
 ## AUXILIARY DEFINITIONS #######################################################
+
+SYMBOL = "TB"
 
 class LiveTableWidget(Tk.Frame):
 
@@ -62,7 +65,6 @@ class LiveTableWidget(Tk.Frame):
 		profile,
 		numSlaves, 
 		maxFans, 
-		stopPipeOut,
 		updatePipeOut,
 		misoMatrixPipeOut,
 		commandQueue,
@@ -76,8 +78,11 @@ class LiveTableWidget(Tk.Frame):
 		self.master.title(self.normalTitle)
 		self.commandQueue = commandQueue
 		self.printQueue = printQueue
+		self.symbol = "[{}][TR] ".format(SYMBOL)
 
 		self._printM("Building Live Table")
+
+		self.master.protocol("WM_DELETE_WINDOW", self._stop)
 
 		self.profile = profile
 		self.numSlaves = numSlaves
@@ -85,7 +90,6 @@ class LiveTableWidget(Tk.Frame):
 		
 		self.updatePipeOut = updatePipeOut
 		self.misoMatrixPipeOut = misoMatrixPipeOut
-		self.stopPipeOut = stopPipeOut
 
 		self.latestMatrix = []
 		self.lastPrintedMatrix = 0
@@ -388,8 +392,10 @@ class LiveTableWidget(Tk.Frame):
 
 	def updateIn(self, update): # ==============================================
 
-		self._printM("Update received (behavior unimplemented): \"{}\"".\
-			format(update),'W')	
+		# Classify command:
+		if update[wg.COMMAND] is wg.STOP:
+			# Stop process
+			self._stop()
 
 		# End updateIn =========================================================
 
@@ -419,7 +425,7 @@ class LiveTableWidget(Tk.Frame):
 					self.table.item(
 						self.slaves[index], # <-- IID
 						values = (index+1,),
-						tag = 'D'	
+						tag = "D"	
 					)
 				
 				elif matrixRow[1] is not sv.MISO_UPDATED:
@@ -487,7 +493,8 @@ class LiveTableWidget(Tk.Frame):
 				"{} RPM".format(targetSlave + 1, targetFan, RPM),'E')
 
 		elif action == "Shut down":
-			self.commandQueue.put_nowait((cm.ALL,cm.REBOOT))
+			self.commandQueue.put_nowait(
+				(mw.COMMUNICATOR, cm.DISCONNECT, cm.ALL))
 			if self.playPauseFlag:
 				self._playPause()
 
@@ -764,15 +771,27 @@ class LiveTableWidget(Tk.Frame):
 
 	def _printM(self, message, tag = 'S'): # ===================================
 
-		self.printQueue.put_nowait(("[TR] " + message, tag))
+		self.printQueue.put_nowait((self.symbol + message, tag))
 
 		# End _printM ==========================================================
+
+	def _stop(self, event = None): # ===========================================
+		# Terminate live table
+
+		# Stop operations:
+		if self.playPauseFlag:
+			self._playPause()
+		
+		# Close GUI:
+		self.destroy()
+		self.master.quit()
+		
+		# End _stop ============================================================
 
 	# End LiveTableWidget ------------------------------------------------------
 
 
 def _liveTableRoutine(
-	stopPipeOut,
 	commandQueue,
 	mosiMatrixQueue,
 	printQueue,
@@ -784,25 +803,25 @@ def _liveTableRoutine(
 	try:
 
 		lt = LiveTableWidget(
-			profile,
-			len(profile[ac.savedSlaves]),
-			profile[ac.maxFans],
-			stopPipeOut,
-			updatePipeOut,
-			misoMatrixPipeOut,
-			commandQueue,
-			printQueue
+			profile = profile,
+			numSlaves = len(profile[ac.savedSlaves]),
+			maxFans = profile[ac.maxFans],
+			updatePipeOut = updatePipeOut,
+			misoMatrixPipeOut = misoMatrixPipeOut,
+			commandQueue = commandQueue,
+			printQueue = printQueue
 		)
 
 
 		lt.mainloop()
 
-		printQueue.put_nowait(("[TR] Live Table Terminated", 'W'))
+		printQueue.put_nowait(("[TB][TR] Live Table Terminated", 'W'))
 
 	except Exception as e: # Print uncaught exceptions
-		printQueue.put(("[TR] UNHANDLED EXCEPTION terminated Network Process: "\
-			"\"{}\"".format(traceback.format_exc()), "E")
-			)
+		printQueue.put(
+			("[TB][TR] UNHANDLED EXCEPTION terminated Network Process: "\
+				"\"{}\"".format(traceback.format_exc()), "E")
+		)
 
 	# End _liveTableRoutine ====================================================
 
@@ -822,25 +841,16 @@ class LiveTable(wg.FCWidget):
 			self.profile = profile
 			self.spawnQueue = spawnQueue
 			self.printQueue = printQueue
-	
-			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
-			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
-
 
 			try:
 
 				super(LiveTable, self).__init__(
-					master,
-					_liveTableRoutine,
-					spawnQueue,
-					printQueue,
-					(
-						profile,
-						self.updatePipeOut,
-						self.misoMatrixPipeOut
-						
-					),
-					"TB"
+					master = master,
+					process = _liveTableRoutine,
+					profile = profile,
+					spawnQueue = spawnQueue,
+					printQueue = printQueue,
+					symbol = SYMBOL
 				)
 
 			except:

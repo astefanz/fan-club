@@ -49,6 +49,8 @@ import numpy as np	# Fast arrays and matrices
 # FCMkII:
 import FCSlave as sv
 import FCArchiver as ac
+import FCMainWindow as mw
+import FCWidget as wg
 from auxiliary import names
 
 ## CONSTANT DEFINITIONS ########################################################
@@ -79,6 +81,7 @@ IID = 5
 ADD = 1
 DISCONNECT = 2
 REBOOT = 3
+STOP  = 4
 
 # Special values:
 NONE = -1
@@ -110,35 +113,15 @@ class FCCommunicator:
 			# Multiprocessing:
 			commandQueue,
 			mosiMatrixQueue,
-			updatePipeIn,
-			misoMatrixPipeIn,
-			printQueue
+			printQueue,
+			updatePipeOut,
+			networkUpdatePipeIn,
+			newMISOMatrixPipeIn
 		): # ===================================================================
 		# ABOUT: Constructor for class FCPRCommunicator.
 
 		try:
 			
-			"""
-			# Provisional timestamping solution:
-			self.canTimestamp = False
-			try:
-				self.file = open("MkII_test_on_{}".\
-					format(time.strftime("%a %d %b %Y %H:%M:%S")), "w")
-				self.canTimestamp = True
-				
-				self.file.write("MkII performance testing started on {}\n".\
-					format(time.strftime("%a %d %b %Y %H:%M:%S")))
-
-			except IOError:
-				print "IOError Opening timestamp file. Cannot record!"
-				self.canTimestamp = False
-				
-			
-			
-			self.file.write("Configuring network on {}\n".format(
-				time.strftime(
-				"%H:%M:%S", time.localtime())))
-			"""
 
 			# INITIALIZE DATA MEMBERS ==========================================
 
@@ -171,9 +154,10 @@ class FCCommunicator:
 			self.pinout = profile[ac.defaultPinout]
 			
 			# Multiprocessing:
-			self.misoMatrixPipeIn = misoMatrixPipeIn
 			self.commandQueue = commandQueue
-			self.updatePipeIn = updatePipeIn
+			self.newMISOMatrixPipeIn = newMISOMatrixPipeIn
+			self.updatePipeOut = updatePipeOut
+			self.networkUpdatePipeIn = networkUpdatePipeIn
 			self.mosiMatrixQueue = mosiMatrixQueue
 			self.stoppedFlag = False
 
@@ -378,7 +362,8 @@ class FCCommunicator:
 			"""
 			self.newSlaveQueue.put_nowait(newSlaves)
 			"""
-			self.updatePipeIn.send((NEW, newSlaves))
+			self.networkUpdatePipeIn.send((NEW, newSlaves))
+
 
 			# START THREADS:
 
@@ -422,34 +407,37 @@ class FCCommunicator:
 					# Input --------------------------------------------------------
 					
 					# Check commands:
-					if not self.commandQueue.empty():
-						command = self.commandQueue.get_nowait()
+					if self.updatePipeOut.poll():
+						command = self.updatePipeOut.recv()
 						print("Command fetched: ", command)	
 						# Classify command:
-						if command[0] == ADD:
+						if command[wg.COMMAND] == ADD:
 							print("Command is 'ADD'")
-							if command[1] == ALL:
+							if command[wg.VALUE] == ALL:
 								for index, slave in enumerate(self.slaves):
 									self.add(index)
 										# NOTE: Unapplicable Slaves will be
-										# automatically ignored
-									
+										# automatically ignored	
 							else:
-								print("Adding ",command[1])
-								self.add(command[1])
+								print("Adding ",command[wg.VALUE])
+								self.add(command[wg.VALUE])
 
 
-						elif command[0] == DISCONNECT:
-							if command[1] == ALL:
+						elif command[wg.COMMAND] == DISCONNECT:
+							print("Command is 'DISCONNECT'")
+							if command[wg.VALUE] == ALL:
 								self.sendDisconnect()
 							else:
-								self.slaves[command[1]].setMOSI((MOSI_DISCONNECT,))
+								self.slaves[command[wg.VALUE]].\
+									setMOSI((MOSI_DISCONNECT,),False)
 
-						elif command[0] == REBOOT:
-							if command[1] == ALL:
+						elif command[wg.COMMAND] == REBOOT:
+							print("Command is 'REBOOT'")
+							if command[wg.VALUE] == ALL:
 								self.sendReboot()
 							else:
-								self.slaves[command[1]].setMOSI((MOSI_REBOOT,))
+								self.slaves[command[wg.VALUE]].\
+									setMOSI((MOSI_REBOOT,),False)
 
 					# Check matrix:
 					matrix = self.mosiMatrixQueue.get_nowait()
@@ -491,22 +479,14 @@ class FCCommunicator:
 						updates += self.slaveUpdateQueue.get_nowait()
 					
 					if len(updates) > 0:
-						self.updatePipeIn.send((UPDATE, updates))
-
-					"""
-					# Check for new Slaves:
-					newSlaves = self.getNewSlaves()
-					if newSlaves is not None:
-						print("New Slaves sent")
-						self.updatePipeIn.send((NEW, newSlaves))
-					"""
-
+						self.networkUpdatePipeIn.send((UPDATE, updates))
+					
 					# Assemble output matrix:
 					output = []
 					for slave in self.slaves:
 						output.append(slave.getMISO())
 
-					self.misoMatrixPipeIn.send(output)
+					self.newMISOMatrixPipeIn.send(output)
 
 
 				except Exception as e: # Print uncaught exceptions
@@ -690,24 +670,6 @@ class FCCommunicator:
 											version
 											)
 										)
-									"""
-									self.slaves[index].setStatus(
-										sv.KNOWN,
-										senderAddress[0],
-										misoPort,
-										mosiPort,
-										version
-									)
-									self.updatePipeIn.send(
-										(UPDATE,(
-										(index,
-										self.slaves[index].getMAC(),
-										sv.KNOWN,
-										self.maxFans,
-										version),
-										)))
-									
-									"""
 								else:
 									# All other statuses should be ignored for 
 									# now.
@@ -746,7 +708,7 @@ class FCCommunicator:
 								)
 								
 								# Add new Slave's information to newSlaveQueue:
-								self.updatePipeIn.send(
+								self.networkUpdatePipeIn.send(
 									(NEW, 
 									((index,
 									mac, 
@@ -1480,24 +1442,8 @@ class FCCommunicator:
 
 		if status == sv.AVAILABLE:
 			self.setSlaveStatus(self.slaves[targetIndex],sv.KNOWN)
-			"""
-			self.slaves[targetIndex].setStatus(sv.KNOWN)
-			self.updatePipeIn.send(
-				(UPDATE,(
-				(targetIndex,
-				self.slaves[targetIndex].getMAC(),
-				sv.KNOWN,
-				self.maxFans,
-				self.slaves[targetIndex].getVersion()),
-				)))
-			#self._saveTimeStamp(targetIndex, "Connecting")
-			"""
 		else:
 			pass
-			"""
-			raise Exception("Targeted Slave [{}] is not AVAILABLE but {}".\
-				format(targetIndex + 1, sv.translate(status)))
-			"""
 
 		# End add ==============================================================
 
@@ -1619,20 +1565,6 @@ class FCCommunicator:
 			)
 
 		# Send update to handlers:
-		"""
-		self.updatePipeIn.send(
-			(UPDATE,
-				(
-					(slave.index,
-					slave.mac,
-					newStatus,
-					self.maxFans,
-					slave.version
-					)
-				,)
-			)
-		)
-		"""
 		self.slaveUpdateQueue.put_nowait(
 					((slave.index,
 					slave.mac,

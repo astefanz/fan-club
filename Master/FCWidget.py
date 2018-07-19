@@ -50,6 +50,14 @@ STARTING = 2
 INACTIVE = 3
 STOPPING = 4
 
+# Update index codes:
+TARGET = 0
+COMMAND = 1
+VALUE = 2
+
+# Update command-codes:
+STOP = 1
+
 def translate(code): # ---------------------------------------------------------
 	# Get string representing FCWidget status code
 
@@ -73,10 +81,13 @@ class FCWidget(Tk.Frame):
 	def __init__(
 		self, 
 		master,
-		process,
+		process,	
+		profile,
+
 		spawnQueue,
 		printQueue,
-		args = (),
+		specialArguments = (),
+		
 		symbol = "WG"
 		): # ===================================================================
 	
@@ -91,21 +102,23 @@ class FCWidget(Tk.Frame):
 
 			# Store arguments:
 			self.process = process
-			self.args = args
-			self.argsLock = tr.Lock()
+			self.specialArguments = specialArguments
+			self.specialArgumentsLock = tr.Lock()
+			self.profile = profile
+			self.profileLock = tr.Lock()
 			self.spawnQueue = spawnQueue
 
 			# Create member attributes:
-			if not hasattr(self, 'updatePipeOut'):
-				self.updatePipeOut, self.updatePipeIn = mp.Pipe(False)
-
-			if not hasattr(self, 'misoMatrixPipeOut'):
-				self.misoMatrixPipeOut, self.misoMatrixPipeIn = mp.Pipe(False)
+			self.updatePipeOut, self.updatePipeIn = mp.Pipe(False)
+			self.misoMatrixPipeOut, self.misoMatrixPipeIn = mp.Pipe(False)
 
 			# Pipes for inter-process communication:
 			self.spawnPipeOut, self.spawnPipeIn = mp.Pipe(False)
-			self.stopPipeOut, self.stopPipeIn = mp.Pipe(False)
-			
+		
+			# Standard process arguments (pipes):
+			self.standardArguments = \
+				(self.profile, self.updatePipeOut, self.misoMatrixPipeOut)
+
 			# Status:
 			self.status = INACTIVE
 			self.statusLock = tr.Lock()
@@ -115,6 +128,7 @@ class FCWidget(Tk.Frame):
 			
 			# Launch periodic updates:
 			self._periodicUpdate()
+
 
 		except Exception as e:
 
@@ -138,11 +152,14 @@ class FCWidget(Tk.Frame):
 
 				# Set status to starting:
 				self._setStatus(STARTING)
-				self.argsLock.acquire()	
+				self.specialArgumentsLock.acquire()	
 				self.spawnQueue.put_nowait(
-					(self.process, 
-					(self.stopPipeOut,) + self.args, 
-					self.spawnPipeIn))
+					(
+						self.process, 
+						self.standardArguments + self.specialArguments,
+						self.spawnPipeIn
+					)
+				)
 				
 				self._startWatchdog()
 			else:
@@ -156,7 +173,7 @@ class FCWidget(Tk.Frame):
 
 		finally:
 			try:
-				self.argsLock.release()
+				self.specialArgumentsLock.release()
 			except:
 				pass
 
@@ -173,7 +190,7 @@ class FCWidget(Tk.Frame):
 				self._setStatus(STOPPING)
 
 				# Send stop signal:
-				self.stopPipeIn.send(1)
+				self.updatePipeIn.send((None, STOP,))
 
 				self._startWatchdog()
 			else:
@@ -242,33 +259,61 @@ class FCWidget(Tk.Frame):
 
 		# End getStatus ========================================================
 
-	def _setArgs(self, newArgs): # ===========================================
+	def _setSpecialArguments(self, newSpecialArguments): # =====================
 		try:
 
-			self.argsLock.acquire()
-			self.args = newArgs
+			self.specialArgumentsLock.acquire()
+			self.specialArguments = newSpecialArguments
 
 		except Exception as e:
-			self._printE(e, "Error in _setArgs:")
+			self._printE(e, "Error in _setSpecialArguments:")
 		
 		finally:
-			self.argsLock.release()
+			self.specialArgumentsLock.release()
 
-		# End _setArgs =========================================================
+		# End _setSpecialArguments =============================================
 
-	def getArgs(self): # =======================================================
+	def getSpecialArguments(self): # ===========================================
 		try:
-			self.argsLock.acquire()
-			args = self.args
-			return args
+			self.specialArgumentsLock.acquire()
+			specialArguments = self.specialArguments
+			return specialArguments
 		
 		except Exception as e:
-			self._printE(e, "Error in getArgs:")
+			self._printE(e, "Error in getSpecialArguments:")
 		
 		finally:
-			self.argsLock.release()
+			self.specialArgumentsLock.release()
 
-		# End getArgs ==========================================================
+		# End getSpecialArguments ==============================================
+	
+	def _setProfile(self, newProfile): # =======================================
+		try:
+
+			self.profileLock.acquire()
+			self.profile = newProfile
+
+		except Exception as e:
+			self._printE(e, "Error in _setProfile:")
+		
+		finally:
+			self.profileLock.release()
+
+		# End _setProfile ======================================================
+
+	def getProfile(self): # ====================================================
+		try:
+			self.profileLock.acquire()
+			profile = self.profile
+			return profile
+		
+		except Exception as e:
+			self._printE(e, "Error in getProfile:")
+		
+		finally:
+			self.profileLock.release()
+
+		# End getProfile =======================================================
 
 	def _printM(self, message, tag = 'S'): # ===================================
 		try:

@@ -57,6 +57,7 @@ import FCPRCommunicator as pc
 import FCArchiver as ac
 import FCPrinter as pt
 import FCSlave as sv
+import FCWidget as wg
 
 import fci.FCPRGrid as gd
 import fci.LiveTable as lt
@@ -77,6 +78,10 @@ REPEATED = 2
 NODOT_REPEATED = 3
 NORMAL = 4
 RESTORE = 5
+
+# FC Widget names:
+COMMUNICATOR = 0
+LIVETABLE = 1
 
 ## CLASS DEFINITION ############################################################
 
@@ -220,7 +225,7 @@ class FCMainWindow(Tk.Frame):
 			self.inputLock = threading.Lock()
 
 			# Data structures:
-			self.fcWidgets = []
+			self.fcWidgets = {}
 
 			# Base modules:
 			self.communicator = None
@@ -247,6 +252,8 @@ class FCMainWindow(Tk.Frame):
 				spawnQueue = self.spawnQueue,
 				printQueue = self.printQueue
 				)
+
+			self.fcWidgets[COMMUNICATOR] = self.communicator
 
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
@@ -276,9 +283,10 @@ class FCMainWindow(Tk.Frame):
 				self.printQueue
 			)
 			self.liveTable.pack(side = Tk.RIGHT)
-			self.fcWidgets.append(self.liveTable)
+			self.fcWidgets[LIVETABLE] = self.liveTable
 
 			# Launch handlers and start processes:
+			self._commandHandler()
 			self._misoHandler()
 			self.communicator.start()
 
@@ -294,6 +302,7 @@ class FCMainWindow(Tk.Frame):
 	# THREADS AND ROUTINES -----------------------------------------------------
 
 	def _misoHandler(self): # =========================================
+		
 	
 		# MAIN LOOP ------------------------------------------------------------
 		try:
@@ -303,12 +312,11 @@ class FCMainWindow(Tk.Frame):
 			matrix = self.communicator.getMISOMatrix()
 			if matrix is not None:
 				print("Matrix received: {}".format(matrix))
-				for widget in self.fcWidgets:
-					widget.misoMatrixIn(matrix)
+				for fcWidgetKey, fcWidget in self.fcWidgets.items():
+					fcWidget.misoMatrixIn(matrix)
 
 			else:
 				del matrix
-				print("No matrix")
 		
 		except Exception as e:
 			self.printM("ERROR: Unhandled exception in GUI MISO"\
@@ -318,7 +326,31 @@ class FCMainWindow(Tk.Frame):
 		finally:
 			self.after(100, self._misoHandler)
 
-		# End _managerRoutine ==================================================
+		# End _misoHandler =====================================================
+	
+	def _commandHandler(self): # ===============================================
+
+	
+		# MAIN LOOP ------------------------------------------------------------
+		try:
+
+			# Get commands from commandQueue and distribute them to their
+			# designated target:
+
+			if not self.commandQueue.empty():
+				command = self.commandQueue.get_nowait()
+				
+				self.fcWidgets[command[wg.TARGET]].updateIn(command)
+		
+		except:
+			self.printM("ERROR: Unhandled exception in GUI Command"\
+				" handler: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		finally:
+			self.after(100, self._commandHandler)
+
+		# End _commandHandler ==================================================
 
 	# CALLBACKS ----------------------------------------------------------------
 
@@ -352,16 +384,13 @@ class FCMainWindow(Tk.Frame):
 		self.destroy()
 		self.master.quit()
 		
-		# Shutdown processes:
-		self.communicator.stop()
-		
-		for fcWidget in self.fcWidgets:
+		for fcWdgetKey, fcWidget in self.fcWidgets.items():
 			fcWidget.stop()
 
 		# End _deactivationRoutine =============================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 	def printM(self, message, tag = 'S'): # ====================================
-		self.printQueue.put_nowait((message, tag))
+		self.printQueue.put_nowait(("[MW] " + message, tag))
 
 		# End printM ===========================================================

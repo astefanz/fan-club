@@ -47,6 +47,7 @@ import traceback
 import FCSlave as sv
 import FCCommunicator as cm
 import auxiliary.errorPopup as ep
+import FCMainWindow as mw
 
 ## CLASS DEFINITION ############################################################
 
@@ -392,13 +393,13 @@ class FCCControlBar(Tk.Frame, object):
 
 		# Store in Queue:
 		for target in targets:
-			self.commandQueue.put_nowait((commandCode, target))
+			self.commandQueue.put_nowait((mw.COMMUNICATOR, commandCode, target))
 
 		# End _send ============================================================
 
 	def _shutdown(self, event = None): # =======================================
 		
-		self.commandQueue.put_nowait((cm.ALL, cm.REBOOT))
+		self.commandQueue.put_nowait((mw.COMMUNICATOR, cm.REBOOT, cm.ALL))
 
 		# End _shutdown ========================================================
 
