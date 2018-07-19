@@ -63,6 +63,7 @@ class LiveTableWidget(Tk.Frame):
 		numSlaves, 
 		maxFans, 
 		stopPipeOut,
+		updatePipeOut,
 		misoMatrixPipeOut,
 		commandQueue,
 		printQueue
@@ -82,6 +83,7 @@ class LiveTableWidget(Tk.Frame):
 		self.numSlaves = numSlaves
 		self.maxFans = maxFans
 		
+		self.updatePipeOut = updatePipeOut
 		self.misoMatrixPipeOut = misoMatrixPipeOut
 		self.stopPipeOut = stopPipeOut
 
@@ -384,6 +386,12 @@ class LiveTableWidget(Tk.Frame):
 
 		# End __init__ =========================================================
 
+	def updateIn(self, update): # ==============================================
+
+		self._printM("Update received (behavior unimplemented): \"{}\"".\
+			format(update),'W')	
+
+		# End updateIn =========================================================
 
 	def matrixIn(self, matrix): # ==============================================
 		
@@ -405,27 +413,39 @@ class LiveTableWidget(Tk.Frame):
 
 			# Now update RPMS:
 			for index, matrixRow in enumerate(matrix):
-				tag = "N"
 				if matrixRow[0] is not sv.CONNECTED:
-					newValues = self.zeroes
-					tag = "D"
+					# Slave disconnected
+					
+					self.table.item(
+						self.slaves[index], # <-- IID
+						values = (index+1,),
+						tag = 'D'	
+					)
+				
+				elif matrixRow[1] is not sv.MISO_UPDATED:
+					# Nothing to update. Leave previous state
+					pass
+
 				else:
-					newValues = tuple(matrixRow[1:self.maxFans+1])
-					maxValue = max(matrixRow[1:self.maxFans+1])
-					minValue = min(matrixRow[1:self.maxFans+1])
+					# RPM's updated
+					
+					tag = "N"
+					newValues = tuple(matrixRow[2:self.maxFans+1])
+					maxValue = max(newValues)
+					minValue = min(newValues)
 					if self.sentinelFlag:
 						for fan, value in enumerate(newValues):
 							if self._sentinelCheck(value):
 								tag = "H"
 								self._executeSentinel(index,fan,value)
+				
+					self.table.item(
+						self.slaves[index], # <-- IID
+						values = (index+1,maxValue,minValue) + newValues,
+						tag = tag	
+					)
 								
 
-				self.table.item(
-					self.slaves[index], # <-- IID
-					values = (index+1,maxValue,minValue) + newValues,
-					tag = tag	
-				)
-		
 			# Increment counter and store matrix:
 			self.counterVar.set(self.matrixCount)
 			self.latestMatrix = matrix
@@ -526,6 +546,10 @@ class LiveTableWidget(Tk.Frame):
 	def _updateChecker(self): # ================================================
 
 		try:
+			
+			if self.updatePipeOut.poll():
+				self.updateIn(self.updatePipeOut.recv())
+
 
 			if self.misoMatrixPipeOut.poll():
 				self.matrixIn(self.misoMatrixPipeOut.recv())
@@ -753,6 +777,7 @@ def _liveTableRoutine(
 	mosiMatrixQueue,
 	printQueue,
 	profile,
+	updatePipeOut,
 	misoMatrixPipeOut
 ): # ===========================================================================
 
@@ -763,6 +788,7 @@ def _liveTableRoutine(
 			len(profile[ac.savedSlaves]),
 			profile[ac.maxFans],
 			stopPipeOut,
+			updatePipeOut,
 			misoMatrixPipeOut,
 			commandQueue,
 			printQueue
@@ -796,8 +822,10 @@ class LiveTable(wg.FCWidget):
 			self.profile = profile
 			self.spawnQueue = spawnQueue
 			self.printQueue = printQueue
-
+	
 			self.misoMatrixPipeOut, self.misoMatrixPipeIn = pr.Pipe(False)
+			self.updatePipeOut, self.updatePipeIn = pr.Pipe(False)
+
 
 			try:
 
@@ -808,6 +836,7 @@ class LiveTable(wg.FCWidget):
 					printQueue,
 					(
 						profile,
+						self.updatePipeOut,
 						self.misoMatrixPipeOut
 						
 					),

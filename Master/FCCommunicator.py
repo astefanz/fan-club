@@ -64,6 +64,7 @@ CONNECTING = 32
 DISCONNECTED = 33
 DISCONNECTING = 34
 
+
 # Slave data tuple indices:
 # Expected form: (INDEX, MAC, STATUS, FANS, VERSION) + IID
 #					0		1	2		3		4		5
@@ -498,16 +499,16 @@ class FCCommunicator:
 					if newSlaves is not None:
 						print("New Slaves sent")
 						self.updatePipeIn.send((NEW, newSlaves))
+					"""
 
 					# Assemble output matrix:
 					output = []
-					"""
-					"""
 					for slave in self.slaves:
 						output.append(slave.getMISO())
 
 					self.misoMatrixPipeIn.send(output)
-					"""
+
+
 				except Exception as e: # Print uncaught exceptions
 					self.printM("EXCEPTION IN Comms. outp. thread: "\
 						"\"{}\"".\
@@ -800,6 +801,8 @@ class FCCommunicator:
 							self.listenerSocket.sendto(
 								bytearray(launchMessage,'ascii'),
 								senderAddress)
+
+
 				
 						elif messageSplitted[3] == 'E':
 							# Error message
@@ -1061,9 +1064,9 @@ class FCCommunicator:
 										# Set up data placeholder as a tuple:
 										
 										slave.setMISO(
-											[slave.getStatus()] +
-											list(map(int,reply[-2].split(',')))+
-											list(map(float,reply[-1].split(','))),
+											(slave.getStatus(),sv.MISO_UPDATED) +
+											tuple(map(int,reply[-2].split(',')))+
+											tuple(map(float,reply[-1].split(','))),
 											False)
 											# FORM: (RPMs, DCs)
 										"""		

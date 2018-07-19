@@ -96,11 +96,16 @@ class FCWidget(Tk.Frame):
 			self.spawnQueue = spawnQueue
 
 			# Create member attributes:
+			if not hasattr(self, 'updatePipeOut'):
+				self.updatePipeOut, self.updatePipeIn = mp.Pipe(False)
+
+			if not hasattr(self, 'misoMatrixPipeOut'):
+				self.misoMatrixPipeOut, self.misoMatrixPipeIn = mp.Pipe(False)
 
 			# Pipes for inter-process communication:
 			self.spawnPipeOut, self.spawnPipeIn = mp.Pipe(False)
 			self.stopPipeOut, self.stopPipeIn = mp.Pipe(False)
-
+			
 			# Status:
 			self.status = INACTIVE
 			self.statusLock = tr.Lock()
@@ -180,6 +185,34 @@ class FCWidget(Tk.Frame):
 			self._printE(e, "Error in stop:")
 		
 		# End stop =============================================================
+
+	def updateIn(self, update): # ==============================================
+		# Input a new update tuple
+		# NOTE: incoming update tuples will be ignored whenever the process is
+		# inactive
+
+		if self.getStatus() is ACTIVE:
+			self.updatePipeIn.send(update)
+
+		else:
+			del update
+
+		# End updateIn =========================================================
+
+	def misoMatrixIn(self, matrix): # ==========================================
+		# Input a new MISO matrix
+		# NOTE: incoming matrices will be ignored whenever the process is 
+		# inactive.
+
+
+		if self.getStatus() is ACTIVE:
+			self.misoMatrixPipeIn.send(matrix)
+
+		else:
+			del matrix
+
+		# End misoMatrixIn =====================================================
+
 
 	def _setStatus(self, newStatus): # =========================================
 		try:

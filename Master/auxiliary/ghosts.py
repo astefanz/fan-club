@@ -142,7 +142,7 @@ class GhostSlave:
 			print(("{} RR: {}".format(self.mac, message.decode('ascii'))))
 
 			# Check message:
-			splitted = message.split("|")
+			splitted = message.decode('ascii').split("|")
 
 			if int(splitted[0]) == 0 and splitted[1] == "H":
 				# Handshake

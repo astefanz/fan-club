@@ -52,6 +52,10 @@ CONNECTED = 1
 STATUS_CHANGE = 1
 VALUE_UPDATE = 0
 
+# MISO MATRIX UPDATE CODES:
+MISO_UPDATED = 11
+MISO_NO_UPDATE = 10
+
 # AUXILIARY DEFINITIONS ########################################################
 
 def translate(statusCode, short = False): # ====================================
@@ -879,7 +883,7 @@ class FCSlave:
 			return self.misoQueue.get(block)
 
 		except queue.Empty:
-			return None
+			return (self.getStatus(), MISO_NO_UPDATE)
 
 		# End getUpdate ========================================================
 

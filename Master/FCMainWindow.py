@@ -251,11 +251,12 @@ class FCMainWindow(Tk.Frame):
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
-			# Set up widgets:
-			
+
+			# Set up widgets:	
 			profile = self.archiver.getProfile()
 
 			# Grid:
+			"""
 			self.grid = gd.FCPRGrid(
 				self.toolFrame, 
 				profile,
@@ -264,9 +265,10 @@ class FCMainWindow(Tk.Frame):
 				self.printQueue)
 
 			self.grid.pack(side = Tk.RIGHT)
-
 			self.fcWidgets.append(self.grid)
+			"""
 
+			# Live table:
 			self.liveTable = lt.LiveTable(
 				self.toolFrame,
 				profile,
@@ -274,8 +276,11 @@ class FCMainWindow(Tk.Frame):
 				self.printQueue
 			)
 			self.liveTable.pack(side = Tk.RIGHT)
-
 			self.fcWidgets.append(self.liveTable)
+
+			# Launch handlers and start processes:
+			self._misoHandler()
+			self.communicator.start()
 
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
@@ -288,22 +293,30 @@ class FCMainWindow(Tk.Frame):
 
 	# THREADS AND ROUTINES -----------------------------------------------------
 
-	def _outputHandlerRoutine(self): # =========================================
+	def _misoHandler(self): # =========================================
 	
 		# MAIN LOOP ------------------------------------------------------------
-		while True:
-			try:
-				# Get Communicator output and update GUI -----------------------
-						
-				# OUTPUT MATRIX ------------------------------------------------
-				matrix = self.communicator.getMISOMatrix()
-				if matrix is not None:
-					del matrix
-			
-			except Exception as e:
-				self.printM("ERROR: Unhandled exception in GUI output"\
-					" routine: \"{}\"".\
-					format(traceback.format_exc()), "E")
+		try:
+			# Get Communicator output and update GUI -----------------------
+					
+			# OUTPUT MATRIX ------------------------------------------------
+			matrix = self.communicator.getMISOMatrix()
+			if matrix is not None:
+				print("Matrix received: {}".format(matrix))
+				for widget in self.fcWidgets:
+					widget.misoMatrixIn(matrix)
+
+			else:
+				del matrix
+				print("No matrix")
+		
+		except Exception as e:
+			self.printM("ERROR: Unhandled exception in GUI MISO"\
+				" handler: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+		finally:
+			self.after(100, self._misoHandler)
 
 		# End _managerRoutine ==================================================
 
