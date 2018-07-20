@@ -312,7 +312,6 @@ class FCPRCommunicator(wg.FCWidget):
 		if self.networkUpdatePipeOut.poll():
 			# Try to fetch update:
 			update = self.networkUpdatePipeOut.recv()
-			print("fetched: ",update)
 
 			# Apply:
 			if update[0] is cm.NEW:

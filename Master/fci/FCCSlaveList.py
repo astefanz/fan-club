@@ -85,7 +85,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			# Create columns:
 			self.slaveList.column('#0', width = 20, stretch = False)
 			self.slaveList.column("Index", width = 20, anchor = "center")
-			self.slaveList.column("MAC", width = 50, anchor = "center")
+			self.slaveList.column("MAC", width = 70, anchor = "center")
 			self.slaveList.column("Status", width = 30, anchor = "center")
 			self.slaveList.column("Fans", width = 50, stretch = False, 
 				anchor = "center")

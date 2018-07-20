@@ -294,7 +294,7 @@ class FCMainWindow(Tk.Frame):
 			# OUTPUT MATRIX ------------------------------------------------
 			matrix = self.communicator.getMISOMatrix()
 			if matrix is not None:
-				print("Matrix received: {}".format(matrix))
+				#print("Matrix received: {}".format(matrix))
 				for fcWidgetKey, fcWidget in self.fcWidgets.items():
 					fcWidget.misoMatrixIn(matrix)
 
@@ -352,7 +352,7 @@ class FCMainWindow(Tk.Frame):
 		# End _bootloaderButtonRoutine =========================================
 
 	def _deactivationRoutine(self): # ==========================================
-		
+	
 		# Close GUI:
 		self.destroy()
 		self.master.quit()

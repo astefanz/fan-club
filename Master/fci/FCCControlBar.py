@@ -49,6 +49,12 @@ import FCCommunicator as cm
 import auxiliary.errorPopup as ep
 import FCMainWindow as mw
 
+## AUXILIARY DEFINITIONS #######################################################
+
+# Menu items:
+SET_DC = "DC%"
+SET_RPM = "RPM"
+
 ## CLASS DEFINITION ############################################################
 
 class FCCControlBar(Tk.Frame, object):
@@ -87,7 +93,7 @@ class FCCControlBar(Tk.Frame, object):
 
 			self.notebook.enable_traversal()
 
-			self.notebook.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+			self.notebook.pack(side = Tk.LEFT, fill = Tk.X, expand = True)
 
 			# NETWORK CONTROL ..................................................
 			self.networkControlFrame = Tk.Frame(
@@ -215,21 +221,21 @@ class FCCControlBar(Tk.Frame, object):
 			self.activeWidgets.append(self.commandMenu)
 			# Send button ......................................................
 
-			self.sendButton = Tk.Button(
+			self.sendNetworkCommandButton = Tk.Button(
 				self.networkControlFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "Send",
-				command = self._send,
+				command = self._sendNetworkCommand,
 				highlightbackground = self.background
 				)
 
-			self.sendButton.pack(side = Tk.LEFT)
+			self.sendNetworkCommandButton.pack(side = Tk.LEFT)
 
-			self.activeWidgets.append(self.sendButton)
+			self.activeWidgets.append(self.sendNetworkCommandButton)
 
 			# Shutdown button ..................................................
-
+			"""
 			self.shutdownButtonPadding = Tk.Frame(
 				self.networkControlFrame,
 				bg = self.background,
@@ -237,9 +243,9 @@ class FCCControlBar(Tk.Frame, object):
 				)
 
 			self.shutdownButtonPadding.pack(side = Tk.LEFT)
-
+			"""
 			self.shutdownButton = Tk.Button(
-				self.networkControlFrame,
+				self,
 				bg = self.background,
 				fg = self.foreground,
 				text = "SHUTDOWN",
@@ -248,7 +254,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = 'red'
 				)
 
-			self.shutdownButton.pack(side = Tk.RIGHT)
+			self.shutdownButton.pack(side = Tk.RIGHT, fill = Tk.Y)
 
 			self.activeWidgets.append(self.shutdownButton)
 		
@@ -322,11 +328,118 @@ class FCCControlBar(Tk.Frame, object):
 			)
 			self.quickControlFrame.pack(fill = Tk.BOTH, expand = True)
 
+			# Label(1/3):
+			self.arrayCommandMenuLabel1 = Tk.Label(
+				self.quickControlFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Set: "
+			)
+
+			self.arrayCommandMenuLabel1.pack(side = Tk.LEFT)
+
+			# Menu:
+
+			self.selectedArrayCommand = Tk.StringVar()
+			self.selectedArrayCommand.set(SET_DC)
+			self.arrayCommandMenu = Tk.OptionMenu(
+				self.quickControlFrame, 
+				self.selectedArrayCommand,
+				SET_DC,
+				SET_RPM,
+				)
+
+			self.arrayCommandMenu.config(
+				width = 5,
+				background = self.background,
+				highlightbackground = self.background,
+				foreground = self.foreground
+			)
+
+			self.arrayCommandMenu.pack(side = Tk.LEFT)
+
+			self.activeWidgets.append(self.arrayCommandMenu)
+			
+			# Label (2/3):
+			self.arrayCommandMenuLabel2 = Tk.Label(
+				self.quickControlFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  To: "
+			)
+
+			self.arrayCommandMenuLabel2.pack(side = Tk.LEFT)
+
+
+			# Value entry:
+			validateAE = self.register(self._validateArrayEntry)
+			self.arrayEntry = Tk.Entry(
+				self.quickControlFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 7, validate = 'key', validatecommand = \
+					(validateAE, '%S', '%s', '%d'))
+			self.arrayEntry.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.arrayEntry)
+			
+			self.keepOnSendToggleVar = Tk.BooleanVar()
+			self.keepOnSendToggle = Tk.Checkbutton(
+				self.quickControlFrame, 
+				text ="Remember value", 
+				variable = self.keepOnSendToggleVar, 
+				bg = self.background, 
+				fg = self.foreground, 
+				)
+			self.keepOnSendToggleVar.set(True)
+			self.keepOnSendToggle.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.keepOnSendToggle)
+			
+			
+			# Label (3/3):
+			self.arrayCommandMenuLabel3 = Tk.Label(
+				self.quickControlFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "     "
+			)
+
+			self.arrayCommandMenuLabel3.pack(side = Tk.LEFT)
+			
+			# Send button:
+			self.sendArrayCommandButton = Tk.Button(
+				self.quickControlFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "Send",
+				command = self._sendArrayCommand,
+				highlightbackground = self.background
+				)
+
+
+			self.sendArrayCommandButton.pack(side = Tk.LEFT)
+
+			self.activeWidgets.append(self.sendArrayCommandButton)
+			
+
 			self.notebook.add(
 				self.quickControlFrame,
-				text = "Quick Array Control",
-				state = Tk.DISABLED
+				text = "Array Control",
+				state = Tk.NORMAL
 			)
+
+
+			self.bind("<Return>", self._onEnter)
+			self.sendNetworkCommandButton.bind("<Return>", self._onEnter)
+			self.sendArrayCommandButton.bind("<Return>", self._onEnter)
+			self.quickControlFrame.bind("<Return>", self._onEnter)
+			self.networkControlFrame.bind("<Return>", self._onEnter)
+			self.arrayEntry.bind("<Return>", self._onEnter)
+			self.notebook.bind("<Return>", self._onEnter)
+
+				
+
+			self.bind("<Enter>", lambda e: self.focus_set())
 
 			# CUSTOM MESSAGE ...................................................
 			self.customMessageFrame = Tk.Frame(
@@ -346,8 +459,9 @@ class FCCControlBar(Tk.Frame, object):
 			# PACK -------------------------------------------------------------
 
 			self.pack(fill = Tk.X, expand = True)
-
 			self.setStatus(cm.DISCONNECTED)
+			self.notebook.select(1)
+			self.arrayEntry.focus_set()
 
 		except:
 			ep.errorPopup("Error in FCCControlBar")
@@ -368,7 +482,34 @@ class FCCControlBar(Tk.Frame, object):
 
 		# End setStatus ========================================================
 
-	def _send(self, event = None): # ===========================================
+	def _validateArrayEntry(self, newCharacter, textBeforeCall, action): # =====
+		# ABOUT: To be used by TkInter to validate text in "Send" Entry.
+		if action == '0':
+			return True
+		
+		elif self.selectedArrayCommand.get() == SET_DC and \
+			len(textBeforeCall) < 10:
+			if newCharacter in '0123456789':
+				try:
+					total = float(textBeforeCall + newCharacter)
+					return total <= 100.000000
+				except ValueError:
+					return False
+			elif newCharacter == '.' and not '.' in textBeforeCall:
+				return True
+			else:
+				return False
+
+		elif self.selectedArrayCommand.get() == SET_RPM and newCharacter \
+			in '0123456789' and len(textBeforeCall) < 5:
+			return True
+
+		else:
+			return False
+
+		# End _validateN =======================================================
+
+	def _sendNetworkCommand(self, event = None): # =============================
 		
 
 		# Get targets:
@@ -395,7 +536,46 @@ class FCCControlBar(Tk.Frame, object):
 		for target in targets:
 			self.commandQueue.put_nowait((mw.COMMUNICATOR, commandCode, target))
 
-		# End _send ============================================================
+		# End _sendNetworkCommand ==============================================
+
+	def _sendArrayCommand(self, event = None): # ===============================
+
+		if self.arrayEntry.get() == '':
+			return
+
+		if self.selectedArrayCommand.get() == SET_DC:
+			command = cm.SET_DC
+			value = float(self.arrayEntry.get())
+		elif self.selectedArrayCommand.get() == SET_RPM:
+			command = cm.SET_RPM
+			value = int(self.arrayEntry.get())
+
+		else:
+			return
+
+		self.commandQueue.put_nowait(
+			(mw.COMMUNICATOR, command, value, cm.ALL)
+			
+		)
+
+		if not self.keepOnSendToggleVar.get():
+			self.arrayEntry.delete(0,Tk.END)
+
+		# End _sendArrayCommand ================================================
+
+	def _onEnter(self, event = None): # ========================================
+
+		# Check context:
+		if self.notebook.select() == ".!frame":
+			# In network control context:
+			self._sendNetworkCommand()
+
+		elif self.notebook.select() == ".!frame2":
+			# In array control context:
+			self._sendArrayCommand()
+
+
+		# End _onEnter =========================================================
 
 	def _shutdown(self, event = None): # =======================================
 		

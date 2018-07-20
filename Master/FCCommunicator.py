@@ -78,10 +78,19 @@ VERSION = 4
 IID = 5
 
 # Commands:
-ADD = 1
-DISCONNECT = 2
-REBOOT = 3
-STOP  = 4
+ADD = 51
+DISCONNECT = 52
+REBOOT = 53
+
+# NOTE: Array command e.g.: 
+#		(COMMUNICATOR, SET_DC, DC, ALL)
+# 		(COMMUNICATOR, SET_DC, DC, 1,2,3,4)
+
+SET_DC = 54
+SET_RPM = 55
+
+
+
 
 # Special values:
 NONE = -1
@@ -96,9 +105,11 @@ UPDATE = 12
 # MOSI commands:
 MOSI_NO_COMMAND = 20
 MOSI_DC = 21
-MOSI_CHASE = 22
-MOSI_DISCONNECT = 23
-MOSI_REBOOT = 24
+MOSI_DC_ALL = 22
+MOSI_RPM = 23
+MOSI_RPM_ALL = 24
+MOSI_DISCONNECT = 25
+MOSI_REBOOT = 26
 
 # Change codes:
 NO_CHANGE = 0
@@ -152,6 +163,10 @@ class FCCommunicator:
 			self.chaserTolerance = profile[ac.chaserTolerance]
 			self.maxFanTimeouts = profile[ac.maxFanTimeouts]
 			self.pinout = profile[ac.defaultPinout]
+
+			self.fullSelection = ''
+			for fan in range(self.maxFans):
+				self.fullSelection += '1'
 			
 			# Multiprocessing and printing:
 			self.commandQueue = commandQueue
@@ -439,6 +454,51 @@ class FCCommunicator:
 							else:
 								self.slaves[command[wg.VALUE]].\
 									setMOSI((MOSI_REBOOT,),False)
+
+						elif command[wg.COMMAND] is wg.STOP:
+							self.stop()
+
+						elif command[wg.COMMAND] is SET_DC:
+							print("Command is 'SET_DC': ",format(command))
+							
+							if command[wg.VALUE + 1] is ALL:
+								
+								for index, slave in enumerate(self.slaves):	
+									if slave.getStatus() is sv.CONNECTED:
+										slave.setMOSI(
+											(MOSI_DC_ALL,command[wg.VALUE]),
+											False
+										)
+							else:
+								
+								for index in command[wg.VALUE+1:]:
+									if self.slaves[index].getStatus() is \
+										sv.CONNECTED:
+										self.slaves[index].setMOSI(
+											(MOSI_DC_ALL,command[wg.VALUE]),
+											False
+										)
+
+						elif command[wg.COMMAND] is SET_RPM:
+							print("Command is 'SET_RPM': ",format(command))
+							
+							if command[wg.VALUE + 1] is ALL:
+
+								for index, slave in enumerate(self.slaves):	
+									if slave.getStatus() is sv.CONNECTED:
+										slave.setMOSI(
+											(MOSI_RPM_ALL,command[wg.VALUE]),
+											False
+										)
+							else:
+								
+								for index in command[wg.VALUE+1:]:
+									if self.slaves[index].getStatus() is \
+										sv.CONNECTED:
+										self.slaves[index].setMOSI(
+											(MOSI_RPM_ALL,command[wg.VALUE]),
+											False
+										)
 
 					# Check matrix:
 					matrix = self.mosiMatrixQueue.get_nowait()
@@ -963,13 +1023,22 @@ class FCCommunicator:
 								fetchedMessage[1]*0.01, selection)
 
 							self._send(message, slave, 2)
-
-						elif fetchedMessage[0] == MOSI_CHASE:
+						
+						elif fetchedMessage[0] == MOSI_DC_ALL:
 							# Chase RPM
-							# Raw format: [MOSI_CHASE, RPM, FAN1S,FAN2S...]
+							# Raw format: [MOSI_DC_ALL, RPM]
+								
+							message = "S|D:{}:{}".format(
+								fetchedMessage[1]*0.01, self.fullSelection)
+
+							self._send(message, slave, 2)
+
+						elif fetchedMessage[0] == MOSI_RPM:
+							# Chase RPM
+							# Raw format: [MOSI_RPM, RPM, FAN1S,FAN2S...]
 							
 							selection = ''
-							for fan in fetchedMessage[2]:
+							for fan in fetchedMessage[2:]:
 								if fan == 1:
 									selection += '1'
 								else:
@@ -977,6 +1046,15 @@ class FCCommunicator:
 							
 							message = "S|C:{}:{}".format(
 								fetchedMessage[1], selection)
+
+							self._send(message, slave, 2)
+						
+						elif fetchedMessage[0] == MOSI_RPM_ALL:
+							# Chase RPM
+							# Raw format: [MOSI_RPM_ALL, RPM]
+								
+							message = "S|C:{}:{}".format(
+								fetchedMessage[1], self.fullSelection)
 
 							self._send(message, slave, 2)
 

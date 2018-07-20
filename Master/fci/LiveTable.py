@@ -318,7 +318,7 @@ class LiveTableWidget(Tk.Frame):
 		self.sentinelFrame.pack(side = Tk.RIGHT)
 		self.sentinelFlag = False
 
-		self.topBar.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+		self.topBar.pack(side = Tk.TOP, fill = Tk.X)
 		# Build table ----------------------------------------------------------
 
 		# Add columns:
@@ -436,7 +436,7 @@ class LiveTableWidget(Tk.Frame):
 					# RPM's updated
 					
 					tag = "N"
-					newValues = tuple(matrixRow[2:self.maxFans+1])
+					newValues = tuple(matrixRow[2:self.maxFans+2])
 					maxValue = max(newValues)
 					minValue = min(newValues)
 					if self.sentinelFlag:

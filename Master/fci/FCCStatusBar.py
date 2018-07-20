@@ -245,7 +245,7 @@ class FCCStatusBar(Tk.Frame): # ================================================
 			)
 			self.connectionButton.pack(side = Tk.RIGHT)
 
-			self.statusFont = ('TkFixedFont','12','bold')
+			self.statusFont = ('TkFixedFont','10','bold')
 		
 			self.statusData = {}
 
