@@ -153,7 +153,7 @@ class FCCommunicator:
 			self.maxFanTimeouts = profile[ac.maxFanTimeouts]
 			self.pinout = profile[ac.defaultPinout]
 			
-			# Multiprocessing:
+			# Multiprocessing and printing:
 			self.commandQueue = commandQueue
 			self.newMISOMatrixPipeIn = newMISOMatrixPipeIn
 			self.updatePipeOut = updatePipeOut
@@ -163,6 +163,7 @@ class FCCommunicator:
 
 			# Output queues:
 			self.printQueue = printQueue
+			self.symbol = "[CM] "
 			self.newSlaveQueue = queue.Queue()
 			self.slaveUpdateQueue = queue.Queue()
 
@@ -401,7 +402,7 @@ class FCCommunicator:
 	def _inputRoutine(self): # =================================================
 
 		try:		
-			self.printM("[CM][IR] Prototype input routine started","G")
+			self.printM("[IR] Prototype input routine started","G")
 			while True:
 				try:
 					# Input --------------------------------------------------------
@@ -452,12 +453,12 @@ class FCCommunicator:
 					continue
 
 				except Exception as e: # Print uncaught exceptions
-					self.printM("[CM][IR] EXCEPTION: "\
+					self.printM("[IR] EXCEPTION: "\
 						"\"{}\"".\
 						format(traceback.format_exc()), "E")
 
 		except Exception as e: # Print uncaught exceptions
-			self.printM("[CM][IR] UNHANDLED EXCEPTION: "\
+			self.printM("[IR] UNHANDLED EXCEPTION: "\
 				"\"{}\" (BROKE OUT OF LOOP)".\
 				format(traceback.format_exc()), "E")
 		# End _inputRoutine ====================================================
@@ -1414,7 +1415,7 @@ class FCCommunicator:
 			print(("[DEBUG][COMMS] " + output))
 
 		try:
-			self.printQueue.put_nowait((output, tag))
+			self.printQueue.put_nowait((self.symbol + output, tag))
 			return True
 
 		except queue.Full:

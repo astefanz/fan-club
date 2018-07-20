@@ -48,7 +48,7 @@ import traceback
 
 class Terminal(Tk.Frame): # ====================================================
 
-	def __init__(self, master, queue, toggleFunction, toggleVar): # ============
+	def __init__(self, master, queue): # =======================================
 		try:
 			# - Version
 
@@ -56,21 +56,36 @@ class Terminal(Tk.Frame): # ====================================================
 			Tk.Frame.__init__(self, master)
 			self.background = "#d3d3d3"
 			self.foreground = "black"
-			self.config(
-				bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
 		
 			# Set debug foreground:
 			self.debugColor = "#ff007f"
 
-			self.toggleF = toggleFunction
-			self.toggleVar = toggleVar
-
 			self.mainQueue = queue
 
-			# BUILD ------------------------------------------------------------
+			# BUILD ------------------------------------------------------------	
 
-			self.mainTerminal = tkinter.ttk.Frame(self)
-			self.mainTerminal.pack(fill = Tk.BOTH, expand = False)
+			self.toggleFrame = Tk.Frame(
+				self,
+				bg = self.background
+			)
+			self.checkButtonVar = Tk.BooleanVar()
+			self.checkButtonVar.set(True)
+			self.packed = True
+			self.checkButton = Tk.Checkbutton(
+				self.toggleFrame,
+				text = "Terminal",
+				bg = self.background,
+				fg = self.foreground,
+				command = self._toggle,
+				variable = self.checkButtonVar
+			)
+			self.checkButton.pack(side = Tk.LEFT)
+			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X)
+
+			self.mainTerminal = Tk.Frame(self,
+				bg = self.background, relief = Tk.SUNKEN, borderwidth = 3)
+			
+			self.mainTerminal.pack(fill = Tk.BOTH, expand = True)
 			self.mainTLock = threading.Lock()
 			self.mainTText = Tk.Text(self.mainTerminal, 
 				fg = "#424242", bg=self.background, font = ('TkFixedFont'),
@@ -95,7 +110,8 @@ class Terminal(Tk.Frame): # ====================================================
 			
 			# TERMINAL CONTROL FRAME ...............................................
 
-			self.terminalControlFrame = Tk.Frame(self,	bg = self.background)
+			self.terminalControlFrame = Tk.Frame(self.mainTerminal,	
+				bg = self.background)
 
 			# Autoscroll checkbox:
 			self.autoscrollVar = Tk.IntVar()
@@ -145,7 +161,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 		# End __init__ =========================================================
 
-	
+
 	def terminalUpdater(self): # ===============================================
 		# ABOUT: Keep main terminal window updated w/ Communicator output. 
 		# Uses Tkinter scheduler instead of thread.
@@ -160,9 +176,6 @@ class Terminal(Tk.Frame): # ====================================================
 					message = self.mainQueue.get(True)
 					if type(message) is not tuple and len(message) is not 2:
 						
-						self.toggleVar.set(True)
-						self.toggleF()
-
 						self.mainTText.config(state = Tk.NORMAL)
 							# Must change state to add text.
 						self.mainTText.insert(
@@ -184,9 +197,8 @@ class Terminal(Tk.Frame): # ====================================================
 					else:
 
 						# Switch focus to this tab in case of errors of warnings:
-						if message[1] is "E":
-							self.toggleVar.set(True)
-							self.toggleF()
+						if message[1] is "E" and not self.packed:
+							self._toggle(force = True)
 
 						self.mainTText.config(state = Tk.NORMAL)
 							# Must change state to add text.
@@ -212,7 +224,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 	
 	def _terminalRoutine(self): # ==============================================
-		# ABOUT: Keep main terminal window updated w/ Communicator output. To be
+		# ABOUT: Keep main terminal window updated w/ Communicator output...
 	
 		while True:
 			try:
@@ -223,10 +235,10 @@ class Terminal(Tk.Frame): # ====================================================
 					try:
 						# Fetch message to print:
 						message = self.mainQueue.get(True)
-						if type(message) is not tuple and len(message) is not 2:
+						if type(message) is not tuple or len(message) is not 2:
 							
-							self.toggleVar.set(True)
-							self.toggleF()
+							if not self.packed:
+								self._toggle(force = True)
 
 							self.mainTText.config(state = Tk.NORMAL)
 								# Must change state to add text.
@@ -254,9 +266,8 @@ class Terminal(Tk.Frame): # ====================================================
 						else:
 
 							# Switch focus to this tab in case of errors of warnings:
-							if message[1] is "E":
-								self.toggleVar.set(True)
-								self.toggleF()
+							if message[1] is "E" and not self.packed:
+								self._toggle(force = True)
 
 							self.mainTText.config(state = Tk.NORMAL)
 								# Must change state to add text.
@@ -276,6 +287,19 @@ class Terminal(Tk.Frame): # ====================================================
 					format(traceback.format_exc()))
 
 		# End _terminalRoutine =================================================
+	
+	def _toggle(self, event = None, force = None): # ===========================
 
-		
-		
+		if self.checkButtonVar.get() or force is True:
+			# Show terminal
+			self.mainTerminal.pack(fill = Tk.BOTH, expand = True)
+			self.checkButtonVar.set(True)
+			self.packed = True
+
+		elif not self.checkButtonVar.get() or force is False:
+			# Hide terminal
+			self.mainTerminal.pack_forget()
+			self.checkButtonVar.set(False)
+			self.packed = False
+
+		# End _toggle ==========================================================

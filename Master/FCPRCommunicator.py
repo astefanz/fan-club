@@ -197,7 +197,7 @@ class FCPRCommunicator(wg.FCWidget):
 				variable = self.checkButtonVar
 			)
 			self.checkButton.pack(side = Tk.LEFT)
-			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True)
+			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X)
 
 			self.frame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
 

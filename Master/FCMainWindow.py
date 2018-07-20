@@ -121,23 +121,7 @@ class FCMainWindow(Tk.Frame):
 			# TOOLS ------------------------------------------------------------
 			self.toolFrame = Tk.Frame(self.main,
 				bg = self.background, relief = Tk.GROOVE, bd = 1) 
-
-			# Base widget toggles ..............................................
-			self.toggleFrame = Tk.Frame(self.toolFrame, bg = self.background)
 			
-			
-			# Terminal toggle:
-			self.terminalToggleVar = Tk.BooleanVar()
-			self.terminalToggleVar.set(True)
-
-			self.terminalToggle = Tk.Checkbutton(self.toggleFrame, 
-				text ="Terminal", variable = self.terminalToggleVar, 
-				bg = self.background, fg = self.foreground, 
-				command = self._terminalToggle)
-			self.terminalToggle.config( state = Tk.NORMAL)
-			self.terminalToggle.pack(side = Tk.LEFT)
-
-			self.toggleFrame.pack(side = Tk.LEFT, anchor = "w")
 			# Outside widget buttons ...........................................
 			self.widgetButtonFrame = Tk.Frame(
 				self.toolFrame, bg=self.background)
@@ -181,7 +165,7 @@ class FCMainWindow(Tk.Frame):
 			self.bootloaderButton.config(state = Tk.DISABLED)
 
 			# Pack tool frame ..................................................
-			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = True,
+			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False,
 				anchor = "n")
 
 			# TERMINAL ---------------------------------------------------------
@@ -192,8 +176,7 @@ class FCMainWindow(Tk.Frame):
 			self.terminalFrame = Tk.Frame(self.main, 
 				bg = self.background,relief = Tk.RIDGE, bd = 1)
 
-			self.terminal = tm.Terminal(self.terminalFrame, self.printQueue,
-				self._terminalToggle, self.terminalToggleVar)
+			self.terminal = tm.Terminal(self.terminalFrame, self.printQueue)
 
 			self.terminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
 			
@@ -353,16 +336,6 @@ class FCMainWindow(Tk.Frame):
 		# End _commandHandler ==================================================
 
 	# CALLBACKS ----------------------------------------------------------------
-
-	def _terminalToggle(self): # ===============================================
-		# Check variable:
-		if self.terminalToggleVar.get():
-			# Build terminal:
-			self.terminalFrame.pack(fill = Tk.BOTH, expand = False)
-		else:
-			# Hide terminal:
-			self.terminalFrame.pack_forget()
-		# End terminal toggle ==================================================
 
 	def _settingsButtonRoutine(self): # ========================================
 		# TODO: IMPLEMENT
