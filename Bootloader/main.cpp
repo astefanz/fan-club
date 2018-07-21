@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "BT1-j"
+#define FCIIB_VERSION "BT3"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -71,9 +71,9 @@
 #define FLASH_BUFFER_SIZE 1024*1000 // Have 1,000 KB download buffer
 #define BUFFER_SIZE 128
 #define PW_BUFFER_SIZE 8
-#define MAX_ADDRESS_SIZE 64
+#define MAX_ADDRESS_SIZE 512
 #define FILENAME "/fs/a.bin"
-#define MAX_FILENAME_LENGTH 16
+#define MAX_FILENAME_LENGTH 256
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -112,6 +112,7 @@ Mutex watchFlagLock;
 
 // Network data:
 uint16_t misoPort = 0;
+uint16_t httpPort = 0;
 char passcodeBuffer[PW_BUFFER_SIZE] = {0};
 char misoBuffer[BUFFER_SIZE] = {0};
 char mosiBuffer[BUFFER_SIZE] = {0};
@@ -306,8 +307,11 @@ int main() {
 
 					
 					// Format reply:
-					snprintf(misoBuffer, BUFFER_SIZE,"B|%s|%s|N",
-						passcodeBuffer, ethernet->get_mac_address());
+					snprintf(misoBuffer, BUFFER_SIZE,"B|%s|%s|N|%s",
+						passcodeBuffer, 
+						ethernet->get_mac_address(),
+						FCIIB_VERSION
+						);
 
 					// Send reply:
 					listenerSocket.sendto(
@@ -335,6 +339,7 @@ int main() {
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL PASSCODE");
+						sendError("Null passcode", 13);
 						continue;
 					}
 					strcpy(passcodeBuffer, splitPointer);
@@ -347,9 +352,26 @@ int main() {
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL ML PORT");
+						sendError("Null ML port", 12);
 						continue;
+
 					} else if ((misoPort = atoi(splitPointer)) == 0){
-						printf("\n\r\tERROR: ML PORT 0");
+						sendError("ML port 0", 9);
+						continue;
+					}
+					
+					// Get HTTP Server Port
+					splitPointer = 
+						strtok_r(NULL, "|", &savePointer); // Point to MLPORT
+
+					if(splitPointer == NULL or splitPointer[0] == '\0'){
+						// NOTE: Relying on short-circuiting here...
+						printf("\n\r\tERROR: NULL HTTP SERVER PORT");
+						sendError("Null HTTP port", 14);
+						continue;
+					} else if ((httpPort = atoi(splitPointer)) == 0){
+						printf("\n\r\tERROR: HTTP SERVER PORT 0");
+						sendError("HTTP port 0", 11);
 						continue;
 					}
 
@@ -375,7 +397,7 @@ int main() {
 								
 					// Get filesize
 					splitPointer = 
-						strtok_r(NULL, "|", &savePointer); // Point to MLPORT
+						strtok_r(NULL, "|", &savePointer); // Point to F.size
 
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
@@ -406,8 +428,11 @@ int main() {
 					// Download file -------------------------------------------
 						
 					snprintf(addressBuffer, MAX_ADDRESS_SIZE, 
-						"http://%s:8000/%s",
-						masterBroadcastAddress.get_ip_address(), filename);
+						"http://%s:%u/%s",
+						masterBroadcastAddress.get_ip_address(),
+						httpPort,
+						filename
+					);
 					
 					printf("\n\r\tConnecting to %s", addressBuffer);
 					

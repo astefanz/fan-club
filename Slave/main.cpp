@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCMKII_VERSION "SV4"
+#define FCMKII_VERSION "SV4c" // Letter for bootloader testing
 // Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
 // PwmOut
 

@@ -43,6 +43,8 @@ import os # Get current working directory & check file names & sizes
 import sys # Exception handling
 import inspect # get line number for debugging
 import traceback
+import shutil as sh
+
 
 # FCMkII:
 import FCSlave as sv
@@ -476,10 +478,11 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				bg = self.background,
 				fg = self.foreground,
-				state = 'readonly',
-				width = 10, 
+				width = 20, 
 			)
 			self.chosenFileEntry.pack(side = Tk.LEFT)
+
+			self.targetFile = None
 			
 			self.chosenFileSeparator = Tk.Label(
 				self.bootloaderFrame,
@@ -629,7 +632,7 @@ class FCCControlBar(Tk.Frame, object):
 						mw.COMMUNICATOR, 
 						cm.BOOTLOADER_START,
 						self.versionNameEntry.get(),
-						self.bootloaderTargetVar.get(), 
+						self.targetFile, 
 						self.fileSize
 					)
 				)
@@ -676,6 +679,11 @@ class FCCControlBar(Tk.Frame, object):
 				self.chosenFileEntry.config(state = Tk.NORMAL)
 				self.fileChooserButton.config(state = Tk.NORMAL)
 				self.versionNameEntry.config(state = Tk.NORMAL)
+
+				# Remove file:
+				os.remove(self.targetFile)
+				self.bootloaderTargetVar.set("")
+				self.versionNameEntry.delete(0, Tk.END)
 			
 				self.notebook.tab(
 					0,
@@ -857,8 +865,28 @@ class FCCControlBar(Tk.Frame, object):
 
 				self.fileSize = os.path.getsize(self.bootloaderTargetVar.get())
 
-				self._printM("Target binary:\n\tFile: {}\n\tSize: {} bytes".\
-					format(self.bootloaderTargetVar.get(), self.fileSize)
+				# Move file to current directory:
+				newFileName = os.getcwd() + \
+						os.sep + \
+						os.path.basename(self.bootloaderTargetVar.get())
+
+				sh.copyfile(
+					self.bootloaderTargetVar.get(), 
+					newFileName
+				)
+				
+				self.targetFile = os.path.basename(newFileName)
+				
+
+				self._printM(
+					"Target binary:\n\tFile: {}"\
+					"\n\tSize: {} bytes"\
+					"\n\tCopied as \"{}\" for flashing".\
+					format(
+						self.bootloaderTargetVar.get(), 
+						self.fileSize,
+						self.targetFile
+					)
 				)
 			
 			# Re-enable button:

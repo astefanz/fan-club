@@ -374,7 +374,7 @@ class FCSlave:
 				pass
 
 			elif newStatus == BOOTLOADER:
-				self.setVersion("Bootloader")
+				pass
 			
 			else:
 				raise ValueError("SUPPOSEDLY IMPOSSIBLE ERROR: COULD NOT "\

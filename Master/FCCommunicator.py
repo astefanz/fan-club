@@ -31,6 +31,8 @@ This module handles low-level socket communications w/ Slave units.
 
 # Network:
 import socket		# Networking
+import http.server	# For bootloader
+import socketserver	# For bootloader
 
 # System:
 import sys			# Exception handling
@@ -304,6 +306,30 @@ class FCCommunicator:
 			# Reset any existing phantom connections:
 			self.sendDisconnect()
 
+			# SET UP FLASHING HTTP SERVER --------------------------------------
+			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
+			self.httpd = socketserver.ForkingTCPServer(
+				("", 0), 
+				self.flashHTTPHandler
+			)
+
+			self.httpd.socket.setsockopt(
+				socket.SOL_SOCKET, 
+				socket.SO_REUSEADDR, 
+				1
+			)
+			self.httpd.timeout = 5
+
+			self.flashServerThread = threading.Thread(
+				target = self.httpd.serve_forever
+			)
+			self.flashServerThread.setDaemon(True)
+			self.flashServerThread.start()
+			self.httpPort = self.httpd.socket.getsockname()[1]
+			self.printM("\tHTTP Server initialized on {}".\
+				format(self.httpd.socket.getsockname())
+			)
+
 			# SET UP MASTER THREADS ============================================
 
 			# INITIALIZE BROADCAST THREAD --------------------------------------
@@ -523,11 +549,15 @@ class FCCommunicator:
 
 							self.flashFlag = True
 							self.targetVersion = command[wg.VALUE]
+							
+							fileName = command[wg.VALUE+1]
+
 							self.flashMessage = \
-								"U|CT|{}|{}|{}".\
+								"U|CT|{}|{}|{}|{}".\
 								format(
 								self.listenerPort,
-								command[wg.VALUE+1],
+								self.httpPort,
+								fileName,
 								command[wg.VALUE+2]
 							)
 
@@ -675,13 +705,14 @@ class FCCommunicator:
 						A|PCODE|SV:MA:CA:DD:RE:SS|N|SMISO|SMOSI|VERSION
 						0     1                 2 3     4     5 6
 					- STD from Bootloader:
-						B|PCODE|SV:MA:CA:DD:RE:SS|
+						B|PCODE|SV:MA:CA:DD:RE:SS|N|[BOOTLOADER_VERSION]
+						0	  1					2 3				 	4
 
 					- Error from MkII:
 						A|PCODE|SV:MA:CA:DD:RE:SS|ERRMESSAGE
 
 					- Error from Bootloader:
-						B|PCODE|SV:MA:CA:DD:RE:SS|ERRMESSAGE
+						B|PCODE|SV:MA:CA:DD:RE:SS|E|ERRMESSAGE
 
 					Where SMISO and SMOSI are the Slave's MISO and MOSI 
 					port numbers, respectively. Notice separators.
@@ -876,45 +907,55 @@ class FCCommunicator:
 							
 							else:
 								# Flashing in progress. Send flash message:
-								pass
 								
-								"""
 								self.listenerSocket.sendto(
 									bytearray(self.flashMessage,'ascii'),
 									senderAddress)	
-								"""
+						
+							# Update Slave status:
+
+							# Search for Slave in self.slaves 
+							index = None
+							mac = messageSplitted[2]
+
+							for slave in self.slaves:
+								if slave.getMAC() == mac:
+									index = slave.getIndex()
+									break
+						
+							if index is not None:
+								# Known Slave. Update status:
+
+								# Try to get bootloader version:
+								try:
+									version = messageSplitted[4]
+								except IndexError:
+									version = "Bootloader(?)"
+
+								self.slaves[index].setVersion(version)
+								self.setSlaveStatus(
+									self.slaves[index],
+									sv.BOOTLOADER
+								)
+								
+							else:
+
+								# Send launch message:
+								self.listenerSocket.sendto(
+									bytearray(launchMessage,'ascii'),
+									senderAddress)
+
 
 						elif messageSplitted[3] == 'E':
 							# Error message
 
 							self.printM("Error message from {} "\
-								"(Bootloader): \"{}\"".format(
+								"on Bootloader: \"{}\"".format(
 									messageSplitted[2], 
-									messageSplitted[3]),
+									messageSplitted[4]),
 									'E')
 					
-						# Update Slave status:
-
-						# Search for Slave in self.slaves 
-						index = None
-						mac = messageSplitted[2]
-
-						for slave in self.slaves:
-							if slave.getMAC() == mac:
-								index = slave.getIndex()
-								break
-					
-						if index is not None:
-							# Known Slave. Update status:
-							self.setSlaveStatus(
-								self.slaves[index],sv.BOOTLOADER)
 							
-						else:
-
-							# Send launch message:
-							self.listenerSocket.sendto(
-								bytearray(launchMessage,'ascii'),
-								senderAddress)
 
 					except IndexError:
 						self.printM("Invalid message \"{}\" discarded; "\
@@ -1080,7 +1121,7 @@ class FCCommunicator:
 						## print "[On positive state]"
 
 						# Check flashing flag:
-						if self.flashFlag and slave.getVersion != \
+						if self.flashFlag and slave.getVersion() != \
 							self.targetVersion:
 
 							# If the flashing flag is set and this Slave has 
