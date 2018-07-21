@@ -34,11 +34,12 @@ Simple controls for FCCommunicator.
 #from mttkinter import mtTkinter as Tk
 import tkinter as Tk
 import tkinter.messagebox
+import tkinter.filedialog 
 import tkinter.font
 import tkinter.ttk # "Notebooks"
 
 # System:
-import os # Get current working directory & check file names
+import os # Get current working directory & check file names & sizes
 import sys # Exception handling
 import inspect # get line number for debugging
 import traceback
@@ -55,17 +56,25 @@ import FCMainWindow as mw
 SET_DC = "DC%"
 SET_RPM = "RPM"
 
+# Bootloader states:
+FLASHING = 1
+NOT_FLASHING = 0
+
 ## CLASS DEFINITION ############################################################
 
 class FCCControlBar(Tk.Frame, object):
 
-	def __init__(self, master, selectionSource, commandQueue): # ===============
+	def __init__(self, master, selectionSource, commandQueue, printQueue): # ===
+
+		self.canPrint = False
 
 		try:
 
 			# CONFIGURE --------------------------------------------------------
 			self.selectionSource = selectionSource
 			self.commandQueue = commandQueue
+			self.printQueue = printQueue
+			self.canPrint = True
 
 			self.background = "#d3d3d3"
 			self.foreground = "black"
@@ -439,7 +448,112 @@ class FCCControlBar(Tk.Frame, object):
 
 				
 
-			self.bind("<Enter>", lambda e: self.focus_set())
+			#self.bind("<Enter>", lambda e: self.focus_set())
+
+			# BOOTLOADER .......................................................
+			self.bootloaderFrame = Tk.Frame(
+				None,
+				background = self.background
+			)
+			self.bootloaderFrame.pack(fill = Tk.BOTH, expand = True)
+
+			self.bootloaderStatus = NOT_FLASHING
+
+			# File chooser:
+			self.fileChooserLabel = Tk.Label(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "File:  "
+			)
+			self.fileChooserLabel.pack(side = Tk.LEFT)
+
+			self.bootloaderTargetVar = Tk.StringVar()
+
+			self.chosenFileEntry = Tk.Entry(
+				self.bootloaderFrame, 
+				textvariable = self.bootloaderTargetVar,
+				highlightbackground = self.background,
+				bg = self.background,
+				fg = self.foreground,
+				state = 'readonly',
+				width = 10, 
+			)
+			self.chosenFileEntry.pack(side = Tk.LEFT)
+			
+			self.chosenFileSeparator = Tk.Label(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				width = 1,
+			)
+			self.chosenFileSeparator.pack(side = Tk.LEFT)
+			
+			self.fileSize = 0 # Bytes	
+			self.fileChooserButton = Tk.Button(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "...",
+				font = ('TkDefaultFont',8),
+				command = self._fileChooser,
+				highlightbackground = self.background
+				)
+
+			self.fileChooserButton.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.fileChooserButton)
+
+
+			# Version name:
+
+			self.versionNameLabel = Tk.Label(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Version Name:  "
+			)
+			self.versionNameLabel.pack(side = Tk.LEFT)
+			
+			validateVN = self.register(self._validateVersionNameEntry)
+			self.versionNameEntry = Tk.Entry(
+				self.bootloaderFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 10, 
+				validate = 'key', validatecommand = \
+					(validateVN, '%S', '%s', '%d'))
+			self.versionNameEntry.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.versionNameEntry)
+			
+			self.versionNameSeparator = Tk.Label(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				width = 1,
+			)
+			self.versionNameSeparator.pack(side = Tk.LEFT)
+			
+
+
+			# Start button:
+			self.bootloaderStartStopButton = Tk.Button(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "Start Flashing",
+				command = self._bootloaderStartStop,
+				highlightbackground = self.background
+				)
+
+			self.bootloaderStartStopButton.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.bootloaderStartStopButton)
+	
+			# Add to notebook:
+			self.notebook.add(
+				self.bootloaderFrame,
+				text = "Bootloader"
+			)
 
 			# CUSTOM MESSAGE ...................................................
 			self.customMessageFrame = Tk.Frame(
@@ -482,106 +596,300 @@ class FCCControlBar(Tk.Frame, object):
 
 		# End setStatus ========================================================
 
-	def _validateArrayEntry(self, newCharacter, textBeforeCall, action): # =====
-		# ABOUT: To be used by TkInter to validate text in "Send" Entry.
-		if action == '0':
-			return True
-		
-		elif self.selectedArrayCommand.get() == SET_DC and \
-			len(textBeforeCall) < 10:
-			if newCharacter in '0123456789':
+	def _bootloaderStartStop(self, event = None): # ============================
+
+		try:
+
+			# Check status:
+			if self.bootloaderStatus is NOT_FLASHING:
+				# Start flashing
+
+				# Check file and update file size:	
+
 				try:
-					total = float(textBeforeCall + newCharacter)
-					return total <= 100.000000
-				except ValueError:
-					return False
-			elif newCharacter == '.' and not '.' in textBeforeCall:
+					self.fileSize = os.path.getsize(self.bootloaderTargetVar.get())
+
+				except FileNotFoundError:
+					self._printM(
+						"Error starting bootloader (file not found)",'E')
+					return
+
+				else:
+					self._printM("Binary file size: {}".format(self.fileSize))
+
+				# Check version name:
+				
+				if self.versionNameEntry.get() == '':
+					self._printM("Error starting bootloader (no version name)", 'E')
+					return
+
+				# Send command:
+				self.commandQueue.put_nowait(
+					(
+						mw.COMMUNICATOR, 
+						cm.BOOTLOADER_START,
+						self.versionNameEntry.get(),
+						self.bootloaderTargetVar.get(), 
+						self.fileSize
+					)
+				)
+
+				# Update interface:
+				self.chosenFileEntry.config(state = Tk.DISABLED)
+				self.fileChooserButton.config(state = Tk.DISABLED)
+				self.versionNameEntry.config(state = Tk.DISABLED)
+
+				self.notebook.tab(
+					0,
+					state = Tk.DISABLED
+				)
+
+				self.notebook.tab(
+					1,
+					state = Tk.DISABLED
+				)
+			
+				
+
+				self.bootloaderStartStopButton.config(
+					text = "Stop Flashing"
+				)
+
+				# Update status:
+				self.bootloaderStatus = FLASHING
+		
+				self._printM("Flashing started", 'G')
+
+			else:
+				# Stop flashing
+
+				# Send stop command:
+				self.commandQueue.put_nowait(
+					(
+						mw.COMMUNICATOR, 
+						cm.BOOTLOADER_STOP
+					)
+				)
+
+				# Update interface:
+				self.bootloaderStatus = NOT_FLASHING
+				self.chosenFileEntry.config(state = Tk.NORMAL)
+				self.fileChooserButton.config(state = Tk.NORMAL)
+				self.versionNameEntry.config(state = Tk.NORMAL)
+			
+				self.notebook.tab(
+					0,
+					state = Tk.NORMAL
+				)
+
+				self.notebook.tab(
+					1,
+					state = Tk.NORMAL
+				)
+				self.bootloaderStartStopButton.config(
+					text = "Start Flashing"
+				)
+
+				# Update status:
+				self.bootloaderStatus = NOT_FLASHING
+		
+		except:
+			ep.errorPopup("Error starting bootloader: ")
+			self._printM("Flashing stopped by exception", 'E')
+			self.bootloaderStatus = NOT_FLASHING
+			self.chosenFileEntry.config(state = Tk.NORMAL)
+			self.fileChooserButton.config(state = Tk.NORMAL)
+			self.versionNameEntry.config(state = Tk.NORMAL)
+			
+			self.notebook.tab(
+				0,
+				state = Tk.NORMAL
+			)
+
+			self.notebook.tab(
+				1,
+				state = Tk.NORMAL
+			)
+			
+			self.bootloaderStartStopButton.config(
+				text = "Start Flashing"
+			)
+
+
+
+		# End _bootloaderStartStop =============================================
+
+	def _validateVersionNameEntry(self, newCharacter, textBeforeCall, action): 
+
+		return True
+
+		# End _validateVersionNameEntry ========================================
+
+	def _validateArrayEntry(self, newCharacter, textBeforeCall, action): # =====
+		try:
+			# ABOUT: To be used by TkInter to validate text in "Send" Entry.
+			if action == '0':
 				return True
+			
+			elif self.selectedArrayCommand.get() == SET_DC and \
+				len(textBeforeCall) < 10:
+				if newCharacter in '0123456789':
+					try:
+						total = float(textBeforeCall + newCharacter)
+						return total <= 100.000000
+					except ValueError:
+						return False
+				elif newCharacter == '.' and not '.' in textBeforeCall:
+					return True
+				else:
+					return False
+
+			elif self.selectedArrayCommand.get() == SET_RPM and newCharacter \
+				in '0123456789' and len(textBeforeCall) < 5:
+				return True
+
 			else:
 				return False
 
-		elif self.selectedArrayCommand.get() == SET_RPM and newCharacter \
-			in '0123456789' and len(textBeforeCall) < 5:
-			return True
-
-		else:
-			return False
+		except:
+			ep.errorPopup("Error in FCCControlBar")
 
 		# End _validateN =======================================================
 
 	def _sendNetworkCommand(self, event = None): # =============================
-		
-
-		# Get targets:
-		if self.selectedTarget.get() == "All":
-			targets = [cm.ALL]
-		else:
-			targets = map(lambda x: x-1,self.selectionSource.getSelection())
 	
-		# Assemble message:
-		if self.selectedCommand.get() == "Disconnect":
-			commandCode = cm.DISCONNECT
+		try:
 
-		elif self.selectedCommand.get() == "Reboot":
-			commandCode = cm.REBOOT
+			# Get targets:
+			if self.selectedTarget.get() == "All":
+				targets = [cm.ALL]
+			else:
+				targets = map(lambda x: x-1,self.selectionSource.getSelection())
 		
-		elif self.selectedCommand.get() == "Add":
-			commandCode = cm.ADD
+			# Assemble message:
+			if self.selectedCommand.get() == "Disconnect":
+				commandCode = cm.DISCONNECT
 
-		else:
-			# TODO: Handle errors
-			return
+			elif self.selectedCommand.get() == "Reboot":
+				commandCode = cm.REBOOT
+			
+			elif self.selectedCommand.get() == "Add":
+				commandCode = cm.ADD
 
-		# Store in Queue:
-		for target in targets:
-			self.commandQueue.put_nowait((mw.COMMUNICATOR, commandCode, target))
+			else:
+				# TODO: Handle errors
+				return
+
+			# Store in Queue:
+			for target in targets:
+				self.commandQueue.put_nowait(
+					(mw.COMMUNICATOR, commandCode, target)
+				)
+		
+		except:
+			ep.errorPopup("Error in FCCControlBar")
 
 		# End _sendNetworkCommand ==============================================
 
 	def _sendArrayCommand(self, event = None): # ===============================
+		try:
 
-		if self.arrayEntry.get() == '':
-			return
+			if self.arrayEntry.get() == '':
+				return
 
-		if self.selectedArrayCommand.get() == SET_DC:
-			command = cm.SET_DC
-			value = float(self.arrayEntry.get())
-		elif self.selectedArrayCommand.get() == SET_RPM:
-			command = cm.SET_RPM
-			value = int(self.arrayEntry.get())
+			if self.selectedArrayCommand.get() == SET_DC:
+				command = cm.SET_DC
+				value = float(self.arrayEntry.get())
+			elif self.selectedArrayCommand.get() == SET_RPM:
+				command = cm.SET_RPM
+				value = int(self.arrayEntry.get())
 
-		else:
-			return
+			else:
+				return
 
-		self.commandQueue.put_nowait(
-			(mw.COMMUNICATOR, command, value, cm.ALL)
-			
-		)
+			self.commandQueue.put_nowait(
+				(mw.COMMUNICATOR, command, value, cm.ALL)
+				
+			)
 
-		if not self.keepOnSendToggleVar.get():
-			self.arrayEntry.delete(0,Tk.END)
+			if not self.keepOnSendToggleVar.get():
+				self.arrayEntry.delete(0,Tk.END)
+		except:
+			ep.errorPopup("Error in FCCControlBar")
 
 		# End _sendArrayCommand ================================================
 
 	def _onEnter(self, event = None): # ========================================
+		try:
+			# Check context:
+			if self.notebook.select() == ".!frame":
+				# In network control context:
+				self._sendNetworkCommand()
 
-		# Check context:
-		if self.notebook.select() == ".!frame":
-			# In network control context:
-			self._sendNetworkCommand()
+			elif self.notebook.select() == ".!frame2":
+				# In array control context:
+				self._sendArrayCommand()
 
-		elif self.notebook.select() == ".!frame2":
-			# In array control context:
-			self._sendArrayCommand()
-
+		except:
+			ep.errorPopup("Error in FCCControlBar")
 
 		# End _onEnter =========================================================
 
+	def _fileChooser(self, event = None): # ====================================
+		
+		try:
+			
+			# Disable buttons while choosing file:
+			self.fileChooserButton.config(state = Tk.DISABLED)
+			self.bootloaderStartStopButton.config(state = Tk.DISABLED)
+
+			self.bootloaderTargetVar.set(
+				tkinter.filedialog.askopenfilename(
+					initialdir = os.getcwd(), # Get current working directory
+					title = "Choose file",
+					filetypes = (("Binary files","*.bin"),("All files","*.*"))
+				)
+			)	
+
+			self.chosenFileEntry.xview_moveto(1.0)
+
+			if self.bootloaderTargetVar.get() != '':
+
+				self.fileSize = os.path.getsize(self.bootloaderTargetVar.get())
+
+				self._printM("Target binary:\n\tFile: {}\n\tSize: {} bytes".\
+					format(self.bootloaderTargetVar.get(), self.fileSize)
+				)
+			
+				# Re-enable button:
+				self.fileChooserButton.config(state = Tk.NORMAL)
+				self.bootloaderStartStopButton.config(state = Tk.NORMAL)
+		
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# End _fileChooser =====================================================
+
 	def _shutdown(self, event = None): # =======================================
 		
-		self.commandQueue.put_nowait((mw.COMMUNICATOR, cm.REBOOT, cm.ALL))
+		try:
+		
+			self.commandQueue.put_nowait((mw.COMMUNICATOR, cm.REBOOT, cm.ALL))	
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
 
 		# End _shutdown ========================================================
+
+	def _printM(self, message, tag = 'S'): # ===================================
+
+		try:
+
+			self.printQueue.put_nowait(("[CM][CB] " + message, tag))
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		# ======================================================================
 
 ## TEST SUITE ##################################################################
 

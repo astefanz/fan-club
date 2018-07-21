@@ -77,7 +77,8 @@ FANS = 3
 VERSION = 4
 IID = 5
 
-# Commands:
+# Commands: ------------------------------------
+
 ADD = 51
 DISCONNECT = 52
 REBOOT = 53
@@ -89,8 +90,12 @@ REBOOT = 53
 SET_DC = 54
 SET_RPM = 55
 
+# Bootloader commands:
 
+BOOTLOADER_START = 56
+BOOTLOADER_STOP = 57
 
+# End commands -----------------------------------
 
 # Special values:
 NONE = -1
@@ -499,6 +504,20 @@ class FCCommunicator:
 											(MOSI_RPM_ALL,command[wg.VALUE]),
 											False
 										)
+
+						elif command[wg.COMMAND] is BOOTLOADER_START:
+							
+							self.printM("Received order to flash version {} \"{}\" "
+								"({} bytes)".format(
+										command[wg.VALUE],
+										command[wg.VALUE + 1],
+										command[wg.VALUE + 2]
+									)
+							)
+
+						elif command[wg.COMMAND] is BOOTLOADER_STOP:
+
+							self.printM("Received order to stop flashing")
 
 					# Check matrix:
 					matrix = self.mosiMatrixQueue.get_nowait()

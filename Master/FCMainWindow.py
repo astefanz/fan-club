@@ -136,6 +136,46 @@ class FCMainWindow(Tk.Frame):
 			)
 			self.settingsButton.pack(side = Tk.RIGHT)	
 
+			"""
+			# Add logos:
+			self.logoFrame = Tk.Frame(
+				self.toolFrame,
+				bg = self.background
+			)
+
+			self.logoFrame.pack(side = Tk.LEFT)
+
+			self.caltechLogo = Tk.PhotoImage(
+				file = "fci/ct.png",
+			)
+			self.caltechLogo = self.caltechLogo.subsample(3,3)
+			self.caltechLogoLabel = Tk.Label(
+				self.logoFrame,
+				bg = self.background,
+				image = self.caltechLogo,
+				anchor = Tk.CENTER,
+				height = 30,
+				bd = 1,
+				relief = Tk.SUNKEN
+			)
+			self.caltechLogoLabel.pack(side = Tk.LEFT)
+			
+			self.galcitLogo = Tk.PhotoImage(
+				file = "fci/galcit.png",
+			)
+			self.galcitLogo = self.galcitLogo.subsample(20,20)
+			self.galcitLogoLabel = Tk.Label(
+				self.logoFrame,
+				bg = self.background,
+				image = self.galcitLogo,
+				anchor = Tk.CENTER,
+				height = 30,
+				bd = 1,
+				relief = Tk.SUNKEN
+			)
+			self.galcitLogoLabel.pack(side = Tk.LEFT)
+			"""
+
 			# Keep track of settings activity:
 			self.isSettingsActive = False
 			# Placeholder for reference to popup window:
@@ -144,25 +184,6 @@ class FCMainWindow(Tk.Frame):
 
 			# TODO: Implement settings:
 			self.settingsButton.config(state = Tk.DISABLED)
-
-			# Bootloader:
-			self.bootloaderButton = Tk.Button(
-				self.toolFrame,
-				text = "Bootloader",
-				width = 10,
-				highlightbackground = self.background,
-				command = self._bootloaderButtonRoutine
-			)
-			self.bootloaderButton.pack(side = Tk.RIGHT)	
-
-			# Keep track of bootloader activity:
-			self.isBootloaderActive = False
-			# Placeholder for reference to popup window:
-			self.bootloaderWindow = None
-			self.bootloader = None
-
-			# TODO: Implement bootloader:
-			self.bootloaderButton.config(state = Tk.DISABLED)
 
 			# Pack tool frame ..................................................
 			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False,

@@ -211,7 +211,11 @@ class FCPRCommunicator(wg.FCWidget):
 			self.slaveList.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
 
 			self.controlBar = cb.FCCControlBar(
-				self.widgetFrame, self.slaveList, self.commandQueue) 
+				self.widgetFrame, 
+				self.slaveList, 
+				self.commandQueue,
+				self.printQueue
+			) 
 			self.controlBar.pack(side = Tk.TOP, fill = Tk.X, expand = True)
 			self.controlBar.setStatus(cm.DISCONNECTED)
 
