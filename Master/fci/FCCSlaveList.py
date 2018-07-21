@@ -108,9 +108,9 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			
 			self.slaveList.tag_configure(
 				"B", 
-				background= '#ccdeff', 
-				foreground ='#1b2d4f', 
-				font = 'TkFixedFont 12 ') # Busy
+				background ='#a6c1fc', 
+				foreground= '#192560', 
+				font = 'TkFixedFont 12 bold') # Bootloader
 
 			self.slaveList.tag_configure(
 			"D", 

@@ -853,7 +853,7 @@ class FCCControlBar(Tk.Frame, object):
 
 			self.chosenFileEntry.xview_moveto(1.0)
 
-			if self.bootloaderTargetVar.get() != '':
+			if len(self.bootloaderTargetVar.get()) > 0:
 
 				self.fileSize = os.path.getsize(self.bootloaderTargetVar.get())
 
@@ -861,9 +861,9 @@ class FCCControlBar(Tk.Frame, object):
 					format(self.bootloaderTargetVar.get(), self.fileSize)
 				)
 			
-				# Re-enable button:
-				self.fileChooserButton.config(state = Tk.NORMAL)
-				self.bootloaderStartStopButton.config(state = Tk.NORMAL)
+			# Re-enable button:
+			self.fileChooserButton.config(state = Tk.NORMAL)
+			self.bootloaderStartStopButton.config(state = Tk.NORMAL)
 		
 		except:
 			ep.errorPopup("Error in FCCControlBar")

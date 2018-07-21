@@ -118,6 +118,9 @@ class FCCStatusBar(Tk.Frame): # ================================================
 			self.statusInts[sv.AVAILABLE] = 0
 			self.statusVars[sv.AVAILABLE] = Tk.IntVar()
 
+			self.statusInts[sv.BOOTLOADER] = 0
+			self.statusVars[sv.BOOTLOADER] = Tk.IntVar()
+			
 			# Slave count labels:
 
 			self.slaveCounterPaddedFrame = Tk.Frame(
@@ -213,6 +216,26 @@ class FCCStatusBar(Tk.Frame): # ================================================
 				fg = 'orange'
 				)
 			self.knownSlavesCounter.pack(side = Tk.LEFT)
+			
+			# Bootloader Slaves:
+			self.bootloaderSlavesLabel = Tk.Label(
+				self.slaveCounterFrame,
+				bg = self.background,
+				text = "Bt: ",
+				fg = 'blue',
+				font = ('TkDefaultFont', '10')
+				)
+			self.bootloaderSlavesLabel.pack(side = Tk.LEFT)
+
+			self.bootloaderSlavesCounter = Tk.Label(
+				self.slaveCounterFrame,
+				bg = self.background,
+				width = 3, anchor = "e",
+				textvariable = self.statusVars[sv.BOOTLOADER],
+				font = ('TkFixedFont', '10'),
+				fg = 'blue'
+				)
+			self.bootloaderSlavesCounter.pack(side = Tk.LEFT)
 			
 			# Available Slaves:
 			self.availableSlavesLabel = Tk.Label(

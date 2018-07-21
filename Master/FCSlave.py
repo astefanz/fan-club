@@ -45,6 +45,7 @@ import threading   # Thread-safe access
 AVAILABLE = -2
 KNOWN = -1
 DISCONNECTED = -3
+BOOTLOADER = -4
 CONNECTED = 1
 
 # SLAVE UPDATE CODES:
@@ -76,6 +77,8 @@ def translate(statusCode, short = False): # ====================================
 		result = "KNOWN"
 	elif statusCode == CONNECTED:
 		result = "CONNECTED"
+	elif statusCode == BOOTLOADER:
+		result = "BOOTLOADER"
 	else:
 		raise ValueError("Slave.translate got nonexistent statusCode! ({})".\
 			format(statusCode))
@@ -311,7 +314,8 @@ class FCSlave:
 		# - Queue.Full if update queue is full.
 
 		# Validate input -------------------------------------------------------
-		if newStatus not in (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE):
+		if newStatus not in \
+			(CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, BOOTLOADER):
 			raise ValueError("Argument 'newStatus' must be valid status code "\
 				"(not {})".format(newStatus))
 
@@ -338,7 +342,7 @@ class FCSlave:
 				self.resetIndices()
 				self._emptyMISOBuffer()
 			
-			elif newStatus == AVAILABLE or newStatus == KNOWN:
+			elif newStatus in (AVAILABLE, KNOWN):
 				# Reset indices and update IP address and port numbers:
 				
 				# Check for missing arguments:
@@ -368,6 +372,9 @@ class FCSlave:
 			elif newStatus == CONNECTED:
 				# When CONNECTED, do not reset indices:
 				pass
+
+			elif newStatus == BOOTLOADER:
+				self.setVersion("Bootloader")
 			
 			else:
 				raise ValueError("SUPPOSEDLY IMPOSSIBLE ERROR: COULD NOT "\

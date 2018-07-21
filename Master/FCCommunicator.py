@@ -154,6 +154,9 @@ class FCCommunicator:
 			self.misoQueueSize = profile[ac.misoQueueSize]
 			self.maxTimeouts = profile[ac.maxTimeouts]
 			self.maxLength = profile[ac.maxLength]
+			self.flashFlag = False
+			self.targetVersion = None
+			self.flashMessage = None
 
 			# Fan array:
 			self.maxFans = profile[ac.maxFans]
@@ -507,17 +510,31 @@ class FCCommunicator:
 
 						elif command[wg.COMMAND] is BOOTLOADER_START:
 							
-							self.printM("Received order to flash version {} \"{}\" "
-								"({} bytes)".format(
+							self.printM("Flash order received:"\
+								"\n\tVersion: {} "\
+								"\n\tFile: \"{}\""\
+								"\n\tSize: {} bytes)".\
+									format(
 										command[wg.VALUE],
 										command[wg.VALUE + 1],
 										command[wg.VALUE + 2]
 									)
 							)
 
+							self.flashFlag = True
+							self.targetVersion = command[wg.VALUE]
+							self.flashMessage = \
+								"U|CT|{}|{}|{}".\
+								format(
+								self.listenerPort,
+								command[wg.VALUE+1],
+								command[wg.VALUE+2]
+							)
+
 						elif command[wg.COMMAND] is BOOTLOADER_STOP:
 
 							self.printM("Received order to stop flashing")
+							self.flashFlag = False
 
 					# Check matrix:
 					matrix = self.mosiMatrixQueue.get_nowait()
@@ -729,11 +746,23 @@ class FCCommunicator:
 							if index is not None :
 								# Slave already recorded
 
+								# Check flashing case:
+								if self.flashFlag and version != \
+									self.targetVersion:
+									# Version mismatch. Send reboot message
+
+									# Send reboot message
+									self.listenerSocket.sendto(
+										bytearray("R|{}".\
+											format(self.passcode),'ascii'),
+										senderAddress
+									)
+
 								# If the index is in the Slave dictionary,
 								# check its status and proceed accordingly:
 
-								if self.slaves[index].getStatus() == \
-									sv.DISCONNECTED:
+								elif self.slaves[index].getStatus() in \
+									(sv.DISCONNECTED, sv.BOOTLOADER):
 									# If the Slave is DISCONNECTED but just res-
 									# ponded to a broadcast, update its status 
 									# for automatic reconnection. (handled by
@@ -831,21 +860,30 @@ class FCCommunicator:
 								messageReceived,senderAddress), "W")
 
 				elif messageSplitted[0][0] == 'B':
-					# This message comes from the Bootloader
-					
+					# This message comes from the Bootloader	
+
 					try:
 						# Check message type:
 
 						if messageSplitted[3] == 'N':
 							# Standard broadcast
-							# TODO: Handle update possibility
+							
+							if not self.flashFlag:
+								# No need to flash. Launch MkII:
+								self.listenerSocket.sendto(
+									bytearray(launchMessage,'ascii'),
+									senderAddress)
+							
+							else:
+								# Flashing in progress. Send flash message:
+								pass
+								
+								"""
+								self.listenerSocket.sendto(
+									bytearray(self.flashMessage,'ascii'),
+									senderAddress)	
+								"""
 
-							self.listenerSocket.sendto(
-								bytearray(launchMessage,'ascii'),
-								senderAddress)
-
-
-				
 						elif messageSplitted[3] == 'E':
 							# Error message
 
@@ -854,7 +892,30 @@ class FCCommunicator:
 									messageSplitted[2], 
 									messageSplitted[3]),
 									'E')
+					
+						# Update Slave status:
+
+						# Search for Slave in self.slaves 
+						index = None
+						mac = messageSplitted[2]
+
+						for slave in self.slaves:
+							if slave.getMAC() == mac:
+								index = slave.getIndex()
+								break
+					
+						if index is not None:
+							# Known Slave. Update status:
+							self.setSlaveStatus(
+								self.slaves[index],sv.BOOTLOADER)
 							
+						else:
+
+							# Send launch message:
+							self.listenerSocket.sendto(
+								bytearray(launchMessage,'ascii'),
+								senderAddress)
+
 					except IndexError:
 						self.printM("Invalid message \"{}\" discarded; "\
 							"sent by {}".format(
@@ -1008,7 +1069,7 @@ class FCCommunicator:
 									# index.
 								break
 
-					elif status > 0: # = = = = = = = = = = = = = = = = = = = 
+					elif status >= sv.CONNECTED: # = = = = = = = = = = = = = = =
 						# If the Slave's state is positive, it is online and 
 						# there is a connection to maintain.
 
@@ -1017,6 +1078,18 @@ class FCCommunicator:
 
 						#DEBUG DEACTV
 						## print "[On positive state]"
+
+						# Check flashing flag:
+						if self.flashFlag and slave.getVersion != \
+							self.targetVersion:
+
+							# If the flashing flag is set and this Slave has 
+							# the wrong version, reboot it
+
+							self._send("R", slave, 1)	
+							self.setSlaveStatus(slave, sv.DISCONNECTED, False)
+
+							continue
 
 						# Check queue for message:
 						fetchedMessage = slave.getMOSI()
@@ -1250,6 +1323,9 @@ class FCCommunicator:
 								# End check timeout counter - - - - - - - - - - 
 
 							# End check reply ---------------------------------
+
+					elif status == sv.BOOTLOADER:
+						pass
 
 					else: # = = = = = = = = = = = = = = = = = = = = = = = = = = 
 						
