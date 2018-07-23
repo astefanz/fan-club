@@ -197,18 +197,59 @@ class FCPRCommunicator(wg.FCWidget):
 				variable = self.checkButtonVar
 			)
 			self.checkButton.pack(side = Tk.LEFT)
+			
 			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X)
 
 			self.frame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			self.widgetContainerFrame = Tk.Frame(
+				self.frame,
+				bg = self.bg
+			)
+			self.widgetContainerFrame.pack(
+				side = Tk.TOP, 
+				fill = Tk.BOTH,
+				expand = True
+			)
 
 			self.widgetFrame = Tk.Frame(
-				self.frame,
+				self.widgetContainerFrame,
 				bg = self.bg
 			)
 			self.widgetFrame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
 
-			self.slaveList = sl.FCCSlaveList(self.widgetFrame)
+			self.slaveListContainerFrame = Tk.Frame(
+				self.widgetFrame,
+				bg = self.bg
+			)
+			self.slaveListContainerFrame.pack(
+				side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
+			self.slaveListFrame = Tk.Frame(
+				self.slaveListContainerFrame,
+				bg = self.bg
+			)
+			self.slaveListFrame.pack(
+				side = Tk.TOP, 
+				fill = Tk.BOTH, 
+				expand = True
+			)
+
+			self.slaveList = sl.FCCSlaveList(self.slaveListFrame)
 			self.slaveList.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			self.listCheckButtonVar = Tk.BooleanVar()
+			self.listCheckButtonVar.set(True)
+			self.listPacked = True
+			self.listCheckButton = Tk.Checkbutton(
+				self.toggleFrame,
+				text = "List",
+				bg = self.bg,
+				fg = self.fg,
+				command = self._toggleList,
+				variable = self.listCheckButtonVar
+			)
+			self.listCheckButton.pack(side = Tk.LEFT)
 
 			self.controlBar = cb.FCCControlBar(
 				self.widgetFrame, 
@@ -220,10 +261,12 @@ class FCPRCommunicator(wg.FCWidget):
 			self.controlBar.setStatus(cm.DISCONNECTED)
 
 			self.statusBar = sb.FCCStatusBar(
-				self.widgetFrame, self.start, self.stop)
+				self.frame, 
+				self.start, 
+				self.stop)
 			self.statusBar.setStatus(cm.DISCONNECTED)
 
-			self.statusBar.pack(fill = Tk.X, expand = False)
+			self.statusBar.pack(side = Tk.TOP, fill = Tk.X, expand = False)
 
 		except Exception as e: # Print uncaught exceptions
 			self._printM("UNHANDLED EXCEPTION IN FCPRCommunicator __init__: "\
@@ -306,9 +349,23 @@ class FCPRCommunicator(wg.FCWidget):
 
 		elif not self.checkButtonVar.get() and self.packed:
 			self.widgetFrame.pack_forget()
+			self.widgetContainerFrame.config(height = 1)
 			self.packed = False
 
 		# End _toggle ==========================================================
+
+	def _toggleList(self, event = None): # =====================================
+		
+		if self.listCheckButtonVar.get() and not self.listPacked:
+			self.slaveListFrame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			self.listPacked = True
+
+		elif not self.listCheckButtonVar.get() and self.listPacked:
+			self.slaveListFrame.pack_forget()
+			self.slaveListContainerFrame.config(height = 1)
+			self.listPacked = False
+
+		# End _toggleList ======================================================
 
 	def _updateMethod(self): # =================================================
 
