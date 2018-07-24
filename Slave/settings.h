@@ -23,6 +23,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#define JPL
+
 
 //// ABOUT /////////////////////////////////////////////////////////////////////
 // This file defines global settings (constant values) so  they  may  be  easily

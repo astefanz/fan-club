@@ -68,8 +68,10 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	dataIndex(0),  
 	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	led(LED2),
+	#ifndef JPL
 	xled(D4),
 	psuOff(D9),
+	#endif
 	inFlag(false), outFlag(false)
 	{
     /* ABOUT: Constructor for class Processor. Starts processor thread.
@@ -344,7 +346,9 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
                 // Solid blue
             this->blinker.detach();
 			this->_setLED(ON);
+			#ifndef JPL
 			this->psuOff.write(false);
+			#endif
 
             break;
 
@@ -356,7 +360,9 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
             // Update LED blinking:
                 // LED off
             this->blinker.detach();
+			#ifndef JPL
 			this->psuOff.write(true);
+			#endif
             this->_setLED(OFF);
 
 			// Reset data index:
@@ -804,17 +810,23 @@ void Processor::_setLED(int state){ // // // // // // // // // // // // // // /.
 		case TOGGLE:
 			// Alternate value of LED:
 			this->led = !this->led;
+			#ifndef JPL
 			this->xled = this->led;
+			#endif
 			break;
 		
 		case ON:
 			this->led = true;
+			#ifndef JPL
 			this->xled = true;
+			#endif
 			break;
 
 		case OFF:
 			this->led = false;
+			#ifndef JPL
 			this->xled = false;
+			#endif
 			break;
 	}
 } // End _setLED // // // // // // // // // // // // // // // // // // // // // 
@@ -825,5 +837,7 @@ void Processor::_blinkLED(void){ // // // // // // // // // // // // // // // //
 	
 	// Alternate value of LED:
 	this->led = !this->led;
+	#ifndef JPL
 	this->xled = this->led;
+	#endif
 } // End _blinkLED // // // // // // // // // // // // // // // // // // // // 

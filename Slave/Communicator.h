@@ -247,7 +247,14 @@ private:
 			listenerSocketLock,
 			passcodeLock;
 
-    DigitalOut red, xred, green, xgreen;
+    DigitalOut 
+		red, 
+	 	green
+		#ifndef JPL 
+		,xred,
+		xgreen
+		#endif
+		;
         // Use red and green LED's to convey connection status
     
 };

@@ -130,7 +130,12 @@ private:
     
 	// STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
-    DigitalOut led, xled, psuOff;    // Access to blue LED
+    DigitalOut led 
+		#ifndef JPL
+		,xled, psuOff;    // Access to blue LED
+		#else
+		;
+		#endif
     Ticker blinker;     // Used to blink blue LED for status    
 	Mutex threadLock;
     // PROCESS DATA ------------------------------------------------------------

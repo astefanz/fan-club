@@ -64,7 +64,12 @@ Communicator::Communicator(const char version[]):processor(),
 	listenerThread(osPriorityNormal,16 * 1024 /*16K stack size*/),
 	misoThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
 	mosiThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
-	red(LED3), xred(D3), green(LED1), xgreen(D5)
+	red(LED3), 
+	#ifndef JPL
+	xred(D3), 
+	xgreen(D5),
+	#endif 
+	green(LED1) 	
 	{ // // // // // // // // // // // // // // // // // // // // // // // // //
 	/* ABOUT: Constructor for class Communicator. Starts networking threads.
 	 * PARAMETERS:
@@ -1406,17 +1411,23 @@ void Communicator::_setRed(int state){ // // // // // // // // // // // // // //
 		
 		case L_TOGGLE:
 			this->red = !this->red;
+			#ifndef JPL
 			this->xred = this->red;
+			#endif
 			break;
 
 		case L_ON:
 			this->red = true;
+			#ifndef JPL
 			this->xred = true;
+			#endif
 			break;
 
 		case L_OFF:
 			this->red = false;
+			#ifndef JPL
 			this->xred = false;
+			#endif
 			break;
 	}
 
@@ -1430,17 +1441,23 @@ void Communicator::_setGreen(int state){ // // // // // // // // // // // // //
 		
 		case L_TOGGLE:
 			this->green = !this->green;
+			#ifndef JPL
 			this->xgreen = this->green;
+			#endif
 			break;
 
 		case L_ON:
 			this->green = true;
+			#ifndef JPL
 			this->xgreen = true;
+			#endif
 			break;
 
 		case L_OFF:
 			this->green = false;
+			#ifndef JPL
 			this->xgreen = false;
+			#endif
 			break;
 
 	}
@@ -1451,7 +1468,9 @@ void Communicator::_blinkRed(void){ // // // // // // // // // // // // // // //
 	 */
 
 	this->red = !this->red;
+	#ifndef JPL
 	this->xred = !this->xred;
+	#endif
 
 } // End Communicator::_blinkRed // // // // // // // // // // // // // // // //
 
@@ -1460,6 +1479,8 @@ void Communicator::_blinkGreen(void){ // // // // // // // // // // // // // // 
 	 */
 
 	this->green = !this->green;
+	#ifndef JPL
 	this->xgreen = !this->xgreen;
+	#endif
 
 } // End Communicator::_blinkGreen // // // // // // // // // // // // // // // //

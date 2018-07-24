@@ -195,7 +195,7 @@ bool Fan::configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
 
     this->pwmPin = new FastPWM(pwmPin);
  	this->frequencyHZ = frequencyHZ;
-    (*this->pwmPin).period_us(double(1000000/this->frequencyHZ));
+    (*this->pwmPin).period_us(int(1000000/this->frequencyHZ));
     this->tachPin = new PinName(tachPin);
 	this->counterCounts = counterCounts;
 	this->pulsesPerRotation = pulsesPerRotation;

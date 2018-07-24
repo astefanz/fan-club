@@ -20,10 +20,6 @@
 // Alejandro A. Stefan Zavala // <alestefanz@hotmail.com> //                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCMKII_VERSION "SV4c" // Letter for bootloader testing
-// Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
-// PwmOut
-
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * ABOUT: This is the main file of the second major  release  of  the  Fanclub *
@@ -41,6 +37,13 @@
 #include "settings.h" // Global settings for FCMKII
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
+
+#ifdef JPL
+#define FCMKII_VERSION "SV4.1c-j4" // Letter for bootloader testing
+#endif
+// Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
+// PwmOut
+
 
 // Memory analytics ------------------------------------------------------------
 #include "mbed_stats.h"
