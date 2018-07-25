@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "GBT1"
+#define FCIIB_VERSION "GBT2"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -131,7 +131,7 @@ void _storeFragment(const char buffer[], size_t size);
 
 // Network ---------------------------------------------------------------------
 void sendError(const char message[], size_t length);	
-//void _watchConnection(void);
+void _watchConnection(void);
 
 //// MAIN //////////////////////////////////////////////////////////////////////
 int main() {
@@ -422,9 +422,9 @@ int main() {
 					printf("\n\rUpdating\n\r");
 					
 					// Start sentinel thread in case of mid-flash disconnection:
-					//printf("\n\rActivating connection sentinel thread:");
-					//connectionSentinel.set_priority(osPriorityBelowNormal);
-					//connectionSentinel.start(_watchConnection);
+					printf("\n\rActivating connection sentinel thread:");
+					connectionSentinel.set_priority(osPriorityBelowNormal);
+					connectionSentinel.start(_watchConnection);
 					printf("\n\r\tDone");
 					// Download file -------------------------------------------
 						
@@ -464,19 +464,6 @@ int main() {
 					delete req;
 					printf("\n\rDownload successful");
 					
-					// Deactivate sentinel thread:
-					// (Even if there is a disconnection, we do not want the
-					// flashing to the actual application memory to be cut
-					// short)
-					/*
-					printf("\n\rDeactivating connection sentinel thread:");
-					watchFlagLock.lock();
-					watchFlag = false;
-					watchFlagLock.unlock();
-					connectionSentinel.join();
-					printf("\n\r\tDone");
-					*/
-					BTUtils::setLED(BTUtils::RED, BTUtils::ON);
 	
 					// Flash file ----------------------------------------------
 					printf("\n\rFlashing file");
@@ -497,12 +484,25 @@ int main() {
 					}
 
 					BTFlash::flashIAP.deinit();
+					
+					// Deactivate sentinel thread:
+					// (Even if there is a disconnection, we do not want the
+					// flashing to the actual application memory to be cut
+					// short)
+					printf("\n\rDeactivating connection sentinel thread:");
+					watchFlagLock.lock();
+					watchFlag = false;
+					watchFlagLock.unlock();
+					connectionSentinel.join();
+					printf("\n\r\tDone");
+					
 
 					printf("\n\rDeactivating network interface and UDP Socket");
 					listenerSocket.close();
 					ethernet->disconnect();
 					printf("\n\r\tDone");
 
+					BTUtils::setLED(BTUtils::RED, BTUtils::ON);
 					// Jump to MkII --------------------------------------------
 					BTUtils::launch();
 					break;
@@ -772,11 +772,11 @@ void sendError(const char message[], size_t length){
 	return;
 
 } // End sendError
-/*
+
 void _watchConnection(void){
-	// Check connection status in case of mid-flash disconnect
+	// Check connection in case of mid-flash disconnect or Reboot command
 	bool keepWatching = true;
-	nsapi_connection_status_t status;
+	char mosiBuffer[BUFFER_SIZE] = {0};
 
 	while(keepWatching){
 		// Check flag:
@@ -784,18 +784,81 @@ void _watchConnection(void){
 		keepWatching = watchFlag;
 		watchFlagLock.unlock();
 	
-		status = ethernet->get_connection_status();
+		// Listen for broadcast:
+		int result = listenerSocket.recvfrom(
+			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE); 
 
-		if(status != NSAPI_STATUS_GLOBAL_UP and
-			status != NSAPI_STATUS_LOCAL_UP){
+		// Check for errors:
+		if (result == NSAPI_ERROR_WOULD_BLOCK){
+			// Timed out
+			// Check network status
 			
-			printf("\n\r[ETH ERROR]\n\r");
+			nsapi_connection_status_t cstatus = 
+				ethernet->get_connection_status();
+			switch(cstatus){
+				case NSAPI_STATUS_GLOBAL_UP:
+					// Timeout. Ignore
+					break;
+
+				case NSAPI_STATUS_LOCAL_UP:
+					// Timeout. Ignore
+					break;
+
+				case NSAPI_STATUS_DISCONNECTED:
+					printf("\n\r[W] ERROR: DISCONNECTED FROM NETWORK\n\r");
+					BTUtils::fatal();
+					break;
+
+				default:
+					printf("\n\r[W] ERROR: UNRECOGNIZED NETWORK STATUS CODE %d",
+						cstatus);
+			}
+		} else if (result <= 0){
+			// Network error
+			printf("\n\r\t[W] ERROR: SOCKET ERR. CODE %d\n\r", result);
 			BTUtils::fatal();
-		} 
+			break;
+		
+		} else {
+			// Message received. Check for reboot
+			
+			// Prepare placeholders for (potential) parsing:
+			char *splitPointer = NULL, *savePointer = NULL;
+
+			
+			mosiBuffer[result < BUFFER_SIZE? result:BUFFER_SIZE-1] = '\0';
+			if(mosiBuffer[0] == SHUTDOWN_COMMAND){
+				// Check for nonempty passcode:					
+				strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
+				splitPointer = 
+					strtok_r(NULL, "|", &savePointer); // Point to passcode
+			
+				if(strlen(splitPointer) > 0){
+					// Nonempty passcode. Proceed to reboot
+					printf("\n\rShutdown order received");
+					BTUtils::reboot();
+				} else {
+					// Invalid message
+					printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+						splitPointer);
+					continue;
+				}
+				break;	
+			
+			}
+
+			else{
+				// Ignore all other messages
+				continue;
+			}
+			
+
+
+		}
 
 		BTUtils::setLED(BTUtils::RED, BTUtils::TOGGLE);
 		Thread::wait(0.5);
 	}
 
 } // End _watchConnection
-*/
+

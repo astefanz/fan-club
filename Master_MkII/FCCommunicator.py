@@ -38,7 +38,10 @@ import thread		# thread.error
 import sys			# Exception handling
 import traceback	# More exception handling
 import random		# Random names, boy
-import resource		# Socket limit
+import platform # Get OS and Python version
+
+if platform.system() != 'Windows':
+	import resource		# Socket limit
 
 # Data:
 import time			# Timing
@@ -135,6 +138,8 @@ class FCCommunicator:
 
 			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
+			
+			self.printM("Detected platform: \"{}\"".format(platform.system()))
 
 			# Create a temporary socket to obtain Master's IP address:
 			temp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -143,11 +148,17 @@ class FCCommunicator:
 			temp.close()
 			
 			self.printM("\tHost IP: {}".format(self.hostIP))
-			
-			# Use resource library to get OS to give extra sockets, for good
-			# measure:
-			resource.setrlimit(resource.RLIMIT_NOFILE, 
-				(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+		
+			if platform.system() != 'Windows':
+				# Use resource library to get OS to give extra sockets, for good
+				# measure:
+				
+				self.printM(
+					"NOTE: Socket limit increased using \"resource\"",'W')
+
+				resource.setrlimit(resource.RLIMIT_NOFILE, 
+					(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+
 			
 			# INITIALIZE MASTER SOCKETS ========================================
 

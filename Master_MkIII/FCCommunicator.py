@@ -38,10 +38,13 @@ import socketserver	# For bootloader
 import sys			# Exception handling
 import traceback	# More exception handling
 import random		# Random names, boy
-import resource		# Socket limit
 import threading	# Multitasking
 import _thread		# thread.error
 import multiprocessing # The big guns
+import platform # Check OS and Python version
+
+if platform.system() != 'Windows':
+	import resource		# Socket limit
 
 # Data:
 import time			# Timing
@@ -204,11 +207,17 @@ class FCCommunicator:
 			
 			self.printM("\tHost IP: {}".format(self.hostIP))
 			"""
+			self.printM("\tDetected platform: {}".format(platform.system()))
 
-			# Use resource library to get OS to give extra sockets, for good
-			# measure:
-			resource.setrlimit(resource.RLIMIT_NOFILE, 
-				(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+			if platform.system() != 'Windows':
+
+				self.printM(
+					"\tNOTE: Increasing socket limit w/ \"resource\"",'W')
+
+				# Use resource library to get OS to give extra sockets, for good
+				# measure:
+				resource.setrlimit(resource.RLIMIT_NOFILE, 
+					(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
 			
 			# INITIALIZE MASTER SOCKETS ========================================
 
