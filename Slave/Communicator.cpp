@@ -1141,14 +1141,14 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 					BLINK_FAST);
 		
 				// Shut down Processor:
-				this->processor.setStatus(L_OFF);	
+				this->processor.setStatus(OFF);	
 					
 				// Notify user:
 				pl;printf("\n\r[%08dms][S] Status: NO_NETWORK", tm);pu;    
 			   
-				pl;printf("\n\r[%08dms][S][REDN] Status: NO_NETWORK", tm);pu;	 
+				//pl;printf("\n\r[%08dms][S][REDN] Status: NO_NETWORK", tm);pu;	 
 				// Give system time to print:
-				wait_ms(1);
+				wait_ms(2000);
 
 				// Reboot:
 				NVIC_SystemReset();

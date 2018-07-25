@@ -63,11 +63,11 @@ class LiveTableWidget(Tk.Frame):
 
 	def __init__(self, 
 		profile,
-		numSlaves,
 		updatePipeOut,
 		misoMatrixPipeOut,
 		commandQueue,
-		printQueue
+		printQueue,
+		numSlaves
 		): # ===================================================================
 
 		Tk.Frame.__init__(self)
@@ -331,7 +331,7 @@ class LiveTableWidget(Tk.Frame):
 		self.specialColumns = len(self.columns)
 
 		self.zeroes = ()
-		for fanNumber in range(maxFans):
+		for fanNumber in range(self.maxFans):
 			self.columns += ("Fan {}".format(fanNumber+1),)
 			self.zeroes += (0,)
 
@@ -414,7 +414,7 @@ class LiveTableWidget(Tk.Frame):
 							tag = "N"
 					)
 
-				self.numSlaves += 1
+					self.numSlaves += 1
 
 			# Now update RPMS:
 			for index, matrixRow in enumerate(matrix):
@@ -803,12 +803,11 @@ def _liveTableRoutine(
 
 		lt = LiveTableWidget(
 			profile = profile,
-			numSlaves = len(profile[ac.savedSlaves]),
-			maxFans = profile[ac.maxFans],
 			updatePipeOut = updatePipeOut,
 			misoMatrixPipeOut = misoMatrixPipeOut,
 			commandQueue = commandQueue,
-			printQueue = printQueue
+			printQueue = printQueue,
+			numSlaves = len(profile[ac.savedSlaves]),
 		)
 
 
@@ -854,6 +853,13 @@ class LiveTable(wg.FCWidget):
 
 			except:
 				ep.errorPopup()
+
+			"""
+			# Slave list data structure:
+			self.slaves = []
+			for index, slave in self.profile[ac.savedSlaves]:
+				self.slaves.append((index, slave[1]))
+			"""
 
 			self.statusToSTR = {
 				wg.ACTIVE : "Deactivate Live Table",	
