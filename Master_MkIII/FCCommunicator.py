@@ -42,8 +42,10 @@ import threading	# Multitasking
 import _thread		# thread.error
 import multiprocessing # The big guns
 import platform # Check OS and Python version
+import os # Check os compatibility
 
 if platform.system() != 'Windows':
+	print ("Platform not Windows but \"{}\"".format(platform.system()))
 	import resource		# Socket limit
 
 # Data:
@@ -317,10 +319,18 @@ class FCCommunicator:
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			self.httpd = socketserver.ForkingTCPServer(
-				("", 0), 
-				self.flashHTTPHandler
-			)
+			if hasattr(os, 'fork'):
+				self.httpd = socketserver.ForkingTCPServer(
+					("", 0), 
+					self.flashHTTPHandler
+				)
+			else:
+				self.httpd = socketserver.ThreadingTCPServer(
+					("", 0), 
+					self.flashHTTPHandler
+				)
+				
+
 
 			self.httpd.socket.setsockopt(
 				socket.SOL_SOCKET, 

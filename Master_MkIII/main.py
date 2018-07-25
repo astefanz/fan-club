@@ -34,37 +34,38 @@ import FCPRCommunicator as cr
 import auxiliary.errorPopup as ep
 #### MAIN ######################################################################       
 
-print((">>> FCMkII Started on {}".format(time.strftime(
-	"%a %d %b %Y %H:%M:%S", time.localtime()))))
-"""
-# Backup original AutoProxy function
-backup_autoproxy = mp.managers.AutoProxy
+if __name__ == '__main__':
+	print((">>> FCMkII Started on {}".format(time.strftime(
+		"%a %d %b %Y %H:%M:%S", time.localtime()))))
+	"""
+	# Backup original AutoProxy function
+	backup_autoproxy = mp.managers.AutoProxy
 
-# Defining a new AutoProxy that handles unwanted key argument 'manager_owned'
-def redefined_autoproxy(token, serializer, manager=None, authkey=None,
-          exposed=None, incref=True, manager_owned=True):
-    # Calling original AutoProxy without the unwanted key argument
-    return backup_autoproxy(token, serializer, manager, authkey,
-                     exposed, incref)
+	# Defining a new AutoProxy that handles unwanted key argument 'manager_owned'
+	def redefined_autoproxy(token, serializer, manager=None, authkey=None,
+			  exposed=None, incref=True, manager_owned=True):
+		# Calling original AutoProxy without the unwanted key argument
+		return backup_autoproxy(token, serializer, manager, authkey,
+						 exposed, incref)
 
-# Updating AutoProxy definition in mp.managers package
-mp.managers.AutoProxy = redefined_autoproxy
-"""
-try:
+	# Updating AutoProxy definition in mp.managers package
+	mp.managers.AutoProxy = redefined_autoproxy
+	"""
+	try:
 
-	manager = mp.Manager()
-	
-	commandQueue = manager.Queue()
-	misoMatrixQueue  = manager.Queue()
-	printQueue = manager.Queue()
-	spawnQueue = manager.Queue()	
+		manager = mp.Manager()
+		
+		commandQueue = manager.Queue()
+		misoMatrixQueue  = manager.Queue()
+		printQueue = manager.Queue()
+		spawnQueue = manager.Queue()	
 
-	spawner = sw.FCSpawner(commandQueue, misoMatrixQueue, spawnQueue, printQueue)
-	interface = mw.FCMainWindow(VERSION, commandQueue, misoMatrixQueue, spawnQueue, printQueue) 
-	interface.mainloop()
-	spawner.end()
-except:
-	ep.errorPopup("UNHANDLED EXCEPTION AT FCMAIN: ")	
+		spawner = sw.FCSpawner(commandQueue, misoMatrixQueue, spawnQueue, printQueue)
+		interface = mw.FCMainWindow(VERSION, commandQueue, misoMatrixQueue, spawnQueue, printQueue) 
+		interface.mainloop()
+		spawner.end()
+	except:
+		ep.errorPopup("UNHANDLED EXCEPTION AT FCMAIN: ")	
 
-print((">>> FCMkII Ended on {}\n".format(time.strftime(
-	"%a %d %b %Y %H:%M:%S", time.localtime()))))
+	print((">>> FCMkII Ended on {}\n".format(time.strftime(
+		"%a %d %b %Y %H:%M:%S", time.localtime()))))

@@ -37,7 +37,6 @@ import tkinter as Tk
 import sys			# Exception handling
 import traceback	# More exception handling
 import random		# Random names, boy
-import resource		# Socket limit
 import threading	# Multitasking
 import _thread		# thread.error
 import multiprocessing as pr # The big guns
