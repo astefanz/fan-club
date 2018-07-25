@@ -36,14 +36,15 @@ namespace BTUtils{
 
 //// GLOBAL ACCESS /////////////////////////////////////////////////////////////
 
-enum LedCode {RED = 0, MID, GREEN, ALL};
+enum LedCode {RED = 0, MID, /*GREEN,*/ ALL};
+// NOTE: GREEN (D5, i.e. PE_11) conflicts w/ JPL pinout
 enum LedValue {ON, OFF, TOGGLE};
 
 // LED's:
 
-DigitalOut leds[2][3] = 
-	{{DigitalOut(LED3), DigitalOut(LED2), DigitalOut(LED3)},
-	 {DigitalOut(D3), DigitalOut(D4), DigitalOut(D5)}};
+DigitalOut leds[2][2] = 
+	{{DigitalOut(LED3), DigitalOut(LED2)/*, DigitalOut(LED3)*/},
+	 {DigitalOut(PE_13), DigitalOut(PF_14)/*, DigitalOut(D5)*/}};
 
 
 //// AUXILIARY FUNCTIONS ///////////////////////////////////////////////////////
@@ -61,18 +62,14 @@ void reboot(void){
 void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 	
 	if(led == ALL){
-		for(int i = 0; i < 3; i++){
+		for(int i = 0; i < 2; i++){
 			leds[0][i] = value == TOGGLE? !leds[0][i] : value == ON;
-			#ifndef JPL
 			leds[1][i] = leds[0][i];
-			#endif
 		}
 	} else {
 		
 		leds[0][led] = value == TOGGLE? !leds[0][led] : value == ON;
-		#ifndef JPL
 		leds[1][led] = leds[0][led];
-		#endif
 	
 	} return;
 
@@ -81,9 +78,7 @@ void setLED(LedCode led = ALL, LedValue value = TOGGLE){
 void blinkMID(void){
 
 	leds[0][MID] = !leds[0][MID];
-	#ifndef JPL
 	leds[1][MID] = leds[0][MID];
-	#endif
 
 } // End blinkMID
 

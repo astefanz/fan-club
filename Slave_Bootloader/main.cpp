@@ -20,11 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define JPL
-
-#ifdef JPL
-#define FCIIB_VERSION "BT3-j3"
-#endif
+#define FCIIB_VERSION "GBT1"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -144,14 +140,13 @@ int main() {
 
 	BTUtils::setLED(BTUtils::RED, BTUtils::ON);
 
+	/*
 	// Optional PSU pin:
 	// 	NOTE: Setting D9 to high will set PWM pin PD_15 (not present in all 
 	//	pinouts) to high.
-	
-	#ifndef JPL
 	DigitalOut PSU_off(D9);
 	PSU_off.write(true);
-	#endif
+	*/
 
 	// Prepare Serial communications:
 	Serial PC(USBTX, USBRX, BAUDRATE);

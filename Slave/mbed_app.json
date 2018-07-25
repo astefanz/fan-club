@@ -3,7 +3,7 @@
 		
 		"NUCLEO_F429ZI":{
 			"target.bootloader_img":
-				"../Slave_Bootloader/BUILD/NUCLEO_F429ZI/GCC_ARM/Bootloader.bin"
+				"../Slave_Bootloader/BUILD/NUCLEO_F429ZI/GCC_ARM/Slave_Bootloader.bin"
 		}
 	
 	}
