@@ -702,11 +702,13 @@ class FCCControlBar(Tk.Frame, object):
 				self.chosenFileEntry.config(state = Tk.DISABLED)
 				self.fileChooserButton.config(state = Tk.DISABLED)
 				self.versionNameEntry.config(state = Tk.DISABLED)
-
+				
+				"""
 				self.notebook.tab(
 					0,
 					state = Tk.DISABLED
 				)
+				"""
 
 				self.notebook.tab(
 					1,

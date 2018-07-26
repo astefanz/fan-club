@@ -42,10 +42,8 @@ import threading	# Multitasking
 import _thread		# thread.error
 import multiprocessing # The big guns
 import platform # Check OS and Python version
-import os # Check os compatibility
 
 if platform.system() != 'Windows':
-	print ("Platform not Windows but \"{}\"".format(platform.system()))
 	import resource		# Socket limit
 
 # Data:
@@ -319,18 +317,10 @@ class FCCommunicator:
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			if hasattr(os, 'fork'):
-				self.httpd = socketserver.ForkingTCPServer(
-					("", 0), 
-					self.flashHTTPHandler
-				)
-			else:
-				self.httpd = socketserver.ThreadingTCPServer(
-					("", 0), 
-					self.flashHTTPHandler
-				)
-				
-
+			self.httpd = socketserver.ForkingTCPServer(
+				("", 0), 
+				self.flashHTTPHandler
+			)
 
 			self.httpd.socket.setsockopt(
 				socket.SOL_SOCKET, 
@@ -505,8 +495,7 @@ class FCCommunicator:
 							if command[wg.VALUE] == ALL:
 								self.sendReboot()
 							else:
-								self.slaves[command[wg.VALUE]].\
-									setMOSI((MOSI_REBOOT,),False)
+								self.sendReboot(self.slaves[command[wg.VALUE]])
 
 						elif command[wg.COMMAND] is wg.STOP:
 							self.stop()
@@ -1028,8 +1017,8 @@ class FCCommunicator:
 			# Assign sockets:
 			slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
 
-			self.printM("[{:3d}] Slave thread connected: \
-			 MMISO: {} MMOSI:{}".\
+			self.printM("[SV] {:3d} Slave sockets connected: "\
+			 " MMISO: {} MMOSI:{}".\
 				format(targetIndex + 1,
 					slave._misoSocket().getsockname()[1], 
 					slave._mosiSocket().getsockname()[1]))
@@ -1064,12 +1053,12 @@ class FCCommunicator:
 			message = "P"
 			tryBuffer = True
 
-			# TEMP. DEBUG:
-			timestampedRPMFirst = False
-			timestampedDCFirst = False
-			
+			failedHSKs = 0
+
+
 			# Slave loop =======================================================
 			while(True):
+				
 				time.sleep(periodS)
 				try:
 
@@ -1085,11 +1074,13 @@ class FCCommunicator:
 
 						# Check for signs of life w/ HSK message:
 						self._send(MHSK, slave, 2, True)
-
+						
+						"""	
 						# Give time to process:
 						time.sleep(periodS)
+						"""
 
-						secondChance = True
+						tries = 2
 						while True:
 							
 							# Try to receive reply:
@@ -1114,13 +1105,14 @@ class FCCommunicator:
 								# HSK acknowledged, give Slave time
 								continue
 							
-							elif secondChance:
+							elif tries > 0:
 								# Try again:
 								self._send(MHSK, slave, 1, True)
-								secondChance = False
+								tries -= 1
 							
-							else:
-								self._send("R", slave, 1)
+							elif failedHSKs is 0:
+								# Disconnect Slave:
+								self._send("X", slave, 2)
 								#slave.setStatus(sv.DISCONNECTED, lock = False) 
 							
 								self.setSlaveStatus(
@@ -1128,6 +1120,67 @@ class FCCommunicator:
 									# NOTE: This call also resets exchange 
 									# index.
 								break
+
+							else:
+								# Something's wrong. Reset sockets.
+								self.printM("Resetting sockets for {} ({})".\
+									format(slave.getMAC(), targetIndex + 1), 
+									'W'
+								)
+							
+							# MISO:
+							slave._misoSocket().close()
+							
+							misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+							misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+							misoS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+							misoS.settimeout(self.periodS*2)
+							misoS.bind(('', 0))
+
+							# MOSI:
+							slave._misoSocket().close()
+							
+							mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+							mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+							mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+							mosiS.settimeout(self.periodS)
+							mosiS.bind(('', 0))
+							
+							# Assign sockets:
+							slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
+
+							self.printM("[SV] {:3d} Slave sockets re-connected:"\
+							 " MMISO: {} MMOSI:{}".\
+								format(targetIndex + 1,
+									slave._misoSocket().getsockname()[1], 
+									slave._mosiSocket().getsockname()[1]))
+
+							# HSK message ------------------------------------------------------
+
+							MHSK = "H|{},{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
+										slave._misoSocket().getsockname()[1], 
+										slave._mosiSocket().getsockname()[1], 
+										self.periodMS,
+										self.broadcastPeriodS*1000,
+										self.maxTimeouts,
+
+										self.fanMode,
+										self.maxFans,
+										self.fanFrequencyHZ,
+										self.counterCounts,
+										self.pulsesPerRotation,
+										self.maxRPM,
+										self.minRPM,
+										self.minDC,
+										self.chaserTolerance,
+										self.maxFanTimeouts,
+										self.pinout)
+							
+
+							# Reset counter:
+							failedHSKs = 0
+								
+							continue
 
 					elif status >= sv.CONNECTED: # = = = = = = = = = = = = = = =
 						# If the Slave's state is positive, it is online and 
@@ -1211,7 +1264,7 @@ class FCCommunicator:
 							self._send(message, slave, 2)
 
 						elif fetchedMessage[0] == MOSI_DISCONNECT:
-							self.sendToListener("X", slave, 2)
+							self._sendToListener("X", slave, 2)
 
 						elif fetchedMessage[0] == MOSI_REBOOT:
 							self._sendToListener("R", slave, 2)
@@ -1283,7 +1336,7 @@ class FCCommunicator:
 								# Reset MISO index
 								
 								slave.setMISOIndex(0)
-								self.printM("[{}] MISO Index reset".format(
+								self.printM("[SV] {} MISO Index reset".format(
 									slave.getMAC()))
 
 							elif reply[1] == 'P':
@@ -1307,8 +1360,8 @@ class FCCommunicator:
 							elif reply[1] == 'E':
 								# Error report
 
-								self.printM("[{}] ERROR: \"{}\"".format(
-									slave.getMAC(), reply[2]), "E")
+								self.printM("[SV] {:3d} ERROR: \"{}\"".format(
+									targetIndex + 1, reply[2]), "E")
 
 							elif reply[1] == 'Q':
 								# Ping reply. Pass
@@ -1317,9 +1370,9 @@ class FCCommunicator:
 							else:
 								# Unrecognized command
 
-								self.printM("[{}] Warning, unrecognized "\
+								self.printM("[SV] {:3d} Warning, unrecognized "\
 									"message: \"{}\"".format(
-										slave.getMAC(), reply), "W")
+										targetIndex + 1, reply), "W")
 
 						else:
 							timeouts += 1
@@ -1358,7 +1411,7 @@ class FCCommunicator:
 								tryBuffer = False
 
 							else:
-								self.printM("[{}] Slave timed out".\
+								self.printM("[SV] {} Slave timed out".\
 									format(targetIndex + 1), "W")
 
 								# Terminate connection: ........................
@@ -1746,15 +1799,33 @@ class FCCommunicator:
 
 		# End isListenerThreadAlive ============================================
 	
-	def sendReboot(self): # ====================================================
+	def sendReboot(self, target = None): # =====================================
 		# ABOUT: Use broadcast socket to send a general "disconnect" message
 		# that terminates any existing connection.
 
 		try:
 			#self.broadcastLock.acquire()
-			self.rebootSocket.sendto(
-				bytearray("R|{}".format(self.passcode),'ascii'),
-				("<broadcast>", self.broadcastPort))
+			if target is None:
+				# General broadcast
+				self.rebootSocket.sendto(
+					bytearray("R|{}".format(self.passcode),'ascii'),
+					("<broadcast>", self.broadcastPort))
+
+			elif target.getIP() is not None:
+				# Targetted broadcast w/ valid IP: 
+				self.rebootSocket.sendto(
+					bytearray("R|{}".format(self.passcode),'ascii'),
+					(target.getIP(), self.broadcastPort))
+
+			else:
+				# Targetted broadcast w/o IP (use MAC):
+				self.rebootSocket.sendto(
+					bytearray("r|{}|{}".format(self.passcode, target.getMAC()),
+						'ascii'
+					),
+					("<broadcast>", self.broadcastPort)	
+				)
+							
 
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".

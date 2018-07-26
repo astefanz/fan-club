@@ -82,10 +82,21 @@ class Terminal(Tk.Frame): # ====================================================
 			self.checkButton.pack(side = Tk.LEFT)
 			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X)
 
-			self.mainTerminal = Tk.Frame(self,
-				bg = self.background, relief = Tk.SUNKEN, borderwidth = 3)
+			self.mainTerminalContainer = Tk.Frame(
+				self,
+				bg = 'red',
+				relief = Tk.SUNKEN,
+				bd = 3
+			)
+			self.mainTerminalContainer.pack(fill = Tk.BOTH, expand = True)
 			
-			self.mainTerminal.pack(fill = Tk.BOTH, expand = True)
+			self.mainTerminal = Tk.Frame(
+				self.mainTerminalContainer,
+				bg = self.background
+			)
+			
+			self.mainTerminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+
 			self.mainTLock = threading.Lock()
 			self.mainTText = Tk.Text(self.mainTerminal, 
 				fg = "#424242", bg=self.background, font = ('TkFixedFont'),
@@ -292,13 +303,14 @@ class Terminal(Tk.Frame): # ====================================================
 
 		if self.checkButtonVar.get() or force is True:
 			# Show terminal
-			self.mainTerminal.pack(fill = Tk.BOTH, expand = True)
+			self.mainTerminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
 			self.checkButtonVar.set(True)
 			self.packed = True
 
 		elif not self.checkButtonVar.get() or force is False:
 			# Hide terminal
 			self.mainTerminal.pack_forget()
+			self.mainTerminalContainer.config(height = 1)
 			self.checkButtonVar.set(False)
 			self.packed = False
 

@@ -73,12 +73,20 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.background = "#d3d3d3"
 			self.foreground = "black"
 			self.config(
-				bg = self.background, relief = Tk.SUNKEN, borderwidth = 2)
+				#bg = self.background, 
+				bg = 'blue',
+				relief = Tk.SUNKEN,
+				borderwidth = 2
+			)
 		
 			# BUILD ------------------------------------------------------------
+			
 			# Create list:
-			self.slaveList = tkinter.ttk.Treeview(self, 
-				selectmode="extended")
+			self.slaveList = tkinter.ttk.Treeview(
+				self, 
+				selectmode="extended",
+				height = 5
+			)
 			self.slaveList["columns"] = \
 				("Index","MAC","Status","Fans", "Version")
 
@@ -145,7 +153,8 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			# DATA -------------------------------------------------------------
 			self.slaves = {}
 			self.numSlaves = 0
-
+			
+			#self.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
 		
 		except Exception as e: # Print uncaught exceptions
