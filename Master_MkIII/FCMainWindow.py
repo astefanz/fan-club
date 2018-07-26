@@ -115,12 +115,26 @@ class FCMainWindow(Tk.Frame):
 			# CREATE COMPONENTS = = = = = = = = = = = = = = = = = = = = = = = = 
 
 			# MAIN FRAME -------------------------------------------------------
-			self.main = Tk.Frame(self)
-			self.main.pack(fill = Tk.BOTH, expand = True)
+			self.main = Tk.Frame(self, bg = 'darkgray')
+			self.main.pack(fill = Tk.BOTH, expand = True, anchor = 'n')
+			self.gridRows = 0
+			self.gridColumns = 0
+			self.main.grid_columnconfigure(self.gridColumns, weight = 1)
 
 			# TOOLS ------------------------------------------------------------
-			self.toolFrame = Tk.Frame(self.main,
-				bg = self.background, relief = Tk.GROOVE, bd = 1) 
+			self.toolFrame = Tk.Frame(
+				self.main,
+				bg = self.background, 
+				relief = Tk.GROOVE, 
+				bd = 1
+			) 
+
+			# Passive widget toggle buttons ....................................
+			self.widgetToggleFrame = Tk.Frame(
+				self.toolFrame,
+				bg = self.background
+			)
+			self.widgetToggleFrame.pack(side = Tk.LEFT)
 			
 			# Outside widget buttons ...........................................
 			self.widgetButtonFrame = Tk.Frame(
@@ -136,6 +150,72 @@ class FCMainWindow(Tk.Frame):
 			)
 			self.settingsButton.pack(side = Tk.RIGHT)	
 
+
+			# Keep track of settings activity:
+			self.isSettingsActive = False
+			# Placeholder for reference to popup window:
+			self.settingsWindow = None
+			self.settings = None
+
+			# TODO: Implement settings:
+			self.settingsButton.config(state = Tk.DISABLED)
+
+			# Pack tool frame ..................................................
+			"""
+			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False,
+				anchor = "n")
+			"""
+			self.toolFrameRow = self.gridRows
+			self.gridRows += 1
+			self.toolFrame.grid(row = self.toolFrameRow, sticky = Tk.E + Tk.W)
+
+			# TERMINAL ---------------------------------------------------------
+
+			# Print queue:
+			self.printQueue = printQueue
+
+			"""
+			self.terminalFrame = Tk.Frame(self.main, 
+				bg = self.background,relief = Tk.RIDGE, bd = 1)
+			"""
+			self.terminal = tm.Terminal(self.main, self.printQueue)
+
+			#self.terminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			"""
+			self.terminalFrame.pack(
+				side = Tk.TOP, fill = Tk.BOTH, expand = True, anchor = "n")
+			"""
+			#self.terminalFrame.grid(row = 1, sticky = Tk.N + Tk.W + Tk.E + Tk.S)
+			self.terminalRow = self.gridRows
+			self.gridRows += 1
+			self.terminal.grid(
+				row = self.terminalRow, 
+				sticky = Tk.N + Tk.W + Tk.E + Tk.S
+			)
+			self.main.grid_rowconfigure(self.terminalRow, weight = 1)
+
+			self.terminalCheckButtonVar = Tk.BooleanVar()
+			self.terminalCheckButtonVar.set(True)
+			self.terminalCheckButton = Tk.Checkbutton(
+				self.widgetToggleFrame,
+				text = "Terminal",
+				bg = self.background,
+				fg = self.foreground,
+				command = self._terminalToggle,
+				variable = self.terminalCheckButtonVar
+			)
+			self.terminalCheckButton.pack(side = Tk.LEFT)
+			
+			# FILLER ROW .......................................................
+			self.dummy = Tk.Frame(
+				self.main,
+				bg = 'purple'
+			)
+			self.dummyRow = self.gridRows
+			self.gridRows += 1
+			self.main.grid_rowconfigure(self.dummyRow, weight = 0)
+			
 			"""
 			# Add logos:
 			self.logoFrame = Tk.Frame(
@@ -175,35 +255,7 @@ class FCMainWindow(Tk.Frame):
 			)
 			self.galcitLogoLabel.pack(side = Tk.LEFT)
 			"""
-
-			# Keep track of settings activity:
-			self.isSettingsActive = False
-			# Placeholder for reference to popup window:
-			self.settingsWindow = None
-			self.settings = None
-
-			# TODO: Implement settings:
-			self.settingsButton.config(state = Tk.DISABLED)
-
-			# Pack tool frame ..................................................
-			self.toolFrame.pack(side = Tk.TOP, fill = Tk.X, expand = False,
-				anchor = "n")
-
-			# TERMINAL ---------------------------------------------------------
-
-			# Print queue:
-			self.printQueue = printQueue
-
-			self.terminalFrame = Tk.Frame(self.main, 
-				bg = self.background,relief = Tk.RIDGE, bd = 1)
-
-			self.terminal = tm.Terminal(self.terminalFrame, self.printQueue)
-
-			self.terminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
-			
-			self.terminalFrame.pack(
-				side = Tk.TOP, fill = Tk.BOTH, expand = True, anchor = "n")
-
+	
 
 			# STATUS -----------------------------------------------------------	
 			"""
@@ -248,8 +300,9 @@ class FCMainWindow(Tk.Frame):
 			for slave in self.archiver.get(ac.savedSlaves):
 				macs.append(slave[1])
 			self.printM("[UI][OR] Initializing Communicator")
+
 			self.communicator = pc.FCPRCommunicator(
-				master = self,
+				master = self.main,
 				profile = self.profile,
 				commandQueue = self.commandQueue,
 				mosiMatrixQueue = self.mosiMatrixQueue,
@@ -258,6 +311,26 @@ class FCMainWindow(Tk.Frame):
 				)
 
 			self.fcWidgets[COMMUNICATOR] = self.communicator
+			
+			self.communicatorRow = self.gridRows
+			self.gridRows += 1
+			self.communicator.grid(
+				row = self.communicatorRow, 
+				sticky = Tk.S + Tk.W + Tk.E + Tk.N
+			)
+			self.main.grid_rowconfigure(self.communicatorRow, weight = 1)
+
+			self.communicatorCheckButtonVar = Tk.BooleanVar()
+			self.communicatorCheckButtonVar.set(True)
+			self.communicatorCheckButton = Tk.Checkbutton(
+				self.widgetToggleFrame,
+				text = "List",
+				bg = self.background,
+				fg = self.foreground,
+				command = self._communicatorToggle,
+				variable = self.communicatorCheckButtonVar
+			)
+			self.communicatorCheckButton.pack(side = Tk.LEFT)
 
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
@@ -293,6 +366,25 @@ class FCMainWindow(Tk.Frame):
 			self._commandHandler()
 			self._misoHandler()
 			self.communicator.start()
+
+			# Set minimum sizes:
+			self.update_idletasks()
+
+			self.minWidth = max(
+				self.toolFrame.winfo_width(),
+				self.communicator.getMinSize()[0],
+				self.terminal.getMinSize()[0]
+			)
+			
+			self.minHeight = \
+				self.toolFrame.winfo_height() + \
+				self.communicator.getMinSize()[1] + \
+				self.terminal.getMinSize()[1]
+
+			self.master.minsize(
+				self.minWidth,
+				self.minHeight
+			)
 
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
@@ -382,6 +474,67 @@ class FCMainWindow(Tk.Frame):
 			fcWidget.stop()
 
 		# End _deactivationRoutine =============================================
+
+	def _terminalToggle(self, event = None, force = None): # ====================
+		
+		if force is True or \
+			(self.terminalCheckButtonVar.get() is True and force is not False):
+			self.terminalCheckButtonVar.set(True)
+			self.main.grid_rowconfigure(self.terminalRow, weight = 1)
+			self.main.grid_rowconfigure(self.dummyRow, weight = 0)
+			self.dummy.grid_forget()
+			self.terminal.toggle(force = True)
+
+		else:
+			self.terminalCheckButtonVar.set(False)
+			self.main.grid_rowconfigure(self.terminalRow, weight = 0)
+
+			if self._areAllCheckButtonsFalse():
+				self.main.grid_rowconfigure(self.dummyRow, weight = 1)
+				self.dummy.grid(row = self.dummyRow)
+			else:
+				self.main.grid_rowconfigure(self.dummyRow, weight = 0)
+				self.dummy.grid_forget()
+			
+			self.terminal.toggle(force = False)
+		
+		# End _terminalToggle ==================================================
+
+	def _communicatorToggle(self, event = None, force = False): # ==============
+		
+		if self.communicatorCheckButtonVar.get() is True or force is True:
+			self.communicatorCheckButtonVar.set(True)
+			self.main.grid_rowconfigure(self.communicatorRow, weight = 1)
+			self.main.grid_rowconfigure(self.dummyRow, weight = 0)
+			self.dummy.grid_forget()
+			self.communicator.toggle(force = True)
+
+		else:
+			self.communicatorCheckButtonVar.set(False)
+			self.main.grid_rowconfigure(self.communicatorRow, weight = 0)
+			
+			if self._areAllCheckButtonsFalse():
+				self.main.grid_rowconfigure(self.dummyRow, weight = 1)
+				self.dummy.grid(row = self.dummyRow)
+
+			else:
+				self.main.grid_rowconfigure(self.dummyRow, weight = 0)
+				self.dummy.grid_forget()
+			
+				"""
+				self._terminalToggle(force = False)
+				self._terminalToggle(force = True)
+				"""
+
+			self.communicator.toggle(force = False)
+		
+		# End _communicatorToggle ==============================================
+	
+	def _areAllCheckButtonsFalse(self): # ======================================
+		return (not self.terminalCheckButtonVar.get()) and \
+			(not self.communicatorCheckButtonVar.get())
+
+		# End are _areAllCheckButtonsFalse =====================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 	def printM(self, message, tag = 'S'): # ====================================

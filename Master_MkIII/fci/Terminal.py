@@ -62,29 +62,12 @@ class Terminal(Tk.Frame): # ====================================================
 
 			self.mainQueue = queue
 
-			# BUILD ------------------------------------------------------------	
-
-			self.toggleFrame = Tk.Frame(
-				self,
-				bg = self.background
-			)
-			self.checkButtonVar = Tk.BooleanVar()
-			self.checkButtonVar.set(True)
 			self.packed = True
-			self.checkButton = Tk.Checkbutton(
-				self.toggleFrame,
-				text = "Terminal",
-				bg = self.background,
-				fg = self.foreground,
-				command = self._toggle,
-				variable = self.checkButtonVar
-			)
-			self.checkButton.pack(side = Tk.LEFT)
-			self.toggleFrame.pack(side = Tk.TOP, fill = Tk.X)
 
+			# BUILD ------------------------------------------------------------	
 			self.mainTerminalContainer = Tk.Frame(
 				self,
-				bg = 'red',
+				bg = self.background,
 				relief = Tk.SUNKEN,
 				bd = 3
 			)
@@ -299,19 +282,26 @@ class Terminal(Tk.Frame): # ====================================================
 
 		# End _terminalRoutine =================================================
 	
-	def _toggle(self, event = None, force = None): # ===========================
+	def toggle(self, force = None): # ==========================================
 
-		if self.checkButtonVar.get() or force is True:
+		if force is True or not self.packed:
 			# Show terminal
+			self.mainTerminalContainer.pack(fill = Tk.BOTH, expand = True)
+			self.mainTerminalContainer.pack_configure(expand = True)
 			self.mainTerminal.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
-			self.checkButtonVar.set(True)
 			self.packed = True
 
-		elif not self.checkButtonVar.get() or force is False:
+		else:
 			# Hide terminal
 			self.mainTerminal.pack_forget()
 			self.mainTerminalContainer.config(height = 1)
-			self.checkButtonVar.set(False)
 			self.packed = False
 
-		# End _toggle ==========================================================
+		# End toggle ===========================================================
+
+	def getMinSize(self): # ====================================================
+
+		self.update_idletasks()
+		return (0 , 0)
+
+		# End getMinSize =======================================================

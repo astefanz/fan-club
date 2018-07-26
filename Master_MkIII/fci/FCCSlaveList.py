@@ -84,8 +84,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			# Create list:
 			self.slaveList = tkinter.ttk.Treeview(
 				self, 
-				selectmode="extended",
-				height = 5
+				selectmode="extended"
 			)
 			self.slaveList["columns"] = \
 				("Index","MAC","Status","Fans", "Version")
@@ -148,7 +147,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.slaveList.bind('<Double-1>', self.selectAll)
 			self.slaveList.bind('<Escape>', self.deselectAll)
 
-			self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 's')
+			self.slaveList.pack(fill = Tk.BOTH, expand = True, anchor = 'n')
 
 			# DATA -------------------------------------------------------------
 			self.slaves = {}

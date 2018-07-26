@@ -68,8 +68,8 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	dataIndex(0),  
 	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	led(LED2),
-	#ifndef JPL
 	xled(D4),
+	#ifndef JPL
 	psuOff(D9),
 	#endif
 	inFlag(false), outFlag(false)
@@ -181,6 +181,24 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 	
 		} else {
 			// Valid data. Proceed with assignment.
+			pl;printf("\n\r[%08dms][P][DB] HSK CONFIG VALUE(S): "
+			"\n\r\tfanMode: %d"\
+			"\n\r\tactiveFans: %d"\
+			"\n\r\tfanFreqHZ: %d"\
+			"\n\r\tcounterCounts: %d"\
+			"\n\r\tpulsesPerRotation: %d"\
+			"\n\r\tmaxRPM: %d"\
+			"\n\r\tminRPM: %d"\
+			"\n\r\tminDC: %f"\
+			"\n\r\tchaserTolerance: %f"\
+			"\n\r\tmaxFanTimeouts: %d"\
+			"\n\r\tPWM pinout: \"%s\""\
+			"\n\r\tTach pinout: \"%s\"",tm,
+			fanMode, 
+			activeFans, fanFrequencyHZ, counterCounts,
+			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
+			maxFanTimeouts,
+			pwmPinout, tachPinout);pu;
 			
 			this->fanMode = (int8_t)fanMode;
 			this->activeFans = (uint32_t)activeFans;
@@ -231,8 +249,11 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 				this->fanArray[i].configure(
 					PWMS[pwmPinout[i] - 'A'], 
 					TACHS[tachPinout[i] - '['],
-					this->fanFrequencyHZ, this->counterCounts, 
-					this->pulsesPerRotation, this->minDC,
+					this->fanFrequencyHZ, 
+					this->counterCounts, 
+					this->pulsesPerRotation, 
+					this->minRPM,
+					this->minDC,
 					this->maxFanTimeouts);
 			} // End fan array reconfiguration loop
 			success = true;
@@ -431,6 +452,9 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
         } else{
             // Processor active, check for commands: ---------------------------
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
+
+
+    		pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
 
 
 			// Reset corresponding flags:
@@ -782,6 +806,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Raise output flag:
 				this->outFlag = true;
 				this->outFlagLock.unlock();
+    			pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
 		} else {
 			// If the output buffer is busy, wait until it has been freed.
     		
@@ -810,23 +835,17 @@ void Processor::_setLED(int state){ // // // // // // // // // // // // // // /.
 		case TOGGLE:
 			// Alternate value of LED:
 			this->led = !this->led;
-			#ifndef JPL
 			this->xled = this->led;
-			#endif
 			break;
 		
 		case ON:
 			this->led = true;
-			#ifndef JPL
 			this->xled = true;
-			#endif
 			break;
 
 		case OFF:
 			this->led = false;
-			#ifndef JPL
 			this->xled = false;
-			#endif
 			break;
 	}
 } // End _setLED // // // // // // // // // // // // // // // // // // // // // 
@@ -837,7 +856,5 @@ void Processor::_blinkLED(void){ // // // // // // // // // // // // // // // //
 	
 	// Alternate value of LED:
 	this->led = !this->led;
-	#ifndef JPL
 	this->xled = this->led;
-	#endif
 } // End _blinkLED // // // // // // // // // // // // // // // // // // // // 

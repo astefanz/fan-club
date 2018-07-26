@@ -18,7 +18,6 @@
 #include "mbed.h"
 
 // CUSTOM MODULES
-#include "Counter.h"
 #include "settings.h"
 
 
@@ -107,7 +106,8 @@ public:
 		 */
          
 	bool configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
-		uint32_t counterCounts, uint8_t pulsesPerRotation, float minDC,
+		uint32_t counterCounts, uint8_t pulsesPerRotation, uint32_t minRPM,
+		float minDC,
 		uint8_t maxTimeouts);
 		/* ABOUT: Configure a fan for usage. Can be called more than once.
 		 * PARAMETERS:
@@ -128,6 +128,11 @@ public:
 		 * -int, either RPM value or negative integer if the fan is 
 		 *	uninitialzed.
 		 */
+
+	void onInterrupt();
+		/* ABOUT: To be executed w/in interrupt routine when counting pulses.
+		 */
+		
     
     bool write(float newDC);
  		/* ABOUT: Set the duty cycle of a fan.
@@ -188,9 +193,16 @@ private:
 	int target;				// Chaser target RPM
 	int rpmChange;			// Difference between the latest read and the one before
 	int pastRead;			// Previous RPM read, for RPM change
+	uint32_t minRPM; 		// For RPM read timeout
 	float minDC;			// Minimum duty cycle for nonzero RPM
 
 	// For RPM reading and chasing:
+	InterruptIn* interruptPtr;
+	Timer timer;
+	volatile uint32_t counts;
+	bool doneReading;
+	uint32_t timeout_us;
+
 	uint32_t counterCounts;
 	uint8_t pulsesPerRotation;	
 	uint8_t timeouts, maxTimeouts;

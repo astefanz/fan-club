@@ -89,7 +89,7 @@ public:
 		 * 	unmodified.
 		 */
 
-    void setStatus(int status);
+    void setStatus(int status = OFF);
         /* ABOUT: Modify Processor status.
          * PARAMETERS:
          * -int status: Integer code of new status to set. Must be defined in 
@@ -131,11 +131,7 @@ private:
 	// STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
     DigitalOut led 
-		#ifndef JPL
 		,xled, psuOff;    // Access to blue LED
-		#else
-		;
-		#endif
     Ticker blinker;     // Used to blink blue LED for status    
 	Mutex threadLock;
     // PROCESS DATA ------------------------------------------------------------

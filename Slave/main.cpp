@@ -38,9 +38,7 @@
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
 
-#ifdef JPL
-#define FCMKII_VERSION "SV4.2a-j4" // Letter for bootloader testing
-#endif
+#define FCMKII_VERSION "DB7.0a-CASTP" // Letter for bootloader testing
 // Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
 // PwmOut
 

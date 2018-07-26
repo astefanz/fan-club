@@ -250,9 +250,9 @@ private:
     DigitalOut 
 		red, 
 	 	green
+		,xred
 		#ifndef JPL 
-		,xred,
-		xgreen
+		,xgreen
 		#endif
 		;
         // Use red and green LED's to convey connection status

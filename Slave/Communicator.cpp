@@ -65,8 +65,8 @@ Communicator::Communicator(const char version[]):processor(),
 	misoThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
 	mosiThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
 	red(LED3), 
-	#ifndef JPL
 	xred(D3), 
+	#ifndef JPL
 	xgreen(D5),
 	#endif 
 	green(LED1) 	
@@ -118,7 +118,7 @@ Communicator::Communicator(const char version[]):processor(),
 	
 	this->slaveMOSI.open(&ethernet);
 	this->slaveMOSI.bind(SMOSI);
-	this->slaveMOSI.set_timeout(-1); // Listen for commands w/o timeout
+	this->slaveMOSI.set_timeout(TIMEOUT_MS); // Listen for commands w/o timeout
 	
 	this->slaveListener.open(&ethernet);
 	this->slaveListener.bind(SLISTENER);
@@ -185,7 +185,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 			// Increment corresponding timeout: - - - - - - - - - - - - - - - - 
 			if(this->getStatus() == CONNECTED){
 				// Connected to Master. Increment Master timeouts:
-				this->_incrementTimeouts();
+				//this->_incrementTimeouts();
 				// Check network status:
 				nsapi_connection_status_t netStatus = 
 					this->ethernet.get_connection_status();
@@ -386,7 +386,36 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					this->_setStatus(NO_NETWORK);
 					break;
 				} // End SHUTDOWN BCAST
+				
+				case 'r':{ // TARGETTED SHUTDOWN BCAST. Check MAC
+					pl;printf("\n\r[%08dms][L] Targetted shutdown received", 
+						tm);pu;
+					
+					splitPointer = strtok_r(NULL, "|", &splitPositionTracker);
+					if(splitPointer == NULL){
+						pl;printf("\n\r[%08dms][L] NULL Splitter on target MAC"\
+							" (discarded)",tm);pu;
+						continue;
+					} else if (strcmp(splitPointer, 
+						this->ethernet.get_mac_address()) == 0){
+				
+						pl;printf("\n\r[%08dms][L] Target MAC match. rebooting.", 
+							tm);pu;
+						
+						this->_setStatus(NO_NETWORK);
 
+					} else {
+						
+						pl;printf("\n\r[%08dms][L] Target MAC mismatch (%s). "\
+							"Ignoring", tm, this->ethernet.get_mac_address());pu;
+					}
+				
+					break;
+					
+					
+
+
+				}
 				case 'X': { // DISCONNECT BCAST. Change status to DISCONNECTED
 					pl;printf("\n\r[%08dms][L] Disconnect command received.",
 						tm);pu;
@@ -482,7 +511,16 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 		int result = this->_receive(&specifier, buffer);
 
 		// Verify reception = = = = = = = = = = = = = = = = = = = = = = = = = = 
-		if(result <= 0){
+		if (result == NSAPI_ERROR_WOULD_BLOCK and 
+			this->getStatus() == CONNECTED){		
+
+			// Timeout while disconnected. Count it.
+			pl;printf(
+				"\n\r[%08dms][I][N] NOTE: MOSI timeout", tm);pu;
+			
+			this->_incrementTimeouts();
+
+		}else if(result <= 0){
 			// Error. Discard message. (Error will be printed by _receive)
 			continue;
 		
@@ -804,6 +842,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 					
 					this->periodLock.lock();
 					this->periodMS = parsedPeriodMS;
+					this->slaveMOSI.set_timeout(parsedPeriodMS);
 					this->periodLock.unlock();
 
 					this->bPeriodLock.lock();
@@ -1128,7 +1167,7 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				// Exit switch:
 				break;
 							 
-			case NO_NETWORK: // ................................................
+			case NO_NETWORK:{ // ...............................................
 				// Reset exchange index:
 				this->_resetMOSIIndex();
 				this->_resetMISOIndex();
@@ -1140,22 +1179,27 @@ void Communicator::_setStatus(const int newStatus){ // // // // // // // // // /
 				statusTicker.attach(callback(this, &Communicator::_blinkRed),
 					BLINK_FAST);
 		
-				// Shut down Processor:
-				this->processor.setStatus(OFF);	
-					
 				// Notify user:
 				pl;printf("\n\r[%08dms][S] Status: NO_NETWORK", tm);pu;    
-			   
+
+				// Set ticker to shutdown unconditionally in case of Processor
+				// crash:
+				Ticker shutdown;
+				shutdown.attach(&NVIC_SystemReset, 2);
+
+				// Shut down Processor:
+				this->processor.setStatus(OFF);
+					
 				//pl;printf("\n\r[%08dms][S][REDN] Status: NO_NETWORK", tm);pu;	 
 				// Give system time to print:
-				wait_ms(2000);
+				//wait_ms(2000);
 
 				// Reboot:
 				NVIC_SystemReset();
 
 				// Exit switch
 				break;
-				
+			}
 			case INITIALIZING: // ..............................................
 				// Reset exchange index:
 				this->_resetMOSIIndex();
@@ -1411,23 +1455,17 @@ void Communicator::_setRed(int state){ // // // // // // // // // // // // // //
 		
 		case L_TOGGLE:
 			this->red = !this->red;
-			#ifndef JPL
 			this->xred = this->red;
-			#endif
 			break;
 
 		case L_ON:
 			this->red = true;
-			#ifndef JPL
 			this->xred = true;
-			#endif
 			break;
 
 		case L_OFF:
 			this->red = false;
-			#ifndef JPL
 			this->xred = false;
-			#endif
 			break;
 	}
 
@@ -1468,9 +1506,7 @@ void Communicator::_blinkRed(void){ // // // // // // // // // // // // // // //
 	 */
 
 	this->red = !this->red;
-	#ifndef JPL
 	this->xred = !this->xred;
-	#endif
 
 } // End Communicator::_blinkRed // // // // // // // // // // // // // // // //
 
