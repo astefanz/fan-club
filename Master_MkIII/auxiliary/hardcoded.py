@@ -1420,7 +1420,7 @@ SLAVELIST_ALEX = [\
 ] # End SLAVELIST_ALEX
 
 # Slavelist to be used:
-DEF_SLAVELIST = SLAVELIST_CAST_ALL
+DEF_SLAVELIST = []#SLAVELIST_CAST_ALL
 
 # DEFAULT VALUES ===============================================================
 
@@ -1453,8 +1453,8 @@ DEF_COUNTER_COUNTS = 2 # (Measure time between pulses once)
 DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
 DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
 DEF_MAX_RPM = 11500 # (Maximum nominal RPM)
-DEF_MIN_RPM = 0  # (Minimum nominal RPM)
-DEF_MIN_DC = 0.0 # NOTE (10% duty cycle corresponds to ~1185 RPM)
+DEF_MIN_RPM = 1185  # (Minimum nominal RPM)
+DEF_MIN_DC = 0.1 # NOTE (10% duty cycle corresponds to ~1185 RPM)
 DEF_MAX_FANS = SPEC_CAST_MAX_FANS
 DEF_MAX_FAN_TIMEOUTS = 1 
 
