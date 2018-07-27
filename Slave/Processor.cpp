@@ -200,16 +200,16 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			maxFanTimeouts,
 			pwmPinout, tachPinout);pu;
 			
-			this->fanMode = (int8_t)fanMode;
-			this->activeFans = (uint32_t)activeFans;
-			this->fanFrequencyHZ = (uint32_t)fanFrequencyHZ;
-			this->counterCounts = (uint32_t)counterCounts;
-			this->pulsesPerRotation = (uint32_t)pulsesPerRotation;
-			this->maxRPM = (uint32_t)maxRPM;
-			this->minRPM = (uint32_t)minRPM;
+			this->fanMode = fanMode;
+			this->activeFans = activeFans;
+			this->fanFrequencyHZ = fanFrequencyHZ;
+			this->counterCounts = counterCounts;
+			this->pulsesPerRotation = pulsesPerRotation;
+			this->maxRPM = maxRPM;
+			this->minRPM = minRPM;
 			this->minDC = minDC;
 			this->chaserTolerance = chaserTolerance;
-			this->maxFanTimeouts = (uint8_t)maxFanTimeouts;
+			this->maxFanTimeouts = maxFanTimeouts;
 			
 			// RPM linear fit:
 			this->rpmSlope = (maxRPM - minRPM)/(1.0 - minDC);
@@ -454,7 +454,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
 
 
-    		pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
+    		//pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
 
 
 			// Reset corresponding flags:
@@ -715,6 +715,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 					int m = 0; 
 
 					// Store other RPM's:
+					
+    				pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
 					for(int i = 0; i < activeFans; i++){
 						// Loop over buffer and print out RPM's:
 						
@@ -770,6 +772,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 						rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
 						rpm);
 					}				
+    				pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
 					
 					// Get rid of trailing comma:
 					rpmBuffer[m-1] = '\0';
@@ -806,7 +809,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Raise output flag:
 				this->outFlag = true;
 				this->outFlagLock.unlock();
-    			pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
+    			//pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
 		} else {
 			// If the output buffer is busy, wait until it has been freed.
     		

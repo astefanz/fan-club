@@ -105,10 +105,10 @@ public:
 		/* ABOUT: Destructor for class Fan.
 		 */
          
-	bool configure(PinName pwmPin, PinName tachPin, uint32_t frequencyHZ,
-		uint32_t counterCounts, uint8_t pulsesPerRotation, uint32_t minRPM,
+	bool configure(PinName pwmPin, PinName tachPin, int frequencyHZ,
+		int counterCounts, int pulsesPerRotation, int minRPM,
 		float minDC,
-		uint8_t maxTimeouts);
+		int maxTimeouts);
 		/* ABOUT: Configure a fan for usage. Can be called more than once.
 		 * PARAMETERS:
 		 * -PwmOut pwmPin: PWM pin to use for PWM control
@@ -188,24 +188,25 @@ private:
     bool initialized;       // Whether fan object has pins assigned
 
 	// For PWM control:
-    uint32_t frequencyHZ;	// PWM signal frequency in Hertz
+    int frequencyHZ;	// PWM signal frequency in Hertz
     float dc;               // Current duty cycle
 	int target;				// Chaser target RPM
 	int rpmChange;			// Difference between the latest read and the one before
 	int pastRead;			// Previous RPM read, for RPM change
-	uint32_t minRPM; 		// For RPM read timeout
+	int minRPM; 		// For RPM read timeout
 	float minDC;			// Minimum duty cycle for nonzero RPM
 
 	// For RPM reading and chasing:
-	InterruptIn* interruptPtr;
 	Timer timer;
-	volatile uint32_t counts;
-	bool doneReading;
-	uint32_t timeout_us;
+	volatile int counts;
+	volatile int timeout_us;
+	volatile bool doneReading;
 
-	uint32_t counterCounts;
-	uint8_t pulsesPerRotation;	
-	uint8_t timeouts, maxTimeouts;
+	int counterCounts;
+	int pulsesPerRotation;	
+	int timeouts, maxTimeouts;
+
+	int dbc;
 
 };
 

@@ -171,18 +171,18 @@ Fan::Fan(){
 	* must be configured with Fan::configure before usage.
 	*/
     initialized = false;    
-	this->interruptPtr = NULL;
+	this->dbc = 0;
 } // End Fan constructor
 
 bool Fan::configure(
 	PinName pwmPin, 
 	PinName tachPin, 
-	uint32_t frequencyHZ,
-	uint32_t counterCounts, 
-	uint8_t pulsesPerRotation, 
-	uint32_t minRPM,
+	int frequencyHZ,
+	int counterCounts, 
+	int pulsesPerRotation, 
+	int minRPM,
 	float minDC,
-	uint8_t maxTimeouts
+	int maxTimeouts
 	){
 	/* ABOUT: Configure a fan for usage. Can be called more than once.
 	* PARAMETERS:
@@ -204,7 +204,7 @@ bool Fan::configure(
 
     this->pwmPin = new FastPWM(pwmPin);
  	this->frequencyHZ = frequencyHZ;
-    (*this->pwmPin).period_us(int(1000000/this->frequencyHZ));
+    (*this->pwmPin).period_us(1000000/this->frequencyHZ);
     this->tachPin = new PinName(tachPin);
 	this->counterCounts = counterCounts;
 	this->pulsesPerRotation = pulsesPerRotation;
@@ -215,23 +215,16 @@ bool Fan::configure(
 	this->minRPM = minRPM;
 	this->minDC = minDC;
 
-	this->timeout_us = minRPM > 0? int(60000000.0/minRPM) : int(60000000.0*1e6/MIN_RPM);
-    pl;printf("\n\r\ttus: %lu",this->timeout_us);pu;
-    
-
-	if(this->interruptPtr != NULL){
-		this->interruptPtr->rise(NULL);
-		delete this->interruptPtr;
-	}
-
-	this->interruptPtr = new InterruptIn(tachPin);
+	this->timeout_us = 
+		(minRPM > 0? 60000000.0/minRPM : 60000000.0/MIN_RPM)*(counterCounts/pulsesPerRotation);
+	
 	this->counts = 0;
 	this->doneReading = false;
 	this->maxTimeouts = maxTimeouts;
 
 	this->timeouts = 0;
 	
-	this->pwmPin->write(double(0));
+	this->pwmPin->write(0.0);
     initialized = true;
 
 	return true;
@@ -240,8 +233,6 @@ bool Fan::configure(
 Fan::~Fan(){
     delete this->pwmPin;
 	delete this->tachPin;
-	if(this->interruptPtr != NULL)
-		delete this->interruptPtr;
 }
 
 
@@ -251,30 +242,36 @@ int Fan::read(){
 	* -int, either RPM value or negative integer if the fan is 
 	*	uninitialzed.
 	*/
+
 	
-    if(this->initialized and this->dc == 0){
-		return 0;
 
-	} else if (this->initialized){	
+
+	if (this->initialized){	
 		// Initialize counters and timer
-
+		
 		// Counter:
 		this->counts = 0;
 		
-		// Flag:
-		this->doneReading = false;
-
 		// Timer:
+		this->timer.stop();
 		this->timer.reset();
-
-		// Attach interrupt:
-		this->interruptPtr->rise(callback(this, &Fan::onInterrupt));
+		this->timer.start();
+		this->doneReading = false;
 		
+		InterruptIn interrupt(*this->tachPin);
+		interrupt.rise(callback(this, &Fan::onInterrupt));
+		//pl;printf("\n\rdbc : %d",++this->dbc);
+
 		// Wait for interrupt to finish:
-		while(not this->doneReading);
+		while(not this->doneReading and this->timer.read_us() < this->timeout_us){
+			/*
+    		pl;printf("\n\r\tCC us: %d to: %d c: %lu",
+				this->timer.read_us(),this->timeout_us, this->counts);pu;
+			*/
+		}
 
 		// Detach interrupt:
-		this->interruptPtr->rise(NULL);
+		interrupt.rise(NULL);
 
 		// Analyze results:
 		int read = 0;
@@ -284,10 +281,16 @@ int Fan::read(){
 			read = 0;
 		} else {
 			// Nonzero RPM detected.
-			read = int(1.0/(this->pulsesPerRotation*(timer.read_us()/60000000.0)*this->counterCounts));
+			/*
+			read = int(
+				(double(this->counts)/double(this->pulsesPerRotation))/(this->timer.read_us()/60000000)
+			);
 			
-    		pl;printf("\n\r\tus: %d c: %lu r: %d",
-				this->timer.read_us(), this->counts, read);pu;
+    		pl;printf("\n\r\tus:%d c:%lu c/r:%u rv:%f r:%d ",
+				this->timer.read_us(), this->counts, this->pulsesPerRotation,
+				double(this->counts)/double(this->pulsesPerRotation), read);pu;
+			*/
+			read =  (this->counts/this->pulsesPerRotation)*(60000000.0/this->timer.read_us());
 		}
 		
 		this->rpmChange = this->pastRead - read;
@@ -303,12 +306,19 @@ int Fan::read(){
 void Fan::onInterrupt(void){
 	/* ABOUT: To be executed w/in interrupt routine when counting pulses.
 	 */
-	
-	if (this->counts < this->counterCounts or this->timer.read_us() <`){
+
+	if (this->counts == 0){
+		this->timer.reset();
+		this->counts++;
+
+	}else if (this->counts < this->counterCounts and 
+		this->timer.read_us() < this->timeout_us){
 		this->counts++;
 	}
+
 	else{
 		this->timer.stop();
+		this->doneReading = true;
 	}
 
 	/*
@@ -332,6 +342,14 @@ void Fan::onInterrupt(void){
 	}
 	*/
 } // End onInterrupt
+
+/*
+void Fan::onTimeout(void){
+	// ABOUT: To be attached to the fan reading timeout
+	
+
+} // End onTimeout
+*/
 
 bool Fan::write(float newDC){
 	/* ABOUT: Set the duty cycle of a fan.
