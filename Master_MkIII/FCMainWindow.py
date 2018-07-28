@@ -169,6 +169,123 @@ class FCMainWindow(Tk.Frame):
 			self.gridRows += 1
 			self.toolFrame.grid(row = self.toolFrameRow, sticky = Tk.E + Tk.W)
 
+			# RPM LOG ---------------------------------------------------------
+			self.rpmLoggerContainerFrame = Tk.Frame(
+				self.main, 
+				relief = Tk.GROOVE, borderwidth = 1,
+				bg=self.background)
+
+			self.rpmLoggerRow = self.gridRows
+			self.gridRows += 1
+			self.rpmLoggerContainerFrame.grid(
+				row = self.rpmLoggerRow, sticky = "EW")
+
+			self.rpmLoggerFrame = Tk.Frame(self.rpmLoggerContainerFrame,
+				bg = self.background)
+			self.rpmLoggerFrame.pack(anchor = 'c')
+			
+			# Print timer:
+			self.rpmLoggerTimerVar = Tk.StringVar()
+			self.rpmLoggerTimerVar.set("00:00:00s")
+
+			self.rpmLoggerTimerSeconds = 0
+			self.rpmLoggerTimerMinutes = 0
+			self.rpmLoggerTimerHours = 0
+			self.rpmLoggerTimerStopFlag = False
+
+			self.rpmLoggerTimerLabel = Tk.Label(
+				self.rpmLoggerFrame,
+				bg = self.background,
+				bd = 1,
+				fg = self.foreground,
+				relief = Tk.SUNKEN,
+				font = ('TkFixedFont', '12'),
+				width = 12,
+				padx = 4,
+				textvariable = self.rpmLoggerTimerVar
+			)
+
+			self.rpmLoggerTimerLabel.pack(side = Tk.RIGHT)
+
+
+			self.rpmLoggerTimerPadding = Tk.Frame(
+				self.rpmLoggerFrame,
+				width = 20,
+				bg = self.background
+			)
+			self.rpmLoggerTimerPadding.pack(side = Tk.RIGHT, expand = False)
+
+			# Print target (file) label:
+			self.rpmLoggerTargetLabel = Tk.Label(self.rpmLoggerFrame,
+				background = self.background,
+				text = "Record data to: ",
+				fg = self.foreground
+				)
+
+			self.rpmLoggerTargetLabel.pack(side = Tk.LEFT)
+
+			# Log target text field:
+
+			self.entryRedBG = "#ffc1c1"
+			self.entryOrangeBG = "#ffd8b2"
+			self.entryWhiteBG = "white"
+
+			self.rpmLoggerTargetVar = Tk.StringVar()
+			self.rpmLoggerTargetVar.trace('w', self._fileNameEntryCheck)
+
+
+			self.rpmLoggerTargetEntry = Tk.Entry(self.rpmLoggerFrame, 
+				highlightbackground = self.background,
+				width = 17, bg = self.entryRedBG,
+				textvariable = self.rpmLoggerTargetVar)
+			self.rpmLoggerTargetEntry.pack(side = Tk.LEFT)
+	 
+			self.rpmLoggerTargetStatus = EMPTY
+
+			# rpmLoggerTarget button:
+			self.rpmLoggerTargetButton = Tk.Button(self.rpmLoggerFrame, 
+				highlightbackground = self.background, text = "...", 
+				command = self._rpmLoggerTargetButtonRoutine)
+
+			self.rpmLoggerTargetButton.pack(side = Tk.LEFT)
+			
+			# Print padding:
+			self.rpmLoggerPadding2 = Tk.Frame(self.rpmLoggerFrame,
+				bg = self.background,
+				width = 5
+				)
+			self.rpmLoggerPadding2.pack(side = Tk.LEFT)
+			
+			# rpmLoggerTarget feedback:
+			self.rpmLoggerTargetFeedbackLabel = Tk.Label(
+				self.rpmLoggerFrame,
+				bg = self.background,
+				text = '(No filename)',
+				fg = 'darkgray',
+				anchor = 'w',
+				width = 12
+				)
+			self.rpmLoggerTargetFeedbackLabel.pack(side = Tk.LEFT)
+		
+			# Print padding:
+			self.rpmLoggerPadding1 = Tk.Frame(self.rpmLoggerFrame,
+				bg = self.background,
+				width = 20
+				)
+			self.rpmLoggerPadding1.pack(side = Tk.LEFT)
+
+			# rpmLoggerStartStop button:
+			self.rpmLoggerStartStopButton = Tk.Button(self.rpmLoggerFrame, 
+				highlightbackground = self.background, text = "Start Recording",
+				width = 12,
+				command = self._rpmLoggerButtonRoutine,
+				)
+
+			self.rpmLoggerStartStopButton.config(state = Tk.DISABLED)
+
+			self.rpmLoggerStartStopButton.pack(side = Tk.LEFT)
+			
+
 			# TERMINAL ---------------------------------------------------------
 
 			# Print queue:
@@ -534,7 +651,185 @@ class FCMainWindow(Tk.Frame):
 		return (not self.terminalCheckButtonVar.get()) and \
 			(not self.communicatorCheckButtonVar.get())
 
-		# End are _areAllCheckButtonsFalse =====================================
+		# End _areAllCheckButtonsFalse =========================================
+
+	def _fileNameEntryCheck(self, *args): # ====================================
+		# ABOUT: Validate the file name entered.
+		# Get file name:
+		prospectiveFileName = self.rpmLoggerTargetVar.get()
+		# Set sentinel:
+		normal = True
+	
+		# Check file name:
+		if prospectiveFileName == '' and self.rpmLoggerTargetStatus != EMPTY:
+			#                           \-----------------------------/
+			#								Avoid redundant changes
+			# Can't rpmLogger:
+			self.rpmLoggerStartStopButton.config(state = Tk.DISABLED)
+			self.rpmLoggerTargetEntry.config(bg = self.entryRedBG)
+			self.rpmLoggerTargetFeedbackLabel.config(text = "(No filename)")
+			self.rpmLoggerTargetStatus = EMPTY
+
+			# Done
+			return
+
+		elif '.' not in prospectiveFileName:
+			# No extension. Assume .txt and warn:
+			normal = False
+			
+			if self.rpmLoggerTargetStatus != NODOT:
+
+				self.rpmLoggerTargetEntry.config(bg = self.entryWhiteBG)
+				self.rpmLoggerTargetFeedbackLabel.config(text = '(.txt assumed)')
+				self.rpmLoggerStartStopButton.config(state = Tk.NORMAL)
+				prospectiveFileName += ".txt"
+
+				self.rpmLoggerTargetStatus = NODOT
+
+		elif prospectiveFileName.split('.')[-1] == '':
+			# Invalid extension:
+			normal = False
+
+			if self.rpmLoggerTargetStatus != BADEXT:
+
+				self.rpmLoggerStartStopButton.config(state = Tk.DISABLED)
+				self.rpmLoggerTargetEntry.config(bg = self.entryRedBG)
+				self.rpmLoggerTargetFeedbackLabel.config(text = "(Bad extension)")
+
+				self.rpmLoggerTargetStatus = BADEXT
+
+		# Check for repetition
+		if os.path.isfile(prospectiveFileName) and \
+			self.rpmLoggerTargetStatus != REPEATED:
+			# Change color and warn:
+			self.rpmLoggerTargetEntry.config(bg = self.entryOrangeBG)
+			self.rpmLoggerTargetFeedbackLabel.config(text = 'FILE EXISTS')
+			self.rpmLoggerStartStopButton.config(state = Tk.NORMAL)
+			
+			if self.rpmLoggerTargetStatus == NODOT:
+				self.rpmLoggerTargetStatus = NODOT_REPEATED
+			else:
+				self.rpmLoggerTargetStatus = REPEATED
+
+		elif normal and self.rpmLoggerTargetStatus != NORMAL:
+			# If this block of code is reached, then the prospective filename is
+			# - Not empty
+			# - Not missing an extension, and
+			# - Not repeated
+		
+			# Therefore, mark it as NORMAL:
+			self.rpmLoggerTargetEntry.config(bg = self.entryWhiteBG)
+			self.rpmLoggerTargetFeedbackLabel.config(text = '')
+			self.rpmLoggerStartStopButton.config(state = Tk.NORMAL)
+
+			self.rpmLoggerTargetStatus = NORMAL
+
+		# End _fileNameEntryCheck ==============================================
+
+	def _rpmLoggerTargetButtonRoutine(self): # =================================
+		# ABOUT: To be used by file name button. 
+		# Sets file name and stops Printer.
+		try:
+			
+			# Proceed in accordance w/ Printer status:
+			if self.rpmLogger.getStatus() == pt.OFF:
+				# If the rpmLoggerer is off, choose a file name.
+
+				# Disable rpmLogger button while choosing file:
+				self.rpmLoggerStartStopButton.config(state = Tk.DISABLED)
+
+				self.rpmLoggerTargetVar.set(tkinter.filedialog.asksaveasfilename(
+					initialdir = os.getcwd(), # Get current working directory
+					title = "Choose file",
+					filetypes = (("Text files","*.txt"),("CSV files", "*.csv"),
+						("All files","*.*"))
+					))
+				
+				# Set the visibility to the right end of the file name:
+				self.rpmLoggerTargetEntry.xview_moveto(1)
+
+			elif self.rpmLogger.getStatus() is pt.ON:
+					
+				raise RuntimeError("Cannot use target file specifier while "\
+					"rpmLogging")
+			else:
+				# Unrecognized rpmLoggerer status (wot)
+				raise RuntimeError("Unrecognized Logger status {} (wot)".\
+					format(self.rpmLoggerer.getStatus()))
+		except Exception as e:
+			self.printM("[printTargetButton] UNCAUGHT EXCEPTION: \"{}\"".\
+				format(traceback.format_exc()), "E")
+
+
+		# End _rpmLoggerTargetButtonRoutine ====================================
+	
+	def _rpmLoggerStopRoutine(self): # =========================================
+		# ABOUT: Schedules itself for future calls until the Printer module is
+		# done terminating. When the Printer module is done, restores buttons
+		# and fields.
+
+		# Check Printer status:
+		if self.rpmLogger.getStatus() == pt.OFF:
+			# Restore buttons 
+			self.rpmLoggerStartStopButton.config(text = "Start Recording")
+			self.rpmLoggerTargetEntry.config(state = Tk.NORMAL)
+			self.rpmLoggerTargetButton.config(state = Tk.NORMAL)
+			self.rpmLoggerTimerLabel.config(state = Tk.NORMAL)
+			self.rpmLoggerTargetStatus = RESTORE
+				# "Modify" targetFileVar to fire its trace callback:
+			self.rpmLoggerTargetVar.set(self.rpmLoggerTargetVar.get())
+			
+
+		else:
+			# Schedule future call to check again:
+			self.after(200, self._rpmLoggerStopRoutine)
+
+		# End _rpmLoggerStopRoutine ============================================
+	
+	def _rpmLoggerTimerRoutine(self): # ========================================
+		# ABOUT: Update the RPM log timer periodically for as long as it is
+		# active. This method is meant to be called by whatever component acti-
+		# vates the Printer (i.e starts rpmLoggering).
+
+		# Check Printer status:
+		if not self.rpmLoggerTimerStopFlag:
+			# Update timer label
+			self.rpmLoggerTimerSeconds += 1
+
+			if self.rpmLoggerTimerSeconds >= 60:
+				self.rpmLoggerTimerSeconds = 0
+				self.rpmLoggerTimerMinutes += 1
+
+				if self.rpmLoggerTimerMinutes >= 60:
+					self.rpmLoggerTimerMinutes = 0
+					self.rpmLoggerTimerHours += 1
+					
+					if self.rpmLoggerTimerHours >= 99:
+						self.rpmLoggerTimerHours = 99
+			
+			self.rpmLoggerTimerVar.set("{:02d}:{:02d}:{:02d}s".format(
+				self.rpmLoggerTimerHours,
+				self.rpmLoggerTimerMinutes,
+				self.rpmLoggerTimerSeconds))
+
+			self.after(1000, self._rpmLoggerTimerRoutine)
+
+		else:
+			# Reset timer label and end chain of calls:
+			self.rpmLoggerTimerSeconds = 0
+			self.rpmLoggerTimerMinutes = 0
+			self.rpmLoggerTimerHours = 0
+			self.rpmLoggerTimerVar.set("00:00:00s")
+			return
+
+
+		# End _rpmLoggerTimerRoutine ===========================================
+
+
+	def _rpmLoggerButtonRoutine(self): # =======================================
+		pass
+
+		# End _rpmLoggerStartStopButton ========================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 	def printM(self, message, tag = 'S'): # ====================================
