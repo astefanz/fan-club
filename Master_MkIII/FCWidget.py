@@ -1,4 +1,4 @@
-################################################################################
+###############################################################################
 ## Project: Fan Club Mark II "Master" # File: FCWidget.py                     ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
@@ -56,7 +56,11 @@ COMMAND = 1
 VALUE = 2
 
 # Update command-codes:
-STOP = 1
+STOP = 32000
+
+# "Kind" codes:
+WIDGET = 91
+THREADED = 92
 
 def translate(code): # ---------------------------------------------------------
 	# Get string representing FCWidget status code
@@ -88,6 +92,7 @@ class FCWidget(Tk.Frame):
 		printQueue,
 		specialArguments = (),
 		
+		watchdogType = THREADED,
 		symbol = "WG"
 		): # ===================================================================
 	
@@ -129,6 +134,12 @@ class FCWidget(Tk.Frame):
 			# Launch periodic updates:
 			self._periodicUpdate()
 
+			if not watchdogType in (WIDGET, THREADED):
+				raise ValueError("Invalid FCWidget \"watchdog type\" "\
+					"code ({})".format(kind))
+
+			else:
+				self.watchdogType = watchdogType
 
 		except Exception as e:
 
@@ -162,6 +173,8 @@ class FCWidget(Tk.Frame):
 				)
 				
 				self._startWatchdog()
+				
+
 			else:
 				# Cannot start process
 				self._printM(
@@ -182,6 +195,7 @@ class FCWidget(Tk.Frame):
 	def stop(self): # ==========================================================
 		# Stop process, if possible
 		try:
+
 			# Check status
 			if self.getStatus() is ACTIVE:
 				# Can start process
@@ -190,9 +204,10 @@ class FCWidget(Tk.Frame):
 				self._setStatus(STOPPING)
 
 				# Send stop signal:
-				self.updatePipeIn.send((None, STOP,))
-
+				self.updatePipeIn.send((None, STOP))
+				
 				self._startWatchdog()
+
 			else:
 				# Cannot start process
 				self._printM(
@@ -339,6 +354,19 @@ class FCWidget(Tk.Frame):
 
 	def _startWatchdog(self): # ================================================
 
+		if self.watchdogType is THREADED:
+			self._startWatchdogThread()
+
+		elif self.watchdogType is WIDGET:
+			self._periodicWatchdog()
+
+		else:
+			self._printM("WARNING: Unknown watchdog type", 'E')
+
+		# End _startWatchdog ===================================================
+
+	def _startWatchdogThread(self): # ==========================================
+
 		# Verify status:
 		status = self.getStatus()
 		if status in (STARTING, STOPPING) and \
@@ -358,44 +386,64 @@ class FCWidget(Tk.Frame):
 			raise RuntimeError("Tried to start watchdog w/ invalid status "\
 				"({})".format(translate(status)), 'E')
 
+
+		# End _startWatchdogThread =============================================
+
 	def _watchdogRoutine(self): # ==============================================
-		self._printM("Watchdog started", 'D')
 
-		while True:
-			try:
-				# Listen for spawner notifications:
-				if self.spawnPipeOut.poll():
-					message = self.spawnPipeOut.recv()
-					status = self.getStatus()
+		while self._watchdogCheck():
+			pass
 
-					if message is sw.STARTED and status is STARTING:
-						# Widget successfully activated:
-						self._setStatus(ACTIVE)
-						break
+		# End _watchdogRoutine =================================================
 
-					elif message is sw.STOPPED and status is STOPPING:
-						# Widget successfully stopped:
-						self._setStatus(INACTIVE)
-						break
+	def _watchdogCheck(self): # ================================================
 
-					elif message is sw.ERROR:
-						self._printM("WARNING: Failed to start process", 'E')
-						self._setStatus(INACTIVE)
-						break
+		try:
+			# Listen for spawner notifications:
+			if self.spawnPipeOut.poll():
+				message = self.spawnPipeOut.recv()
+				status = self.getStatus()
 
-					else:
-						# Invalid combination:
-						self._printM(
-							"WARNING: Invalid spawner message / status "\
-							"combination --- got \"{}\" while \"{}\"".\
-							format(
-								sw.translate(message), translate(status)))
-						break
-			except Exception as e:
-				self._printE(e, "ERROR in watchdog:")
+				if message is sw.STARTED and status is STARTING:
+					# Widget successfully activated:
+					self._setStatus(ACTIVE)
 
-		self._printM("Watchdog ended", 'D')
-		# _watchdogRoutine =====================================================
+				elif message is sw.STOPPED and status is STOPPING:
+					# Widget successfully stopped:
+					self._setStatus(INACTIVE)
+
+				elif message is sw.ERROR:
+					self._printM("WARNING: Failed to start process", 'E')
+					self._setStatus(INACTIVE)
+
+				else:
+					# Invalid combination:
+					self._printM(
+						"WARNING: Invalid spawner message / status "\
+						"combination --- got \"{}\" while \"{}\"".\
+						format(
+							sw.translate(message), translate(status)))
+
+				return False
+
+			else:
+				# Keep watching
+				return True
+
+		except Exception as e:
+			self._printE(e, "ERROR in watchdog:")
+
+		# _watchdogCheck =======================================================
+
+	def _periodicWatchdog(self): # =============================================
+
+		if self._watchdogCheck():
+			self.master.after(100, self._periodicWatchdog)
+
+		else:
+			return
+
+		# End _periodicWatchdog ================================================
 
 	def _updateMethod(self): # =================================================
 		# NOTE: To be overridden by child classes

@@ -230,6 +230,8 @@ class FCPRCommunicator(wg.FCWidget):
 			)
 			self.controlBar.setStatus(cm.DISCONNECTED)
 
+			self.slaves = {}
+
 			#self.pack(fill = Tk.BOTH, expand = True)
 
 		except Exception as e: # Print uncaught exceptions
@@ -300,6 +302,7 @@ class FCPRCommunicator(wg.FCWidget):
 		self.statusBar.setStatus(self.statusMap[newStatus])
 
 		if newStatus is (wg.INACTIVE):
+			self.slaves = {}
 			self.slaveList.clear()
 			self.statusBar.clear()
 
@@ -332,9 +335,15 @@ class FCPRCommunicator(wg.FCWidget):
 				self.slaveList.addSlaves(update[1])
 				self.statusBar.addSlaves(update[1])
 
+
 			if update[0] is cm.UPDATE:
 				self.slaveList.updateSlaves(update[1])
 				self.statusBar.updateSlaves(update[1])
+				
+			#if update[0] in (cm.NEW, cm.UPDATE):
+			for slave in update[1]:
+				self.slaves[slave[cm.INDEX]] = slave
+
 
 		# End _updateMethod ====================================================
 
@@ -348,3 +357,9 @@ class FCPRCommunicator(wg.FCWidget):
 		)
 
 		# End getMinSize =======================================================
+
+	def getSlaves(self): # =====================================================
+
+		return self.slaves
+
+		# End getSlaves ========================================================

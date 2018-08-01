@@ -55,7 +55,7 @@ import queue
 import FCCommunicator as cm
 import FCPRCommunicator as pc
 import FCArchiver as ac
-import FCPrinter as pt
+import FCRPMLogger as lg
 import FCSlave as sv
 import FCWidget as wg
 
@@ -82,6 +82,8 @@ RESTORE = 5
 # FC Widget names:
 COMMUNICATOR = 0
 LIVETABLE = 1
+LOGGER = 2
+	
 
 ## CLASS DEFINITION ############################################################
 
@@ -170,6 +172,7 @@ class FCMainWindow(Tk.Frame):
 			self.toolFrame.grid(row = self.toolFrameRow, sticky = Tk.E + Tk.W)
 
 			# RPM LOG ---------------------------------------------------------
+			self.rpmLoggerInitialized = False
 			self.rpmLoggerContainerFrame = Tk.Frame(
 				self.main, 
 				relief = Tk.GROOVE, borderwidth = 1,
@@ -192,6 +195,7 @@ class FCMainWindow(Tk.Frame):
 			self.rpmLoggerTimerMinutes = 0
 			self.rpmLoggerTimerHours = 0
 			self.rpmLoggerTimerStopFlag = False
+			self.rpmLoggerTimerActive = False
 
 			self.rpmLoggerTimerLabel = Tk.Label(
 				self.rpmLoggerFrame,
@@ -282,7 +286,6 @@ class FCMainWindow(Tk.Frame):
 				)
 
 			self.rpmLoggerStartStopButton.config(state = Tk.DISABLED)
-
 			self.rpmLoggerStartStopButton.pack(side = Tk.LEFT)
 			
 
@@ -449,6 +452,23 @@ class FCMainWindow(Tk.Frame):
 			)
 			self.communicatorCheckButton.pack(side = Tk.LEFT)
 
+			self.printM("Initializing RPM Logger")
+			self.rpmLogger = lg.FCRPMLogger(
+				master = self,
+				profile = self.profile,
+				startCallback = self._rpmLoggerStartRoutine,
+				stopCallback = self._rpmLoggerStopRoutine,
+
+				spawnQueue = self.spawnQueue,
+				printQueue = self.printQueue
+			)
+			self.rpmLoggerInitialized = True
+			self.fcWidgets[LOGGER] = self.rpmLogger
+
+			self.printM("RPM Logger Initialized", "G")
+
+
+
 			# Set up shutdown behavior:
 			self.master.protocol("WM_DELETE_WINDOW", self._deactivationRoutine)
 
@@ -582,6 +602,8 @@ class FCMainWindow(Tk.Frame):
 		# End _bootloaderButtonRoutine =========================================
 
 	def _deactivationRoutine(self): # ==========================================
+
+		self.printM("Ending processes and closing GUI... ", 'W')
 	
 		# Close GUI:
 		self.destroy()
@@ -680,9 +702,9 @@ class FCMainWindow(Tk.Frame):
 			if self.rpmLoggerTargetStatus != NODOT:
 
 				self.rpmLoggerTargetEntry.config(bg = self.entryWhiteBG)
-				self.rpmLoggerTargetFeedbackLabel.config(text = '(.txt assumed)')
+				self.rpmLoggerTargetFeedbackLabel.config(text = '(.csv assumed)')
 				self.rpmLoggerStartStopButton.config(state = Tk.NORMAL)
-				prospectiveFileName += ".txt"
+				prospectiveFileName += ".csv"
 
 				self.rpmLoggerTargetStatus = NODOT
 
@@ -732,7 +754,7 @@ class FCMainWindow(Tk.Frame):
 		try:
 			
 			# Proceed in accordance w/ Printer status:
-			if self.rpmLogger.getStatus() == pt.OFF:
+			if self.rpmLogger.getStatus() == wg.INACTIVE:
 				# If the rpmLoggerer is off, choose a file name.
 
 				# Disable rpmLogger button while choosing file:
@@ -748,7 +770,7 @@ class FCMainWindow(Tk.Frame):
 				# Set the visibility to the right end of the file name:
 				self.rpmLoggerTargetEntry.xview_moveto(1)
 
-			elif self.rpmLogger.getStatus() is pt.ON:
+			elif self.rpmLogger.getStatus() is wg.ACTIVE:
 					
 				raise RuntimeError("Cannot use target file specifier while "\
 					"rpmLogging")
@@ -767,9 +789,10 @@ class FCMainWindow(Tk.Frame):
 		# ABOUT: Schedules itself for future calls until the Printer module is
 		# done terminating. When the Printer module is done, restores buttons
 		# and fields.
-
+		
+		"""
 		# Check Printer status:
-		if self.rpmLogger.getStatus() == pt.OFF:
+		if self.rpmLogger.getStatus() == wg.INACTIVE:
 			# Restore buttons 
 			self.rpmLoggerStartStopButton.config(text = "Start Recording")
 			self.rpmLoggerTargetEntry.config(state = Tk.NORMAL)
@@ -783,8 +806,55 @@ class FCMainWindow(Tk.Frame):
 		else:
 			# Schedule future call to check again:
 			self.after(200, self._rpmLoggerStopRoutine)
+		"""
 
+		# Restore buttons 
+		self.rpmLoggerStartStopButton.config(text = "Start Recording")
+		self.rpmLoggerTargetEntry.config(state = Tk.NORMAL)
+		self.rpmLoggerTargetButton.config(state = Tk.NORMAL)
+		self.rpmLoggerTargetStatus = RESTORE
+			# "Modify" targetFileVar to fire its trace callback:
+		self.rpmLoggerTargetVar.set(self.rpmLoggerTargetVar.get())
+		self.rpmLoggerTimerStopFlag = True
+			
 		# End _rpmLoggerStopRoutine ============================================
+	
+	def _rpmLoggerStartRoutine(self): # ========================================
+		# ABOUT: Schedules itself for future calls until the Printer module is
+		# done terminating. When the Printer module is done, restores buttons
+		# and fields.
+		
+		# Restore buttons 
+		self.rpmLoggerStartStopButton.config(
+			text = "Stop Recording",
+			state = Tk.NORMAL
+		)
+		self.rpmLoggerTimerLabel.config(
+			state = Tk.NORMAL
+		)
+		self.rpmLoggerTimerActive = True
+		self.rpmLoggerTimerStopFlag = False
+		self._rpmLoggerTimerRoutine()
+		"""
+		# Check Printer status:
+		if self.rpmLogger.getStatus() == wg.ACTIVE:
+			# Restore buttons 
+			self.rpmLoggerStartStopButton.config(
+				text = "Stop Recording",
+				state = Tk.NORMAL
+			)
+			self.rpmLoggerTimerLabel.config(
+				state = Tk.NORMAL
+			)
+			self.rpmLoggerTimerRoutine()
+			
+
+		else:
+			# Schedule future call to check again:
+			self.after(100, self._rpmLoggerStopRoutine)
+		"""
+
+		# End _rpmLoggerStartRoutine ===========================================
 	
 	def _rpmLoggerTimerRoutine(self): # ========================================
 		# ABOUT: Update the RPM log timer periodically for as long as it is
@@ -820,6 +890,10 @@ class FCMainWindow(Tk.Frame):
 			self.rpmLoggerTimerMinutes = 0
 			self.rpmLoggerTimerHours = 0
 			self.rpmLoggerTimerVar.set("00:00:00s")
+			self.rpmLoggerTimerLabel.config(
+				state = Tk.NORMAL
+			)
+			self.rpmLoggerTimerActive = False
 			return
 
 
@@ -827,12 +901,85 @@ class FCMainWindow(Tk.Frame):
 
 
 	def _rpmLoggerButtonRoutine(self): # =======================================
-		pass
+		
+		try:
+			
+			# Guard against uninitialized logger:
+			if not self.rpmLoggerInitialized:
+				self.printM("ERROR: RPM Logger not initialized", 'E')
+				return
 
-		# End _rpmLoggerStartStopButton ========================================
+			# Check status:
+			if self.rpmLogger.getStatus() is wg.INACTIVE and \
+				self.rpmLoggerTargetStatus in (NORMAL, NODOT, REPEATED):
+				# Start logger	
+			
+				# Make sure the timer isn't still stopping from a previous
+				# recording:
+				if self.rpmLoggerTimerActive:
+					self.printM("NOTE: Restarting RPM Log timer...", 'W')
+					return
+
+				# Lock buttons:
+				self.rpmLoggerStartStopButton.config(
+					text = "Starting... ",
+					state = Tk.DISABLED
+				)
+				self.rpmLoggerTargetEntry.config(
+					state = Tk.DISABLED
+				)
+				self.rpmLoggerTargetButton.config(
+					state = Tk.DISABLED
+				)
+				self.rpmLoggerTimerLabel.config(
+					state = Tk.DISABLED
+				)
+
+				# Start process:
+				if self.rpmLoggerTargetStatus in (NORMAL, REPEATED):
+					self.rpmLogger.start(
+						self.rpmLoggerTargetVar.get(), 
+						self.communicator.getSlaves()
+					)
+				elif self.rpmLoggerTargetStatus is NODOT:
+					self.rpmLogger.start(
+						self.rpmLoggerTargetVar.get() + ".csv", 
+						self.communicator.getSlaves()
+					)
+
+			elif self.rpmLogger.getStatus() is wg.ACTIVE:
+				# Stop RPM logger
+
+				# Lock buttons:
+				self.rpmLoggerStartStopButton.config(
+					text = "Stopping... ",
+					state = Tk.DISABLED
+				)
+				self.rpmLoggerTimerLabel.config(
+					state = Tk.DISABLED
+				)
+			
+				self.rpmLogger.stop()
+
+
+			else:
+				# Invalid status code for button press
+					self.printM("ERROR: Unapplicable RPM Logger status "\
+						"(\"{}\")".\
+						format(self.rpmLogger.getStatus()))
+
+		except:
+			self.printE("Exception in RPML start callback")
+
+		# End _rpmLoggerButtonRoutine ==========================================
 
 	# UTILITY FUNCTIONS --------------------------------------------------------
 	def printM(self, message, tag = 'S'): # ====================================
 		self.printQueue.put_nowait(("[MW] " + message, tag))
 
 		# End printM ===========================================================
+		
+	def printE(self, prelude = 'Exception in FCMkII GUI'): # ===================
+		self.printM(prelude + ' ' + traceback.format_exc(), 'E')
+
+		# End printE ===========================================================

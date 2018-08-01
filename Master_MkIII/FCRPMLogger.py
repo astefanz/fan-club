@@ -44,6 +44,8 @@ import numpy as np
 # FCMkII:
 import FCArchiver as ac
 import FCWidget as wg
+import FCCommunicator as cm
+import FCSlave as sv
 from auxiliary import debug as d
 from auxiliary import errorPopup as ep
 
@@ -61,7 +63,7 @@ def rpmLoggerProcess(
 		printQueue,
 		profile,
 		updatePipeOut,
-		MISOMatrixPipeOut,
+		misoMatrixPipeOut,
 
 		fileName,
 		slaves
@@ -79,7 +81,8 @@ def rpmLoggerProcess(
 
 	try:
 
-		printM("RPM Log started into file \"{}\"".format(fileName))
+		
+		_printM("RPM Log started in file \"{}\"".format(fileName))
 		
 		# Translate fanMode parameter:
 		if profile[ac.fanMode] == ac.SINGLE:
@@ -106,11 +109,10 @@ def rpmLoggerProcess(
 			
 			# Second line:
 			f.write("MAC Addresses of each index: \n\t")
-			for slave in slaves[:-1]:
-				f.write("{}: {} |".\
-					format(slave[0] + 1, slave[1])) 
-			f.write("{}: {}\n".\
-				format(slaves[-1][0] + 1, slaves[-1][1]))
+			for slave in slaves.values():
+				f.write("{}: {},\t".\
+					format(slave[cm.INDEX] + 1, slave[cm.MAC])) 
+			f.write("\n")
 
 			# Third line:
 			f.write("NOTE: Columns headers are formatted as FAN#-MODULE#\n")
@@ -129,35 +131,85 @@ def rpmLoggerProcess(
 			# slave[3] := data queue
 
 			# Write RPM headers:
-			for slave in slaves:
-				for fan in range(slave[2]):
-
-					f.write("RPM {}-{},".format(fan + 1, slave[0] + 1))
+			for slave in slaves.values():
+				for fan in range(slave[cm.FANS]):
+					f.write("RPM {}-{},".format(fan + 1, slave[cm.INDEX] + 1))
 			# Write DC headers:
-			for slave in slaves:
-				for fan in range(slave[2]):
-					f.write("DC {}-{}".format(fan + 1, slave[0] + 1))
+			for slave in slaves.values():
+				for fan in range(slave[cm.FANS]):
+					f.write("DC {}-{},".format(fan + 1, slave[cm.INDEX] + 1))
 					# Check if this is not the last fan of the last slave,
 					# in which case a comma must be added:
-					if not ((fan == slave[2] - 1) \
-						and (slave[0] == slaves[-1][0])):
-						f.write(',')
 
-			# Move to next line:
-			f.write('\n')
 		
 			# Get placeholder for "previous" time
-			previousT = time.time()
-			currentT = previousT
+			startTime = time.time()
 			
-			printM("File ready", 'G')
+			_printM("File ready", 'G')
 
 			# Main loop ........................................................
 			while True:
+					
+				# Check pipe for shutdown message:
+				if updatePipeOut.poll():
+					update = updatePipeOut.recv()
 
+					if update[wg.COMMAND] == wg.STOP:
+						_printM("Closing log")
+						break
+
+				if misoMatrixPipeOut.poll():
+					# New matrix available
+
+					# Get matrix:
+					matrix = misoMatrixPipeOut.recv()
+					
+					# Write timestamp:
+					f.write("{},".format(time.time() - startTime))
+
+					# Write data:
+
+					# Print RPM's and store DC's in placeholder:
+					dcs = ''
+					for index, row in enumerate(matrix):
+						# NOTE: Here the ith row in the matrix represents the
+						# Slave of index i (or i+1 for the user)
+						
+						# Check if this Slave has been updated:
+						if row[cm.MISO_COLUMN_TYPE] is sv.MISO_UPDATED:
+							# Slave updated (this row contains new values)
+							# Print new values
+
+							# Print RPM's:
+							# (Go from special codes to just before duty cycles)
+							for rpm in row[cm.MISO_SPECIALCOLUMNS:\
+									slaves[index][cm.FANS] + \
+										cm.MISO_SPECIALCOLUMNS]:
+								
+								f.write("{},".format(rpm))
+
+							# Print DC's:
+							for dc in row[slaves[index][cm.FANS] + \
+								cm.MISO_SPECIALCOLUMNS:]:
+								dcs += "{},".format(dc)
+
+						else:
+							# Slave not updated. Add blank cells for each RPM
+							# and DC:	
+							for rpm in range(slaves[index][cm.FANS]):
+								
+								f.write(',')
+								dcs += ','
+
+					# Print duty cycles and end line:
+					f.write(dcs + "\n")
+
+			
+			_printM("RPM Log closed")
 	
 	except:
 		ep.errorPopup("Error in RPM Logger process")
+		_printM("WARNING: RPM log stopped by exception (See pop-up window)")
 
 
 	# End rpmLoggerProcess =====================================================
@@ -169,7 +221,8 @@ class FCRPMLogger(wg.FCWidget):
 	def __init__(
 		self, 
 		master,
-		process,	
+		startCallback,
+		stopCallback,
 		profile,
 
 		spawnQueue,
@@ -177,14 +230,17 @@ class FCRPMLogger(wg.FCWidget):
 	): # =======================================================================
 
 		# Store arguments:
+		self.startCallback = startCallback
+		self.stopCallback = stopCallback
 		self.printQueue = printQueue
 		super(FCRPMLogger, self).__init__(
 			master = master,
-			process = FCRPMLoggerProcess,
+			process = rpmLoggerProcess,
 			profile = profile,
 			spawnQueue = spawnQueue,
-			printQueue = printQueue
-			specialArguments = ([]),
+			printQueue = printQueue,
+			specialArguments = ("Unnamed_RPM_Log.csv", []),
+			watchdogType = wg.WIDGET,
 			symbol = "LG"
 		)
 
@@ -192,7 +248,21 @@ class FCRPMLogger(wg.FCWidget):
 		# End __init__ =========================================================
 
 	def start(self, fileName, slaveList): # ====================================
-		pass
 
+		self._setSpecialArguments((fileName, slaveList))
+		super(FCRPMLogger, self).start()
 
 		# End start ============================================================
+
+	def _setStatus(self, newStatus): # =========================================
+
+		if newStatus is wg.ACTIVE:
+			self.startCallback()
+		elif newStatus is wg.INACTIVE:
+			self.stopCallback()
+		
+		super(FCRPMLogger, self)._setStatus(newStatus)
+
+		# End _setStatus =======================================================
+
+

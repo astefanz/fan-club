@@ -63,7 +63,10 @@ from auxiliary import names
 DEBUG = False
 VERSION = "Independent 0"
 FORCE_IP_ADDRESS = "0.0.0.0"
+	#"0.0.0.0"
 	#= "192.168.1.129" # (Basement lab)
+FORCE_BROADCAST_IP = "10.42.0.248" # "<broadcast>"
+
 
 # Communicator status codes:
 CONNECTED = 31
@@ -124,6 +127,11 @@ MOSI_REBOOT = 26
 # Change codes:
 NO_CHANGE = 0
 CHANGE = 1
+
+# MISO Matrix special columns:
+MISO_COLUMN_STATUS = 0
+MISO_COLUMN_TYPE = 1
+MISO_SPECIALCOLUMNS = 2
 
 ## CLASS DEFINITION ############################################################
 
@@ -664,7 +672,7 @@ class FCCommunicator:
 					# Broadcast message:
 					for i in (1,2):
 						self.broadcastSocket.sendto(broadcastMessage, 
-							("<broadcast>", self.broadcastPort))
+							(FORCE_BROADCAST_IP, self.broadcastPort))
 
 				#self.broadcastSwitchLock.release()
 				#self.broadcastLock.release()
@@ -1128,59 +1136,59 @@ class FCCommunicator:
 									'W'
 								)
 							
-							# MISO:
-							slave._misoSocket().close()
-							
-							misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-							misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-							misoS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-							misoS.settimeout(self.periodS*2)
-							misoS.bind(('', 0))
-
-							# MOSI:
-							slave._misoSocket().close()
-							
-							mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-							mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-							mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-							mosiS.settimeout(self.periodS)
-							mosiS.bind(('', 0))
-							
-							# Assign sockets:
-							slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
-
-							self.printM("[SV] {:3d} Slave sockets re-connected:"\
-							 " MMISO: {} MMOSI:{}".\
-								format(targetIndex + 1,
-									slave._misoSocket().getsockname()[1], 
-									slave._mosiSocket().getsockname()[1]))
-
-							# HSK message ------------------------------------------------------
-
-							MHSK = "H|{},{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
-										slave._misoSocket().getsockname()[1], 
-										slave._mosiSocket().getsockname()[1], 
-										self.periodMS,
-										self.broadcastPeriodS*1000,
-										self.maxTimeouts,
-
-										self.fanMode,
-										self.maxFans,
-										self.fanFrequencyHZ,
-										self.counterCounts,
-										self.pulsesPerRotation,
-										self.maxRPM,
-										self.minRPM,
-										self.minDC,
-										self.chaserTolerance,
-										self.maxFanTimeouts,
-										self.pinout)
-							
-
-							# Reset counter:
-							failedHSKs = 0
+								# MISO:
+								slave._misoSocket().close()
 								
-							continue
+								misoS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+								misoS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+								misoS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+								misoS.settimeout(self.periodS*2)
+								misoS.bind(('', 0))
+
+								# MOSI:
+								slave._misoSocket().close()
+								
+								mosiS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+								mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+								mosiS.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+								mosiS.settimeout(self.periodS)
+								mosiS.bind(('', 0))
+								
+								# Assign sockets:
+								slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
+
+								self.printM("[SV] {:3d} Slave sockets re-connected:"\
+								 " MMISO: {} MMOSI:{}".\
+									format(targetIndex + 1,
+										slave._misoSocket().getsockname()[1], 
+										slave._mosiSocket().getsockname()[1]))
+
+								# HSK message ------------------------------------------------------
+
+								MHSK = "H|{},{},{},{},{}|{} {} {} {} {} {} {} {} {} {} {}".format(
+											slave._misoSocket().getsockname()[1], 
+											slave._mosiSocket().getsockname()[1], 
+											self.periodMS,
+											self.broadcastPeriodS*1000,
+											self.maxTimeouts,
+
+											self.fanMode,
+											self.maxFans,
+											self.fanFrequencyHZ,
+											self.counterCounts,
+											self.pulsesPerRotation,
+											self.maxRPM,
+											self.minRPM,
+											self.minDC,
+											self.chaserTolerance,
+											self.maxFanTimeouts,
+											self.pinout)
+								
+
+								# Reset counter:
+								failedHSKs = 0
+								
+								continue
 
 					elif status >= sv.CONNECTED: # = = = = = = = = = = = = = = =
 						# If the Slave's state is positive, it is online and 
@@ -1549,7 +1557,7 @@ class FCCommunicator:
 				self.passcode, slave.getMAC(), message)
 			for i in range(repeat):
 				slave._mosiSocket().sendto(bytearray(outgoing,'ascii'), 
-				("<broadcast>", self.broadcastPort))	
+				(FORCE_BROADCAST_IP, self.broadcastPort))	
 
 		# End _sendToListener # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -1809,7 +1817,7 @@ class FCCommunicator:
 				# General broadcast
 				self.rebootSocket.sendto(
 					bytearray("R|{}".format(self.passcode),'ascii'),
-					("<broadcast>", self.broadcastPort))
+					(FORCE_BROADCAST_IP, self.broadcastPort))
 
 			elif target.getIP() is not None:
 				# Targetted broadcast w/ valid IP: 
@@ -1823,7 +1831,7 @@ class FCCommunicator:
 					bytearray("r|{}|{}".format(self.passcode, target.getMAC()),
 						'ascii'
 					),
-					("<broadcast>", self.broadcastPort)	
+					(FORCE_BROADCAST_IP, self.broadcastPort)	
 				)
 							
 
@@ -1844,7 +1852,7 @@ class FCCommunicator:
 			#self.broadcastLock.acquire()
 			self.disconnectSocket.sendto(
 				bytearray("X|{}".format(self.passcode),'ascii'),
-				("<broadcast>", self.broadcastPort))
+				(FORCE_BROADCAST_IP, self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
