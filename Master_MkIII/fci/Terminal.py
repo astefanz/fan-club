@@ -45,6 +45,10 @@ import os # Get current working directory & check file names
 import sys # Exception handling
 import inspect # get line number for debugging
 import traceback
+import time
+
+# FC:
+from auxiliary import errorPopup as ep
 
 class Terminal(Tk.Frame): # ====================================================
 
@@ -131,12 +135,34 @@ class Terminal(Tk.Frame): # ====================================================
 				text ="Terminal output", variable = self.terminalVar, 
 				bg = self.background, fg = self.foreground)
 
-			# TERMINAL SETUP:
+			# Clear terminal:
+			self.clearTerminalButton = Tk.Button(
+				self.terminalControlFrame,
+				text = "Clear",
+				bg = self.background,
+				highlightbackground = self.background,
+				fg = self.foreground,
+				command = self._clearTerminal
+			)
 
+			# Print terminal:
+			self.printTerminalButton = Tk.Button(
+				self.terminalControlFrame,
+				text = "Print to File",
+				bg = self.background,
+				highlightbackground = self.background,
+				fg = self.foreground,
+				command = self._printTerminal
+			)
+
+			# BUILD:
 			self.autoscrollButton.pack(side = Tk.LEFT)
 			self.debugButton.pack(side = Tk.LEFT)
 			self.terminalButton.pack(side = Tk.LEFT)
 			self.autoscrollButton.select()
+
+			self.clearTerminalButton.pack(side = Tk.LEFT)
+			self.printTerminalButton.pack(side = Tk.LEFT)
 
 			# RUN --------------------------------------------------------------
 			"""
@@ -305,3 +331,63 @@ class Terminal(Tk.Frame): # ====================================================
 		return (0 , 0)
 
 		# End getMinSize =======================================================
+
+	def _printTerminal(self, event = None): # ==================================
+		
+		try:
+			# Get file
+			filename = tkinter.filedialog.asksaveasfilename(
+						initialdir = os.getcwd(), # Get current working directory
+						initialfile = "FCMkII_terminal_{}.txt".format(
+								time.strftime(
+									"%a_%d_%b_%Y_%H-%M-%S", 
+									time.localtime()
+								)
+						),
+						title = "Choose file",
+						filetypes = (("Text files","*.txt"),
+							("All files","*.*"))
+			)
+			
+			if filename == '':
+				self._printM(
+					"Terminal print-to-file canceled (no filename)", 'W')
+
+			else:
+				with open(filename, 'w') as f:
+					
+					f.write("Fan Club MkII Terminal log printed on {}\n\n".\
+						format(time.strftime(
+								"%a %d %b %Y %H:%M:%S", 
+								time.localtime()
+							)
+						)
+					)
+
+					f.write(self.mainTText.get(1.0, Tk.END))
+		
+		except:
+			self._printE("Exception in Terminal print-to-file:")
+		
+		# End _printTerminal ===================================================
+
+	def _clearTerminal(self, event = None): # ==================================
+		
+		self.mainTText.config(state = Tk.NORMAL)
+		self.mainTText.delete(1.0, Tk.END)
+		self.mainTText.config(state = Tk.DISABLED)
+
+		# End _clearTerminal ===================================================
+
+	def _printM(self, message, tag = 'S'): # ===================================
+		
+		try:
+			self.printQueue.put_nowait(("[TM] " + message, tag))
+		except:
+			ep.errorPopup("Exception in Terminal print:")	
+	
+	def _printE(self, prelude = "Exception in Terminal:"): # ===================
+		
+		self._printM(prelude + ' ' + traceback.format_exc(), 'E')
+
+		# End _printE ==========================================================
