@@ -73,8 +73,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.background = "#d3d3d3"
 			self.foreground = "black"
 			self.config(
-				#bg = self.background, 
-				bg = 'blue',
+				bg = self.background, 
 				relief = Tk.SUNKEN,
 				borderwidth = 2
 			)

@@ -102,6 +102,25 @@ class LiveTableWidget(Tk.Frame):
 			self,
 			bg = self.bg,
 		)
+
+		self.startDisplacement = 2
+		self.endDisplacement = self.startDisplacement + self.profile[ac.maxFans]
+		self.showMenuVar = Tk.StringVar()
+		self.showMenuVar.trace('w', self._showMenuCallback)
+		self.showMenuVar.set("RPM")
+		self.showMenu = Tk.OptionMenu(
+			self.topBar,
+			self.showMenuVar,
+			"RPM",
+			"DC",
+		)
+		self.showMenu.config(
+			width = 3,
+			background = self.bg,
+			highlightbackground = self.bg,
+			foreground = self.fg,
+		)
+		self.showMenu.pack(side = Tk.LEFT)
 		
 		self.playPauseFlag = True
 		self.playPauseButton = Tk.Button(
@@ -434,7 +453,7 @@ class LiveTableWidget(Tk.Frame):
 					# RPM's updated
 					
 					tag = "N"
-					newValues = tuple(matrixRow[2:self.maxFans+2])
+					newValues = tuple(matrixRow[self.startDisplacement:self.endDisplacement])
 					maxValue = max(newValues)
 					minValue = min(newValues)
 					if self.sentinelFlag:
@@ -766,6 +785,17 @@ class LiveTableWidget(Tk.Frame):
 					self.timerSeconds))
 
 		# End _playPause =======================================================
+	
+	def _showMenuCallback(self, *event): # =====================================
+
+		if self.showMenuVar.get() == "RPM":
+			self.startDisplacement = 2
+		elif self.showMenuVar.get() == "DC":
+			self.startDisplacement = 2 + self.maxFans
+
+		self.endDisplacement = self.startDisplacement + self.maxFans
+
+		# End _showMenuCallback ================================================
 
 	def _printM(self, message, tag = 'S'): # ===================================
 
