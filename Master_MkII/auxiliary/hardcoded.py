@@ -74,7 +74,7 @@ SPEC_CAST_DIMS_12 = (36,36) # (9, 12)
 # Values to be used in provisional FCArchiver: 
 DEF_MODULE_DIMENSIONS = (0,0)
 DEF_MODULE_ASSIGNMENT = ""
-DEF_PINOUT =  SPEC_JPL_PINOUT
+DEF_PINOUT =  SPEC_CAST_PINOUT
 DEF_DIMENSIONS = (3,7)
 
 # PREDEFINED SLAVE LISTS =======================================================
@@ -1420,7 +1420,9 @@ SLAVELIST_ALEX = [\
 ] # End SLAVELIST_ALEX
 
 # Slavelist to be used:
-DEF_SLAVELIST = [
+DEF_SLAVELIST = SLAVELIST_CAST_ALL
+"""
+[
 	[
 		"JPL-testM",
 		"00:80:e1:41:00:1b",
@@ -1430,6 +1432,7 @@ DEF_SLAVELIST = [
 		'1,3,5,,0,2,4,7,9,11,,6,8,10,13,15,17,,12,14,16'
 	]
 ]
+"""
 
 # DEFAULT VALUES ===============================================================
 
