@@ -92,8 +92,8 @@ DISCONNECT = 52
 REBOOT = 53
 
 # NOTE: Array command e.g.: 
-#		(COMMUNICATOR, SET_DC, DC, ALL)
-# 		(COMMUNICATOR, SET_DC, DC, 1,2,3,4)
+#		(COMMUNICATOR, SET_DC, DC, FANS, ALL)
+# 		(COMMUNICATOR, SET_DC, DC, FANS, 1,2,3,4)
 
 SET_DC = 54
 SET_RPM = 55
@@ -511,42 +511,53 @@ class FCCommunicator:
 						elif command[wg.COMMAND] is SET_DC:
 							print("Command is 'SET_DC': ",format(command))
 							
-							if command[wg.VALUE + 1] is ALL:
-								
+							if command[wg.VALUE + 2] is ALL:
+			
 								for index, slave in enumerate(self.slaves):	
 									if slave.getStatus() is sv.CONNECTED:
 										slave.setMOSI(
-											(MOSI_DC_ALL,command[wg.VALUE]),
+											(	MOSI_DC,
+												command[wg.VALUE]) +\
+												command[wg.VALUE+1],
 											False
 										)
 							else:
 								
-								for index in command[wg.VALUE+1:]:
+								for index in command[wg.VALUE+2:]:
 									if self.slaves[index].getStatus() is \
 										sv.CONNECTED:
 										self.slaves[index].setMOSI(
-											(MOSI_DC_ALL,command[wg.VALUE]),
+											(	MOSI_DC,
+												command[wg.VALUE]) + \
+												command[wg.VALUE+1],
+											
 											False
 										)
 
 						elif command[wg.COMMAND] is SET_RPM:
 							print("Command is 'SET_RPM': ",format(command))
 							
-							if command[wg.VALUE + 1] is ALL:
-
+							if command[wg.VALUE + 2] is ALL:
+			
 								for index, slave in enumerate(self.slaves):	
 									if slave.getStatus() is sv.CONNECTED:
 										slave.setMOSI(
-											(MOSI_RPM_ALL,command[wg.VALUE]),
+											(	MOSI_RPM,
+												command[wg.VALUE],
+												command[wg.VALUE+1]
+											),
 											False
 										)
 							else:
 								
-								for index in command[wg.VALUE+1:]:
+								for index in command[wg.VALUE+2:]:
 									if self.slaves[index].getStatus() is \
 										sv.CONNECTED:
 										self.slaves[index].setMOSI(
-											(MOSI_RPM_ALL,command[wg.VALUE]),
+											(	MOSI_RPM,
+												command[wg.VALUE],
+												command[wg.VALUE+1]
+											),
 											False
 										)
 

@@ -253,7 +253,7 @@ class FCRPMLogger(wg.FCWidget):
 		super(FCRPMLogger, self).start()
 
 		# End start ============================================================
-
+	
 	def _setStatus(self, newStatus): # =========================================
 
 		if newStatus is wg.ACTIVE:

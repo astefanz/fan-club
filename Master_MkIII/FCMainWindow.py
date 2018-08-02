@@ -515,6 +515,7 @@ class FCMainWindow(Tk.Frame):
 			
 			self.minHeight = \
 				self.toolFrame.winfo_height() + \
+				self.rpmLoggerFrame.winfo_height() + \
 				self.communicator.getMinSize()[1] + \
 				self.terminal.getMinSize()[1]
 

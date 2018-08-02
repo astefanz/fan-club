@@ -269,11 +269,16 @@ class FCCSlaveList(Tk.Frame): # ================================================
 
 		# End remove ===========================================================
 	
-	def getSelection(self): # ==================================================
+	def getSelection(self, statusFilter = None): # =============================
 	
-		selection = []
+		selection = ()
 		for iid in self.slaveList.selection():
-			selection.append(self.slaveList.item(iid)['values'][cm.INDEX])
+			if statusFilter is None or \
+				selfslaveList.item(iid)['values'][cm.STATUS] == statusFilter:
+				
+				selection += (
+					self.slaveList.item(iid)['values'][cm.INDEX] - 1,
+				)
 
 		return selection
 

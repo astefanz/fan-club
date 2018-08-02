@@ -376,13 +376,14 @@ class Terminal(Tk.Frame): # ====================================================
 		self.mainTText.config(state = Tk.NORMAL)
 		self.mainTText.delete(1.0, Tk.END)
 		self.mainTText.config(state = Tk.DISABLED)
+		self._printM("Terminal cleared")
 
 		# End _clearTerminal ===================================================
 
 	def _printM(self, message, tag = 'S'): # ===================================
 		
 		try:
-			self.printQueue.put_nowait(("[TM] " + message, tag))
+			self.mainQueue.put_nowait(("[TM] " + message, tag))
 		except:
 			ep.errorPopup("Exception in Terminal print:")	
 	

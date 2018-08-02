@@ -66,13 +66,21 @@ NOT_FLASHING = 0
 
 class FCCControlBar(Tk.Frame, object):
 
-	def __init__(self, master, selectionSource, commandQueue, printQueue): # ===
+	def __init__(
+		self, 
+		master, 
+		maxFans, 
+		selectionSource, 
+		commandQueue, 
+		printQueue
+		): # ===================================================================
 
 		self.canPrint = False
 
 		try:
 
 			# CONFIGURE --------------------------------------------------------
+			self.maxFans = maxFans
 			self.selectionSource = selectionSource
 			self.commandQueue = commandQueue
 			self.printQueue = printQueue
@@ -133,35 +141,35 @@ class FCCControlBar(Tk.Frame, object):
 			# Target Menu ......................................................
 
 			# Label:
-			self.targetMenuLabel = Tk.Label(
+			self.networkTargetMenuLabel = Tk.Label(
 				self.networkControlFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "Target: "
 			)
 
-			self.targetMenuLabel.pack(side = Tk.LEFT)
+			self.networkTargetMenuLabel.pack(side = Tk.LEFT)
 
 			# Menu:
 
-			self.selectedTarget = Tk.StringVar()
-			self.selectedTarget.set("All")
-			self.targetMenu = Tk.OptionMenu(self.networkControlFrame, 
-				self.selectedTarget,
+			self.selectedNetworkTarget = Tk.StringVar()
+			self.selectedNetworkTarget.set("All")
+			self.networkTargetMenu = Tk.OptionMenu(self.networkControlFrame, 
+				self.selectedNetworkTarget,
 				"Selected", 
-				"All",
+				"All"
 			)
 
-			self.targetMenu.pack(side = Tk.LEFT)
+			self.networkTargetMenu.pack(side = Tk.LEFT)
 
-			self.targetMenu.config(
+			self.networkTargetMenu.config(
 				width = 10,
 				background = self.background,
 				highlightbackground = self.background,
 				foreground = self.foreground
 			)
 
-			self.activeWidgets.append(self.targetMenu)
+			self.activeWidgets.append(self.networkTargetMenu)
 			
 			"""
 			# Channel Menu ......................................................
@@ -333,15 +341,57 @@ class FCCControlBar(Tk.Frame, object):
 			"""
 			
 			# QUICK ARRAY CONTROL ..............................................
-			self.quickControlFrame = Tk.Frame(
+			self.controlFrame = Tk.Frame(
 				None,
 				background = self.background
 			)
-			self.quickControlFrame.pack(fill = Tk.BOTH, expand = True)
+			self.controlFrame.pack(fill = Tk.BOTH, expand = True)
+
+			# Top frame:
+			self.controlTopFrame = Tk.Frame(
+				self.controlFrame,
+				background = self.background
+			)
+			self.controlTopFrame.pack(
+				side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			# Target Menu:
+
+			# TM Label:
+			self.arrayTargetMenuLabel = Tk.Label(
+				self.controlTopFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "Target: "
+			)
+
+			self.arrayTargetMenuLabel.pack(side = Tk.LEFT)
+
+			# TM Menu:
+
+			self.selectedArrayTarget = Tk.StringVar()
+			self.selectedArrayTarget.set("All")
+			self.arrayTargetMenu = Tk.OptionMenu(
+				self.controlTopFrame, 
+				self.selectedArrayTarget,
+				"Selected", 
+				"All"
+			)
+
+			self.arrayTargetMenu.pack(side = Tk.LEFT)
+
+			self.arrayTargetMenu.config(
+				width = 10,
+				background = self.background,
+				highlightbackground = self.background,
+				foreground = self.foreground
+			)
+
+			self.activeWidgets.append(self.arrayTargetMenu)
 
 			# Label(1/4):
 			self.arrayCommandMenuLabel1 = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "  Set: "
@@ -354,7 +404,7 @@ class FCCControlBar(Tk.Frame, object):
 			self.selectedArrayCommand = Tk.StringVar()
 			self.selectedArrayCommand.set(SET_DC)
 			self.arrayCommandMenu = Tk.OptionMenu(
-				self.quickControlFrame, 
+				self.controlTopFrame, 
 				self.selectedArrayCommand,
 				SET_DC,
 				SET_RPM,
@@ -373,7 +423,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			# Label (2/4):
 			self.arrayCommandMenuLabel2 = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "  To: "
@@ -385,7 +435,7 @@ class FCCControlBar(Tk.Frame, object):
 			# Value entry:
 			validateAE = self.register(self._validateArrayEntry)
 			self.arrayEntry = Tk.Entry(
-				self.quickControlFrame, 
+				self.controlTopFrame, 
 				highlightbackground = self.background,
 				bg = 'white',
 				fg = self.foreground,
@@ -397,7 +447,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			self.keepOnSendToggleVar = Tk.BooleanVar()
 			self.keepOnSendToggle = Tk.Checkbutton(
-				self.quickControlFrame, 
+				self.controlTopFrame, 
 				text ="Remember value", 
 				variable = self.keepOnSendToggleVar, 
 				bg = self.background, 
@@ -410,7 +460,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			# Label (3/4):
 			self.arrayCommandMenuLabel3 = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "     "
@@ -420,7 +470,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			# Send button:
 			self.sendArrayCommandButton = Tk.Button(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "Send",
@@ -431,7 +481,7 @@ class FCCControlBar(Tk.Frame, object):
 			"""	
 			# Label (4/4):
 			self.arrayCommandMenuLabel4 = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = 'darkgray',
 				font = ('TkDefaultFont', 10),
@@ -446,7 +496,7 @@ class FCCControlBar(Tk.Frame, object):
 			"""	
 			# DC Cap label:
 			self.capLabel = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "    DC Cap: "
@@ -456,7 +506,7 @@ class FCCControlBar(Tk.Frame, object):
 
 			# DC Cap:
 			self.capEntry = Tk.Entry(
-				self.quickControlFrame, 
+				self.controlTopFrame, 
 				highlightbackground = self.background,
 				bg = 'white',
 				fg = self.foreground,
@@ -472,7 +522,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			# Set DC cap button:
 			self.setCapButton = Tk.Button(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "Set",
@@ -485,7 +535,7 @@ class FCCControlBar(Tk.Frame, object):
 			
 			# Label (4/4):
 			self.arrayCommandMenuLabel4 = Tk.Label(
-				self.quickControlFrame,
+				self.controlTopFrame,
 				bg = self.background,
 				fg = self.foreground,
 				text = "    "
@@ -494,8 +544,113 @@ class FCCControlBar(Tk.Frame, object):
 			self.arrayCommandMenuLabel4.pack(side = Tk.RIGHT)
 			"""
 
+			# Bottom frame:
+			self.controlBottomFrame = Tk.Frame(
+				self.controlFrame,
+				background = self.background,
+			)
+			self.controlBottomFrame.pack(
+				side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			# Array selection:
+			
+			self.arraySelectionLabel = Tk.Label(
+				self.controlBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Fans: "
+			)
+			self.arraySelectionLabel.pack(side = Tk.LEFT)
+
+			self.arraySelectionFrame = Tk.Frame(
+				self.controlBottomFrame,
+				bg = self.background
+			)
+			self.arraySelectionFrame.pack(side = Tk.LEFT)
+			
+			# Fan checks:
+			self.fanBooleanVars = ()
+			self.fanCheckButtons = ()
+			for fan in range(self.maxFans):
+				self.fanBooleanVars += (
+					Tk.BooleanVar(),
+				)
+				self.fanCheckButtons += (
+					Tk.Checkbutton(
+						self.arraySelectionFrame,
+						text = "{}".format(fan+1),
+						font = ('TkFixedFont','8'),
+						bg = self.background,
+						fg = self.foreground,
+						variable = self.fanBooleanVars[fan]
+					),
+				)
+				self.fanCheckButtons[fan].pack(side = Tk.LEFT)
+
+			self.selectAllFansButton = Tk.Button(
+				self.controlBottomFrame,
+				text = "All",
+				font = ("TkDefaultFont", 8),
+				padx = 3,	
+				fg = self.foreground,
+				bg = self.background,
+				highlightbackground = self.background,
+				command = self._selectAllFans
+			)
+			self.selectAllFansButton.pack(side = Tk.LEFT)
+			
+			self.deselectAllFansButton = Tk.Button(
+				self.controlBottomFrame,
+				text = "None",
+				font = ("TkDefaultFont", 8),
+				padx = 3,	
+				fg = self.foreground,
+				bg = self.background,
+				highlightbackground = self.background,
+				command = self._deselectAllFans
+			)
+			self.deselectAllFansButton.pack(side = Tk.LEFT)
+			
+			self.selectOddFansButton = Tk.Button(
+				self.controlBottomFrame,
+				text = "Odd",
+				font = ("TkDefaultFont", 8),
+				padx = 3,	
+				fg = self.foreground,
+				bg = self.background,
+				highlightbackground = self.background,
+				command = self._selectOddFans
+			)
+			self.selectOddFansButton.pack(side = Tk.LEFT)
+
+			self.selectEvenFansButton = Tk.Button(
+				self.controlBottomFrame,
+				text = "Even",
+				font = ("TkDefaultFont", 8),
+				padx = 3,	
+				fg = self.foreground,
+				bg = self.background,
+				highlightbackground = self.background,
+				command = self._selectEvenFans
+			)
+			self.selectEvenFansButton.pack(side = Tk.LEFT)
+
+			self.invertFanSelectionButton = Tk.Button(
+				self.controlBottomFrame,
+				text = "Invert",
+				font = ("TkDefaultFont", 8),
+				padx = 3,	
+				fg = self.foreground,
+				bg = self.background,
+				highlightbackground = self.background,
+				command = self._invertFanSelection
+			)
+			self.invertFanSelectionButton.pack(side = Tk.LEFT)
+
+			self._selectAllFans()
+
 			self.notebook.add(
-				self.quickControlFrame,
+				self.controlFrame,
 				text = "Array Control",
 				state = Tk.NORMAL
 			)
@@ -504,9 +659,21 @@ class FCCControlBar(Tk.Frame, object):
 			self.bind("<Return>", self._onEnter)
 			self.sendNetworkCommandButton.bind("<Return>", self._onEnter)
 			self.sendArrayCommandButton.bind("<Return>", self._onEnter)
-			self.quickControlFrame.bind("<Return>", self._onEnter)
+			self.controlFrame.bind("<Return>", self._onEnter)
 			self.networkControlFrame.bind("<Return>", self._onEnter)
+
 			self.arrayEntry.bind("<Return>", self._onEnter)
+			self.arrayEntry.bind("<Control-a>", self._selectAllFans)
+			self.arrayEntry.bind("<Control-A>", self._selectAllFans)
+			self.arrayEntry.bind("<Control-n>", self._deselectAllFans)
+			self.arrayEntry.bind("<Control-N>", self._deselectAllFans)
+			self.arrayEntry.bind("<Control-o>", self._selectOddFans)
+			self.arrayEntry.bind("<Control-O>", self._selectOddFans)
+			self.arrayEntry.bind("<Control-e>", self._selectEvenFans)
+			self.arrayEntry.bind("<Control-E>", self._selectEvenFans)
+			self.arrayEntry.bind("<Control-i>", self._invertFanSelection)
+			self.arrayEntry.bind("<Control-I>", self._invertFanSelection)
+
 			self.notebook.bind("<Return>", self._onEnter)
 
 				
@@ -832,10 +999,10 @@ class FCCControlBar(Tk.Frame, object):
 		try:
 
 			# Get targets:
-			if self.selectedTarget.get() == "All":
-				targets = [cm.ALL]
+			if self.selectedNetworkTarget.get() == "All":
+				targets = (cm.ALL,)
 			else:
-				targets = map(lambda x: x-1,self.selectionSource.getSelection())
+				targets = self.selectionSource.getSelection()
 		
 			# Assemble message:
 			if self.selectedCommand.get() == "Disconnect":
@@ -864,14 +1031,35 @@ class FCCControlBar(Tk.Frame, object):
 
 	def _sendArrayCommand(self, event = None): # ===============================
 		try:
+			
+			# NOTE. Parts of an array command:
+			#	- Target (All or Selection)
+			#	- Command (DC or RPM)
+			#	- Fans	(Str of 1's and 0's)
 
+			# Get targets:
+			arrayCommand = ()
+
+			if self.selectedArrayTarget.get() == "All":
+				targets = (cm.ALL,)
+			elif self.selectedArrayTarget.get() == "Selected":
+				targets = self.selectionSource.getSelection()
+
+				if len(targets) == 0:
+					return
+			else:
+				self._printM("Error: Unrecognized Target Menu entry \"{}\"".\
+					format(self.selectedArrayTarget.get()), 'E')
+
+			# Get command and value (First check for empty value)
 			if self.arrayEntry.get() == '':
-				self._printM("NOTE: Empty array command defaulted to 0% to all", 'W')
+				self._printM("NOTE: Empty array value defaulted to 0", 'W')
 				self.arrayEntry.insert(0, '0')
 
 			if self.selectedArrayCommand.get() == SET_DC:
 				command = cm.SET_DC
 				value = float(self.arrayEntry.get())
+
 			elif self.selectedArrayCommand.get() == SET_RPM:
 				command = cm.SET_RPM
 				value = int(self.arrayEntry.get())
@@ -879,9 +1067,24 @@ class FCCControlBar(Tk.Frame, object):
 			else:
 				return
 
+			# Get selection
+			fans = ()
+			for fanBooleanVar in self.fanBooleanVars:
+				if fanBooleanVar.get():
+					fans += (1,)
+				else:
+					fans += (0,)
+
+			arrayCommand += (mw.COMMUNICATOR, command, value, fans)
+			arrayCommand += targets
+
 			self.commandQueue.put_nowait(
-				(mw.COMMUNICATOR, command, value, cm.ALL)
+				arrayCommand
 				
+			)
+			
+			print(
+				arrayCommand
 			)
 
 			if not self.keepOnSendToggleVar.get():
@@ -899,6 +1102,61 @@ class FCCControlBar(Tk.Frame, object):
 		except:
 			ep.errorPopup("Error in FCCControlBar")
 		# End _setCap ==========================================================
+
+	def _selectAllFans(self, event = None): # ==================================
+		try:		
+			
+			for fanBooleanVar in self.fanBooleanVars:
+				fanBooleanVar.set(True)
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		
+		# End _selectAllFans ===================================================
+
+	def _deselectAllFans(self, event = None): # ================================
+		try:		
+			
+			for fanBooleanVar in self.fanBooleanVars:
+				fanBooleanVar.set(False)
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		
+		# End _deselectAllFans =================================================
+
+	def _selectOddFans(self, event = None): # ==================================
+		# NOTE: Selects odd fans as seen by the user (starting at 1)
+		try:		
+			
+			for fanBooleanVar in self.fanBooleanVars[0:-1:2]:
+				fanBooleanVar.set(True)
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		# End _selectOddFans ===================================================
+
+	def _selectEvenFans(self, event = None): # =================================
+		# NOTE: Selects even fans as seen by the user (starting at 1)
+		try:		
+			
+			for fanBooleanVar in self.fanBooleanVars[1::2]:
+				fanBooleanVar.set(True)
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		# End _selectEvenFans ==================================================
+
+	def _invertFanSelection(self, event = None): # =============================
+		try:		
+			
+			for fanBooleanVar in self.fanBooleanVars:
+				fanBooleanVar.set(not fanBooleanVar.get())
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# End _invertFanSelection ==============================================
 
 	def _onEnter(self, event = None): # ========================================
 		try:

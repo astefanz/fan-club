@@ -46,6 +46,7 @@ import queue
 import numpy as np	# Fast arrays and matrices
 
 # FCMkII:
+import FCArchiver as ac
 import FCCommunicator as cm
 import FCWidget as wg
 import FCSlave as sv
@@ -218,6 +219,7 @@ class FCPRCommunicator(wg.FCWidget):
 			
 			self.controlBar = cb.FCCControlBar(
 				self, 
+				self.profile[ac.maxFans],
 				self.slaveList, 
 				self.commandQueue,
 				self.printQueue
