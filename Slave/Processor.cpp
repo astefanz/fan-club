@@ -99,25 +99,204 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 	bool success = false;
 	
 	if(not configure){
-		// Standard usage. Try to place this command in the input buffer:
+		// Standard usage. Execute command
+		
+			//pl;printf("\n\r[%08dms][P][D] Input found",tm);pu;
 
-		this->inFlagLock.lock();
-		if(not this->inFlag){
-			// If the input flag is not set, then the buffer is available.
-			// Acquire buffer lock and edit buffer:
-
+			// Get command contents:
 			strcpy(this->inBuffer, givenCommand);
-			
-			this->inFlag = true;
-			success = true;
-			
-		}else{ 
-			// Allocation unsuccessful:
-			
-			pl;printf("\n\r[%08dms][P] WARNING: inputQueue full",tm);pu;
+				// NOTE: Destroy obsolete message
 
-		} // End check input flag
-		this->inFlagLock.unlock();
+			// Split contents: 
+			char *splitPosition = NULL;
+			char* splitPtr = strtok_r(this->inBuffer, ":", &splitPosition);
+				// NOTE: Use strtok_r instead of strtok for thread-safety
+		   
+			/* DEBUG
+			pl;printf(
+				"\n\r[%08dms][P][D] Input: \n\r\t\"%s\"\n\r\tSplit: %s",
+				tm, rawCommand, splitPtr);pu;
+			*/
+
+			// Verify splitting:
+			if(splitPtr == NULL){
+				// Error:
+				pl;printf("\n\r[%08dms][P] ERROR: NULL splitPtr (1)",
+				tm);pu;
+				return false;
+
+			} // End verify splitting.
+			
+			// Check command: ----------------------------------------------
+			char commandCode = splitPtr[0];
+			switch(commandCode){
+
+				case WRITE: // Set fan duty cycles
+				{
+					pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
+				
+					// Split contents for duty cycle:
+					splitPtr = strtok_r(NULL, ":", &splitPosition);
+
+					// Validate:
+					if(splitPtr == NULL){
+						// Error:
+						pl;printf(
+							"\n\r[%08dms][P] ERROR: NULL splitPtr (2)",
+							tm);pu;
+
+						// Ignore message:
+						return false;
+
+					} // End validate splitting
+
+					// Get float duty cycle:
+					float dutyCycle = atof(splitPtr);
+					pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
+
+					// Split contents for selected fans:
+					splitPtr = strtok_r(NULL, ":", &splitPosition);
+
+						// spliPtr now points to a string of 0's and 1's,
+						// indicating which fans are selected. For example:
+						//            " 000111000100000000000"
+						// Means fans number 4,5,6 and 10 are selected 
+						// (using indexing that starts at 1 to please the 
+						// non-CS muggles.
+
+					// Validate:
+					if(splitPtr == NULL){
+						// Error:
+						pl;printf(
+							"\n\r[%08dms][P] ERROR: NULL splitPtr (3)",
+							tm);pu;
+
+						// Ignore message:
+						return false;
+					} // End validate splitting
+
+					// Get length of selection:
+					int numFans = strlen(splitPtr);
+					
+					pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
+						tm, splitPtr, numFans);pu;
+
+					// Loop over list and assign duty cycles:
+					for(int i = 0; i < numFans; i++){
+
+						// Check if the corresponding index is selected:
+						if(splitPtr[i] - '0'){
+						 //\---------------/
+						 // This expression will evaluate to 0 if the fan is
+						 // set to 0, and nonzero (true) otherwise.
+							this->fanArray[i].write(dutyCycle);
+
+						}
+					} // End assign duty cycles
+
+					//pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
+
+					return true;
+
+				}
+				
+				case CHASE: // Set a target RPM
+				{
+					pl;printf("\n\r[%08dms][P] CHASE received",tm);pu;
+				
+					// Split contents for duty cycle:
+					splitPtr = strtok_r(NULL, ":", &splitPosition);
+
+					// Validate:
+					if(splitPtr == NULL){
+						// Error:
+						pl;printf(
+							"\n\r[%08dms][P] ERROR: NULL splitPtr (2)",
+							tm);pu;
+
+						// Ignore message:
+						return false;
+					} // End validate splitting
+
+					// Get float duty cycle:
+					int target = atoi(splitPtr);
+					#ifdef DEBUG
+					pl;printf("\n\r[%08dms][P] RPM: %d",tm, target);pu;
+					#endif
+
+					// Split contents for selected fans:
+					splitPtr = strtok_r(NULL, ":", &splitPosition);
+
+						// spliPtr now points to a string of 0's and 1's,
+						// indicating which fans are selected. For example:
+						//            " 000111000100000000000"
+						// Means fans number 4,5,6 and 10 are selected 
+						// (using indexing that starts at 1 to please the 
+						// non-CS muggles.
+
+					// Validate:
+					if(splitPtr == NULL){
+						// Error:
+						pl;printf(
+							"\n\r[%08dms][P] ERROR: NULL splitPtr (3)",
+							tm);pu;
+
+						// Ignore message:
+						return false;
+					} // End validate splitting
+
+					// Get length of selection:
+					int numFans = strlen(splitPtr);
+					
+					#ifdef DEBUG
+					pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
+						tm, splitPtr, numFans);pu;
+					#endif
+
+					// Calculate first-guess duty cycle:
+					float dutyCycle = (target/(float)this->maxRPM);
+
+					// Check in case of minimum RPM threshold:
+					// (If requested a target below the minimum RPM)
+					if(target < this->minRPM){
+						dutyCycle = 0.0;
+					}else if (target >= this->maxRPM){
+						dutyCycle = 1.0;
+					}
+
+					pl;printf("\n\r[%08dms][P][DEBUG] Linear-guess DC: "
+					" (%d) / %lu = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
+					// Loop over list and assign duty cycles:
+					for(int i = 0; i < numFans; i++){
+
+						// Check if the corresponding index is selected:
+						if(splitPtr[i] - '0'){
+						 //\---------------/
+						 // This expression will evaluate to 0 if the fan is
+						 // set to 0, and nonzero (true) otherwise.
+
+							// Make a first guess by assuming a linear fit:
+							this->fanArray[i].write(dutyCycle);
+						}
+					} // End assign duty cycles
+
+					pl;printf("\n\r[%08dms][P] Linear-guess DC assigned",tm);pu;
+
+					return true;
+
+				}
+				
+				default: // Unrecognized command:
+
+					// Issue error message and discard command:
+
+					pl;printf(
+						"\n\r[%08dms][P] ERROR: UNRECOGNIZED COMMAND: %c",
+						tm, splitPtr[0]);pu;
+
+					return false;
+
+			} // End check command -----------------------------------------
 	
 	} else {
 		// Configure Processor.
@@ -424,10 +603,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     pl;printf("\n\r[%08dms][P] Processor thread started",tm);pu;
 
     // Prepare placeholders: ---------------------------------------------------
-	char rawCommand[MAX_MESSAGE_LENGTH];
 	char rpmBuffer[MAX_MESSAGE_LENGTH]; // Save last RPM value
-	bool rpmWritten = false; // Avoid skipping RPM's before the first write
-	bool writeCalled = false; // Keep track of whether a write was just called
 
     // Thread loop =============================================================
     while(true){
@@ -441,248 +617,15 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
             // Processor off, set all fans to zero. (Safety redundancy)
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor inactive",tm);pu;
-
+			
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
             } // End set all fans to zero
 			
-			rpmWritten = false; // Avoid skipping RPM's before the first write
-			writeCalled = false; // Keep track of whether a write was just called
-			
         } else{
-            // Processor active, check for commands: ---------------------------
+			// Processor active. Update values -
+
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
-
-
-    		//pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
-
-
-			// Reset corresponding flags:
-			writeCalled = false;
-						
-			this->inFlagLock.lock();
-				// NOTICE: This lock is released in two different places (if and
-				// else) as an optimization
-			if(this->inFlag){ // ===============================================
-           
-
-				//pl;printf("\n\r[%08dms][P][D] Input found",tm);pu;
-
-                // Get command contents:
-				strcpy(rawCommand, this->inBuffer);
-				this->inBuffer[0] = '\0';
-					// NOTE: Destroy obsolete message
-
-				// Clear input flag:
-				this->inFlag = false;
-				this->inFlagLock.unlock();
-
-                
-                // Split contents: 
-                char *splitPosition = NULL;
-                char* splitPtr = strtok_r(rawCommand, ":", &splitPosition);
-                    // NOTE: Use strtok_r instead of strtok for thread-safety
-               
-				/* DEBUG
-				pl;printf(
-					"\n\r[%08dms][P][D] Input: \n\r\t\"%s\"\n\r\tSplit: %s",
-					tm, rawCommand, splitPtr);pu;
-				*/
-
-                // Verify splitting:
-                if(splitPtr == NULL){
-                    // Error:
-                    pl;printf("\n\r[%08dms][P] ERROR: NULL splitPtr (1)",
-                    tm);pu;
-
-                    // Resume loop:
-    				this->threadLock.unlock();
-                    continue;
-                } // End verify splitting.
-                
-                // Check command: ----------------------------------------------
-                char commandCode = splitPtr[0];
-                switch(commandCode){
-
-                    case WRITE: // Set fan duty cycles
-					{
-                        pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
-					
-                        // Update status:
-						writeCalled = true;
-
-                        // Split contents for duty cycle:
-                        splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-                        // Validate:
-                        if(splitPtr == NULL){
-                            // Error:
-                            pl;printf(
-                                "\n\r[%08dms][P] ERROR: NULL splitPtr (2)",
-                                tm);pu;
-
-                            // Ignore message:
-    						this->threadLock.unlock();
-                            continue;
-                        } // End validate splitting
-
-                        // Get float duty cycle:
-                        float dutyCycle = atof(splitPtr);
-						pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
-
-                        // Split contents for selected fans:
-                        splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-                            // spliPtr now points to a string of 0's and 1's,
-                            // indicating which fans are selected. For example:
-                            //            " 000111000100000000000"
-                            // Means fans number 4,5,6 and 10 are selected 
-                            // (using indexing that starts at 1 to please the 
-                            // non-CS muggles.
-
-                        // Validate:
-                        if(splitPtr == NULL){
-                            // Error:
-                            pl;printf(
-                                "\n\r[%08dms][P] ERROR: NULL splitPtr (3)",
-                                tm);pu;
-
-                            // Ignore message:
-    						this->threadLock.unlock();
-                            continue;
-                        } // End validate splitting
-
-                        // Get length of selection:
-                        int numFans = strlen(splitPtr);
-						
-                        pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
-                            tm, splitPtr, numFans);pu;
-
-                        // Loop over list and assign duty cycles:
-                        for(int i = 0; i < numFans; i++){
-
-                            // Check if the corresponding index is selected:
-                            if(splitPtr[i] - '0'){
-                             //\---------------/
-                             // This expression will evaluate to 0 if the fan is
-                             // set to 0, and nonzero (true) otherwise.
-                                this->fanArray[i].write(dutyCycle);
-
-								// Override Chaser, if any:
-								this->fanArray[i].setTarget(NO_TARGET);
-                            }
-                        } // End assign duty cycles
-
-                        pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
-
-                        break;
-					}
-                    case CHASE: // Set a target RPM
-					{
-                        pl;printf("\n\r[%08dms][P] CHASE received",tm);pu;
-					
-                        // Split contents for duty cycle:
-                        splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-                        // Validate:
-                        if(splitPtr == NULL){
-                            // Error:
-                            pl;printf(
-                                "\n\r[%08dms][P] ERROR: NULL splitPtr (2)",
-                                tm);pu;
-
-                            // Ignore message:
-    						this->threadLock.unlock();
-                            continue;
-                        } // End validate splitting
-
-                        // Get float duty cycle:
-                        int target = atoi(splitPtr);
-                        #ifdef DEBUG
-						pl;printf("\n\r[%08dms][P] RPM: %d",tm, target);pu;
-						#endif
-
-                        // Split contents for selected fans:
-                        splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-                            // spliPtr now points to a string of 0's and 1's,
-                            // indicating which fans are selected. For example:
-                            //            " 000111000100000000000"
-                            // Means fans number 4,5,6 and 10 are selected 
-                            // (using indexing that starts at 1 to please the 
-                            // non-CS muggles.
-
-                        // Validate:
-                        if(splitPtr == NULL){
-                            // Error:
-                            pl;printf(
-                                "\n\r[%08dms][P] ERROR: NULL splitPtr (3)",
-                                tm);pu;
-
-                            // Ignore message:
-    						this->threadLock.unlock();
-                            continue;
-                        } // End validate splitting
-
-                        // Get length of selection:
-                        int numFans = strlen(splitPtr);
-						
-						#ifdef DEBUG
-                        pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
-                            tm, splitPtr, numFans);pu;
-						#endif
-
-						// Calculate first-guess duty cycle:
-						float dutyCycle = (target/(float)this->maxRPM);
-
-						// Check in case of minimum RPM threshold:
-						// (If requested a target below the minimum RPM)
-						if(target < this->minRPM){
-							dutyCycle = 0.0;
-						}else if (target >= this->maxRPM){
-							dutyCycle = 1.0;
-						}
-
-                        pl;printf("\n\r[%08dms][P][DEBUG] Linear-guess DC: "
-						" (%d) / %lu = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
-                        // Loop over list and assign duty cycles:
-                        for(int i = 0; i < numFans; i++){
-
-                            // Check if the corresponding index is selected:
-                            if(splitPtr[i] - '0'){
-                             //\---------------/
-                             // This expression will evaluate to 0 if the fan is
-                             // set to 0, and nonzero (true) otherwise.
-
-								// Make a first guess by assuming a linear fit:
-                                this->fanArray[i].write(dutyCycle);
-
-								// Override Chaser, if any:
-								this->fanArray[i].setTarget(target);
-                            }
-                        } // End assign duty cycles
-
-                        pl;printf("\n\r[%08dms][P] Linear-guess DC assigned",tm);pu;
-
-                        break;
-					}
-                    default: // Unrecognized command:
-
-                        // Issue error message and discard command:
-
-                        pl;printf(
-                            "\n\r[%08dms][P] ERROR: UNRECOGNIZED COMMAND: %c",
-                            tm, splitPtr[0]);pu;
-
-                } // End check command -----------------------------------------
-                
-            }else{
-				// Nothing to process yet. Release input flag lock.
-				//pl;printf("\n\r[%08dms][P][D] No input found",tm);pu;
-				this->inFlagLock.unlock();
-			} // End command processing ========================================
-
-
 			this->outFlagLock.lock();
 			if(not this->outFlag){
 				#ifdef DEBUG
@@ -690,8 +633,6 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				#endif
 				// If the output buffer is free, write to it.
 
-				
-				// Update values: ==================================================
 				int n = 0; // Keep track of string index
 				
 				// Increment data index:
@@ -701,84 +642,33 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"T|%lu|",
 					this->dataIndex);
 
-				// Update RPM's and Chase if applicable ------------------------
 				
-				if(not (writeCalled and rpmWritten)){
-					// NOTE: Skip RPM writing if a DC was just set, to allow for 
-					// fast feedback. Do this as long as there is some RPM value
-					// in the buffer (i.e rpmWrite is true)	
+				// NOTE: Skip RPM writing if a DC was just set, to allow for 
+				// fast feedback. Do this as long as there is some RPM value
+				// in the buffer (i.e rpmWrite is true)	
+				
+				// Evaluate first fan separately due to special formatting
+
+				Fan *fanPtr = NULL;
+				int rpm = -1;
+				int m = 0; 
+
+				// Store other RPM's:
+				pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
+				for(int i = 0; i < activeFans; i++){
+					// Loop over buffer and print out RPM's:
 					
-					// Evaluate first fan separately due to special formatting
-
-					Fan *fanPtr = NULL;
-					int rpm = -1;
-					int m = 0; 
-
-					// Store other RPM's:
+					fanPtr = &(this->fanArray[i]);
+					rpm = fanPtr->read(&this->timer, &this->timeout);
 					
-    				pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
-					for(int i = 0; i < activeFans; i++){
-						// Loop over buffer and print out RPM's:
-						
-						fanPtr = &(this->fanArray[i]);
-						rpm = fanPtr->read();
-
-						// Chase first fan if applicable:
-						if(
-							// Fan is chasing:
-							fanPtr->getTarget() > (int)this->minRPM &&
-							// Fan is not close enough to target RPM:
-							abs(rpm - fanPtr->getTarget()) > 
-								this->maxRPM*this->chaserTolerance){
-							
-							// Check the conditions for an irresponsive fan:
-							if( (not 
-								// Fan is "stable"
-								(fanPtr->getRPMChange() <
-								this->maxRPM*this->chaserTolerance))
-								// Fan reports no RPM although DC is above min.
-								or (rpm == 0 and fanPtr->getDC() > this->minDC))
-								{
-								
-								// If the fan has not stabilized, count a 
-								// timeout and move on.
-
-								if(fanPtr->incrementTimeouts()){
-									// If the fan times out, set its RPM to
-									// zero instantly (incrementTimeouts
-									// automatically aborts Chase)
-									rpm = 0;
-								} // End check incrementTimeouts
-
-							} else {
-
-								// Adjust duty cycle:
-
-								// Take percentage of max RPM represented by the 
-								// current delta and adjust duty cycle by the
-								// same percent. (i.e if 1% underneath, +1% DC)
-								
-								float increment = 
-									(fanPtr->getTarget() - rpm)/(maxRPM);
-								
-								fanPtr->write(
-									fanPtr->getDC() + increment);
-
-								fanPtr->resetTimeouts();
-							}
-						} 
-						
-						m += snprintf(
-						rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
-						rpm);
-					}				
-    				pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
-					
-					// Get rid of trailing comma:
-					rpmBuffer[m-1] = '\0';
-					rpmWritten = true;
-
-				}
+					m += snprintf(
+					rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
+					rpm);
+				}				
+				pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
+				
+				// Get rid of trailing comma:
+				rpmBuffer[m-1] = '\0';
 				// Save RPM buffer into output buffer
 				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "%s",
 					rpmBuffer);
@@ -791,9 +681,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				pl;printf("\n\r\t[P][D] output buffer: %s",
 					outBuffer);pu;
 				*/
-				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%.3f", 
+				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%.4f", 
 					this->fanArray[0].getDC());
-			
 
 				// Store other duty cycles:
 				for(int i = 1; i < activeFans; i++){

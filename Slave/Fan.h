@@ -122,7 +122,7 @@ public:
 		 */
 
 
-    int read();
+    int read(Timer* timerRef, Timeout* timeoutRef);
 		/* ABOUT: Read the RPM of a fan. 
 		 * RETURNS:
 		 * -int, either RPM value or negative integer if the fan is 
@@ -131,6 +131,10 @@ public:
 
 	void onInterrupt();
 		/* ABOUT: To be executed w/in interrupt routine when counting pulses.
+		 */
+	
+	void onTimeout();
+		/* ABOUT: To be executed w/in timeout ISR
 		 */
 		
     
@@ -147,38 +151,6 @@ public:
 		* RETURNS:
 		* -float: current duty cycle, or negative code if fan is uninitialized.
 		*/
-
-	void setTarget(int target);
-		/* ABOUT: Set a target RPM for Chasing.
-		 * PARAMETERS:
-		 * -int target: target RPM.
-		 */
-
-	int getTarget();
-		/* ABOUT: Get this fan's target RPM.
-		* RETURNS:
-		* -int, either the target RPM or a negative code to indicate no target is
-		* being chased. (NO_TARGET in Fan.h)
-		*/	
-
-	int getRPMChange();
-		/* ABOUT: Get the difference between the latest read and the past one.
-		* NOTE: Will be either 0 or negative of last read if there are not enough 
-		* reads so far.
-		* RETURNS:
-		* -int, absolute value of change in question.
-		*/
-
-	bool incrementTimeouts();
-		/* ABOUT: Increment the timeout counter, and terminate chasing if it reaches
-		* the timeout threshold.
-		* RETURNS:
-		* -bool: whether the threshold was reached (false if not).
-		*/
-
-	void resetTimeouts();
-		/* ABOUT: Reset the timeouts counter.
- 		 */
 
 private:
 
@@ -197,7 +169,10 @@ private:
 	float minDC;			// Minimum duty cycle for nonzero RPM
 
 	// For RPM reading and chasing:
-	Timer timer;
+	Mutex dcLock;
+
+	Timer* timerPtr;
+	Timeout* timeoutPtr;
 	volatile int counts;
 	volatile int timeout_us;
 	volatile bool doneReading;
@@ -207,6 +182,7 @@ private:
 	int timeouts, maxTimeouts;
 
 	int dbc;
+	int intDC;
 
 };
 

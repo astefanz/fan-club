@@ -127,6 +127,9 @@ private:
 	uint8_t maxFanTimeouts;
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
+
+	Timer timer;
+	Timeout timeout;
     
 	// STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status

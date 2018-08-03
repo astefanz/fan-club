@@ -38,34 +38,10 @@
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "DB7.4a-CASTP" // Letter for bootloader testing
+#define FCMKII_VERSION "DB9.0a-CASTP" // Letter for bootloader testing
 // Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
 // PwmOut
 
-
-// Memory analytics ------------------------------------------------------------
-#include "mbed_stats.h"
-#include "mbed_mem_trace.h"
-#pragma import __use_two_region_memory
-// -----------------------------------------------------------------------------
-
-#ifdef MEMORY_AN
-void printHeapStats(uint8_t op, void *res, void *caller, ...){
-	
-  	mbed_stats_heap_t heapstats; 
-	mbed_stats_heap_get(&heapstats);
-	printf("\n\rCS: %d RS: %d AF: %d ",//AF: %lu", 
-		(heapstats.current_size)
-		,
-		(heapstats.reserved_size)
-		,
-		//(heapstats.alloc_cnt)
-		//,
-		(heapstats.alloc_fail_cnt)
-		);
-
-}
-#endif // MEMORY_AN
 
 void mainLoop(void){
 	// ABOUT: Workaround to control main thread stack size:
@@ -79,11 +55,6 @@ void mainLoop(void){
 
 
 int main(){ ////////////////////////////////////////////////////////////////////
-
-#ifdef MEMORY_AN
-//mbed_mem_trace_set_callback(mbed_mem_trace_default_callback);    
-mbed_mem_trace_set_callback(printHeapStats);    
-#endif // MEMORY_AN
 
 // INITIALIZATION ==============================================================
 
