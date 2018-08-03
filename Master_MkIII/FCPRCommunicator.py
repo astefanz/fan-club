@@ -119,6 +119,7 @@ class FCPRCommunicator(wg.FCWidget):
 		# ABOUT: Constructor for class FCPRCommunicator.
 		try:
 			printQueue.put(("[CM] Initializing Comms. worker process","S"))
+			self.controlBar = None
 			
 			# Create inter-process communication facilities:
 			
@@ -208,7 +209,8 @@ class FCPRCommunicator(wg.FCWidget):
 			self.statusBar = sb.FCCStatusBar(
 				self, 
 				self.start, 
-				self.stop)
+				self.stop
+			)
 			self.statusBar.setStatus(cm.DISCONNECTED)
 
 			self.statusBar.pack(
@@ -220,6 +222,8 @@ class FCPRCommunicator(wg.FCWidget):
 			self.controlBar = cb.FCCControlBar(
 				self, 
 				self.profile[ac.maxFans],
+				self.profile[ac.maxRPM],
+				self.profile[ac.periodMS],
 				self.slaveList, 
 				self.commandQueue,
 				self.printQueue

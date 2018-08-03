@@ -45,6 +45,9 @@ import inspect # get line number for debugging
 import traceback
 import shutil as sh
 
+# STD:
+import itertools as it # Chaining ranges
+
 
 # FCMkII:
 import FCSlave as sv
@@ -58,7 +61,7 @@ import FCMainWindow as mw
 SET_DC = "DC%"
 SET_RPM = "RPM"
 
-# Bootloader states:
+# Bootloader statuses:
 FLASHING = 1
 NOT_FLASHING = 0
 
@@ -70,6 +73,8 @@ class FCCControlBar(Tk.Frame, object):
 		self, 
 		master, 
 		maxFans, 
+		maxRPM,
+		periodMS,
 		selectionSource, 
 		commandQueue, 
 		printQueue
@@ -81,6 +86,9 @@ class FCCControlBar(Tk.Frame, object):
 
 			# CONFIGURE --------------------------------------------------------
 			self.maxFans = maxFans
+			self.maxRPM = maxRPM
+			self.periodMS = periodMS
+			self.mininumIntervalMS = 2*self.periodMS
 			self.selectionSource = selectionSource
 			self.commandQueue = commandQueue
 			self.printQueue = printQueue
@@ -94,9 +102,10 @@ class FCCControlBar(Tk.Frame, object):
 				bg = self.background
 				)
 
-			self.status = cm.DISCONNECTED
+			self.status = None
 
 			""" ----------------------------------------------------------------
+			Scratch...
 			 __________________________________________________________________
 			|Send: [v| Connect ]   To: [v| All (Broadcast) ]  [Send]           |
 			 ------------------------------------------------------------------
@@ -585,6 +594,7 @@ class FCCControlBar(Tk.Frame, object):
 						variable = self.fanBooleanVars[fan]
 					),
 				)
+				self.activeWidgets.append(self.fanCheckButtons[fan])
 				self.fanCheckButtons[fan].pack(side = Tk.LEFT)
 
 			self.selectAllFansButton = Tk.Button(
@@ -597,6 +607,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				command = self._selectAllFans
 			)
+			self.activeWidgets.append(self.selectAllFansButton)
 			self.selectAllFansButton.pack(side = Tk.LEFT)
 			
 			self.deselectAllFansButton = Tk.Button(
@@ -609,6 +620,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				command = self._deselectAllFans
 			)
+			self.activeWidgets.append(self.deselectAllFansButton)
 			self.deselectAllFansButton.pack(side = Tk.LEFT)
 			
 			self.selectOddFansButton = Tk.Button(
@@ -621,6 +633,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				command = self._selectOddFans
 			)
+			self.activeWidgets.append(self.selectOddFansButton)
 			self.selectOddFansButton.pack(side = Tk.LEFT)
 
 			self.selectEvenFansButton = Tk.Button(
@@ -633,6 +646,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				command = self._selectEvenFans
 			)
+			self.activeWidgets.append(self.selectEvenFansButton)
 			self.selectEvenFansButton.pack(side = Tk.LEFT)
 
 			self.invertFanSelectionButton = Tk.Button(
@@ -645,6 +659,7 @@ class FCCControlBar(Tk.Frame, object):
 				highlightbackground = self.background,
 				command = self._invertFanSelection
 			)
+			self.activeWidgets.append(self.invertFanSelectionButton)
 			self.invertFanSelectionButton.pack(side = Tk.LEFT)
 
 			self._selectAllFans()
@@ -680,6 +695,290 @@ class FCCControlBar(Tk.Frame, object):
 
 			#self.bind("<Enter>", lambda e: self.focus_set())
 
+			# RAMP CONTROL .....................................................
+			
+			# General ..........................................................
+			self.rampFrame = Tk.Frame(
+				None,
+				bg = self.background
+			)
+			self.rampDCString = "(DC%)"
+			self.rampRPMString = "(RPM)"
+
+			# Top Frame ........................................................
+			self.rampTopFrame = Tk.Frame(
+				self.rampFrame,
+				bg = self.background
+			)
+			self.rampTopFrame.pack(side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			self.isRampActive = False
+			self.rampActiveWidgets = []
+			self.rampUnitLabels = []
+			self.ramp = []
+			self.rampIndex = 0
+			self.rampLength = 0
+			self.rampSign = 1
+			self.rampEndValue = 0
+			self.rampCommand = cm.SET_DC
+			self.rampTargets = (cm.ALL,)
+			self.rampReturnFlag = False
+			self.rampFans = tuple(map(lambda x: 1, range(self.maxFans)))
+				# NOTE: This ramp will affect all fans
+
+			# StartStop Button
+			self.rampStartStopButton = Tk.Button(
+				self.rampTopFrame,
+				bg = self.background,
+				highlightbackground = self.background,
+				fg = self.foreground,
+				text = "Start",
+				width = 9,
+				command = self._rampStartStopCommand,
+				)
+
+			self.rampStartStopButton.pack(side = Tk.LEFT)
+			self.activeWidgets.append(self.rampStartStopButton)
+			
+			# Clear Button
+			self.rampClearButton = Tk.Button(
+				self.rampTopFrame,
+				bg = self.background,
+				highlightbackground = self.background,
+				fg = self.foreground,
+				text = "Clear",
+				command = self._rampClearCommand,
+				)
+
+			self.rampClearButton.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampClearButton)
+			self.activeWidgets.append(self.rampClearButton)
+
+			# Loop Checkbutton
+			self.rampLoopToggleVar = Tk.BooleanVar()
+			self.rampLoopToggle = Tk.Checkbutton(
+				self.rampTopFrame, 
+				text ="Loop", 
+				variable = self.rampLoopToggleVar, 
+				bg = self.background, 
+				fg = self.foreground, 
+				)
+			self.rampLoopToggleVar.set(False)
+			self.rampLoopToggle.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampLoopToggle)
+			self.activeWidgets.append(self.rampLoopToggle)
+
+			# Return Checkbutton
+			self.rampReturnToggleVar = Tk.BooleanVar()
+			self.rampReturnToggle = Tk.Checkbutton(
+				self.rampTopFrame, 
+				text ="Ramp Back", 
+				variable = self.rampReturnToggleVar, 
+				bg = self.background, 
+				fg = self.foreground, 
+				)
+			self.rampReturnToggleVar.set(False)
+			self.rampReturnToggle.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampReturnToggle)
+			self.activeWidgets.append(self.rampReturnToggle)
+
+			# Unit Menu
+			self.rampUnitMenuLabel = Tk.Label(
+				self.rampTopFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Unit: "
+			)
+			self.rampUnitMenuLabel.pack(side = Tk.LEFT)
+
+			self.selectedRampUnit = Tk.StringVar()
+			self.selectedRampUnit.set(SET_DC)
+			self.selectedRampUnit.trace('w', self._rampUnitMenuCallback)
+			self.rampUnitMenu = Tk.OptionMenu(
+				self.rampTopFrame, 
+				self.selectedRampUnit,
+				SET_DC,
+				SET_RPM,
+				)
+			self.rampUnitMenu.config(
+				width = 5,
+				background = self.background,
+				highlightbackground = self.background,
+				foreground = self.foreground,
+			)
+			self.rampUnitMenu.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampUnitMenu)
+			self.activeWidgets.append(self.rampUnitMenu)
+
+			# Target Menu
+			self.rampTargetMenuLabel = Tk.Label(
+				self.rampTopFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Target: "
+			)
+			self.rampTargetMenuLabel.pack(side = Tk.LEFT)
+
+			# Menu:
+			self.selectedRampTarget = Tk.StringVar()
+			self.selectedRampTarget.set("All")
+			self.rampTargetMenu = Tk.OptionMenu(
+				self.rampTopFrame, 
+				self.selectedRampTarget,
+				"Selected", 
+				"All"
+			)
+			self.rampTargetMenu.pack(side = Tk.LEFT)
+			self.rampTargetMenu.config(
+				width = 10,
+				background = self.background,
+				highlightbackground = self.background,
+				foreground = self.foreground
+			)
+			self.rampActiveWidgets.append(self.rampTargetMenu)
+			self.activeWidgets.append(self.rampTargetMenu)
+			
+			# Bottom Frame .....................................................
+			
+			self.rampBottomFrame = Tk.Frame(
+				self.rampFrame,
+				bg = self.background
+			)
+			self.rampBottomFrame.pack(
+				side = Tk.TOP, fill = Tk.BOTH, expand = True)
+			
+			# Start value
+			self.rampStartValueLabel = Tk.Label(
+				self.rampBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = " From: "
+			)
+			self.rampStartValueLabel.pack(side = Tk.LEFT)
+
+			validateRS = self.register(self._validateRampEntry)
+			self.rampStartEntry = Tk.Entry(
+				self.rampBottomFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 7, validate = 'key', validatecommand = \
+					(validateRS, '%S', '%s', '%d'))
+			self.rampStartEntry.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampStartEntry)
+			self.activeWidgets.append(self.rampStartEntry)
+
+			self.rampStartUnitLabel = Tk.Label(
+				self.rampBottomFrame,
+				width = 6,
+				bg = self.background,
+				fg = 'darkgray',
+				text = self.rampDCString
+			)
+			self.rampStartUnitLabel.pack(side = Tk.LEFT)
+			self.rampUnitLabels.append(self.rampStartUnitLabel)
+
+			# End value
+			self.rampEndValueLabel = Tk.Label(
+				self.rampBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = " To: "
+			)
+			self.rampEndValueLabel.pack(side = Tk.LEFT)
+
+			validateRE = self.register(self._validateRampEntry)
+			self.rampEndEntry = Tk.Entry(
+				self.rampBottomFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 7, validate = 'key', validatecommand = \
+					(validateRE, '%S', '%s', '%d'))
+			self.rampEndEntry.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampEndEntry)
+			self.activeWidgets.append(self.rampEndEntry)
+
+			self.rampEndUnitLabel = Tk.Label(
+				self.rampBottomFrame,
+				width = 6,
+				bg = self.background,
+				fg = 'darkgray',
+				text = self.rampDCString
+			)
+			self.rampEndUnitLabel.pack(side = Tk.LEFT)
+			self.rampUnitLabels.append(self.rampEndUnitLabel)
+
+			# Step value
+			self.rampStepValueLabel = Tk.Label(
+				self.rampBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = " Step: "
+			)
+			self.rampStepValueLabel.pack(side = Tk.LEFT)
+
+			validateRP = self.register(self._validateRampEntry)
+			self.rampStepEntry = Tk.Entry(
+				self.rampBottomFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 7, validate = 'key', validatecommand = \
+					(validateRP, '%S', '%s', '%d'))
+			self.rampStepEntry.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampStepEntry)
+			self.activeWidgets.append(self.rampStepEntry)
+
+			self.rampStepUnitLabel = Tk.Label(
+				self.rampBottomFrame,
+				width = 6,
+				bg = self.background,
+				fg = 'darkgray',
+				text = self.rampDCString
+			)
+			self.rampStepUnitLabel.pack(side = Tk.LEFT)
+			self.rampUnitLabels.append(self.rampStepUnitLabel)
+
+			# Time interval
+			self.rampIntervalValueLabel = Tk.Label(
+				self.rampBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = " Interval: "
+			)
+			self.rampIntervalValueLabel.pack(side = Tk.LEFT)
+
+			validateRP = self.register(self._validateRampIntervalEntry)
+			self.rampIntervalEntry = Tk.Entry(
+				self.rampBottomFrame, 
+				highlightbackground = self.background,
+				bg = 'white',
+				fg = self.foreground,
+				width = 7, validate = 'key', validatecommand = \
+					(validateRP, '%S', '%s', '%d'))
+			self.rampIntervalEntry.pack(side = Tk.LEFT)
+			self.rampActiveWidgets.append(self.rampIntervalEntry)
+			self.activeWidgets.append(self.rampIntervalEntry)
+			
+			self.rampIntervalUnitLabel = Tk.Label(
+				self.rampBottomFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "(ms) (min. {}ms)".format(self.mininumIntervalMS)
+			)
+			self.rampIntervalUnitLabel.pack(side = Tk.LEFT)
+
+			# Build general ....................................................
+			self.notebook.add(
+				self.rampFrame,
+				text = "Ramp Control",
+				state = Tk.NORMAL
+			)
+
+			# Bind active widgets to Enter:
+			for widget in self.rampActiveWidgets + [self.rampStartStopButton]:
+				widget.bind("<Return>", self._rampStartStopCommand)
+
 			# BOOTLOADER .......................................................
 			self.bootloaderFrame = Tk.Frame(
 				None,
@@ -709,6 +1008,8 @@ class FCCControlBar(Tk.Frame, object):
 				width = 20, 
 			)
 			self.chosenFileEntry.pack(side = Tk.LEFT)
+
+			self.activeWidgets.append(self.chosenFileEntry)
 
 			self.targetFile = None
 			
@@ -814,6 +1115,7 @@ class FCCControlBar(Tk.Frame, object):
 		# End __init__ =========================================================
 	
 	def setStatus(self, newStatus): # ==========================================
+		
 
 		if newStatus is cm.CONNECTED:
 			# Activate all widgets:
@@ -824,6 +1126,11 @@ class FCCControlBar(Tk.Frame, object):
 			# Deactivate all widgets:
 			for widget in self.activeWidgets:
 				widget.config(state = Tk.DISABLED)
+
+			# Deactivate ongoing ramp, if any:
+			self.isRampActive = False
+		
+		self.status = newStatus
 
 		# End setStatus ========================================================
 
@@ -993,6 +1300,83 @@ class FCCControlBar(Tk.Frame, object):
 			ep.errorPopup("Error in FCCControlBar")
 
 		# End _validateN =======================================================
+	
+	def _validateRampEntry(self, newCharacter, textBeforeCall, action): # ======
+		try:
+			# ABOUT: To be used by TkInter to validate text in Ramp Step Entry.
+			if action == '0':
+				return True
+		
+			return \
+				(
+					self.selectedRampUnit.get() == SET_DC and \
+					newCharacter in '0123456789' and \
+					int(textBeforeCall + newCharacter) < 100 and \
+					int(textBeforeCall + newCharacter) >= 0
+				) or \
+				(
+					self.selectedRampUnit.get() == SET_RPM and \
+					newCharacter in '0123456789' and \
+					int(textBeforeCall + newCharacter) < self.maxRPM and \
+					int(textBeforeCall + newCharacter) >= 0
+				)
+		
+		except ValueError:
+			return False
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# Step _validateRampEntry ==============================================
+	
+	def _validateRampIntervalEntry(self, newCharacter, textBeforeCall, action):
+		try:
+			if action == '0':
+				return True
+
+			elif newCharacter in '0123456789':
+				return True
+
+			else:
+				return False
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# Interval _validateRampIntervalEntry ==================================
+
+
+	def _validateArrayEntry(self, newCharacter, textBeforeCall, action): # =====
+		try:
+			# ABOUT: To be used by TkInter to validate text in "Send" Entry.
+			if action == '0':
+				return True
+			
+			elif self.selectedArrayCommand.get() == SET_DC and \
+				len(textBeforeCall) < 10:
+				if newCharacter in '0123456789':
+					try:
+						total = float(textBeforeCall + newCharacter)
+						return total <= 100.000000
+					except ValueError:
+						return False
+				elif newCharacter == '.' and not '.' in textBeforeCall:
+					return True
+				else:
+					return False
+
+			elif self.selectedArrayCommand.get() == SET_RPM and newCharacter \
+				in '0123456789' and len(textBeforeCall) < 5:
+				return True
+
+			else:
+				return False
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# End _validateN =======================================================
+
 
 	def _sendNetworkCommand(self, event = None): # =============================
 	
@@ -1158,6 +1542,319 @@ class FCCControlBar(Tk.Frame, object):
 
 		# End _invertFanSelection ==============================================
 
+	def	_sendToCommunicator(self, command, value, fans, targets): # ============
+		try:		
+			
+			self.commandQueue.put_nowait(
+				(mw.COMMUNICATOR,
+				command,
+				value,
+				fans)
+				+ targets
+			)
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+		# End _sendToCommunicator ==============================================
+
+	def _rampStartStopCommand(self, *event): # =================================
+		try:		
+		
+			if self.isRampActive:
+				# Ramp active. Stop Ramp
+				
+				# Lock button:
+				self.rampStartStopButton.config(
+					text = "Stopping",
+					state = Tk.DISABLED
+				)
+
+				# Set flag:
+				self.isRampActive = False 
+					# NOTE: Ramp routine will handle the rest
+	
+			elif self.rampStartEntry.get() != '' and\
+				self.rampEndEntry.get() != '' and\
+				self.rampStepEntry.get() != ''and\
+				self.rampIntervalEntry.get() != '' and\
+				int(self.rampIntervalEntry.get()) >= self.mininumIntervalMS and\
+				int(self.rampStepEntry.get()) > 0 and\
+				self.rampStartEntry.get() != self.rampEndEntry.get():
+				# Ramp inactive w/ valid values. Start Ramp
+
+				# Lock Button:
+				self.rampStartStopButton.config(
+					state = Tk.DISABLED
+				)
+
+				# Lock widgets:
+				for widget in self.rampActiveWidgets:
+					widget.config(
+						state = Tk.DISABLED
+					)
+
+				# Assemble ramp:	
+				if int(self.rampStartEntry.get())>int(self.rampEndEntry.get()):
+					self.rampSign = -1
+				else:
+					self.rampSign = 1
+
+				self.ramp = range(
+					int(self.rampStartEntry.get()),
+					int(self.rampEndEntry.get()),
+					int(self.rampStepEntry.get())*self.rampSign
+				)
+
+				self.rampIndex = 0
+				self.rampLength = len(self.ramp)
+
+				self.rampEndValue = int(self.rampEndEntry.get())
+
+				# Set flag:
+				self.isRampActive = True
+				
+				# Get units:
+				if self.selectedRampUnit.get() == SET_DC:
+					unit = "% DC"
+					self.rampCommand = cm.SET_DC
+				elif self.selectedRampUnit.get() == SET_RPM:
+					unit = "RPM"
+					self.rampCommand = cm.SET_RPM
+				else:
+					raise RuntimeError(
+						"Unrecognized Ramp Unit Menu value \"{}\"".\
+							format(self.selectedRampUnit.get())
+					)
+
+				# Get selection:
+				if self.selectedRampTarget.get() == "All":
+					self.rampTargets = (cm.ALL,)
+					selection = "All"
+				elif self.selectedRampTarget.get() == "Selected":
+					self.rampTargets = self.selectionSource.getSelection()
+					selection = "{} Modules".format(len(self.rampTargets))
+				else:
+					raise RuntimeError(
+						"Unrecognized Ramp Target Menu value \"{}\"".\
+							format(self.selectedRampTarget.get())
+					)
+				
+				# Check return flag:
+				self.rampReturnFlag = self.rampReturnToggleVar.get()
+
+				# Start ramp:
+				self._printM(
+					"Starting ramp from {}{} to {}{} "\
+						"in steps of {}{} every {} ms ({} steps) on {}".\
+							format(
+								self.ramp[0],
+								unit,
+								self.rampEndEntry.get(),
+								unit,
+								self.rampStepEntry.get(),
+								unit,
+								self.rampIntervalEntry.get(),
+								self.rampLength,
+								selection
+							)
+				)
+				self._rampRoutine()
+
+				# Configure button:
+				self.rampStartStopButton.config(
+					text = "Stop",
+					state = Tk.NORMAL
+				)
+
+			else:
+				# Ramp inactive w/ invalid values. Print error message
+				self._printM(
+					"Error: Tried to start ramp with invalid paramters. "\
+						"Ensure that:\n"\
+						"-\tNo parameters are empty\n"\
+						"-\tThe start and stop values are different\n"\
+						"-\tAll parameters are greater than 0 as integers\n"
+						"-\tThe time interval is greater than {} ms".\
+							format(self.mininumIntervalMS),
+					'E'
+				)
+
+
+		except:
+			self.isRampActive = False
+			ep.errorPopup("Error in FCCControlBar")
+	
+		# End _rampStartStopCommand ============================================
+	
+	def _rampClearCommand(self, *event): # =====================================
+		try:		
+			if self.isRampActive:
+				self._printM(
+					"ERROR: Tried to Clear Ramp entries while active", 'E')	
+				return
+
+			else:
+				for activeWidget in self.rampActiveWidgets:
+					if type(activeWidget) == Tk.Checkbutton:
+						activeWidget.deselect()
+					elif type(activeWidget) == Tk.Entry:
+						activeWidget.delete(0, Tk.END)	
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+	
+		# End _rampClearCommand ================================================
+
+	def _rampRoutine(self): # ==================================================
+
+		try:		
+			if self.isRampActive:
+				
+				if self.rampIndex < self.rampLength:
+					# Within ramp
+					
+					# Assign next value:
+					self._sendToCommunicator(
+						command = self.rampCommand,
+						value = self.ramp[self.rampIndex],
+						fans = self.rampFans, 
+						targets = self.rampTargets,
+					)
+
+					self._printM("Ramp {}/{}: {}".\
+						format(
+							self.rampIndex, 
+							self.rampLength, 
+							self.ramp[self.rampIndex]
+						)
+					)
+
+					# Increment index:
+					self.rampIndex += 1
+
+				elif self.rampIndex == self.rampLength:
+					# At last step
+					
+					# Assign last value:
+					self._sendToCommunicator(
+						command = self.rampCommand,
+						value = int(self.rampEndValue),
+						fans = self.rampFans, 
+						targets = self.rampTargets,
+					)
+					
+					self._printM("Ramp {}/{}: {}".\
+						format(
+							self.rampIndex, 
+							self.rampLength, 
+							self.rampEndValue
+						)
+					)
+
+					# Increment index:
+					self.rampIndex += 1
+
+				elif self.rampReturnFlag:
+					# Done with ramp, but told to ramp back
+
+					# Rebuild ramp (backwards):
+					self.ramp = range(
+						int(self.rampEndEntry.get()),
+						int(self.rampStartEntry.get()),
+						int(self.rampStepEntry.get())*self.rampSign*(-1)
+					)
+					self.rampEndValue = int(self.rampStartEntry.get())
+
+					# Restart counters and update flags:
+					self.rampIndex = 0
+					self.rampReturnFlag = False
+
+					self._printM("Ramping back...")
+
+				elif self.rampLoopToggleVar.get():
+					# Done with ramp, but told to restart when done
+
+					# Rebuild ramp:
+					self.ramp = range(
+						int(self.rampStartEntry.get()),
+						int(self.rampEndEntry.get()),
+						int(self.rampStepEntry.get())*self.rampSign
+					)
+
+					# Restart counter and flags:
+					self.rampIndex = 0
+					self.rampEndValue = int(self.rampEndEntry.get())
+					self.rampReturnFlag = self.rampReturnToggleVar.get()
+
+					self._printM("Restarting ramp...")
+
+				else:
+					# Done with ramp
+					self.isRampActive = False
+
+				# Schedule next call:
+				self.after(
+					int(self.rampIntervalEntry.get()), self._rampRoutine)
+
+			elif self.status == cm.CONNECTED:
+				# Ramp stopped while ControlBar is active. 
+				# Return to pre-start state:
+
+				# Activate widgets:
+				for widget in self.rampActiveWidgets:
+					widget.config(
+						state = Tk.NORMAL
+					)
+
+				# Configure button:
+				self.rampStartStopButton.config(
+					state = Tk.NORMAL,
+					text = "Start"
+				)
+				
+				self._printM("Ramp Ended")
+
+				return
+
+			elif self.status != cm.CONNECTED:
+				# Ramp stopped while ControlBar is inactive.
+				# Revert button and stop ramp without activating widgets:
+
+				self.rampStartStopButton.config(
+					text = "Start"
+				)
+				print(self.status)	
+				self._printM("Ramp Terminated")
+
+				return
+		
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+			self.isRampActive = False
+			self._rampRoutine()
+
+		# End _rampRoutine =====================================================
+	
+	def _rampUnitMenuCallback(self, *event): # =================================
+		try:		
+			
+			if self.selectedRampUnit.get() == SET_DC:
+				for label in self.rampUnitLabels:
+					label.config(text = self.rampDCString)
+
+			elif self.selectedRampUnit.get() == SET_RPM:
+				for label in self.rampUnitLabels:
+					label.config(text = self.rampRPMString)
+
+			else:
+				self._printM("WARNING: Unknown unit on Ramp Unit Menu \"{}\"".\
+					format(self.rampUnitMenu.get()))
+
+		except:
+			ep.errorPopup("Error in FCCControlBar")
+
+		# End _rampUnitMenuCallback ============================================
+
 	def _onEnter(self, event = None): # ========================================
 		try:
 			# Check context:
@@ -1173,6 +1870,7 @@ class FCCControlBar(Tk.Frame, object):
 			ep.errorPopup("Error in FCCControlBar")
 
 		# End _onEnter =========================================================
+
 
 	def _fileChooser(self, event = None): # ====================================
 		

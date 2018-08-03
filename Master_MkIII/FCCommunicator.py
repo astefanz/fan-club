@@ -505,13 +505,13 @@ class FCCommunicator:
 							else:
 								self.sendReboot(self.slaves[command[wg.VALUE]])
 
-						elif command[wg.COMMAND] is wg.STOP:
+						elif command[wg.COMMAND] == wg.STOP:
 							self.stop()
 
-						elif command[wg.COMMAND] is SET_DC:
+						elif command[wg.COMMAND] == SET_DC:
 							print("Command is 'SET_DC': ",format(command))
 							
-							if command[wg.VALUE + 2] is ALL:
+							if command[wg.VALUE + 2] == ALL:
 			
 								for index, slave in enumerate(self.slaves):	
 									if slave.getStatus() is sv.CONNECTED:
@@ -1901,11 +1901,14 @@ class FCCommunicator:
 
 	def stop(self): # ==========================================================
 		# Cleanup routine for termination.
+	
 
+		print("Terminating")
 		# Send disconnect signal:
 		self.sendDisconnect()
 		self.stoppedFlag = True
-
+		
+		print("Terminated")
 
 		# NOTE: All threads are set as Daemon and all sockets as reusable.
 		return
