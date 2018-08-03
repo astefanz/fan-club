@@ -556,6 +556,8 @@ class FCCControlBar(Tk.Frame, object):
 			# Bottom frame:
 			self.controlBottomFrame = Tk.Frame(
 				self.controlFrame,
+				bd = 1,
+				relief = Tk.RIDGE,
 				background = self.background,
 			)
 			self.controlBottomFrame.pack(
@@ -587,10 +589,12 @@ class FCCControlBar(Tk.Frame, object):
 				self.fanCheckButtons += (
 					Tk.Checkbutton(
 						self.arraySelectionFrame,
-						text = "{}".format(fan+1),
-						font = ('TkFixedFont','8'),
+						text = " {:2d} ".format(fan+1),
+						font = ('TkFixedFont','12'),
 						bg = self.background,
 						fg = self.foreground,
+						indicatoron = False,
+						selectcolor = 'orange',
 						variable = self.fanBooleanVars[fan]
 					),
 				)
@@ -836,7 +840,33 @@ class FCCControlBar(Tk.Frame, object):
 			)
 			self.rampActiveWidgets.append(self.rampTargetMenu)
 			self.activeWidgets.append(self.rampTargetMenu)
+		
+			# Progress Bar
+			self.rampProgressBarLabel = Tk.Label(
+				self.rampTopFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  Progress: "
+			)
+			self.rampProgressBarLabel.pack(side = Tk.LEFT)
+
 			
+			self.rampProgressBar = Tk.ttk.Progressbar(
+				self.rampTopFrame, 
+				orient = "horizontal", 
+				mode = "determinate"
+			)
+			self.rampProgressBar.pack(
+				side = Tk.LEFT, fill = Tk.X, expand = True)
+			
+			self.rampProgressBarPadding = Tk.Label(
+				self.rampTopFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  "
+			)
+			self.rampProgressBarPadding.pack(side = Tk.LEFT)
+
 			# Bottom Frame .....................................................
 			
 			self.rampBottomFrame = Tk.Frame(
@@ -1311,13 +1341,13 @@ class FCCControlBar(Tk.Frame, object):
 				(
 					self.selectedRampUnit.get() == SET_DC and \
 					newCharacter in '0123456789' and \
-					int(textBeforeCall + newCharacter) < 100 and \
+					int(textBeforeCall + newCharacter) <= 100 and \
 					int(textBeforeCall + newCharacter) >= 0
 				) or \
 				(
 					self.selectedRampUnit.get() == SET_RPM and \
 					newCharacter in '0123456789' and \
-					int(textBeforeCall + newCharacter) < self.maxRPM and \
+					int(textBeforeCall + newCharacter) <= self.maxRPM and \
 					int(textBeforeCall + newCharacter) >= 0
 				)
 		
@@ -1642,6 +1672,10 @@ class FCCControlBar(Tk.Frame, object):
 				# Check return flag:
 				self.rampReturnFlag = self.rampReturnToggleVar.get()
 
+				# Update progress bar:
+				self.rampProgressBar["maximum"] = self.rampEndValue
+				self.rampProgressBar["value"] = 0
+
 				# Start ramp:
 				self._printM(
 					"Starting ramp from {}{} to {}{} "\
@@ -1730,6 +1764,7 @@ class FCCControlBar(Tk.Frame, object):
 					)
 
 					# Increment index:
+					self.rampProgressBar["value"] = self.ramp[self.rampIndex]
 					self.rampIndex += 1
 
 				elif self.rampIndex == self.rampLength:
@@ -1752,6 +1787,7 @@ class FCCControlBar(Tk.Frame, object):
 					)
 
 					# Increment index:
+					self.rampProgressBar["value"] = self.rampEndValue
 					self.rampIndex += 1
 
 				elif self.rampReturnFlag:
@@ -1813,6 +1849,7 @@ class FCCControlBar(Tk.Frame, object):
 				)
 				
 				self._printM("Ramp Ended")
+				self.rampProgressBar["value"] = 0
 
 				return
 
@@ -1825,6 +1862,7 @@ class FCCControlBar(Tk.Frame, object):
 				)
 				print(self.status)	
 				self._printM("Ramp Terminated")
+				self.rampProgressBar["value"] = 0
 
 				return
 		
