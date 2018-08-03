@@ -88,7 +88,7 @@ class FCCControlBar(Tk.Frame, object):
 			self.maxFans = maxFans
 			self.maxRPM = maxRPM
 			self.periodMS = periodMS
-			self.mininumIntervalMS = 2*self.periodMS
+			self.mininumIntervalMS = 12*self.periodMS/5
 			self.selectionSource = selectionSource
 			self.commandQueue = commandQueue
 			self.printQueue = printQueue
@@ -1037,7 +1037,11 @@ class FCCControlBar(Tk.Frame, object):
 				fg = self.foreground,
 				width = 20, 
 			)
-			self.chosenFileEntry.pack(side = Tk.LEFT)
+			self.chosenFileEntry.pack(
+				side = Tk.LEFT,
+				fill = Tk.X,
+				expand = True
+			)
 
 			self.activeWidgets.append(self.chosenFileEntry)
 
@@ -1085,7 +1089,8 @@ class FCCControlBar(Tk.Frame, object):
 				width = 10, 
 				validate = 'key', validatecommand = \
 					(validateVN, '%S', '%s', '%d'))
-			self.versionNameEntry.pack(side = Tk.LEFT)
+			self.versionNameEntry.pack(
+				side = Tk.LEFT, fill = Tk.X, expand = True)
 			self.activeWidgets.append(self.versionNameEntry)
 			
 			self.versionNameSeparator = Tk.Label(
@@ -1110,6 +1115,14 @@ class FCCControlBar(Tk.Frame, object):
 
 			self.bootloaderStartStopButton.pack(side = Tk.LEFT)
 			self.activeWidgets.append(self.bootloaderStartStopButton)
+			
+			self.bootloaderStartStopPadding = Tk.Label(
+				self.bootloaderFrame,
+				bg = self.background,
+				fg = self.foreground,
+				text = "  "
+			)
+			self.bootloaderStartStopPadding.pack(side = Tk.LEFT)
 	
 			# Add to notebook:
 			self.notebook.add(
