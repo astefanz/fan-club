@@ -65,6 +65,8 @@ import fci.Terminal as tm
 
 from auxiliary.debug import d
 
+import PG as pg
+
 ## CONSTANTS ###################################################################
 
 # Debug flag (for printing):
@@ -523,6 +525,29 @@ class FCMainWindow(Tk.Frame):
 				self.minWidth,
 				self.minHeight
 			)
+
+
+			self.p = pg.PG(
+				master =self, 
+				profile = self.profile, 
+				spawnQueue = self.spawnQueue, 
+				printQueue = self.printQueue)
+
+			b = Tk.Button(
+				self.toolFrame,
+				text=  "Start PG",
+				command = self.p.start
+			)
+
+			b.pack(side = Tk.LEFT)
+			
+			b = Tk.Button(
+				self.toolFrame,
+				text=  "Stop PG",
+				command = self.p.stop
+			)
+
+			b.pack(side = Tk.LEFT)
 
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",

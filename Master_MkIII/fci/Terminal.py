@@ -218,7 +218,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 						# Switch focus to this tab in case of errors of warnings:
 						if message[1] is "E" and not self.packed:
-							self._toggle(force = True)
+							self.toggle(force = True)
 
 						self.mainTText.config(state = Tk.NORMAL)
 							# Must change state to add text.
@@ -258,7 +258,7 @@ class Terminal(Tk.Frame): # ====================================================
 						if type(message) is not tuple or len(message) is not 2:
 							
 							if not self.packed:
-								self._toggle(force = True)
+								self.toggle(force = True)
 
 							self.mainTText.config(state = Tk.NORMAL)
 								# Must change state to add text.
@@ -287,7 +287,7 @@ class Terminal(Tk.Frame): # ====================================================
 
 							# Switch focus to this tab in case of errors of warnings:
 							if message[1] is "E" and not self.packed:
-								self._toggle(force = True)
+								self.toggle(force = True)
 
 							self.mainTText.config(state = Tk.NORMAL)
 								# Must change state to add text.

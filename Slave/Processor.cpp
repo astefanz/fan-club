@@ -68,8 +68,8 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	dataIndex(0),  
 	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
 	led(LED2),
-	xled(D4),
 	#ifndef JPL
+	xled(D4),
 	psuOff(D9),
 	#endif
 	inFlag(false), outFlag(false)
@@ -256,13 +256,6 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 					// Calculate first-guess duty cycle:
 					float dutyCycle = (target/(float)this->maxRPM);
 
-					// Check in case of minimum RPM threshold:
-					// (If requested a target below the minimum RPM)
-					if(target < this->minRPM){
-						dutyCycle = 0.0;
-					}else if (target >= this->maxRPM){
-						dutyCycle = 1.0;
-					}
 
 					pl;printf("\n\r[%08dms][P][DEBUG] Linear-guess DC: "
 					" (%d) / %lu = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
@@ -727,17 +720,23 @@ void Processor::_setLED(int state){ // // // // // // // // // // // // // // /.
 		case TOGGLE:
 			// Alternate value of LED:
 			this->led = !this->led;
+			#ifndef JPL
 			this->xled = this->led;
+			#endif
 			break;
 		
 		case ON:
 			this->led = true;
+			#ifndef JPL
 			this->xled = true;
+			#endif
 			break;
 
 		case OFF:
 			this->led = false;
+			#ifndef JPL
 			this->xled = false;
+			#endif
 			break;
 	}
 } // End _setLED // // // // // // // // // // // // // // // // // // // // // 
@@ -748,5 +747,7 @@ void Processor::_blinkLED(void){ // // // // // // // // // // // // // // // //
 	
 	// Alternate value of LED:
 	this->led = !this->led;
+	#ifndef JPL
 	this->xled = this->led;
+	#endif
 } // End _blinkLED // // // // // // // // // // // // // // // // // // // // 

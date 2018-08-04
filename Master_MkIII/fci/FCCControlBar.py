@@ -88,7 +88,7 @@ class FCCControlBar(Tk.Frame, object):
 			self.maxFans = maxFans
 			self.maxRPM = maxRPM
 			self.periodMS = periodMS
-			self.mininumIntervalMS = 12*self.periodMS/5
+			self.mininumIntervalMS = 3*self.periodMS
 			self.selectionSource = selectionSource
 			self.commandQueue = commandQueue
 			self.printQueue = printQueue
@@ -1017,6 +1017,7 @@ class FCCControlBar(Tk.Frame, object):
 			self.bootloaderFrame.pack(fill = Tk.BOTH, expand = True)
 
 			self.bootloaderStatus = NOT_FLASHING
+			self.deleteFile = False
 
 			# File chooser:
 			self.fileChooserLabel = Tk.Label(
@@ -1261,7 +1262,8 @@ class FCCControlBar(Tk.Frame, object):
 				self.versionNameEntry.config(state = Tk.NORMAL)
 
 				# Remove file:
-				os.remove(self.targetFile)
+				if self.deleteFile:
+					os.remove(self.targetFile)
 				self.bootloaderTargetVar.set("")
 				self.versionNameEntry.delete(0, Tk.END)
 			
@@ -1949,11 +1951,16 @@ class FCCControlBar(Tk.Frame, object):
 				newFileName = os.getcwd() + \
 						os.sep + \
 						os.path.basename(self.bootloaderTargetVar.get())
+				
+				try:
+					sh.copyfile(
+						self.bootloaderTargetVar.get(), 
+						newFileName
+					)
+					self.deleteFile = True
 
-				sh.copyfile(
-					self.bootloaderTargetVar.get(), 
-					newFileName
-				)
+				except sh.SameFileError: 
+					self.deleteFile = False
 				
 				self.targetFile = os.path.basename(newFileName)
 				

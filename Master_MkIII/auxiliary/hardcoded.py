@@ -1420,7 +1420,7 @@ SLAVELIST_ALEX = [\
 ] # End SLAVELIST_ALEX
 
 # Slavelist to be used:
-DEF_SLAVELIST = SLAVELIST_CAST_ALL
+DEF_SLAVELIST = []#SLAVELIST_CAST_ALL
 
 # DEFAULT VALUES ===============================================================
 
