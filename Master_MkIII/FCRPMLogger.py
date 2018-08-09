@@ -110,7 +110,7 @@ def rpmLoggerProcess(
 			# Second line:
 			f.write("MAC Addresses of each index: \n\t")
 			for slave in slaves.values():
-				f.write("{}: {},\t".\
+				f.write("{}: {}| ".\
 					format(slave[cm.INDEX] + 1, slave[cm.MAC])) 
 			f.write("\n")
 
@@ -142,6 +142,8 @@ def rpmLoggerProcess(
 					# in which case a comma must be added:
 
 		
+			f.write("\n")
+
 			# Get placeholder for "previous" time
 			startTime = time.time()
 			

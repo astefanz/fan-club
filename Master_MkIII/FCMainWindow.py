@@ -85,6 +85,7 @@ RESTORE = 5
 COMMUNICATOR = 0
 LIVETABLE = 1
 LOGGER = 2
+GRID = 3
 	
 
 ## CLASS DEFINITION ############################################################
@@ -500,6 +501,17 @@ class FCMainWindow(Tk.Frame):
 			)
 			self.liveTable.pack(side = Tk.RIGHT)
 			self.fcWidgets[LIVETABLE] = self.liveTable
+
+			# Grid:
+			self.grid = gd.FCPRGrid(
+				self.toolFrame,
+				profile,
+				self.spawnQueue,
+				self.printQueue
+			)
+			self.grid.pack(side = Tk.RIGHT)
+			self.fcWidgets[GRID] = self.grid
+			
 
 			# Launch handlers and start processes:
 			self._commandHandler()

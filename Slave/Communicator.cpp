@@ -170,6 +170,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 		}
 		*/
 		Thread::wait(TIMEOUT_MS);
+		this->_blinkGreen();
 		
 		// Receive data: - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		int bytesReceived = this->slaveListener.recvfrom(
@@ -420,9 +421,7 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 					pl;printf("\n\r[%08dms][L] Disconnect command received.",
 						tm);pu;
 					
-					if(this->getStatus() == CONNECTED){
-						this->_setStatus(NO_MASTER);
-					}
+					this->_setStatus(NO_MASTER);
 					break;
 				} // End DISCONNECT BCAST
 

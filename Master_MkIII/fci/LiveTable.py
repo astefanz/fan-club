@@ -410,7 +410,7 @@ class LiveTableWidget(Tk.Frame):
 	def updateIn(self, update): # ==============================================
 
 		# Classify command:
-		if update[wg.COMMAND] is wg.STOP:
+		if update[wg.COMMAND] == wg.STOP:
 			# Stop process
 			self._stop()
 

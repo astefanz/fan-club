@@ -605,6 +605,9 @@ class FCCommunicator:
 				except queue.Empty:
 					continue
 
+				except queue.Full:
+					continue
+
 				except Exception as e: # Print uncaught exceptions
 					self.printM("[IR] EXCEPTION: "\
 						"\"{}\"".\
@@ -1036,7 +1039,7 @@ class FCCommunicator:
 			# Assign sockets:
 			slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
 
-			self.printM("[SV] {:3d} Slave sockets connected: "\
+			self.printM("[SV] ({:3d}) Slave sockets connected: "\
 			 " MMISO: {} MMOSI:{}".\
 				format(targetIndex + 1,
 					slave._misoSocket().getsockname()[1], 
@@ -1078,11 +1081,9 @@ class FCCommunicator:
 			# Slave loop =======================================================
 			while(True):
 				
-				time.sleep(periodS)
 				try:
+					#slave.acquire()
 
-
-					slave.acquire()	
 					status = slave.getStatus()
 
 					# Act according to Slave's state: 
@@ -1457,13 +1458,14 @@ class FCCommunicator:
 							# End check reply ---------------------------------
 
 					elif status == sv.BOOTLOADER:
-						pass
+						time.sleep(self.periodS)
 
 					else: # = = = = = = = = = = = = = = = = = = = = = = = = = = 
+						time.sleep(self.periodS)
 						
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
-
+			
 						command = "P"
 						message = "P"
 
@@ -1495,12 +1497,12 @@ class FCCommunicator:
 					# DEBUG DEACTV
 					## print "Slave lock released", "D"
 					# Guarantee release of Slave-specific lock:
-
+					"""
 					try:
-						slave.lock.release()
+						slave.release()
 					except _thread.error:
 						pass
-
+					"""
 				# End Slave loop (while(True)) =================================
 
 

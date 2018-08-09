@@ -82,17 +82,19 @@ counterCounts = 36
 counterTimeoutMS = 37
 pulsesPerRotation = 38
 maxRPM = 39
-minRPM = 40
-minDC = 41
-maxFans = 42
-maxFanTimeouts = 43 
+minRPM = 310
+minDC = 311
+maxFans = 312
+maxFanTimeouts = 313
+defaultPinout = 314
 
-defaultModuleDimensions = 44
-defaultModuleAssignment = 45
+rows = 41
+columns = 42
+layers = 43
+modules = 44
+defaultModuleDimensions = 45
+defaultModuleAssignment = 46
 
-dimensions = 46
-
-defaultPinout = 47
 
 # FAN MODES (Not parameters):
 SINGLE = -1
@@ -102,6 +104,12 @@ DOUBLE = -2
 VALUE = 0
 TYPE = 1
 LOCK = 2
+
+# ARRAY MAPPING INDICES:
+M_NAME = 0
+M_ROWS = 1
+M_COLS = 2
+
 
 ## CLASS DEFINITION ############################################################
 
@@ -155,8 +163,11 @@ class FCArchiver:
 			[hc.DEF_SLAVELIST, list, threading.Lock()]
 
 		# End Slave list ....................................................... 
-		self.profile[dimensions] = \
-			[hc.DEF_DIMENSIONS, tuple, threading.Lock()]
+		self.profile[rows] = [hc.DEF_GRID_ROWS, int, threading.Lock()]
+		self.profile[columns] = [hc.DEF_GRID_COLUMNS, int, threading.Lock()]
+		self.profile[layers] = [hc.DEF_GRID_LAYERS, int, threading.Lock()]
+		self.profile[modules] = [hc.DEF_GRID_MODULES, tuple, threading.Lock()]
+
 		self.profile[maxFans] =  [hc.DEF_MAX_FANS, int, threading.Lock()]
 
 		# Fan array ------------------------------------------------------------
