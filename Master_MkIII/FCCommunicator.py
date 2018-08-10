@@ -365,6 +365,7 @@ class FCCommunicator:
 						self.broadcastPeriodS]
 				)
 
+
 			# Set thread as daemon (background task for automatic closure):
 			self.broadcastThread.setDaemon(True)
 
@@ -684,10 +685,14 @@ class FCCommunicator:
 				# Send broadcast only if self.broadcastSwitch is True:
 				if self.broadcastSwitch:
 					# Broadcast message:
+					"""
 					for i in (1,2):
 						self.broadcastSocket.sendto(broadcastMessage, 
 							(FORCE_BROADCAST_IP, self.broadcastPort))
-
+					"""
+					self.broadcastSocket.sendto(broadcastMessage, 
+						(FORCE_BROADCAST_IP, self.broadcastPort))
+					
 				#self.broadcastSwitchLock.release()
 				#self.broadcastLock.release()
 
@@ -833,13 +838,15 @@ class FCCommunicator:
 									self.setSlaveStatus(
 										self.slaves[index],
 										sv.KNOWN,
+										lock = False,
 										netargs = (
 											senderAddress[0],
 											misoPort,
 											mosiPort,
 											version
 											)
-										)
+
+									)
 								else:
 									# All other statuses should be ignored for 
 									# now.
@@ -1082,7 +1089,7 @@ class FCCommunicator:
 			while(True):
 				
 				try:
-					#slave.acquire()
+				#slave.acquire()
 
 					status = slave.getStatus()
 
@@ -1202,7 +1209,7 @@ class FCCommunicator:
 							
 							continue
 
-					elif status >= sv.CONNECTED: # = = = = = = = = = = = = = = =
+					elif status == sv.CONNECTED: # = = = = = = = = = = = = = = =
 						# If the Slave's state is positive, it is online and 
 						# there is a connection to maintain.
 
@@ -1462,7 +1469,7 @@ class FCCommunicator:
 
 					else: # = = = = = = = = = = = = = = = = = = = = = = = = = = 
 						time.sleep(self.periodS)
-						
+						"""	
 						# If this Slave is neither online nor waiting to be 
 						# contacted, wait for its state to change.
 			
@@ -1488,7 +1495,7 @@ class FCCommunicator:
 							
 							else:
 								self._sendToListener("X", slave)
-
+						"""
 				except Exception as e: # Print uncaught exceptions
 					self.printM("[{}] UNCAUGHT EXCEPTION: \"{}\"".
 					   format(targetIndex + 1, traceback.format_exc()), "E")
