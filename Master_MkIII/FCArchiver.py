@@ -106,9 +106,13 @@ TYPE = 1
 LOCK = 2
 
 # ARRAY MAPPING INDICES:
-M_NAME = 0
-M_ROWS = 1
-M_COLS = 2
+M_INDEX = 0
+M_ROW = 1
+M_COLUMN = 2
+M_NUMROWS = 3
+M_NUMCOLUMNS = 4
+M_NUMFANS = 5
+M_ASSIGNMENT = 6
 
 
 ## CLASS DEFINITION ############################################################

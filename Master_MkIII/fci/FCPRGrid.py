@@ -68,6 +68,12 @@ STOPPING_TEXT = "Deactivating Grid"
 # Color map
 COLORMAP = list(reversed(cs.COLORMAP_GALCIT))
 
+# Special colors:
+OUTLINE_SELECTED = 'orange'
+OUTLINE_DESELECTED = 'black'
+COLOR_OFF = '#282828'
+COLOR_EMPTY = 'white'
+
 ## PROCESS WIDGET ##############################################################
 
 class FCPRGridProcessWidget(Tk.Frame):
@@ -96,30 +102,92 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.printQueue = printQueue
 
 		self.symbol = "[GD][GR] "
+		
+		self.maxRPM = self.profile[ac.maxRPM]
+
+		self.startDisplacement = 2
+		self.endDisplacement = 2 + self.profile[ac.maxFans]
 
 		self._printM("Building Grid")
 
 		# Grid data ............................................................
+		self.colormap = cs.COLORMAP_GALCIT
+		self.colormapSize = len(self.colormap)
+		self.minimumDelta = int(self.maxRPM/self.colormapSize)
+
 		self.numberOfRows = self.profile[ac.rows]
 		self.numberOfColumns = self.profile[ac.columns]
 		self.numberOfLayers = self.profile[ac.layers]
 		self.modules = self.profile[ac.modules]
-		
-		self.indicesToFansToCells = {}  # Index -> Fans -> Cells
-		#for module in self.modules:
-		# TODO	
-		
-		
-		self.cellsToFans = {} # Index, fan number(s)
+		self.defaultAssignment = self.profile[ac.defaultModuleAssignment]
 
+		self.gridIIDLow = -1
+		self.gridIIDHigh = 0
 
+		self.gridDragStartIID = 0
+		
+		# For fast communication between the Grid and the rest of the software,
+		# we need an efficient way to go from IIDs (ID's of drawn, colored cells)
+		# To the corresponding Slave index and fan index, for control; and a 
+		# way to go from Slave indices and fan indices to the corresponding 
+		# IID, for feedback display. Python dictionaries will be used for fast
+		# indexing:
+		
+		self.iidsToFans = {} # IID -> (index, fan1...)
+		self.iidsToSelection = {}
 
-		self.rows = {}
+		self.slavesToCells = {} # Index ->  Fan number -> IID
+		self.slavesToRecords = {} # Index ->  Fan number -> Previous RPM
+		for module in self.modules:
+			self.slavesToCells[module[ac.M_INDEX]] = {}
+			self.slavesToRecords[module[ac.M_INDEX]] = {}
+
+		# The IIDs will be generated when the matrix is drawn. The following
+		# dictionary will serve as an intermediate. It will go from 
+		# grid coordinates to the (index, fan...) tuples expected in the 
+		# IID to fan dictionary:
+
+		# Allocate:
+		self.coordsToFans = {}
+		for row in range(self.numberOfRows):
+			self.coordsToFans[row] = {}
+
+		self.coordsToIIDs = {}
+		for row in range(self.numberOfRows):
+			self.coordsToIIDs[row] = {}
+
+		# Loop over the module list to add each relevant Slave to the 
+		# Grid:
+
+		for module in self.modules:
+			
+			# For each module, loop over its rows and columns and 
+			# Assign fans from its own assignment list:
+			
+			cellIndex = 0
+			cells = module[ac.M_ASSIGNMENT]
+			if cells == '':
+				cells = self.defaultAssignment.split(',')
+
+			for moduleRow in range(module[ac.M_NUMROWS]):
+
+				for moduleColumn in range(module[ac.M_NUMCOLUMNS]):
+
+					self.coordsToFans\
+						[module[ac.M_ROW] + moduleRow]\
+						[module[ac.M_COLUMN] + moduleColumn] = \
+							(module[ac.M_INDEX], ) + tuple(map(int,cells[cellIndex].split('-')))
+						
+					cellIndex += 1
+
+		# Lastly, track selection
+
 
 		self.cellLength = 0
 
 		self.layers = ("All", ) + \
 			tuple(map(str, tuple(range(1,self.numberOfLayers+1))))
+		self.selectedLayer = 2
 
 		# Commands:
 		SELECT = "Select"
@@ -130,7 +198,6 @@ class FCPRGridProcessWidget(Tk.Frame):
 			TRACE
 		)
 
-		self.maxRPM = self.profile[ac.maxRPM]
 
 		# BUILD WIDGET
 		
@@ -282,6 +349,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 				(validateCE, '%S', '%s', '%d'))
 		self.commandEntry.insert(0, '0')
 		self.commandEntry.pack(side = Tk.LEFT)
+		self.commandEntry.bind('<Return>', self._send)
 		
 		self.rememberValueToggleVar = Tk.BooleanVar()
 		self.rememberValueToggle = Tk.Checkbutton(
@@ -313,7 +381,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			highlightbackground = self.bg,
 			width = 11,
 			text = "Redraw",
-			command = self._redraw
+			command = self._redraw,
+			state = Tk.DISABLED
 		)
 		self.selectAllButton.pack(side = Tk.LEFT)
 
@@ -374,8 +443,40 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def matrixIn(self, newMatrix): # ===========================================
 		try:
 
+			# Update matrix counter:
 			self.matrixCount += 1
 			self.matrixCounterVar.set(self.matrixCount)
+
+			# Apply RPMs:
+			for index, matrixRow in enumerate(newMatrix):
+				
+				if matrixRow[0] != sv.CONNECTED:
+					# Slave disconnected
+					# TODO
+					for iid in self.slavesToCells[index].values():
+						self.canvas.itemconfig(
+							iid,
+							fill = COLOR_OFF
+						)
+
+				else:
+					for fanIndex, fanValue in enumerate(
+						matrixRow[self.startDisplacement:self.endDisplacement:2]):
+						
+						if abs(fanValue - self.slavesToRecords[index][fanIndex*2]) >= self.minimumDelta:
+
+							self.slavesToRecords[index][fanIndex*2] = fanValue
+
+							self.canvas.itemconfig(
+								self.slavesToCells[index][fanIndex*2],
+								fill = self.colormap[
+									int(fanValue*self.colormapSize/self.maxRPM) if \
+										fanValue <= self.maxRPM and \
+										fanValue >= 0 else self.colormapSize-1
+								]
+							)
+							
+
 
 		except:
 			self._printE()
@@ -466,18 +567,88 @@ class FCPRGridProcessWidget(Tk.Frame):
 		x = xmargin
 		y = ymargin
 
+		# Create cells
+		# NOTE: FOR PERFORMANCE, THE CLICK AND DRAG CALLBACKS WILL ASSUME 
+		# CONSECUTIVE IIDS FOR GRID CELLS. KEEP THIS IN MIND IF ANY OTHER 
+		# GRID ITEM IS TO BE DRAWN WITHIN THIS LOOP!
+
 		for row in range(self.numberOfRows):
 
-			for column in range(self.numberOfColumns):
+			for column in range(self.numberOfColumns): # .......................
 				
+				# Build cell:
 				newIID = self.canvas.create_rectangle(
-					x, y, x+self.cellLength, y+self.cellLength, fill = 'white'
+					x, y, x+self.cellLength, y+self.cellLength, fill = COLOR_EMPTY
 				)
 
+				if self.gridIIDLow == -1:
+					self.gridIIDLow = newIID
+				else:
+					self.gridIIDHigh = newIID
+				
+				# Add cell data to data structures:
+				try:
+					self.iidsToFans[newIID] = self.coordsToFans[row][column]
+					self.iidsToSelection[newIID] = False
+					self.coordsToIIDs[row][column] = newIID
+
+					
+					for fanIndex in self.coordsToFans[row][column][1:]:
+						self.slavesToCells[self.coordsToFans[row][column][0]][fanIndex] =\
+							newIID
+						
+						self.slavesToRecords[self.coordsToFans[row][column][0]][fanIndex] = -1
+				except KeyError:
+					# This cell is not paired to a fan
+					pass
+
+				# Add click behavior:
+				
+				self.canvas.tag_bind(
+					newIID,
+					'<ButtonPress-1>',
+					self._onCellClick
+				)
+
+				"""
+				self.canvas.tag_bind(
+					newIID,
+					'<B1-Motion>',
+					self._onCellDrag
+				)
+				"""
+
+				self.canvas.tag_bind(
+					newIID,
+					'<ButtonRelease-1>',
+					self._onCellRelease
+				)
+				
+				self.canvas.tag_bind(
+					newIID,
+					'<Double-Button-1>',
+					self._deselectGridAll
+				)
+
+				# DEBUG: Show text:
+				"""
+				self.canvas.create_text(
+					x + int(self.cellLength/2),
+					y + int(self.cellLength/2),
+					text = "{}".format(self.iidsToFans[newIID][0]),
+					font = ('TkFixedWidth', '8')
+				)
+				"""
+
+				# Move forward in X (next column)
 				x += self.cellLength
-			
+
+				# ..............................................................
+
+			# Reset X and move forward in Y (next row, first column)
 			x = xmargin
 			y += self.cellLength
+
 		
 		# Grid border:
 		gridBorderIID = self.canvas.create_rectangle(
@@ -576,6 +747,11 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fill = 'black'
 		)	
 
+		self.canvas.bind(
+			'<KeyRelease-Escape>',
+			self._deselectGridAll()
+		)
+
 		# End _buildGrid =======================================================
 
 	# ROUTINES -----------------------------------------------------------------
@@ -599,7 +775,149 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# End _updateRoutine ===================================================
 
-	# CALLBACKS ----------------------------------------------------------------
+	# CALLBACKS (GRID) ---------------------------------------------------------
+
+	def _onCellClick(self, event): # ===========================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+			
+			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
+
+				self.gridDragStartIID = cell	
+
+		except:
+			self._printE("Exception in Cell Callback:")
+		
+		# End _onCellClick =====================================================
+
+	def _onCellDrag(self, event): # ============================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+			
+			if cell > self.gridIIDLow and cell < self.gridIIDHigh:
+				self.canvas.itemconfig(
+					cell,
+					fill = 'red'
+				)
+
+		except:
+			self._printE("Exception in Cell Callback:")
+		
+		# End _onCellDrag ======================================================
+
+	def _onCellRelease(self, event): # =========================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+			
+			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
+				
+				if cell != self.gridDragStartIID:
+					startRow = int((self.gridDragStartIID-self.gridIIDLow)/self.numberOfRows)
+					endRow = int((cell-self.gridIIDLow)/self.numberOfRows)
+
+					startColumn = int((self.gridDragStartIID-self.gridIIDLow)%self.numberOfRows)
+					endColumn = int((cell-self.gridIIDLow)%self.numberOfRows)
+
+					
+					# Drag-select:
+					for selectedRow in range(min(startRow,endRow), max(startRow, endRow) + 1):
+
+						for selectedColumn in range(min(startColumn, endColumn), max(startColumn, endColumn) + 1):
+						
+							self._selectGridCell(self.coordsToIIDs[selectedRow][selectedColumn])
+				
+				else:
+					self._toggleGridCell(cell)
+
+
+		except:
+			self._printE("Exception in Cell Callback:")
+		
+		# End _onCellRelease ===================================================
+
+	def _selectGridCell(self, iid): # ==========================================
+		try:
+			
+			self.iidsToSelection[iid] = True
+			self.canvas.itemconfig(
+				iid,
+				outline = OUTLINE_SELECTED,
+				width = 4
+			)
+
+		except:
+			self._printE("Exception in Cell selection callback:")
+
+		# End _selectGridCell ==================================================
+
+	def _deselectGridCell(self, iid): # ========================================
+		try:
+			
+			self.iidsToSelection[iid] = False
+			self.canvas.itemconfig(
+				iid,
+				outline = OUTLINE_DESELECTED,
+				width = 1
+			)
+
+		except:
+			self._printE("Exception in Cell deselection callback:")
+
+		# End _deselectGridCell ================================================
+	
+	def _toggleGridCell(self, iid): # ==========================================
+		try:
+			
+			if self.iidsToSelection[iid]:
+				# Cell selected. Deselect:
+				self._deselectGridCell(iid)
+
+			else:
+				# Cell deselected. Select:
+				self._selectGridCell(iid)
+
+		except:
+			self._printE("Exception in Cell selection callback:")
+
+		# End _toggleGridCell ==================================================
+
+	def _deselectGridAll(self, *event): # ======================================
+		try:
+			print("Deselect")
+
+			for iid in self.iidsToSelection:
+				if self.iidsToSelection[iid]:
+					self._deselectGridCell(iid)
+
+		except:
+			self._printE("Exception in Cell deselect-all callback")
+
+		# End _deselectGridAll =================================================
+
+
+	# CALLBACKS (TOOLS) --------------------------------------------------------
+	def _send(self, *event): # =================================================
+		try:
+		
+			for iid in self.iidsToSelection:
+				if self.iidsToSelection[iid]:
+					self.commandQueue.put_nowait(self.iidsToFans[iid])
+
+		except:
+			self._printE("Exception in Grid send")
+		# End =================================================================
 	
 	def _targetMenuCallback(self, *event): # ===================================
 		try:

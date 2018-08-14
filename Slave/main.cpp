@@ -38,9 +38,7 @@
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST9.3D" // Letter for bootloader testing
-// Change: Modified pinouts to use PinNames for stored PWM pins, instead of 
-// PwmOut
+#define FCMKII_VERSION "CAST10.5D" // Letter for bootloader testing
 
 
 void mainLoop(void){
@@ -51,7 +49,6 @@ void mainLoop(void){
 
 
 //// MAIN //////////////////////////////////////////////////////////////////////
-
 
 
 int main(){ ////////////////////////////////////////////////////////////////////

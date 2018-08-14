@@ -471,6 +471,7 @@ class FCCommunicator:
 		try:		
 			self.printM("[IR] Prototype input routine started","G")
 			while True:
+
 				try:
 					# Input --------------------------------------------------------
 					
@@ -703,7 +704,7 @@ class FCCommunicator:
 				format(traceback.format_exc()),'E')
 			self.stop()
 
-		except Exception as e:
+		except:
 			self.printM("[BT] UNHANDLED EXCEPTION: \"{}\"".\
 				format(traceback.format_exc()), "E")
 
@@ -726,13 +727,14 @@ class FCCommunicator:
 		# Get standard replies:
 		launchMessage = "L|{}".format(self.passcode)
 
-
 		while(True):
 			try:
 				# Wait for a message to arrive:
 				messageReceived, senderAddress = \
 					self.listenerSocket.recvfrom(256)
-				
+
+				# DEBUG: print("Message received")
+
 				""" NOTE: The message received from Slave, at this point, 
 					should have one of the following forms:
 
@@ -1102,10 +1104,8 @@ class FCCommunicator:
 						# Check for signs of life w/ HSK message:
 						self._send(MHSK, slave, 2, True)
 						
-						"""	
 						# Give time to process:
-						time.sleep(periodS)
-						"""
+						#time.sleep(periodS)
 
 						tries = 2
 						while True:
