@@ -38,7 +38,7 @@
 #include "print.h" // Thread-saf printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST10.6D" // Letter for bootloader testing
+#define FCMKII_VERSION "CAST10.7D" // Letter for bootloader testing
 
 
 void mainLoop(void){

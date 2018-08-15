@@ -278,6 +278,7 @@ int Fan::read(Timer* timerRef, Timeout* timeoutRef){
 		// Detach interrupt and timeout:
 		interrupt.rise(NULL);
 		this->timeoutPtr->detach();
+		this->timerPtr->stop();
 
 		// Analyze results:
 		int read = 0;
@@ -319,7 +320,7 @@ void Fan::onInterrupt(void){
 		this->timerPtr->start();
 		this->counts++;
 
-	}else if (this->counts < this->counterCounts){
+	} else if (this->counts < this->counterCounts){
 		this->counts++;
 
 	} else{
@@ -332,8 +333,6 @@ void Fan::onInterrupt(void){
 void Fan::onTimeout(void){
 	// ABOUT: To be attached to the fan reading timeout
 	this->doneReading = true;
-	this->timerPtr->stop();
-
 } // End onTimeout
 
 bool Fan::write(float newDC){
