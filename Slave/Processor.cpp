@@ -484,12 +484,12 @@ bool Processor::get(char* buffer){ // // // // // // // // // // // // // // //
 
 } // End get // // // // // // // // // // // // // // // // // // // // // // /
 
-void Processor::start(void){
+void Processor::start(void){ // // // // // // // // // // // // // // // // //
     // Start processor thread:
     this->processorThread.start(callback(this, 
         &Processor::_processorRoutine));
         
-    }
+} // End Processor::start // // // // // // // // // // // // // // // // // // 
 
 void Processor::setStatus(int status){ // // // // // // // // // // // // // //
     /* ABOUT: Modify Processor status.
@@ -502,89 +502,61 @@ void Processor::setStatus(int status){ // // // // // // // // // // // // // //
     if (status == this->status){
         // If this status change is redundant, ignore it:
         return;
-    }
+    } else {
 	
-    // Change status:
-    switch(status){
-        case CHASING: // Chasing target RPM ------------------------------------
-            // Set internal status:
-            this->status = status;
-            // Update LED blinking:
-                // Blink slowly
-            this->blinker.attach(callback(this, &Processor::_blinkLED),
-                    BLINK_SLOW);
-                    
-            break;
+		this->threadLock.lock();
 
-        case ACTIVE: // Processor active ---------------------------------------
+		// Change status:
+		switch(status){
 			
-			// If the Processor is being activateed after being off (not 
-			// previously chasing), then reset fan configuration.
-			
-			/* DEBUG
-			pl;printf("\n\r[%08dms][P][DEBUG] Config. V's: "
-			"%d,%f,%f,%d,%d,%d,%d,%d,%d,%f,%f,%d",tm,
-			this->fanMode, this->targetRelation[0], this->targetRelation[1], 
-			this->activeFans, this->fanFrequencyHZ, this->counterCounts,
-			this->pulsesPerRotation, this->maxRPM, this->minRPM, this->minDC, 
-			this->chaserTolerance,this->maxFanTimeouts);pu;
-			
-			pl;printf("\n\r[%08dms][P][DEBUG] RPM SLOPE: %.2f", 
-				tm, this->rpmSlope);pu;
-			*/
+			case ACTIVE: // Processor active -----------------------------------
+				
+				// Set internal status:
+				this->status = ACTIVE;
+				// Update LED blinking:
+					// Solid blue
+				this->_setLED(ON);
+				#ifndef JPL
+				this->psuOff.write(false);
+				#endif
+				
 
-			// Set internal status:
-            this->status = ACTIVE;
-            // Update LED blinking:
-                // Solid blue
-            this->blinker.detach();
-			this->_setLED(ON);
-			#ifndef JPL
-			this->psuOff.write(false);
-			#endif
+				break;
 
-            break;
+			case OFF: // Processor offline -------------------------------------
+				
+				// Set internal status:
+				this->status = status;
+				#ifndef JPL
 
-        case OFF: // Processor offline -----------------------------------------
-            this->threadLock.lock();
-			
-			// Set internal status:
-            this->status = status;
-            // Update LED blinking:
-                // LED off
-            this->blinker.detach();
-			#ifndef JPL
-			this->psuOff.write(true);
-			#endif
-            this->_setLED(OFF);
+				this->psuOff.write(true);
+				#endif
+				this->_setLED(OFF);
 
-			// Reset data index:
-			this->dataIndex = 0;
-   
-			// Reset buffers and flags:
+				// Reset data index:
+				this->dataIndex = 0;
+	   
+				// Reset buffers and flags:
 
-			// Input:
-			this->inFlagLock.lock();
-			this->inBuffer[0] = '\0';
-			this->inFlag = false;
-			this->inFlagLock.unlock();
+				// Output:
+				this->outFlagLock.lock();
+				this->outBuffer[0] = '\0';
+				this->outFlag = false;
+				this->outFlagLock.unlock();
 
-			// Output:
-			this->outFlagLock.lock();
-			this->outBuffer[0] = '\0';
-			this->outFlag = false;
-			this->outFlagLock.unlock();
-			
-			this->threadLock.unlock();
+				break;
 
-            break;
+			default: // Unrecognized status code -------------------------------
+				// Print error message:
+				pl;printf("\n\r[%08dms][P] ERROR: UNRECOGNIZED STATUS CODE %d", 
+					tm, status);pu;
 
-        default: // Unrecognized status code -----------------------------------
-            // Print error message:
-            pl;printf("\n\r[%08dms][P] ERROR: UNRECOGNIZED STATUS CODE %d", 
-                tm, status);pu;
+		} // End switch
 
-    }
+		this->threadLock.unlock();
+
+	} // End redundancy check
+
 } // End setStatus // // // // // // // // // // // // // // // // // // // // /
 
 // INNER THREAD ROUTINES -------------------------------------------------------
@@ -613,17 +585,15 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 			
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
+
             } // End set all fans to zero
 			
         } else{
-			// Processor active. Update values -
+			// Processor active. Update values
 
-            //pl;printf("\n\r[%08dms][P] DEBUG: Processor active",tm);pu;
 			this->outFlagLock.lock();
-			if(not this->outFlag){
-				#ifdef DEBUG
-				pl;printf("\n\r[%08dms][P] DEBUG: Updating values",tm);pu;
-				#endif
+
+			if(not this->outFlag) {
 				// If the output buffer is free, write to it.
 
 				int n = 0; // Keep track of string index
@@ -634,20 +604,13 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Print beginning of update message:	
 				n+= snprintf(this->outBuffer, MAX_MESSAGE_LENGTH,"T|%lu|",
 					this->dataIndex);
-
 				
-				// NOTE: Skip RPM writing if a DC was just set, to allow for 
-				// fast feedback. Do this as long as there is some RPM value
-				// in the buffer (i.e rpmWrite is true)	
-				
-				// Evaluate first fan separately due to special formatting
-
 				Fan *fanPtr = NULL;
 				int rpm = -1;
 				int m = 0; 
 
-				// Store other RPM's:
-				pl;printf("\n\r[%08dms][P] P-IN",tm);pu;
+				// Store RPM's:-------------------------------------------------
+
 				for(int i = 0; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
 					
@@ -657,16 +620,17 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 					m += snprintf(
 					rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
 					rpm);
-				}				
-				pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
+
+				} // End RPM read loop
 				
 				// Get rid of trailing comma:
 				rpmBuffer[m-1] = '\0';
+
 				// Save RPM buffer into output buffer
 				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "%s",
 					rpmBuffer);
 
-				// Store duty cycles: ----------------------------------------------
+				// Store duty cycles: ------------------------------------------
 
 				// Store first duty cycle along w/ separator:
 				 
@@ -674,38 +638,27 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				pl;printf("\n\r\t[P][D] output buffer: %s",
 					outBuffer);pu;
 				*/
-				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, "|%.4f", 
-					this->fanArray[0].getDC());
+				n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, 
+					"|%.4f", this->fanArray[0].getDC());
 
 				// Store other duty cycles:
 				for(int i = 1; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
-					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, ",%.4f", 
-					this->fanArray[i].getDC());
-					/*DEBUG
-					 pl;printf("\n\r\t[P][D] output buffer: %s",
-						outBuffer);pu;
-					*/
-				}
+					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, 
+					",%.4f", this->fanArray[i].getDC());
+				} // End duty cycle storage loop
 			
 				// Raise output flag:
 				this->outFlag = true;
-				this->outFlagLock.unlock();
-    			//pl;printf("\n\r[%08dms][P] P-OUT",tm);pu;
-		} else {
-			// If the output buffer is busy, wait until it has been freed.
-    		
-			/* DEBUG
-			pl;printf("\n\r[%08dms][P] Output buffer busy",
-        		tm);pu;
 
-			*/
+			} // End check output flag 			
+
 			this->outFlagLock.unlock();
-		}
 			
         } // End check if active = = = = = = = = = = = = = = = = = = = = = = = =
 		
     	this->threadLock.unlock();
+
 	} // End processor thread loop =============================================
 
     pl;printf("\n\r[%08dms][P] WARNING: BROKE OUT OF PROCESSOR THREAD LOOP",
