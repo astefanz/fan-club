@@ -51,6 +51,7 @@ import FCCommunicator as cm
 import FCSlave as sv
 import FCArchiver as ac
 import FCWidget as wg
+import FCMainWindow as mw
 
 import auxiliary.colormaps as cs
 from auxiliary.debug import d
@@ -73,6 +74,18 @@ OUTLINE_SELECTED = 'orange'
 OUTLINE_DESELECTED = 'black'
 COLOR_OFF = '#282828'
 COLOR_EMPTY = 'white'
+
+COLOR_SELECTOR_STD = '#939292'
+COLOR_SELECTOR_CLICKED = '#7c7c7c'
+
+# Special index values:
+
+# Slave-to-selection list:
+STS_COUNTER = 0
+STS_LIST = 1
+
+# IIDsToFans list:
+ITF_INDEX = 0
 
 ## PROCESS WIDGET ##############################################################
 
@@ -126,6 +139,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.gridDragStartIID = 0
 		
+
 		# For fast communication between the Grid and the rest of the software,
 		# we need an efficient way to go from IIDs (ID's of drawn, colored cells)
 		# To the corresponding Slave index and fan index, for control; and a 
@@ -135,12 +149,29 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		self.iidsToFans = {} # IID -> (index, fan1...)
 		self.iidsToSelection = {}
+		self.slavesToSelections = {} # Index -> [count, [sel1, sel2 ...]]
+		self.selectedSlaves = set([])
 
 		self.slavesToCells = {} # Index ->  Fan number -> IID
 		self.slavesToRecords = {} # Index ->  Fan number -> Previous RPM
+		
+		self.selectorIIDsToRows = {} # IID (Of "row selector") -> row
+		self.selectorIIDsToColumns = {} # IID (Of "column selector") -> column
+
+		self.columnSelectorIIDs = []
+		self.rowSelectorIIDs = []
+		
 		for module in self.modules:
+			
 			self.slavesToCells[module[ac.M_INDEX]] = {}
+			
 			self.slavesToRecords[module[ac.M_INDEX]] = {}
+			
+			self.slavesToSelections[module[ac.M_INDEX]] = \
+				[
+					0,
+					[0]*module[ac.M_NUMFANS]
+				]
 
 		# The IIDs will be generated when the matrix is drawn. The following
 		# dictionary will serve as an intermediate. It will go from 
@@ -238,6 +269,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			background = self.bg,
 			highlightbackground = self.bg,
 			foreground = self.fg,
+			state = Tk.DISABLED
 		)
 		self.targetMenu.pack(side = Tk.LEFT)
 
@@ -262,6 +294,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			background = self.bg,
 			highlightbackground = self.bg,
 			foreground = self.fg,
+			state = Tk.DISABLED
 		)
 		self.displayMenu.pack(side = Tk.LEFT)
 
@@ -311,6 +344,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			background = self.bg,
 			highlightbackground = self.bg,
 			foreground = self.fg,
+			state = Tk.DISABLED
 		)
 		self.unitMenu.pack(side = Tk.LEFT)
 
@@ -350,6 +384,20 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.commandEntry.insert(0, '0')
 		self.commandEntry.pack(side = Tk.LEFT)
 		self.commandEntry.bind('<Return>', self._send)
+		self.commandEntry.focus_set()
+		
+		# Send Button:
+		self.sendButton = Tk.Button(
+			self.topBar,
+			bg = self.bg,
+			fg = self.fg,
+			highlightbackground = self.bg,
+			width = 11,
+			text = "Send",
+			command = self._send,
+		)
+		self.sendButton.pack(side = Tk.LEFT)
+
 		
 		self.rememberValueToggleVar = Tk.BooleanVar()
 		self.rememberValueToggle = Tk.Checkbutton(
@@ -370,21 +418,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bg = self.bg, 
 			fg = self.fg, 
 			)
-		self.rememberSelectionToggleVar.set(True)
+		self.rememberSelectionToggleVar.set(False)
 		self.rememberSelectionToggle.pack(side = Tk.LEFT)
-
-		# Select All:
-		self.selectAllButton = Tk.Button(
-			self.topBar,
-			bg = self.bg,
-			fg = self.fg,
-			highlightbackground = self.bg,
-			width = 11,
-			text = "Redraw",
-			command = self._redraw,
-			state = Tk.DISABLED
-		)
-		self.selectAllButton.pack(side = Tk.LEFT)
 
 		# GRID .................................................................
 
@@ -426,6 +461,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _stop(self, *event): # =================================================
 		
 		self._printM("Closing Grid")
+
+		self.destroy()
 		self.master.quit()
 
 		# End _stop ============================================================
@@ -453,6 +490,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 				if matrixRow[0] != sv.CONNECTED:
 					# Slave disconnected
 					# TODO
+					for fanIndex in range(self.modules[index][ac.M_NUMFANS]):
+						self.slavesToRecords[index][fanIndex] = \
+							-self.maxRPM
+
 					for iid in self.slavesToCells[index].values():
 						self.canvas.itemconfig(
 							iid,
@@ -463,7 +504,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 					for fanIndex, fanValue in enumerate(
 						matrixRow[self.startDisplacement:self.endDisplacement:2]):
 						
-						if abs(fanValue - self.slavesToRecords[index][fanIndex*2]) >= self.minimumDelta:
+						if abs(fanValue - self.slavesToRecords[index][fanIndex*2])\
+							>= self.minimumDelta:
 
 							self.slavesToRecords[index][fanIndex*2] = fanValue
 
@@ -523,16 +565,35 @@ class FCPRGridProcessWidget(Tk.Frame):
 		y = ymargin
 	
 		
-		cornerSelectorIID = self.canvas.create_rectangle(
+		selectAllCornerIID = self.canvas.create_rectangle(
 			xborder, 
 			yborder, 
 			x+self.cellLength, 
 			y+self.cellLength, 
 			
-			fill = 'darkgray',
+			fill = COLOR_SELECTOR_STD,
 			width = 2
 		)
+		
+		selectAllLabelIID = self.canvas.create_text(
+				xborder + int(self.cellLength/2), y + int(self.cellLength/2),
+				text = "Select All",
+				anchor = 'w'
+
+		)
+		
+		self.canvas.tag_bind(
+			selectAllCornerIID,
+			'<ButtonPress-1>',
+			self._selectGridAll
+		)
+		self.canvas.tag_bind(
+			selectAllLabelIID,
+			'<ButtonPress-1>',
+			self._selectGridAll
+		)
 	
+
 		y += self.cellLength
 
 		for row in range(self.numberOfRows):
@@ -540,10 +601,42 @@ class FCPRGridProcessWidget(Tk.Frame):
 			y += self.cellLength
 
 			newRowSelectorIID = self.canvas.create_rectangle(
-			xborder, y, x+self.cellLength, y+self.cellLength, fill = 'darkgray', width = 2
+				xborder, y, x+self.cellLength, y+self.cellLength, 
+				fill = COLOR_SELECTOR_STD, 
+				width = 2
+			)
+			
+			self.rowSelectorIIDs.append(newRowSelectorIID)
+
+			newRowLabelIID = self.canvas.create_text(
+				xborder + int(self.cellLength/2), y + int(self.cellLength/2),
+				anchor = 'w',
+				text = str(row)
 			)
 
+			
+			for iid in (newRowSelectorIID, newRowLabelIID):
+			
+				self.selectorIIDsToRows[iid] = row
 
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonPress-1>",
+					self._onRowSelectorClick
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<B1-Motion>",
+					self._onRowSelectorClick
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonRelease-1>",
+					self._onRowSelectorRelease
+				)
+	
 		y = ymargin
 		
 		x += self.cellLength
@@ -553,8 +646,38 @@ class FCPRGridProcessWidget(Tk.Frame):
 			x += self.cellLength
 
 			newColumnSelectorIID = self.canvas.create_rectangle(
-			x, yborder, x+self.cellLength, y+self.cellLength, fill = 'darkgray', width = 2
+				x, yborder, x+self.cellLength, y+self.cellLength, 
+				fill = COLOR_SELECTOR_STD, 
+				width = 2
 			)
+			self.columnSelectorIIDs.append(newColumnSelectorIID)
+			
+			newColumnLabelIID = self.canvas.create_text(
+				x + int(self.cellLength/2), yborder + int(self.cellLength/2),
+				text = str(column)
+			)
+		
+			for iid in (newColumnSelectorIID, newColumnLabelIID):
+
+				self.selectorIIDsToColumns[iid] = column
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonPress-1>",
+					self._onColumnSelectorClick
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<B1-Motion>",
+					self._onColumnSelectorClick
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonRelease-1>",
+					self._onColumnSelectorRelease
+				)
 
 		
 		x = xmargin
@@ -597,7 +720,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 						self.slavesToCells[self.coordsToFans[row][column][0]][fanIndex] =\
 							newIID
 						
-						self.slavesToRecords[self.coordsToFans[row][column][0]][fanIndex] = -1
+						self.slavesToRecords[self.coordsToFans[row][column][0]][fanIndex] = -self.maxRPM
 				except KeyError:
 					# This cell is not paired to a fan
 					pass
@@ -670,6 +793,25 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fill = 'darkgray',
 			width = 2
 		)
+		
+		deselectAllLabel = self.canvas.create_text(
+				x + int(self.cellLength/2), y + int(self.cellLength/2),
+				text = "Deselect All",
+				anchor = 'w'
+
+		)
+
+		self.canvas.tag_bind(
+			deselectAllCornerIID,
+			'<ButtonPress-1>',
+			self._deselectGridAll
+		)
+		self.canvas.tag_bind(
+			deselectAllLabel,
+			'<ButtonPress-1>',
+			self._deselectGridAll
+		)
+
 
 		# Build colormap:
 
@@ -777,6 +919,94 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 	# CALLBACKS (GRID) ---------------------------------------------------------
 
+	def _onRowSelectorClick(self, event): # ====================================
+		try:
+			
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+
+			# Select clicked row:
+			self._selectGridRow(self.selectorIIDsToRows[cell])
+
+			# Change color:
+			self.canvas.itemconfig(
+				self.rowSelectorIIDs[self.selectorIIDsToRows[cell]],
+				fill = COLOR_SELECTOR_CLICKED
+			)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas row-selector callback")
+		# End _onRowSelectorClick ==============================================
+
+	def _onRowSelectorRelease(self, event): # ==================================
+		try:
+			
+			for iid in self.rowSelectorIIDs:
+
+				# Change color:
+				self.canvas.itemconfig(
+					iid,
+					fill = COLOR_SELECTOR_STD
+				)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas row-selector callback")
+		# End _onRowSelectorRelease ============================================
+
+	def _onColumnSelectorClick(self, event): # =================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+
+			# Select clicked row:
+			self._selectGridColumn(self.selectorIIDsToColumns[cell])
+
+			# Change color:
+			self.canvas.itemconfig(
+				self.columnSelectorIIDs[self.selectorIIDsToColumns[cell]],
+				fill = COLOR_SELECTOR_CLICKED
+			)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas column-selector callback")
+		# End _onColumnSelectorClick ===========================================
+
+	def _onColumnSelectorRelease(self, event): # ===============================
+		try:
+			
+			for iid in self.columnSelectorIIDs:
+
+				# Change color:
+				self.canvas.itemconfig(
+					iid,
+					fill = COLOR_SELECTOR_STD
+				)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas column-selector callback")
+		# End _onColumnSelectorRelease =========================================
+
 	def _onCellClick(self, event): # ===========================================
 		try:
 
@@ -850,12 +1080,35 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _selectGridCell(self, iid): # ==========================================
 		try:
 			
-			self.iidsToSelection[iid] = True
-			self.canvas.itemconfig(
-				iid,
-				outline = OUTLINE_SELECTED,
-				width = 4
-			)
+			# NOTE: Assuming a cell selects all fans it represents
+			# TODO: Generalize to allow for different layers of selection
+
+			if not self.iidsToSelection[iid]:
+				
+				# Get selection record for this Slave:
+				record = self.slavesToSelections[\
+					self.iidsToFans[iid][ITF_INDEX]]
+				
+				fanIndices = self.iidsToFans[iid][1:]
+				
+				# Update record counter:
+				# NOTE: Assuming two fans for now
+				record[STS_COUNTER] += 2
+				
+				# Update list:
+				for fanIndex in fanIndices:
+					record[STS_LIST][fanIndex] = 1
+				
+				# Update list of selected Slaves:
+				self.selectedSlaves.add(self.iidsToFans[iid][ITF_INDEX])
+
+				self.canvas.itemconfig(
+					iid,
+					outline = OUTLINE_SELECTED,
+					width = 4
+				)
+				
+				self.iidsToSelection[iid] = True
 
 		except:
 			self._printE("Exception in Cell selection callback:")
@@ -865,12 +1118,34 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _deselectGridCell(self, iid): # ========================================
 		try:
 			
-			self.iidsToSelection[iid] = False
-			self.canvas.itemconfig(
-				iid,
-				outline = OUTLINE_DESELECTED,
-				width = 1
-			)
+			if self.iidsToSelection[iid]:
+				
+				# Get selection record for this Slave:
+				record = self.slavesToSelections[\
+					self.iidsToFans[iid][ITF_INDEX]]
+				
+				fanIndices = self.iidsToFans[iid][1:]
+				
+				# Update record counter:
+				# NOTE: Assuming two fans for now
+				record[STS_COUNTER] -= 2
+				
+				# Update list:
+				for fanIndex in fanIndices:
+					record[STS_LIST][fanIndex] = 0
+
+				# Update list of selected Slaves:
+				if record[STS_COUNTER] == 0:
+					self.selectedSlaves.remove(\
+						self.iidsToFans[iid][ITF_INDEX])
+
+				self.canvas.itemconfig(
+					iid,
+					outline = OUTLINE_DESELECTED,
+					width = 1
+				)
+				
+				self.iidsToSelection[iid] = False
 
 		except:
 			self._printE("Exception in Cell deselection callback:")
@@ -892,11 +1167,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell selection callback:")
 
 		# End _toggleGridCell ==================================================
+	
+	def _selectGridAll(self, *event): # ========================================
+		try:
+			for iid in self.iidsToSelection:
+				if not self.iidsToSelection[iid]:
+					self._selectGridCell(iid)
+
+		except:
+			self._printE("Exception in Cell select-all callback")
+
+		# End _selectGridAll ===================================================
+
 
 	def _deselectGridAll(self, *event): # ======================================
 		try:
-			print("Deselect")
-
 			for iid in self.iidsToSelection:
 				if self.iidsToSelection[iid]:
 					self._deselectGridCell(iid)
@@ -906,14 +1191,103 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# End _deselectGridAll =================================================
 
+	def _selectGridRow(self, row, *event): # ===================================
+		try:
+			
+			for iid in self.coordsToIIDs[row].values():
+
+				self._selectGridCell(iid)
+
+		except:
+			self._printE("Exception in Cell select-row callback")
+		# End _selectGridRow ===================================================
+
+	def _selectGridColumn(self, column, *event): # =============================
+		try:
+			
+			for row in self.coordsToIIDs.values():
+
+				self._selectGridCell(row[column])
+
+		except:
+			self._printE("Exception in Cell select-row callback")
+		# End _selectGridColumn ================================================
 
 	# CALLBACKS (TOOLS) --------------------------------------------------------
 	def _send(self, *event): # =================================================
 		try:
-		
-			for iid in self.iidsToSelection:
-				if self.iidsToSelection[iid]:
-					self.commandQueue.put_nowait(self.iidsToFans[iid])
+
+			# Update button:
+			self.sendButton.config(
+				state = Tk.DISABLED,
+				text = "Sending..."
+			)
+
+			# Get duty cycle to send:
+			dc = float(self.commandEntry.get())
+			
+			"""
+			for index in self.slavesToCells:
+				# For each module, check if it has any fans selected. If so,
+				# format a command to send and send it down the update 
+				# pipe
+
+				selected = False
+				selection = ()
+
+				for fan in self.slavesToCells[index]:
+					if self.iidsToSelection[self.slavesToCells[index][fan]]:
+						selection += (1,)
+						selected = True
+
+					else:
+						selection += (0,)
+
+				# If at least one fan is selected, send it down the 
+				# command pipe:
+				
+				if selected:
+					self.commandQueue.put_nowait(
+					(mw.COMMUNICATOR, cm.SET_DC, dc, selection, index)
+					)
+			
+			"""
+			
+			# Cache data to be sent for better synchronization:
+			selection = []
+			
+			for index in self.selectedSlaves:
+				
+				selection.append(
+					(
+						index,
+						tuple(self.slavesToSelections[index][STS_LIST]), 
+					)
+				)
+
+			
+			self.commandQueue.put_nowait(
+				(mw.COMMUNICATOR,
+				cm.SET_DC_GROUP,
+				dc,
+				selection)
+			)
+
+			# Check "remember" settings:
+
+			if not self.rememberValueToggleVar.get():
+				# Clear value entry:
+				self.commandEntry.delete(0, Tk.END)
+
+			if not self.rememberSelectionToggleVar.get():
+				# Clear selection:
+				self._deselectGridAll()
+
+			# Update button:
+			self.sendButton.config(
+				state = Tk.NORMAL,
+				text = "Send"
+			)
 
 		except:
 			self._printE("Exception in Grid send")
@@ -968,7 +1342,6 @@ class FCPRGridProcessWidget(Tk.Frame):
 		try:
 
 			# ABOUT: To be used by TkInter to validate text in "Send" Entry.
-			return True
 			if action == '0':
 				return True
 			

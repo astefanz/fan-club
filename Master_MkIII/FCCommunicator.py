@@ -94,9 +94,13 @@ REBOOT = 53
 # NOTE: Array command e.g.: 
 #		(COMMUNICATOR, SET_DC, DC, FANS, ALL)
 # 		(COMMUNICATOR, SET_DC, DC, FANS, 1,2,3,4)
+#		(COMMUNICATOR, SET_DC_MANY, DC, SELECTIONS)
+#											|
+#									(INDEX, FANS)
 
 SET_DC = 54
-SET_RPM = 55
+SET_DC_GROUP = 55
+SET_RPM = 56
 
 # Bootloader commands:
 
@@ -478,7 +482,7 @@ class FCCommunicator:
 					# Check commands:
 					if self.updatePipeOut.poll():
 						command = self.updatePipeOut.recv()
-						print("Command fetched: ", command)	
+						
 						# Classify command:
 						if command[wg.COMMAND] == ADD:
 							print("Command is 'ADD'")
@@ -535,6 +539,31 @@ class FCCommunicator:
 											
 											False
 										)
+
+						elif command[wg.COMMAND] is SET_DC_GROUP:
+							print("Command is 'SET_DC_GROUP'", 
+								format(command))
+							
+							dc = command[wg.VALUE]
+							
+
+							for pair in command[wg.VALUE+1]:
+								# NOTE: Here 'pair' is a tuple of the form
+								# (index, fans)
+								# Where 'index' is the index of the selected
+								# Slave and 'fans' is an n-tuple of 0's and 1's,
+								# (as long as the Slave's fan array) and 
+								# denoting which fans are selected...
+									
+								if self.slaves[pair[0]].getStatus()\
+									== sv.CONNECTED:
+									print("Setting slave",pair[0],pair[1])
+									self.slaves[pair[0]].setMOSI(
+										(MOSI_DC,
+										dc) # Duty cycle
+										 + pair[1]# Fan selection tuple
+										
+									)
 
 						elif command[wg.COMMAND] is SET_RPM:
 							print("Command is 'SET_RPM': ",format(command))
