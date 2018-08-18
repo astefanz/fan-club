@@ -60,30 +60,25 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 		NULL, // Stack memory
 		"PROS" // Name
 	),
-    fanMode(FAN_MODE),
-	activeFans(MAX_FANS),
-	fanFrequencyHZ(PWM_FREQUENCY),
-	counterCounts(COUNTER_COUNTS),
-	pulsesPerRotation(PULSES_PER_ROTATION),
-	maxRPM(MAX_RPM),
-	minRPM(MIN_RPM),
-	minDC(MIN_DC),
-	chaserTolerance(CHASER_TOLERANCE),
-	maxFanTimeouts(MAX_FAN_TIMEOUTS),
 	dataIndex(0),  
-	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
+
+	pastDutyCycle(-1.0),
+
 	interrupt(PD_3),
 	led(LED2),
 	#ifndef JPL
 	xled(D4),
 	psuOff(D9),
 	#endif
-	inFlag(false), outFlag(false)
+	inFlag(false), 
+	outFlag(false)
 	{
     /* ABOUT: Constructor for class Processor. Starts processor thread.
      */
-
+	
     pl;printf("\n\r[%08dms][p] Processor initialized",tm);pu;
+
+	this->pastSelection[0] = '\0';
 
     // Set initial status:
     this->setStatus(OFF);
@@ -158,7 +153,6 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 
 					// Get float duty cycle:
 					float dutyCycle = atof(splitPtr);
-					pl;printf("\n\r[%08dms][P] DC: %f",tm, dutyCycle);pu;
 
 					// Split contents for selected fans:
 					splitPtr = strtok_r(NULL, ":", &splitPosition);
@@ -183,30 +177,50 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 
 					// Get length of selection:
 					int numFans = strlen(splitPtr);
+			
+					// Check for redundant writes:
+					if(dutyCycle == this->pastDutyCycle and \
+						strcmp(splitPtr, this->pastSelection) == 0){
 					
-					pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
-						tm, splitPtr, numFans);pu;
+						pl;printf("\n\r[%08dms][P] No new WRITEs",tm);pu;
+						
+						// Redundant write.. ignore
+						return true;
+						 
+					} else {
 
-					// Loop over list and assign duty cycles:
-					this->arrayLock.lock();
-					for(int i = 0; i < numFans; i++){
+						// Loop over list and assign duty cycles:
+						this->arrayLock.lock();
+						for(int i = 0; i < numFans; i++){
 
-						// Check if the corresponding index is selected:
-						if(splitPtr[i] - '0'){
-						 //\---------------/
-						 // This expression will evaluate to 0 if the fan is
-						 // set to 0, and nonzero (true) otherwise.
-							this->fanArray[i].write(dutyCycle);
+							// Check if the corresponding index is selected:
+							if(splitPtr[i] - '0'){
+							 //\---------------/
+							 // This expression will evaluate to 0 if the fan is
+							 // set to 0, and nonzero (true) otherwise.
+								this->fanArray[i].write(dutyCycle);
 
-						}
-					} // End assign duty cycles
-					this->arrayLock.unlock();
+							}
+						} // End assign duty cycles
+						this->arrayLock.unlock();
 
-					//pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
+						pl;printf("\n\r[%08dms][P] New WRITE applied: "\
+							"\n\r\tDC: %f"\
+							"\n\r\tFans: %s (%d)",
+							tm,
+							dutyCycle,
+							splitPtr,
+							numFans
+						);pu;
 
-					return true;
+						this->pastDutyCycle = dutyCycle;
+						strcpy(this->pastSelection, splitPtr);
 
-				}
+						return true;
+
+					} // End check redundance
+
+				} // End WRITE
 				
 				case CHASE: // Set a target RPM
 				{
@@ -393,30 +407,6 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			
 			// RPM linear fit:
 			this->rpmSlope = (maxRPM - minRPM)/(1.0 - minDC);
-		
-			/* DEBUG
-			pl;printf("\n\r[%08dms][P] HSK CONFIG VALUES: "
-			"\n\r\tfanMode: %d"\
-			"\n\r\tactiveFans: %d"\
-			"\n\r\tfanFreqHZ: %d"\
-			"\n\r\tcounterCounts: %d"\
-			"\n\r\tpulsesPerRotation: %d"\
-			"\n\r\tmaxRPM: %d"\
-			"\n\r\tminRPM: %d"\
-			"\n\r\tminDC: %f"\
-			"\n\r\tchaserTolerance: %f"\
-			"\n\r\tmaxFanTimeouts: %d"\
-			"\n\r\tPWM pinout: \"%s\""\
-			"\n\r\tTach pinout: \"%s\"",tm,
-			fanMode, 
-			activeFans, fanFrequencyHZ, counterCounts,
-			pulsesPerRotation, maxRPM, minRPM, minDC, chaserTolerance,
-			maxFanTimeouts,
-			pwmPinout, tachPinout);pu;
-			*/
-			/* DEBUG
-			pl;printf("\n\r[%08dms][P] Configuring fan array: ", tm);pu;
-			*/
 
 			// Configure fan array:
 			for(int i = 0; i < activeFans; i++){
@@ -595,16 +585,13 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 		#endif // STACK_PRINTS -------------------------------------------------
 		
 		this->threadLock.lock();
-        //pl;printf("\n\r[%08dms][P] DEBUG: Processor loop active",tm);pu;
-		//wait_us(1);		
 
         // Check if active = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		if(this->status ==  OFF){
 			// Reset values
 
             // Processor off, set all fans to zero. (Safety redundancy)
-            //pl;printf("\n\r[%08dms][P] DEBUG: Processor inactive",tm);pu;
-				
+			
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
 
@@ -634,16 +621,17 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				int m = 0; 
 
 				// Store RPM's:-------------------------------------------------
-				this->arrayLock.lock();
 				for(int i = 0; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
 					
+					this->arrayLock.lock();
 					fanPtr = &(this->fanArray[i]);
 					rpm = fanPtr->read(
 						this->timer, 
 						this->timeout, 
 						this->interrupt
 					);
+					this->arrayLock.unlock();
 					
 					m += snprintf(
 					rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
@@ -672,10 +660,11 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				// Store other duty cycles:
 				for(int i = 1; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
+					this->arrayLock.lock();
 					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, 
 					",%.4f", this->fanArray[i].getDC());
+					this->arrayLock.unlock();
 				} // End duty cycle storage loop
-				this->arrayLock.unlock();
 
 				// Raise output flag:
 				this->outFlag = true;

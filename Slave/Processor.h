@@ -128,6 +128,9 @@ private:
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
 
+	char pastSelection[MAX_FANS + 1];
+	float pastDutyCycle;
+
 	
 	// For fan reads: (To be shared among all fans and accessed serially)
 	Timer timer;
@@ -140,7 +143,7 @@ private:
 	#ifdef JPL
 	;
 	#else
-		,xled, psuOff;    // Access to blue LED
+	,xled, psuOff;    // Access to blue LED
 	#endif
     Ticker blinker;     // Used to blink blue LED for status    
 	Mutex threadLock, arrayLock;

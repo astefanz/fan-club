@@ -219,12 +219,9 @@ bool Fan::configure(
 	this->minDC = minDC;
 
 	this->timeout_us =
-		(minRPM > 0? 60000000.0/minRPM : 60000000.0/MIN_RPM)*
+		(minRPM > 0? 60000000.0/minRPM : DEFAULT_FAN_TIMEOUT_US)*
 		(counterCounts/pulsesPerRotation > 0 ? 
 			counterCounts/pulsesPerRotation : 1);
-
-
-	pl;printf("\n\rTimeout: %d", this->timeout_us);pu;
 	
 	this->counts = 0;
 	this->doneReading = false;

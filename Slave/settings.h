@@ -39,9 +39,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //// GLOBAL CONSTANTS //////////////////////////////////////////////////////////
-// Time is precious, preprocessor.
 
 #define BAUD 921600// Serial baud rate
+#define STACK_SIZE 4 // KB
 #define NUMFANS 21  // Number of fans for pinout
 #define BLINK_SLOW 0.5  // Long period of LED blinking (seconds) 
 #define BLINK_FAST 0.1 // Short period of LED blinking (seconds)
@@ -53,25 +53,12 @@
 #define SMISO 60000
 #define SMOSI 60001
 #define SLISTENER 65000
-#define SERROR 60666
 #define MAX_MESSAGE_LENGTH 512 // Characters
 #define MAX_NETWORK_TIMEOUTS 10 // Before checking connection status
 #define MAX_MASTER_TIMEOUTS 10 // Before assuming disconnection
 
-// DEFAULT FAN ARRAY VALUES ////////////////////////////////////////////////////
-#define MAX_FANS 24
-#define FAN_MODE 1
-#define TARGET_RELATION_0 1.0
-#define TARGET_RELATION_1 0.0
-#define COUNTER_COUNTS 1
-#define PULSES_PER_ROTATION 2
-#define MAX_RPM 11500
-#define MIN_RPM 1185
-#define MIN_DC 0.1
-#define PWM_FREQUENCY 25000
-#define CHASER_TOLERANCE 0.4 
-#define MAX_FAN_TIMEOUTS 10
-
-#define STACK_SIZE 4 // KB
+// FAN ARRAY ///////////////////////////////////////////////////////////////////
+#define MAX_FANS 21
+#define DEFAULT_FAN_TIMEOUT_US 30000
 
 #endif // SETTINGS_H

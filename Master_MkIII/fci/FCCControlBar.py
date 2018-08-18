@@ -122,6 +122,9 @@ class FCCControlBar(Tk.Frame, object):
 			self.notebook.enable_traversal()
 
 			self.notebook.pack(side = Tk.LEFT, fill = Tk.X, expand = True)
+			
+			self.arrayTabIDs = []
+			tabs = 0
 
 			# NETWORK CONTROL ..................................................
 			self.networkControlFrame = Tk.Frame(
@@ -134,6 +137,7 @@ class FCCControlBar(Tk.Frame, object):
 				self.networkControlFrame,
 				text = "Network Control"
 			)
+			tabs += 1
 
 
 			# Main Label .......................................................
@@ -285,69 +289,6 @@ class FCCControlBar(Tk.Frame, object):
 			self.shutdownButton.pack(side = Tk.RIGHT, fill = Tk.Y)
 
 			self.activeWidgets.append(self.shutdownButton)
-		
-			"""
-			# ADD/REMOVE .......................................................
-			self.addRemoveFrame = Tk.Frame(
-				None,
-				background = self.background
-			)
-			self.addRemoveFrame.pack(fill = Tk.BOTH, expand = True)
-
-			self.notebook.add(
-				self.addRemoveFrame,
-				text = "Add/Remove"
-			)
-
-			self.addAllButton = Tk.Button(
-				self.addRemoveFrame,
-				bg = self.background,
-				highlightbackground = self.background,
-				fg = self.foreground,
-				text = "Add All",
-				command = self._addAll
-			)
-
-			self.addAllButton.pack(side = Tk.LEFT)
-			
-			self.addSelectedButton = Tk.Button(
-				self.addRemoveFrame,
-				bg = self.background,
-				highlightbackground = self.background,
-				fg = self.foreground,
-				text = "Add Selected",
-				command = self._addSelected
-			)
-			self.addSelectedButton.pack(side = Tk.LEFT)
-
-			self.addLabel = Tk.Label(
-				self.addRemoveFrame,
-				text = "(NOTE: Only \"Available\" boards will respond)       ",
-				bg = self.background,
-				fg = "darkgray"
-			)
-			self.addLabel.pack(side = Tk.LEFT)
-
-			self.removeAllButton = Tk.Button(
-				self.addRemoveFrame,
-				bg = self.background,
-				highlightbackground = self.background,
-				fg = self.foreground,
-				text = "Remove All",
-				state = Tk.DISABLED
-			)
-			self.removeAllButton.pack(side = Tk.LEFT)
-			
-			self.removeSelectedButton = Tk.Button(
-				self.addRemoveFrame,
-				bg = self.background,
-				highlightbackground = self.background,
-				fg = self.foreground,
-				text = "Remove Selected",
-				state = Tk.DISABLED
-			)
-			self.removeSelectedButton.pack(side = Tk.LEFT)
-			"""
 			
 			# QUICK ARRAY CONTROL ..............................................
 			self.controlFrame = Tk.Frame(
@@ -673,6 +614,8 @@ class FCCControlBar(Tk.Frame, object):
 				text = "Array Control",
 				state = Tk.NORMAL
 			)
+			self.arrayTabIDs.append(tabs)
+			tabs += 1
 
 
 			self.bind("<Return>", self._onEnter)
@@ -1004,6 +947,8 @@ class FCCControlBar(Tk.Frame, object):
 				text = "Ramp Control",
 				state = Tk.NORMAL
 			)
+			self.arrayTabIDs.append(tabs)
+			tabs += 1
 
 			# Bind active widgets to Enter:
 			for widget in self.rampActiveWidgets + [self.rampStartStopButton]:
@@ -1130,24 +1075,9 @@ class FCCControlBar(Tk.Frame, object):
 				self.bootloaderFrame,
 				text = "Bootloader"
 			)
-
-			# CUSTOM MESSAGE ...................................................
-			self.customMessageFrame = Tk.Frame(
-				None,
-				background = self.background
-			)
-			self.customMessageFrame.pack(fill = Tk.BOTH, expand = True)
-
-			self.notebook.add(
-				self.customMessageFrame,
-				text = "Custom Message",
-				state = Tk.DISABLED
-			)
-
-			# BUILD DATA -------------------------------------------------------
+			tabs += 1
 
 			# PACK -------------------------------------------------------------
-
 			self.pack(fill = Tk.X, expand = True)
 			self.setStatus(cm.DISCONNECTED)
 			self.notebook.select(1)
@@ -1221,19 +1151,11 @@ class FCCControlBar(Tk.Frame, object):
 				self.fileChooserButton.config(state = Tk.DISABLED)
 				self.versionNameEntry.config(state = Tk.DISABLED)
 				
-				"""
-				self.notebook.tab(
-					0,
-					state = Tk.DISABLED
-				)
-				"""
-
-				self.notebook.tab(
-					1,
-					state = Tk.DISABLED
-				)
-			
-				
+				for tabID in self.arrayTabIDs:
+					self.notebook.tab(
+						tabID,
+						state = Tk.DISABLED
+					)
 
 				self.bootloaderStartStopButton.config(
 					text = "Stop Flashing"
@@ -1267,15 +1189,12 @@ class FCCControlBar(Tk.Frame, object):
 				self.bootloaderTargetVar.set("")
 				self.versionNameEntry.delete(0, Tk.END)
 			
-				self.notebook.tab(
-					0,
-					state = Tk.NORMAL
-				)
+				for tabID in self.arrayTabIDs:
+					self.notebook.tab(
+						tabID,
+						state = Tk.NORMAL
+					)
 
-				self.notebook.tab(
-					1,
-					state = Tk.NORMAL
-				)
 				self.bootloaderStartStopButton.config(
 					text = "Start Flashing"
 				)
@@ -1291,15 +1210,11 @@ class FCCControlBar(Tk.Frame, object):
 			self.fileChooserButton.config(state = Tk.NORMAL)
 			self.versionNameEntry.config(state = Tk.NORMAL)
 			
-			self.notebook.tab(
-				0,
-				state = Tk.NORMAL
-			)
-
-			self.notebook.tab(
-				1,
-				state = Tk.NORMAL
-			)
+			for tabID in self.arrayTabIDs:
+				self.notebook.tab(
+					tabID,
+					state = Tk.NORMAL
+				)
 			
 			self.bootloaderStartStopButton.config(
 				text = "Start Flashing"

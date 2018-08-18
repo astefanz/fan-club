@@ -38,7 +38,9 @@
 #include "print.h" // Thread-safe printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST14.2DB" // Letter for bootloader testing
+#define FCMKII_VERSION "CAST16.0DB" // Letter for bootloader testing
+// Changed on CAST150.0DB: Removed default fan array values and refactored main
+// Changed on CAST14.2DB: Locked RPM and DC R/W... Fixed crashes
 // Changed on CAST13.0DB: Reduced thread stacks to 4KB each and 
 // deactivated stack debug prints
 
@@ -67,6 +69,7 @@ int main(){ ////////////////////////////////////////////////////////////////////
     printf("\n\r+--SETTINGS-------"
     "-------------------------------------------------------------+"
         // General:
+        "\n\r|\t - STACK SIZE: %d KB"
         "\n\r|\t - BAUD RATE: %d"
         "\n\r|\t - FANS: %d"
         "\n\r|\t - BLINK PERIOD (SLOW): %0.2fs"
@@ -83,38 +86,22 @@ int main(){ ////////////////////////////////////////////////////////////////////
         "\n\r|\t - MAX. MESSAGE LENGTH : %d characters"
         "\n\r|\t - MAX. NETW. TIMEOUTS BEFORE REBOOT: %d"
         "\n\r|\t - MAX. MASTER TIMEOUTS: %d"
+        "\n\r|\t - MAX. FANS: %d"
+        "\n\r|\t - DEF. FAN RPM TIMEOUT: %d us"
         "\n\r+ - - - - - - - - - - - - - - - - - - - - - - - - - - "
-        "- - - - - - - - - - - - - "
-        // Fan array:
-        "\n\r|\t - DEF. FAN MODE: %s"
-        "\n\r|\t - DEF. TARGET RELATION[0]: %.1f"
-        "\n\r|\t - DEF. TARGET RELATION[1]: %.1f"
-        "\n\r|\t - DEF. FAN AMOUNT: %d"
-        "\n\r|\t - DEF. COUNTER COUNTS: %d"
-        "\n\r|\t - DEF. PULSES PER ROTATION: %d"
-        "\n\r|\t - DEF. PWM FREQUENCY: %d Hz"
-        "\n\r|\t - DEF. MAX RPM: %d"
-        "\n\r|\t - DEF. MIN RPM: %d"
-        "\n\r|\t - DEF. MIN DUTY CYCLE: %0.2f%%"
-        "\n\r|\t - DEF. CHASER TOLERANCE: %0.2f%%"
-        "\n\r|\t - DEF. MAX FAN TIMEOUTS: %d"
-        ,BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, BROADCAST_PORT, TIMEOUT_MS, 
+        "- - - - - - - - - - - - - ",
+        STACK_SIZE,
+		BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, 
+		
+		BROADCAST_PORT, TIMEOUT_MS, 
         PASSCODE, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
         MAX_NETWORK_TIMEOUTS, 
         MAX_MASTER_TIMEOUTS,
-        FAN_MODE == SINGLE? "SINGLE":"DOUBLE",
-        TARGET_RELATION_0,
-        TARGET_RELATION_1,
-        MAX_FANS,
-        COUNTER_COUNTS,
-        PULSES_PER_ROTATION,
-        PWM_FREQUENCY,
-        MAX_RPM,
-        MIN_RPM,
-        MIN_DC*100.0,
-		CHASER_TOLERANCE*100.0,
-		MAX_FAN_TIMEOUTS);
-    
+
+		MAX_FANS,
+		DEFAULT_FAN_TIMEOUT_US
+
+	);
     printf("\n\r+-------------------------------------------------------------"
         "-----------------+\n\r");
         
@@ -129,27 +116,28 @@ int main(){ ////////////////////////////////////////////////////////////////////
 
 // MAIN LOOP ===================================================================
 
-    //osThreadSetPriority(osThreadGetId(), osPriorityIdle);
-        // Set the main thread's priority to be the lowest.
-// (See https://os.mbed.com/users/mzta/notebook/how-to-change-the-priority-of-the-mainmain-thread-/)
-
 	Thread mainThread(osPriorityNormal, 8*1024);
 	mainThread.start(&mainLoop);
-	
-	#ifdef HEAP_PRINTS
-	mbed_stats_heap_t heap_stats;
 
+	#if defined(HEAP_PRINTS) || defined(STACK_PRINTS)
 	while(true){
-		mbed_stats_heap_get(&heap_stats);
-		pl;printf("\n\rHEAP SIZE: %10lu MAX HEAP: %10lu",
-			heap_stats.current_size, heap_stats.max_size);pu;
-
-		Thread::wait(500);
-	}
-	#endif // HEAP_PRINTS
+	#endif
 	
-	/*
-	while(true){
+		#ifdef HEAP_PRINTS
+		// See 
+		// https://os.mbed.com/docs/latest/tutorials/
+		//		optimizing.html#runtime-memory-tracing
+		
+		mbed_stats_heap_t heap_stats;
+
+			mbed_stats_heap_get(&heap_stats);
+			pl;printf("\n\rHEAP SIZE: %10lu MAX HEAP: %10lu",
+				heap_stats.current_size, heap_stats.max_size);pu;
+
+	
+		#endif // HEAP_PRINTS
+		
+		#ifdef STACK_PRINTS
 		pl;printf(
 			"\n\r\tFMAIN (%10X): Used: %6lu Size: %6lu Max: %6lu",
 			0,
@@ -157,30 +145,12 @@ int main(){ ////////////////////////////////////////////////////////////////////
 			mainThread.stack_size(),
 			mainThread.max_stack()
 		);pu;
-		Thread::wait(1000);
-	}
-	*/
+		#endif // STACK_PRINTS
 	
-	// DEBUG: MEMORY ANALYTICS -------------------------------------------------
-	// See https://os.mbed.com/docs/latest/tutorials/optimizing.html#runtime-memory-tracing
-	/*
-	int cnt = osThreadGetCount();
-    mbed_stats_stack_t *stats = (mbed_stats_stack_t*) malloc(cnt * sizeof(mbed_stats_stack_t));
-
-	while(true) {
-    	cnt = mbed_stats_stack_get_each(stats, cnt);
-		for (int i = 0; i < cnt; i++) {
-			pl;printf("\n\rThread: 0x%X, Stack size: %u, Max stack: %u\r\n", 
-				stats[i].thread_id, 
-				stats[i].reserved_size, 
-				stats[i].max_size);pu;
-		}
-
+		#if defined(HEAP_PRINTS) || defined(STACK_PRINTS)
 		Thread::wait(1000);
-
-	}
-	*/
-	// -------------------------------------------------------------------------	
+	} // End heap or stack print loop
+	#endif
 
 	Thread::wait(osWaitForever);
 

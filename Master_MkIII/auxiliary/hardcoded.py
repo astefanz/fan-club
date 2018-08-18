@@ -1346,7 +1346,7 @@ DEF_PRINTER_QUEUE_SIZE = 3
 # NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
 # fans.
 
-DEF_FAN_MODEL = "DELTA PFR0912XHE-SP00"
+DEF_FAN_MODEL = "DELTA GFC..."# "DELTA PFR0912XHE-SP00"
 DEF_FAN_MODE = -2
 DEF_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
 DEF_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
@@ -1354,9 +1354,9 @@ DEF_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
 DEF_COUNTER_COUNTS = 2 # (Measure time between pulses once)
 DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
 DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
-DEF_MAX_RPM = 11500 # (Maximum nominal RPM)
-DEF_MIN_RPM = 1185  # (Minimum nominal RPM)
-DEF_MIN_DC = 0.1 # NOTE (10% duty cycle corresponds to ~1185 RPM)
+DEF_MAX_RPM = 16000 # 11500 BASEMENT # (Maximum nominal RPM)
+DEF_MIN_RPM = 1200  # (Minimum nominal RPM)
+DEF_MIN_DC = 0.5 # NOTE (10% duty cycle corresponds to ~1185 RPM)
 DEF_MAX_FANS = SPEC_CAST_MAX_FANS
 DEF_MAX_FAN_TIMEOUTS = 1 
 

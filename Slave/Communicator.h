@@ -169,7 +169,7 @@ private:
 		mosiDisconnectFlag;		// For listener to tell MOSI to disconnect
 
     EthernetInterface ethernet;
-    UDPSocket slaveMISO, slaveMOSI, slaveListener, errorSocket; // Use UDP
+    UDPSocket slaveMISO, slaveMOSI, slaveListener; // Use UDP
     
     SocketAddress masterMISO, masterMOSI, masterListener;
         // Store information of all relevant Master sockets

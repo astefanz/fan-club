@@ -164,14 +164,6 @@ Communicator::Communicator(const char version[]):
 	this->slaveListener.open(&this->ethernet);
 	this->slaveListener.bind(SLISTENER);
 	this->slaveListener.set_timeout(-1); // Listen for broadcasts w/o timeout
-
-	this->errorSocket.open(&this->ethernet);
-	this->errorSocket.bind(SERROR);
-
-	snprintf(this->errorHeader, MAX_MESSAGE_LENGTH, "A|%s|%s|E",
-		PASSCODE,
-		this->ethernet.get_mac_address()
-	);
 	
 	pl;
 	printf("\n\r[%08dms][C] Sockets initialized",tm);
@@ -204,9 +196,10 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 	 
 	// Thread setup ============================================================
 	pl;printf("\n\r[%08dms][L] \"Listener\" thread started: %lX", tm, 
-		Thread::gettid());pu;
+		uint32_t(Thread::gettid()) 
+	);pu;
 
-	listenerID = (uint32_t)Thread::gettid();
+	listenerID = uint32_t(Thread::gettid());
 	
 	// Declare placeholders: - - - - - - - - - - - - - - - - - - - - - - - -
 	int bytesReceived = 0, lastListenerPort = 0;
@@ -422,9 +415,10 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 
 	// Thread setup ============================================================
 	pl;printf("\n\r[%08dms][O] \"MISO\" thread started: %lX", tm, 
-		Thread::gettid());pu;
+		uint32_t(Thread::gettid())
+	);pu;
 
-	misoID = (uint32_t)Thread::gettid();
+	misoID = uint32_t(Thread::gettid());
 
 	// Initialize placeholders -------------------------------------------------
 	char processed[MAX_MESSAGE_LENGTH] = {0}; // Feedback to be sent to Master 
@@ -481,9 +475,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 
 	// Thread setup ============================================================
 	pl;printf("\n\r[%08dms][I] \"MOSI\" thread started: %lX", tm, 
-		Thread::gettid());pu;
+		uint32_t(Thread::gettid())
+	);pu;
 
-	mosiID = (uint32_t)Thread::gettid();
+	mosiID = uint32_t(Thread::gettid());
 
 	// Communications variables:
 	int masterTimeouts = 0;
@@ -1064,37 +1059,6 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 	} // End receive loop
 
 } // End Communicator::_receive // // // // // // // // // // // // // // // // 
-
-#if 0 // -----------------------------------------------------------------------
-int Communicator::_sendError(const char* message, bool block){ // // // // // //
-	/* ABOUT: Send given error message to Master's listener thread. Parameter 
-	 * "block" determines whether to use Mutexes for thread-safety (to be set
-	 * to false if this funcion is called from an interrupt.
-	 *
-	 * RETURN: Int, number of characters sent upon success, negative error code
-	 * upon failure.
-	 */
-
-	if(block) this->errorLock.lock(); // ---------------------------------------
-
-	char buffer[MAX_MESSAGE_LENGTH];
-	int length = snprintf(buffer, MAX_MESSAGE_LENGTH, "%s|%s",
-		this->errorHeader,
-		message
-	);
-
-	int result = this->errorSocket.sendto(
-		this->masterListener,
-		message,
-		length
-	);
-
-	if(block) this->errorLock.unlock(); // -------------------------------------
-
-	return result;
-
-} // End Communicator::_sendError // // // // // // // // // // // // // // // /
-#endif // ----------------------------------------------------------------------
 
 const char* Communicator::_interpret(int errorCode){
 	/* Interpret a network error code and return its description.
