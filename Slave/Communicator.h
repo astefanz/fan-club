@@ -38,7 +38,6 @@
 #include "Processor.h"
 #include "print.h"
 #include "settings.h"
-#include "feedback.h"
 
 //// CONSTANT DECLARATIONS /////////////////////////////////////////////////////
 
@@ -114,7 +113,18 @@ private:
 		 * 		MOSI_INDEX | C | MESSAGE
 		 *
 		 */ 
-         
+	
+	#if 0
+	int _sendError(const char* message, bool block = true);
+	/* ABOUT: Send given error message to Master's listener thread. Parameter 
+	 * "block" determines whether to use Mutexes for thread-safety (to be set
+	 * to false if this funcion is called from an interrupt.
+	 *
+	 * RETURN: Int, number of characters sent upon success, negative error code
+	 * upon failure.
+	 */
+	#endif
+
     void _setRed(int state = L_TOGGLE);
         /* ABOUT: Set state of red USR LED. To be used by _setStatus.
          */
@@ -150,6 +160,7 @@ private:
 	uint32_t misoIndex;
 	uint32_t mosiIndex;
 	char version[16];
+	char errorHeader[MAX_MESSAGE_LENGTH];
 
 	bool
 		mosiConnectedFlag,		// For MOSI to keep track of connection
@@ -158,15 +169,16 @@ private:
 		mosiDisconnectFlag;		// For listener to tell MOSI to disconnect
 
     EthernetInterface ethernet;
-    UDPSocket slaveMISO, slaveMOSI, slaveListener; // Use UDP
+    UDPSocket slaveMISO, slaveMOSI, slaveListener, errorSocket; // Use UDP
     
-    SocketAddress masterMISO, masterMOSI;
+    SocketAddress masterMISO, masterMOSI, masterListener;
         // Store information of all relevant Master sockets
     
     Thread listenerThread, misoThread, mosiThread;
         // Use threads for communications
 
     Mutex
+		errorLock,
 		sendLock, 	// Send only from one thread at a time
 		misoLock,	// Block MISO thread when configuring in handshake
 		listenerConnectedFlagLock,	// Set/Get connection flag for listener
@@ -181,6 +193,8 @@ private:
 		#endif
 		;
         // Use red and green LED's to convey connection status
+	
+	uint32_t misoID, mosiID, listenerID;
     
 };
 

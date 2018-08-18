@@ -35,15 +35,20 @@
 #include "mbed.h" // STD Mbed functions
 
 #include "settings.h" // Global settings for FCMKII
-#include "print.h" // Thread-saf printing
+#include "print.h" // Thread-safe printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST10.7D" // Letter for bootloader testing
+#define FCMKII_VERSION "CAST14.2DB" // Letter for bootloader testing
+// Changed on CAST13.0DB: Reduced thread stacks to 4KB each and 
+// deactivated stack debug prints
 
 
 void mainLoop(void){
 	// ABOUT: Workaround to control main thread stack size:
+	pl;printf("\n\r[%08dms][M] \"Main\" thread started: %lX", tm, 
+		(uint32_t)Thread::gettid());pu;
 	Communicator communicator(FCMKII_VERSION);
+
 	Thread::wait(osWaitForever);	
 } // End mainLoop
 
@@ -115,10 +120,6 @@ int main(){ ////////////////////////////////////////////////////////////////////
         
     
     // Initialize modules = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-    PwmOut p(PD_15);
-    p.write(0);
-
-
     T.start();
     
     pl
@@ -134,6 +135,52 @@ int main(){ ////////////////////////////////////////////////////////////////////
 
 	Thread mainThread(osPriorityNormal, 8*1024);
 	mainThread.start(&mainLoop);
+	
+	#ifdef HEAP_PRINTS
+	mbed_stats_heap_t heap_stats;
+
+	while(true){
+		mbed_stats_heap_get(&heap_stats);
+		pl;printf("\n\rHEAP SIZE: %10lu MAX HEAP: %10lu",
+			heap_stats.current_size, heap_stats.max_size);pu;
+
+		Thread::wait(500);
+	}
+	#endif // HEAP_PRINTS
+	
+	/*
+	while(true){
+		pl;printf(
+			"\n\r\tFMAIN (%10X): Used: %6lu Size: %6lu Max: %6lu",
+			0,
+			mainThread.used_stack(),
+			mainThread.stack_size(),
+			mainThread.max_stack()
+		);pu;
+		Thread::wait(1000);
+	}
+	*/
+	
+	// DEBUG: MEMORY ANALYTICS -------------------------------------------------
+	// See https://os.mbed.com/docs/latest/tutorials/optimizing.html#runtime-memory-tracing
+	/*
+	int cnt = osThreadGetCount();
+    mbed_stats_stack_t *stats = (mbed_stats_stack_t*) malloc(cnt * sizeof(mbed_stats_stack_t));
+
+	while(true) {
+    	cnt = mbed_stats_stack_get_each(stats, cnt);
+		for (int i = 0; i < cnt; i++) {
+			pl;printf("\n\rThread: 0x%X, Stack size: %u, Max stack: %u\r\n", 
+				stats[i].thread_id, 
+				stats[i].reserved_size, 
+				stats[i].max_size);pu;
+		}
+
+		Thread::wait(1000);
+
+	}
+	*/
+	// -------------------------------------------------------------------------	
 
 	Thread::wait(osWaitForever);
 

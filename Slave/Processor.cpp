@@ -54,7 +54,12 @@ const char
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
 
 Processor::Processor(void): // // // // // // // // // // // // // // // // // /
-    processorThread(osPriorityNormal, 16 * 1024 /*32K stack size*/),
+    processorThread(
+		osPriorityNormal, 
+		STACK_SIZE * 1024, /*16K stack size*/
+		NULL, // Stack memory
+		"PROS" // Name
+	),
     fanMode(FAN_MODE),
 	activeFans(MAX_FANS),
 	fanFrequencyHZ(PWM_FREQUENCY),
@@ -67,6 +72,7 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	maxFanTimeouts(MAX_FAN_TIMEOUTS),
 	dataIndex(0),  
 	rpmSlope((MAX_RPM-MIN_RPM)/(1.0-MIN_DC)),
+	interrupt(PD_3),
 	led(LED2),
 	#ifndef JPL
 	xled(D4),
@@ -182,6 +188,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 						tm, splitPtr, numFans);pu;
 
 					// Loop over list and assign duty cycles:
+					this->arrayLock.lock();
 					for(int i = 0; i < numFans; i++){
 
 						// Check if the corresponding index is selected:
@@ -193,6 +200,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 
 						}
 					} // End assign duty cycles
+					this->arrayLock.unlock();
 
 					//pl;printf("\n\r[%08dms][P] Duty cycles assigned",tm);pu;
 
@@ -564,6 +572,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
     /* ABOUT: To be executed by this Processor's processor thread.
      */
 
+	this->threadID = (uint32_t)Thread::gettid();
+
     // Thread setup ============================================================
     pl;printf("\n\r[%08dms][P] Processor thread started",tm);pu;
 
@@ -572,6 +582,18 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
     // Thread loop =============================================================
     while(true){
+		
+		// DEBUG: PRINT STACK OF PROCESSOR THREAD
+		#ifdef STACK_PRINTS // -------------------------------------------------
+		pl;printf(
+			"\n\r\tPROS (%10X): Used: %6lu Size: %6lu Max: %6lu",
+			this->threadID,
+			this->processorThread.used_stack(),
+			this->processorThread.stack_size(),
+			this->processorThread.max_stack()
+		);pu;
+		#endif // STACK_PRINTS -------------------------------------------------
+		
 		this->threadLock.lock();
         //pl;printf("\n\r[%08dms][P] DEBUG: Processor loop active",tm);pu;
 		//wait_us(1);		
@@ -582,7 +604,7 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 
             // Processor off, set all fans to zero. (Safety redundancy)
             //pl;printf("\n\r[%08dms][P] DEBUG: Processor inactive",tm);pu;
-			
+				
             for(int i = 0; i < MAX_FANS; i++){
                 this->fanArray[i].write(0);
 
@@ -590,6 +612,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 			
         } else{
 			// Processor active. Update values
+			
+			this->_setLED(TOGGLE);
 
 			this->outFlagLock.lock();
 
@@ -610,12 +634,16 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 				int m = 0; 
 
 				// Store RPM's:-------------------------------------------------
-
+				this->arrayLock.lock();
 				for(int i = 0; i < activeFans; i++){
 					// Loop over buffer and print out RPM's:
 					
 					fanPtr = &(this->fanArray[i]);
-					rpm = fanPtr->read(&this->timer, &this->timeout);
+					rpm = fanPtr->read(
+						this->timer, 
+						this->timeout, 
+						this->interrupt
+					);
 					
 					m += snprintf(
 					rpmBuffer + m, MAX_MESSAGE_LENGTH - m, "%d,", 
@@ -647,7 +675,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
 					n += snprintf(this->outBuffer + n, MAX_MESSAGE_LENGTH - n, 
 					",%.4f", this->fanArray[i].getDC());
 				} // End duty cycle storage loop
-			
+				this->arrayLock.unlock();
+
 				// Raise output flag:
 				this->outFlag = true;
 

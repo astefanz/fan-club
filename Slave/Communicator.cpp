@@ -71,6 +71,7 @@
 //// DEPENDENCIES //////////////////////////////////////////////////////////////
 #include "Communicator.h"
 #include "mbed_stats.h"
+#include "FastPWM.h"
 //// CLASS INTERFACE ///////////////////////////////////////////////////////////
 
 // CONSTRUCTORS AND DESTRUCTORS ------------------------------------------------
@@ -84,9 +85,24 @@ Communicator::Communicator(const char version[]):
 	misoConnectedFlag(false),
 	mosiDisconnectFlag(false),
 
-	listenerThread(osPriorityNormal,16 * 1024 /*16K stack size*/),
-	misoThread(osPriorityNormal, 16 * 1024 /*16K stack size*/),
-	mosiThread(osPriorityNormal, 16 * 1024 /*16K stack size*/),
+	listenerThread(
+		osPriorityNormal,
+		STACK_SIZE * 1024,
+		NULL, /* Stack memory */
+		"LSTN" // Name
+	),
+	misoThread(
+		osPriorityNormal, // Priority
+		STACK_SIZE * 1024,
+		NULL, // Stack memory
+		"MISO" // Name
+	),
+	mosiThread(
+		osPriorityNormal, 
+		STACK_SIZE * 1024,
+		NULL, // Stack memory
+		"MOSI" // Name
+	),
 	
 	red(LED3), 
 	green(LED1),
@@ -102,12 +118,15 @@ Communicator::Communicator(const char version[]):
 	 *	sor.h)
 	 */
 	pl;printf("\n\r[%08dms][c] Initializing Communicator threads", tm);pu;
-
+	
 	strcpy(this->version, version);
 
 	// Initialize ethernet interface - - - - - - - - - - - - - - - - - - - - - -
 	int result = -1;
 	unsigned int count = 1;
+	
+	// Set LED
+	this->_setRed(L_ON);
 
 	while(result < 0){ // Ethernet loop ........................................
 		pl;printf(
@@ -126,25 +145,33 @@ Communicator::Communicator(const char version[]):
 		} // End if result < 0
 		
 	} // End ethernet loop .....................................................
-	pl; printf("\n\r[%08dms][C] Ethernet initialized (%s) ",tm,
-		ethernet.get_ip_address());pu;
+	pl; printf("\n\r[%08dms][C] Ethernet initialized \n\r\tMAC: %s\n\r\tIP: %s",tm,
+		ethernet.get_mac_address(), ethernet.get_ip_address());pu;
 	
 	// Initialize sockets - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	
 	pl;
 	printf("\n\r[%08dms][C] Initializing sockets", tm);
 	pu;
-	
-	this->slaveMISO.open(&ethernet);
+
+	this->slaveMISO.open(&this->ethernet);
 	this->slaveMISO.bind(SMISO);
 	
-	this->slaveMOSI.open(&ethernet);
+	this->slaveMOSI.open(&this->ethernet);
 	this->slaveMOSI.bind(SMOSI);
 	this->slaveMOSI.set_timeout(TIMEOUT_MS);
 	
-	this->slaveListener.open(&ethernet);
+	this->slaveListener.open(&this->ethernet);
 	this->slaveListener.bind(SLISTENER);
 	this->slaveListener.set_timeout(-1); // Listen for broadcasts w/o timeout
+
+	this->errorSocket.open(&this->ethernet);
+	this->errorSocket.bind(SERROR);
+
+	snprintf(this->errorHeader, MAX_MESSAGE_LENGTH, "A|%s|%s|E",
+		PASSCODE,
+		this->ethernet.get_mac_address()
+	);
 	
 	pl;
 	printf("\n\r[%08dms][C] Sockets initialized",tm);
@@ -153,10 +180,11 @@ Communicator::Communicator(const char version[]):
 	this->processor.start();
 	
 	pl;printf("\n\r[%08dms][C] Ready for messages",tm);pu;	
-	// Set LED
-	this->_setRed(L_ON);
 	
 	// Start communications thread - - - - - - - - - - - - - - - - - - - - - - -
+	// Set LED
+	this->_setRed(L_OFF);
+
 	this->misoThread.start(callback(this,
 		&Communicator::_misoRoutine));
 
@@ -175,10 +203,13 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 	 */ 
 	 
 	// Thread setup ============================================================
-	pl;printf("\n\r[%08dms][L] Listener thread started", tm);pu;
+	pl;printf("\n\r[%08dms][L] \"Listener\" thread started: %lX", tm, 
+		Thread::gettid());pu;
+
+	listenerID = (uint32_t)Thread::gettid();
 	
 	// Declare placeholders: - - - - - - - - - - - - - - - - - - - - - - - -
-	int bytesReceived = 0;
+	int bytesReceived = 0, lastListenerPort = 0;
 	char dataReceived[MAX_MESSAGE_LENGTH];
 	
 	SocketAddress masterBroadcast, masterListener;
@@ -276,11 +307,16 @@ void Communicator::_listenerRoutine(void){ // // // // // // // // // // // // /
 						pl;printf("\n\r[%08dms][L] Bad M.L.Port \"%d\" "\
 							"discarded",tm, port);pu;
 						continue;
-					} else {
+					} else if (port != lastListenerPort){
+
+						//this->errorLock.lock();
 						masterListener.set_ip_address(
 							masterBroadcast.get_ip_address()
 						);
 						masterListener.set_port(port);
+						lastListenerPort = port;
+						//this->errorLock.unlock();
+
 					}
 					
 					// If disconnected, send standard reply
@@ -385,7 +421,10 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 	// ABOUT: Send periodic updates to Master once connected.
 
 	// Thread setup ============================================================
-	pl;printf("\n\r[%08dms][O] MISO thread started",tm);pu;
+	pl;printf("\n\r[%08dms][O] \"MISO\" thread started: %lX", tm, 
+		Thread::gettid());pu;
+
+	misoID = (uint32_t)Thread::gettid();
 
 	// Initialize placeholders -------------------------------------------------
 	char processed[MAX_MESSAGE_LENGTH] = {0}; // Feedback to be sent to Master 
@@ -394,6 +433,30 @@ void Communicator::_misoRoutine(void){ // // // // // // // // // // // // // //
 	processed[1] = '\0';
 	// Thread loop =============================================================
 	while(true){
+		
+		// DEBUG: PRINT STACKS OF COMMS. THREADS -------------------------------
+		#ifdef STACK_PRINTS
+		pl;printf(
+			"\n\r\tMISO (%10X): Used: %6lu Size: %6lu Max: %6lu"\
+			"\n\r\tMOSI (%10X): Used: %6lu Size: %6lu Max: %6lu"\
+			"\n\r\tLIST (%10X): Used: %6lu Size: %6lu Max: %6lu",
+			
+			this->mosiID,
+			this->mosiThread.used_stack(),
+			this->mosiThread.stack_size(),
+			this->mosiThread.max_stack(),
+			
+			this->misoID,
+			this->misoThread.used_stack(),
+			this->misoThread.stack_size(),
+			this->misoThread.max_stack(),
+			
+			this->listenerID,
+			this->listenerThread.used_stack(),
+			this->listenerThread.stack_size(),
+			this->listenerThread.max_stack()
+		);pu;
+		#endif // STACK_PRINTS -------------------------------------------------
 		
 		// Check status = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 		this->misoLock.lock();
@@ -417,7 +480,10 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 	// ABOUT: Listen for commands from Master.
 
 	// Thread setup ============================================================
-	pl;printf("\n\r[%08dms][I] MOSI thread started",tm);pu;
+	pl;printf("\n\r[%08dms][I] \"MOSI\" thread started: %lX", tm, 
+		Thread::gettid());pu;
+
+	mosiID = (uint32_t)Thread::gettid();
 
 	// Communications variables:
 	int masterTimeouts = 0;
@@ -440,6 +506,7 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 	// Thread loop =============================================================
 	while(true){
 		
+		
 		this->_blinkRed();
 		// Wait for message ----------------------------------------------------
 		int result = this->_receive(&specifier, buffer);
@@ -456,57 +523,8 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 		} // End check disconnect flag
 
 		// Verify reception = = = = = = = = = = = = = = = = = = = = = = = = = = 
-		if ( (result == NSAPI_ERROR_WOULD_BLOCK and this->mosiConnectedFlag) or 
-			disconnect){		
+		if (result <= 0) {		
 
-			// Timeout while disconnected. Count it.
-			pl;printf(
-				"\n\r[%08dms][I][N] NOTE: MOSI timeout", tm);pu;
-			
-			masterTimeouts++;
-
-			if(masterTimeouts >= maxMasterTimeouts or disconnect){
-				// Master timed out. Disconnect.
-				pl;printf(
-					"\n\r[%08dms][I][N] NOTE: Master timed out or "\
-					"disconnect flag raised", tm);pu;
-
-				// NOTE: Block MISO while reconfiguring
-				this->misoLock.lock();
-				
-				// Shut down Processor:
-				this->processor.setStatus(OFF);
-				
-				// Reset exchange indices:
-				this->misoIndex = 0;
-				this->mosiIndex = 0;
-
-				// Reset timeout counters:
-				masterTimeouts = 0;
-
-				// Set connection flags:
-				this->mosiConnectedFlag = false;
-
-				this->listenerConnectedFlagLock.lock();
-				this->listenerConnectedFlag = false;
-				this->listenerConnectedFlagLock.unlock();
-
-				this->mosiDisconnectFlag = false;
-				disconnect = false;
-
-				this->misoConnectedFlag = false;
-
-				// Release MISO:
-				this->misoLock.unlock();	
-				this->_setRed(L_OFF); // NOTE: The opposite state will be 
-									  // visible (See start of this loop)
-				
-				pl;printf(
-					"\n\r[%08dms][I][N] Disconnected", tm);pu;
-				
-			} // End timeout routine
-
-		}else if(result <= 0){
 			// Check network status:
 			// NOTE: CANNOT TEST NETWORK STATUS W/ MBED 5.4.9
 			nsapi_connection_status_t netStatus = 
@@ -519,8 +537,64 @@ void Communicator::_mosiRoutine(void){ // // // // // // // // // // // // // //
 				// Reboot:
 				this->reboot();
 
-			} // End if network error
+			} else if( (result == NSAPI_ERROR_WOULD_BLOCK and \
+				this->mosiConnectedFlag) or 
+				disconnect){
+
+				// Timeout while disconnected. Count it.
+				pl;printf(
+					"\n\r[%08dms][I][N] NOTE: MOSI timeout", tm);pu;
+				
+				masterTimeouts++;
+
+				if(masterTimeouts >= maxMasterTimeouts or disconnect){
+					// Master timed out. Disconnect.
+					pl;printf(
+						"\n\r[%08dms][I][N] NOTE: Master timed out or "\
+						"disconnect flag raised", tm);pu;
+
+					// NOTE: Block MISO while reconfiguring
+					this->misoLock.lock();
+					pl;printf(
+						"\n\r[%08dms][I][N] Locked MISO", tm);pu;
+					
+					// Shut down Processor:
+					this->processor.setStatus(OFF);
+					
+					pl;printf(
+						"\n\r[%08dms][I][N] Turned off Processor", tm);pu;
+					
+					// Reset exchange indices:
+					this->misoIndex = 0;
+					this->mosiIndex = 0;
+
+					// Reset timeout counters:
+					masterTimeouts = 0;
+
+					// Set connection flags:
+					this->mosiConnectedFlag = false;
+
+					this->listenerConnectedFlagLock.lock();
+					this->listenerConnectedFlag = false;
+					this->listenerConnectedFlagLock.unlock();
+
+					this->mosiDisconnectFlag = false;
+					disconnect = false;
+
+					this->misoConnectedFlag = false;
+
+					// Release MISO:
+					this->misoLock.unlock();	
+					this->_setRed(L_OFF); // NOTE: The opposite state will be 
+										  // visible (See start of this loop)
+					
+					pl;printf(
+						"\n\r[%08dms][I][N] Disconnected", tm);pu;
+					
+				} // End timeout routine
 		
+			} // End if socket timed out
+
 		} else if(this->mosiConnectedFlag) {
 			// Message received while connected 
 
@@ -990,7 +1064,37 @@ int Communicator::_receive(char* specifier, char message[]){ // // // // // //
 	} // End receive loop
 
 } // End Communicator::_receive // // // // // // // // // // // // // // // // 
-	
+
+#if 0 // -----------------------------------------------------------------------
+int Communicator::_sendError(const char* message, bool block){ // // // // // //
+	/* ABOUT: Send given error message to Master's listener thread. Parameter 
+	 * "block" determines whether to use Mutexes for thread-safety (to be set
+	 * to false if this funcion is called from an interrupt.
+	 *
+	 * RETURN: Int, number of characters sent upon success, negative error code
+	 * upon failure.
+	 */
+
+	if(block) this->errorLock.lock(); // ---------------------------------------
+
+	char buffer[MAX_MESSAGE_LENGTH];
+	int length = snprintf(buffer, MAX_MESSAGE_LENGTH, "%s|%s",
+		this->errorHeader,
+		message
+	);
+
+	int result = this->errorSocket.sendto(
+		this->masterListener,
+		message,
+		length
+	);
+
+	if(block) this->errorLock.unlock(); // -------------------------------------
+
+	return result;
+
+} // End Communicator::_sendError // // // // // // // // // // // // // // // /
+#endif // ----------------------------------------------------------------------
 
 const char* Communicator::_interpret(int errorCode){
 	/* Interpret a network error code and return its description.

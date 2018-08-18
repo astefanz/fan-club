@@ -104,8 +104,8 @@ SET_RPM = 56
 
 # Bootloader commands:
 
-BOOTLOADER_START = 56
-BOOTLOADER_STOP = 57
+BOOTLOADER_START = 66
+BOOTLOADER_STOP = 67
 
 # End commands -----------------------------------
 
@@ -775,7 +775,7 @@ class FCCommunicator:
 						0	  1					2 3				 	4
 
 					- Error from MkII:
-						A|PCODE|SV:MA:CA:DD:RE:SS|ERRMESSAGE
+						A|PCODE|SV:MA:CA:DD:RE:SS|E|ERRMESSAGE
 
 					- Error from Bootloader:
 						B|PCODE|SV:MA:CA:DD:RE:SS|E|ERRMESSAGE

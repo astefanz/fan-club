@@ -128,8 +128,11 @@ private:
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
 
+	
+	// For fan reads: (To be shared among all fans and accessed serially)
 	Timer timer;
 	Timeout timeout;
+	InterruptIn interrupt;
     
 	// STATUS DATA -------------------------------------------------------------
     int8_t status;      // Current processor status
@@ -140,7 +143,7 @@ private:
 		,xled, psuOff;    // Access to blue LED
 	#endif
     Ticker blinker;     // Used to blink blue LED for status    
-	Mutex threadLock;
+	Mutex threadLock, arrayLock;
     // PROCESS DATA ------------------------------------------------------------
 	
 	//			INPUT			OUTPUT
@@ -154,6 +157,8 @@ private:
     // Fan array data ----------------------------------------------------------
     Fan fanArray[MAX_FANS];
     
+	uint32_t threadID;
+
 };
 
 

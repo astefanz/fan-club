@@ -223,6 +223,7 @@ bool Fan::configure(
 		(counterCounts/pulsesPerRotation > 0 ? 
 			counterCounts/pulsesPerRotation : 1);
 
+
 	pl;printf("\n\rTimeout: %d", this->timeout_us);pu;
 	
 	this->counts = 0;
@@ -243,12 +244,15 @@ Fan::~Fan(){
 }
 
 
-int Fan::read(Timer* timerRef, Timeout* timeoutRef){
+int Fan::read(Timer& timerRef, Timeout& timeoutRef, InterruptIn& interruptRef){
 	/* ABOUT: Read the RPM of a fan. 
 	* RETURNS:
 	* -int, either RPM value or negative integer if the fan is 
 	*	uninitialzed.
 	*/
+		
+	// WARNING: DO NOT USE Fan::read ON MORE THAN ONE Fan INSTANCE AT A
+	// TIME. (See static member InterruptIn)
 
 	if (this->initialized){	
 		// Initialize counters and timer
@@ -256,8 +260,8 @@ int Fan::read(Timer* timerRef, Timeout* timeoutRef){
 		// Counter:
 		this->counts = 0;
 		
-		this->timerPtr = timerRef;
-		this->timeoutPtr = timeoutRef;
+		this->timerPtr = &timerRef;
+		this->timeoutPtr = &timeoutRef;
 
 		// Timer:
 		this->timerPtr->stop();
@@ -267,16 +271,17 @@ int Fan::read(Timer* timerRef, Timeout* timeoutRef){
 		// Timeout and interrupt:	
 		this->timeoutPtr->attach_us(
 			callback(this, &Fan::onTimeout), this->timeout_us);
+		
+		new(&interruptRef) InterruptIn(*this->tachPin);
 
-		InterruptIn interrupt(*this->tachPin);
-		interrupt.rise(callback(this, &Fan::onInterrupt));
+		interruptRef.rise(callback(this, &Fan::onInterrupt));
 		//pl;printf("\n\rdbc : %d",++this->dbc);
 
 		// Wait for interrupt to finish or timeout to expire:
 		while(not this->doneReading);
 
 		// Detach interrupt and timeout:
-		interrupt.rise(NULL);
+		interruptRef.rise(NULL);
 		this->timeoutPtr->detach();
 		this->timerPtr->stop();
 

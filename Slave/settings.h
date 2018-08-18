@@ -23,7 +23,14 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+
 //#define JPL
+//#define STACK_PRINTS
+//#define HEAP_PRINTS
+
+#if defined(STACK_PRINTS) || defined(HEAP_PRINTS)
+#include "mbed_stats.h" // (For memory analysis)
+#endif
 
 
 //// ABOUT /////////////////////////////////////////////////////////////////////
@@ -46,6 +53,7 @@
 #define SMISO 60000
 #define SMOSI 60001
 #define SLISTENER 65000
+#define SERROR 60666
 #define MAX_MESSAGE_LENGTH 512 // Characters
 #define MAX_NETWORK_TIMEOUTS 10 // Before checking connection status
 #define MAX_MASTER_TIMEOUTS 10 // Before assuming disconnection
@@ -63,5 +71,7 @@
 #define PWM_FREQUENCY 25000
 #define CHASER_TOLERANCE 0.4 
 #define MAX_FAN_TIMEOUTS 10
+
+#define STACK_SIZE 4 // KB
 
 #endif // SETTINGS_H

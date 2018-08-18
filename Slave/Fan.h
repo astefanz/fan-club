@@ -20,7 +20,6 @@
 // CUSTOM MODULES
 #include "settings.h"
 
-
 // Forward declarations:
 class FastPWM;
 
@@ -122,12 +121,15 @@ public:
 		 */
 
 
-    int read(Timer* timerRef, Timeout* timeoutRef);
+    int read(Timer& timerRef, Timeout& timeoutRef, InterruptIn& interruptRef);
 		/* ABOUT: Read the RPM of a fan. 
 		 * RETURNS:
 		 * -int, either RPM value or negative integer if the fan is 
 		 *	uninitialzed.
 		 */
+
+		// WARNING: DO NOT USE Fan::read ON MORE THAN ONE Fan INSTANCE AT A
+		// TIME. (See static InterruptIn member)
 
 	void onInterrupt();
 		/* ABOUT: To be executed w/in interrupt routine when counting pulses.
@@ -151,6 +153,7 @@ public:
 		* RETURNS:
 		* -float: current duty cycle, or negative code if fan is uninitialized.
 		*/
+
 
 private:
 
@@ -183,6 +186,8 @@ private:
 
 	int dbc;
 	int intDC;
+	
+	static	InterruptIn interrupt;
 
 };
 
