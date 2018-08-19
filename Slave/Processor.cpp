@@ -46,6 +46,7 @@ const char
     
     // COMMAND KEYWORDS --------------------------------------------------------
     WRITE = 'D',
+	MULTI = 'F',
     CHASE = 'C';
     
 
@@ -62,8 +63,6 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	),
 	dataIndex(0),  
 
-	pastDutyCycle(-1.0),
-
 	interrupt(PD_3),
 	led(LED2),
 	#ifndef JPL
@@ -78,7 +77,7 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
 	
     pl;printf("\n\r[%08dms][p] Processor initialized",tm);pu;
 
-	this->pastSelection[0] = '\0';
+	this->inBuffer[0] = '\0';
 
     // Set initial status:
     this->setStatus(OFF);
@@ -102,11 +101,12 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 	if(not configure){
 		// Standard usage. Execute command
 		
-			//pl;printf("\n\r[%08dms][P][D] Input found",tm);pu;
+		// Check for redundancy:
+		if(strcmp(this->inBuffer, givenCommand) != 0){
+			// New command. Execute
 
-			// Get command contents:
+			// Updated record of latest command:
 			strcpy(this->inBuffer, givenCommand);
-				// NOTE: Destroy obsolete message
 
 			// Split contents: 
 			char *splitPosition = NULL;
@@ -129,13 +129,17 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 			} // End verify splitting.
 			
 			// Check command: ----------------------------------------------
-			char commandCode = splitPtr[0];
-			switch(commandCode){
+				// NOTE: Here the first character should be a known command
+				// code
+
+			switch(splitPtr[0]){
 
 				case WRITE: // Set fan duty cycles
 				{
 					pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
-				
+
+
+
 					// Split contents for duty cycle:
 					splitPtr = strtok_r(NULL, ":", &splitPosition);
 
@@ -178,53 +182,97 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 					// Get length of selection:
 					int numFans = strlen(splitPtr);
 			
-					// Check for redundant writes:
-					if(dutyCycle == this->pastDutyCycle and \
-						strcmp(splitPtr, this->pastSelection) == 0){
-					
-						pl;printf("\n\r[%08dms][P] No new WRITEs",tm);pu;
-						
-						// Redundant write.. ignore
-						return true;
-						 
-					} else {
+					// Loop over list and assign duty cycles:
+					this->arrayLock.lock();
+					for(int i = 0; i < numFans; i++){
 
-						// Loop over list and assign duty cycles:
-						this->arrayLock.lock();
-						for(int i = 0; i < numFans; i++){
+						// Check if the corresponding index is selected:
+						if(splitPtr[i] - '0'){
+						 //\---------------/
+						 // This expression will evaluate to 0 if the fan is
+						 // set to 0, and nonzero (true) otherwise.
+							this->fanArray[i].write(dutyCycle);
 
-							// Check if the corresponding index is selected:
-							if(splitPtr[i] - '0'){
-							 //\---------------/
-							 // This expression will evaluate to 0 if the fan is
-							 // set to 0, and nonzero (true) otherwise.
-								this->fanArray[i].write(dutyCycle);
+						}
+					} // End assign duty cycles
+					this->arrayLock.unlock();
 
-							}
-						} // End assign duty cycles
-						this->arrayLock.unlock();
+					pl;printf("\n\r[%08dms][P] New WRITE applied: "\
+						"\n\r\tDC: %f"\
+						"\n\r\tFans: %s (%d)",
+						tm,
+						dutyCycle,
+						splitPtr,
+						numFans
+					);pu;
 
-						pl;printf("\n\r[%08dms][P] New WRITE applied: "\
-							"\n\r\tDC: %f"\
-							"\n\r\tFans: %s (%d)",
-							tm,
-							dutyCycle,
-							splitPtr,
-							numFans
-						);pu;
-
-						this->pastDutyCycle = dutyCycle;
-						strcpy(this->pastSelection, splitPtr);
-
-						return true;
-
-					} // End check redundance
+					return true;
 
 				} // End WRITE
-				
+
+				case MULTI: {// Write multiple Duty Cycles at once:
+
+					// Expected format:
+					// F:dc1,dc2,dc3...dcn
+					// |  \----------...--/
+					// |     Duty cycles of all 'n' fans
+					// | 
+					// Character to invoke "MULTI"
+
+					// NOTE: Providing less than the current number of "active"
+					// fans will result in the message being discarded.
+					
+					pl;printf("\n\r[%08dms][p] MULTI received",tm);pu;
+					
+					// Gain control of fan array (from processorThread):
+					this->arrayLock.lock();
+
+					// Get duty cycles:
+					int dcCount = 0;
+					float dutyCycles[MAX_FANS] = {0};
+
+					splitPtr = strtok_r(NULL, ":", &splitPosition);
+					while (splitPtr != NULL and dcCount < this->activeFans){
+						
+						dutyCycles[dcCount] = atof(splitPtr);
+						splitPtr = strtok_r(NULL, ",", &splitPosition);
+						
+						pl;printf("\n\r[%08dms][p] MULTI[%d]: %.3f",tm, 
+							dcCount, 
+							dutyCycles[dcCount]
+						);pu;
+
+						dcCount++;
+
+					} // End dutyCycle parsing
+
+					// Check parsing success:
+					if(dcCount == this->activeFans){
+						// Success. assign duty cycles
+						
+						for(int i = 0; i < this->activeFans; i++){
+							this->fanArray[i].write(dutyCycles[i]);
+
+						} // End assign duty cycles
+						success = true;
+
+					} else {
+						// Invalid parsing. Discard message
+						pl;printf("\n\r[%08dms][p][E] ERROR: DC count mismatch"\
+							" (%d != %d)",tm, dcCount, this->activeFans);pu;
+						
+						success = false;
+					} // End check parsing
+
+					// Release control of the fan array:
+					this->arrayLock.unlock();
+
+					break;
+
+				} // End MULTI
 				case CHASE: // Set a target RPM
 				{
-					pl;printf("\n\r[%08dms][P] CHASE received",tm);pu;
+					pl;printf("\n\r[%08dms][p] chase received",tm);pu;
 				
 					// Split contents for duty cycle:
 					splitPtr = strtok_r(NULL, ":", &splitPosition);
@@ -299,7 +347,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 
 					return true;
 
-				}
+				} // End CHASE
 				
 				default: // Unrecognized command:
 
@@ -308,10 +356,17 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 					pl;printf(
 						"\n\r[%08dms][P] ERROR: UNRECOGNIZED COMMAND: %c",
 						tm, splitPtr[0]);pu;
-
+					
 					return false;
 
 			} // End check command -----------------------------------------
+
+		} else {
+			// Repeated command. Ignore.
+			pl;printf("\n\r[%08dms][P] No new commands",tm);pu;
+			return true;
+			
+		} // End check redundancy 
 	
 	} else {
 		// Configure Processor.

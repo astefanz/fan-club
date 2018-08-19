@@ -127,10 +127,6 @@ private:
 	uint8_t maxFanTimeouts;
 	uint32_t dataIndex;		// Index for new data
 	float rpmSlope;
-
-	char pastSelection[MAX_FANS + 1];
-	float pastDutyCycle;
-
 	
 	// For fan reads: (To be shared among all fans and accessed serially)
 	Timer timer;

@@ -38,7 +38,8 @@
 #include "print.h" // Thread-safe printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST16.0DB" // Letter for bootloader testing
+#define FCMKII_VERSION "CAST17.0DB" 
+// CAST17.0DB: Added "MULTI" command to Processor
 // Changed on CAST150.0DB: Removed default fan array values and refactored main
 // Changed on CAST14.2DB: Locked RPM and DC R/W... Fixed crashes
 // Changed on CAST13.0DB: Reduced thread stacks to 4KB each and 
