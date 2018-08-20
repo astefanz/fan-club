@@ -78,6 +78,7 @@ Processor::Processor(void): // // // // // // // // // // // // // // // // // /
     pl;printf("\n\r[%08dms][p] Processor initialized",tm);pu;
 
 	this->inBuffer[0] = '\0';
+	this->pastCommand[0] = '\0';
 
     // Set initial status:
     this->setStatus(OFF);
@@ -102,10 +103,14 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 		// Standard usage. Execute command
 		
 		// Check for redundancy:
-		if(strcmp(this->inBuffer, givenCommand) != 0){
+		if(strcmp(this->pastCommand, givenCommand) != 0){
 			// New command. Execute
 
+			// Lock access to array:
+			this->arrayLock.lock();
+
 			// Updated record of latest command:
+			strcpy(this->pastCommand, givenCommand);
 			strcpy(this->inBuffer, givenCommand);
 
 			// Split contents: 
@@ -124,6 +129,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 				// Error:
 				pl;printf("\n\r[%08dms][P] ERROR: NULL splitPtr (1)",
 				tm);pu;
+				this->arrayLock.unlock();
 				return false;
 
 			} // End verify splitting.
@@ -138,8 +144,6 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 				{
 					pl;printf("\n\r[%08dms][P] WRITE received",tm);pu;
 
-
-
 					// Split contents for duty cycle:
 					splitPtr = strtok_r(NULL, ":", &splitPosition);
 
@@ -151,7 +155,8 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 							tm);pu;
 
 						// Ignore message:
-						return false;
+						success =  false;
+						break;
 
 					} // End validate splitting
 
@@ -176,14 +181,16 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 							tm);pu;
 
 						// Ignore message:
-						return false;
+						success = false;
+						break;
+
 					} // End validate splitting
 
 					// Get length of selection:
 					int numFans = strlen(splitPtr);
 			
 					// Loop over list and assign duty cycles:
-					this->arrayLock.lock();
+					//this->arrayLock.lock();
 					for(int i = 0; i < numFans; i++){
 
 						// Check if the corresponding index is selected:
@@ -195,7 +202,7 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 
 						}
 					} // End assign duty cycles
-					this->arrayLock.unlock();
+					//this->arrayLock.unlock();
 
 					pl;printf("\n\r[%08dms][P] New WRITE applied: "\
 						"\n\r\tDC: %f"\
@@ -206,7 +213,8 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 						numFans
 					);pu;
 
-					return true;
+					success = true;
+					break;
 
 				} // End WRITE
 
@@ -225,17 +233,16 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 					pl;printf("\n\r[%08dms][p] MULTI received",tm);pu;
 					
 					// Gain control of fan array (from processorThread):
-					this->arrayLock.lock();
+					//this->arrayLock.lock();
 
 					// Get duty cycles:
 					int dcCount = 0;
 					float dutyCycles[MAX_FANS] = {0};
 
-					splitPtr = strtok_r(NULL, ":", &splitPosition);
 					while (splitPtr != NULL and dcCount < this->activeFans){
 						
-						dutyCycles[dcCount] = atof(splitPtr);
 						splitPtr = strtok_r(NULL, ",", &splitPosition);
+						dutyCycles[dcCount] = atof(splitPtr);
 						
 						pl;printf("\n\r[%08dms][p] MULTI[%d]: %.3f",tm, 
 							dcCount, 
@@ -265,87 +272,22 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 					} // End check parsing
 
 					// Release control of the fan array:
-					this->arrayLock.unlock();
+					//this->arrayLock.unlock();
 
 					break;
 
 				} // End MULTI
 				case CHASE: // Set a target RPM
 				{
-					pl;printf("\n\r[%08dms][p] chase received",tm);pu;
+					// TODO: Implement Chaser
+
+					pl;printf("\n\r[%08dms][p] CHASE Received",tm);pu;
+					pl;printf(
+						"\n\r[%08dms][p] WARNING: CHASE NOT IMPLEMENTED",
+						tm);pu;
 				
-					// Split contents for duty cycle:
-					splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-					// Validate:
-					if(splitPtr == NULL){
-						// Error:
-						pl;printf(
-							"\n\r[%08dms][P] ERROR: NULL splitPtr (2)",
-							tm);pu;
-
-						// Ignore message:
-						return false;
-					} // End validate splitting
-
-					// Get float duty cycle:
-					int target = atoi(splitPtr);
-					#ifdef DEBUG
-					pl;printf("\n\r[%08dms][P] RPM: %d",tm, target);pu;
-					#endif
-
-					// Split contents for selected fans:
-					splitPtr = strtok_r(NULL, ":", &splitPosition);
-
-						// spliPtr now points to a string of 0's and 1's,
-						// indicating which fans are selected. For example:
-						//            " 000111000100000000000"
-						// Means fans number 4,5,6 and 10 are selected 
-						// (using indexing that starts at 1 to please the 
-						// non-CS muggles.
-
-					// Validate:
-					if(splitPtr == NULL){
-						// Error:
-						pl;printf(
-							"\n\r[%08dms][P] ERROR: NULL splitPtr (3)",
-							tm);pu;
-
-						// Ignore message:
-						return false;
-					} // End validate splitting
-
-					// Get length of selection:
-					int numFans = strlen(splitPtr);
-					
-					#ifdef DEBUG
-					pl;printf("\n\r[%08dms][P] Fans: %s (%d)",
-						tm, splitPtr, numFans);pu;
-					#endif
-
-					// Calculate first-guess duty cycle:
-					float dutyCycle = (target/(float)this->maxRPM);
-
-
-					pl;printf("\n\r[%08dms][P][DEBUG] Linear-guess DC: "
-					" (%d) / %lu = %.2f",tm, target, this->maxRPM, dutyCycle);pu;
-					// Loop over list and assign duty cycles:
-					for(int i = 0; i < numFans; i++){
-
-						// Check if the corresponding index is selected:
-						if(splitPtr[i] - '0'){
-						 //\---------------/
-						 // This expression will evaluate to 0 if the fan is
-						 // set to 0, and nonzero (true) otherwise.
-
-							// Make a first guess by assuming a linear fit:
-							this->fanArray[i].write(dutyCycle);
-						}
-					} // End assign duty cycles
-
-					pl;printf("\n\r[%08dms][P] Linear-guess DC assigned",tm);pu;
-
-					return true;
+					success = true;
+					break;
 
 				} // End CHASE
 				
@@ -357,9 +299,12 @@ bool Processor::process(const char* givenCommand, bool configure){ // // // // /
 						"\n\r[%08dms][P] ERROR: UNRECOGNIZED COMMAND: %c",
 						tm, splitPtr[0]);pu;
 					
-					return false;
+					success = false;
 
 			} // End check command -----------------------------------------
+			
+			// Release access to the array:
+			this->arrayLock.unlock();
 
 		} else {
 			// Repeated command. Ignore.
@@ -651,6 +596,8 @@ void Processor::_processorRoutine(void){ // // // // // // // // // // // // //
                 this->fanArray[i].write(0);
 
             } // End set all fans to zero
+			
+			this->_setLED(OFF);
 			
         } else{
 			// Processor active. Update values

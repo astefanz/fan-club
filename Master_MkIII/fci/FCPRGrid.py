@@ -45,7 +45,7 @@ import multiprocessing as pr # The big guns
 # Data:
 import time			# Timing
 import queue
-import numpy as np	# Fast arrays and matrices
+import copy as cp
 
 # FCMkII:
 import FCCommunicator as cm
@@ -132,6 +132,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.printQueue = printQueue
 
 		self.symbol = "[GD][GR] "
+		self.popup = None
 		
 		self.maxRPM = self.profile[ac.maxRPM]
 
@@ -153,6 +154,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.numberOfRows = self.profile[ac.rows]
 		self.numberOfColumns = self.profile[ac.columns]
 		self.numberOfLayers = self.profile[ac.layers]
+		self.layerDisplacement = 0
+
 		self.modules = self.profile[ac.modules]
 		self.numberOfModules = len(self.modules)
 		self.defaultAssignment = self.profile[ac.defaultModuleAssignment]
@@ -177,6 +180,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.slavesToCells = {} # Index ->  Fan number -> IID
 		self.slavesToRecords = {} # Index ->  Fan number -> Previous RPM
+		self.slavesToDCs = [None]*self.numberOfModules # Index -> Fan number -> DC
 		
 		self.selectorIIDsToRows = {} # IID (Of "row selector") -> row
 		self.selectorIIDsToColumns = {} # IID (Of "column selector") -> column
@@ -196,6 +200,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 					[0]*module[ac.M_NUMFANS]
 				]
 
+			self.slavesToDCs[module[ac.M_INDEX]] = [0.0]*module[ac.M_NUMFANS]
+
+		self.previousSlavesToDCs = None
+
 		# The IIDs will be generated when the matrix is drawn. The following
 		# dictionary will serve as an intermediate. It will go from 
 		# grid coordinates to the (index, fan...) tuples expected in the 
@@ -203,11 +211,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Allocate:
 		self.coordsToFans = {}
+		self.coordsToIIDs = {}
+
 		for row in range(self.numberOfRows):
 			self.coordsToFans[row] = {}
-
-		self.coordsToIIDs = {}
-		for row in range(self.numberOfRows):
 			self.coordsToIIDs[row] = {}
 
 		# Loop over the module list to add each relevant Slave to the 
@@ -239,9 +246,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.cellLength = 0
 
-		self.layers = ("All", ) + \
-			tuple(map(str, tuple(range(1,self.numberOfLayers+1))))
-		self.selectedLayer = 2
+		self.layers = tuple(map(str, tuple(range(1,self.numberOfLayers+1))))
 		
 		# BUILD WIDGET
 		
@@ -274,35 +279,35 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Display switch:
 		# (Switch between showing the state of the tunnel or a preview)
-		self.displaySwitchLabel = Tk.Label(
+		self.modeSwitchLabel = Tk.Label(
 			self.topBar,
 			bg = self.bg,
 			fg = self.fg,
-			text = "Display:  "
+			text = "Mode:  "
 		)
-		self.displaySwitchLabel.pack(side = Tk.LEFT)
+		self.modeSwitchLabel.pack(side = Tk.LEFT)
 		
-		self.displayVar = Tk.IntVar()
-		self.displayVar.set(ARRAY)
-		self.displayVar.trace('w', self._displayVarCallback)
+		self.modeVar = Tk.IntVar()
+		self.modeVar.set(ARRAY)
+		self.modeVar.trace('w', self._modeVarCallback)
 
-		self.displayArrayButton = Tk.Radiobutton(
+		self.modeArrayButton = Tk.Radiobutton(
 			self.topBar,
-			variable = self.displayVar,
+			variable = self.modeVar,
 			text = "Live Control",
 			value = ARRAY,
 			indicatoron = 0
 		)
-		self.displayArrayButton.pack(side = Tk.LEFT)
+		self.modeArrayButton.pack(side = Tk.LEFT)
 
-		self.displayPreviewButton = Tk.Radiobutton(
+		self.modePreviewButton = Tk.Radiobutton(
 			self.topBar,
-			variable = self.displayVar,
+			variable = self.modeVar,
 			text = "Flow Builder",
 			value = PREVIEW,
 			indicatoron = 0
 		)
-		self.displayPreviewButton.pack(side = Tk.LEFT)
+		self.modePreviewButton.pack(side = Tk.LEFT)
 
 		# CONTROL BAR ----------------------------------------------------------
 		self.controlBar = Tk.Frame(
@@ -362,11 +367,13 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 
 		# Control layer
+		# TODO: Implement
+		"""
 		self.targetLabel = Tk.Label(
 			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
-			text = "  Control: "
+			text = "Control: "
 		)
 		self.targetLabel.grid(sticky = 'W',row = self.manualControlRows, column = 0)
 
@@ -387,21 +394,29 @@ class FCPRGridProcessWidget(Tk.Frame):
 		)
 		self.targetMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
 		self.manualControlRows += 1
+		"""
 
 		# Display layer
 		self.displayLabel = Tk.Label(
 			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
-			text = "  Display: "
+			text = "  Display Layer: "
 		)
 		self.displayLabel.grid(sticky = 'W',row = self.manualControlRows, column = 0)
 
+		self.displayMenuFrame = Tk.Frame(
+			self.manualControlFrame,
+			bg = self.bg
+		)
+		self.displayMenuFrame.grid(
+			sticky = 'W', row = self.manualControlRows, column = 1)
+		
 		self.displayMenuVar = Tk.StringVar()
 		self.displayMenuVar.trace('w', self._displayMenuCallback)
 		self.displayMenuVar.set(self.layers[0])
 		self.displayMenu = Tk.OptionMenu(
-			self.manualControlFrame,
+			self.displayMenuFrame,
 			self.displayMenuVar,
 			*self.layers
 		)
@@ -410,9 +425,17 @@ class FCPRGridProcessWidget(Tk.Frame):
 			background = self.bg,
 			highlightbackground = self.bg,
 			foreground = self.fg,
-			state = Tk.DISABLED
 		)
-		self.displayMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+		self.displayMenu.pack(side = Tk.LEFT)
+
+		self.displayCountLabel = Tk.Label(
+			self.displayMenuFrame,
+			bg = self.bg,
+			fg = self.fg,
+			text = "Out of {}".format(self.numberOfLayers)
+		)
+		self.displayCountLabel.pack(side = Tk.LEFT)
+		
 		self.manualControlRows += 1
 
 		# Command input
@@ -582,7 +605,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		# End __init__ =========================================================
 
-	def _stop(self, *event): # =================================================
+	def _stop(self, event=None): # =============================================
 		
 		if not self.stopCalled:
 			self._printM("Closing Grid...")
@@ -634,15 +657,22 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 				else:
 					for fanIndex, fanValue in enumerate(
-						matrixRow[self.startDisplacement:self.endDisplacement:2]):
-						
-						if abs(fanValue - self.slavesToRecords[index][fanIndex*2])\
-							>= self.minimumDelta:
+						matrixRow[
+							self.startDisplacement+self.layerDisplacement:\
+							self.endDisplacement+self.layerDisplacement:2]):
 
-							self.slavesToRecords[index][fanIndex*2] = fanValue
+						if abs(fanValue - \
+							self.slavesToRecords\
+								[index][fanIndex*2+self.layerDisplacement])\
+								>= self.minimumDelta:
+
+							self.slavesToRecords\
+								[index][fanIndex*2+self.layerDisplacement] = \
+									fanValue
 
 							self.canvas.itemconfig(
-								self.slavesToCells[index][fanIndex*2],
+								self.slavesToCells\
+									[index][fanIndex*2+self.layerDisplacement],
 								fill = self.colormap[
 									int(fanValue*self.colormapSize/self.maxRPM) if \
 										fanValue <= self.maxRPM and \
@@ -846,7 +876,6 @@ class FCPRGridProcessWidget(Tk.Frame):
 					self.iidsToFans[newIID] = self.coordsToFans[row][column]
 					self.iidsToSelection[newIID] = False
 					self.coordsToIIDs[row][column] = newIID
-
 					
 					for fanIndex in self.coordsToFans[row][column][1:]:
 						self.slavesToCells[self.coordsToFans[row][column][0]][fanIndex] =\
@@ -1043,7 +1072,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 					
 					# Check if live feedback is to be displayed:
-					if self.displayVar.get() == ARRAY:
+					if self.modeVar.get() == ARRAY:
 						self.matrixIn(self.misoMatrixPipeOut.recv())
 
 					else:
@@ -1061,7 +1090,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		finally:
 			if active:
-				self.after(100, self._updateRoutine)
+				self.after(90, self._updateRoutine)
 			
 		# End _updateRoutine ===================================================
 
@@ -1415,42 +1444,77 @@ class FCPRGridProcessWidget(Tk.Frame):
 				# Nothing to send
 				return
 
-			elif self.displayVar.get() == ARRAY:
-				# Controlling array (as opposed to displaying a preview)
-				
+			else:
 				# Update button:
 				self.sendButton.config(
 					state = Tk.DISABLED,
 					text = "Sending..."
 				)
+				self.commandEntry.config(
+					state = Tk.DISABLED
+				)
 
 				# Get duty cycle to send:
 				dc = float(self.commandEntry.get())
 				
-				# Cache data to be sent for better synchronization:
-				selection = []
-				
-				for index in self.selectedSlaves:
+				# Proceed according to control mode:
+				if self.modeVar.get() == ARRAY:
+					# Controlling array
 					
-					selection.append(
-						(
-							index,
-							tuple(self.slavesToSelections[index][STS_LIST]), 
+					# Cache data to be sent for better synchronization:
+					selection = []
+					
+					for slaveIndex in self.selectedSlaves:
+						
+						# Save DC:
+						for fanIndex, fanSelection in enumerate(
+							self.slavesToSelections[slaveIndex][STS_LIST]):
+
+							if fanSelection == 1:
+								self.slavesToDCs[slaveIndex][fanIndex] = dc
+						
+						# Prepare cache of commands to send:
+						selection.append(
+							(
+								slaveIndex,
+								tuple(\
+									self.slavesToSelections[slaveIndex][STS_LIST]), 
+							)
 						)
+					
+					# Send command:
+					self.commandQueue.put_nowait(
+						(mw.COMMUNICATOR,
+						cm.SET_DC_GROUP,
+						dc,
+						selection)
 					)
 
+				elif self.modeVar.get() == PREVIEW:
+					# Displaying a preview... Change grid colors only:
+					
+					for slaveIndex in self.selectedSlaves:
+
+						# Save DC:
+						for fanIndex, fanSelection in enumerate(
+							self.slavesToSelections[slaveIndex][STS_LIST]):
+
+							if fanSelection == 1:
+								self.slavesToDCs[slaveIndex][fanIndex] = dc
+							
+								# Apply color:
+								self.canvas.itemconfig(
+									self.slavesToCells[slaveIndex][fanIndex],
+									fill = self.colormap\
+										[int(dc/100*(self.colormapSize-1))]
+								)
+			
+				# Done. Now restore interface:
 				
-				self.commandQueue.put_nowait(
-					(mw.COMMUNICATOR,
-					cm.SET_DC_GROUP,
-					dc,
-					selection)
-				)
-
 				# Check "remember" settings:
-
 				if not self.rememberValueToggleVar.get():
 					# Clear value entry:
+					self.commandEntry.config(state = Tk.NORMAL)
 					self.commandEntry.delete(0, Tk.END)
 
 				if not self.rememberSelectionToggleVar.get():
@@ -1462,24 +1526,38 @@ class FCPRGridProcessWidget(Tk.Frame):
 					state = Tk.NORMAL,
 					text = "Send"
 				)
-
-			elif self.displayVar.get() == PREVIEW:
-				# Displaying a preview... Change grid colors only:
-				
-				# Get duty cycle to send:
-				dc = float(self.commandEntry.get())/100
-
-				# Get selections:
-				for iid in self.iidsToSelection:
-					if self.iidsToSelection[iid]:
-						self.canvas.itemconfig(
-							iid,
-							fill = self.colormap[int(dc*(self.colormapSize-1))]
-						)
+				self.commandEntry.config(state = Tk.NORMAL)
 
 		except:
 			self._printE("Exception in Grid send")
-		# End =================================================================
+		# End _send ============================================================
+
+	def _sendSteady(self, event = None): # =====================================
+		try:
+			# Send the current Duty Cycle data structure in one command,
+			# using the MULTI Slave-side command to assign several individual
+			# duty cycles throughout each Slave's array at once...
+			
+			selections = []
+
+			# Loop over the list of Slaves and compile a command for each
+			for slaveIndex, slaveDCs in enumerate(self.slavesToDCs):
+				selections.append(
+					(slaveIndex, ) + tuple(slaveDCs)
+				)	
+			
+			# Place in command Queue:
+			self.commandQueue.put_nowait(
+				(mw.COMMUNICATOR,
+				cm.SET_DC_MULTI,
+				selections
+				)
+			)
+
+		except:
+			self._printE("Exception in Grid send S")
+
+		# End _sendSteady ======================================================
 	
 	def _targetMenuCallback(self, *event): # ===================================
 		try:
@@ -1501,8 +1579,16 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 	def _displayMenuCallback(self, *event): # ==================================
 		try:
-
-			self._printM("_displayMenuCallback", 'W')
+			
+			# Adjust displacement:
+			self.layerDisplacement = int(self.displayMenuVar.get())-1
+			
+			# Remove cache of old RPM's so that current ones will
+			# necessarily be displayed again:
+			for slaveIndex in self.slavesToRecords:
+				for fanIndex in self.slavesToRecords[slaveIndex]:
+					self.slavesToRecords[slaveIndex][fanIndex] = \
+						-self.maxRPM
 
 		except:
 			self._printE()
@@ -1588,23 +1674,162 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE()
 		# End _validateCommandEntry ============================================
 
-	def _displayVarCallback(self, *event): # ===================================
+	def _modeVarCallback(self, *event): # ======================================
 		try:
 			
-			# Reset fan colors:
-			for cellIID in range(self.gridIIDLow, self.gridIIDHigh + 1):
-				self.canvas.itemconfig(
-					cellIID,
-					fill = COLOR_EMPTY if self.displayVar.get() == ARRAY \
-						else self.colormap[0]
+			# Check new mode:
+			if self.modeVar.get() == ARRAY and \
+				self.notebook.index(self.notebook.select()) == 0:
+				
+				# If switching to live control on steady flows, 
+				# choose between 1) discarding 
+				# the current DC values and doing nothing, 2) applying the 
+				# current DC values to the array, or 3) saving the current
+				# DC values to a file
+
+				# Remove cache of old RPM's so that current ones will
+				# necessarily be displayed again:
+				for slaveIndex in self.slavesToRecords:
+					for fanIndex in self.slavesToRecords[slaveIndex]:
+						self.slavesToRecords[slaveIndex][fanIndex] = \
+							-self.maxRPM
+
+
+				# Reset colors:
+				for cellIID in range(self.gridIIDLow, self.gridIIDHigh + 1):
+					self.canvas.itemconfig(
+						cellIID,
+						fill = COLOR_EMPTY
+					)
+
+				
+				self.popup = Tk.Toplevel(bg = self.bg)
+				self.popup.title("Switch to Live Control")
+				
+				message = Tk.Label(
+					self.popup,
+					bg = self.bg,
+					fg = self.fg,
+					text = "The previewed duty cycles are cached and ready to "\
+						"be sent."\
+						"\nWhat would you like to do?"
 				)
+				message.grid(row = 0, column = 0, columnspan = 3)
+				
+				parenthesis = Tk.Label(
+					self.popup,
+					bg = self.bg,
+					fg = self.fg,
+					font = ('TkDefaultFont', 10),
+					text = "\n(If you already saved this set of duty cycles, "\
+						"you may safely discard this cache)\n"
+				)
+				parenthesis.grid(row = 1, column = 0, columnspan = 3)
+
+				applyButton = Tk.Button(
+					self.popup,
+					bg = self.bg,
+					fg = self.fg,
+					highlightbackground = self.bg,
+					command = self._popupApplyDutyCycles,
+					text = "Apply Duty Cycles"
+				)
+				applyButton.grid(row = 2, column = 0)
+				
+				discardButton = Tk.Button(
+					self.popup,
+					bg = self.bg,
+					fg = self.fg,
+					highlightbackground = self.bg,
+					command = self._popupDiscardDutyCycles,
+					text = "Discard Them"
+				)
+				discardButton.grid(row = 2, column = 1)
+
+				saveAsButton = Tk.Button(
+					self.popup,
+					bg = self.bg,
+					fg = self.fg,
+					highlightbackground = self.bg,
+					command = self._popupSaveDutyCycles,
+					text = "Save for Later"
+				)
+				saveAsButton.grid(row = 2, column = 2)
+				
+				self.popup.wait_visibility()
+				self.popup.focus_force()
+				self.popup.grab_set()
+				
+				# Center widget on screen:
+				self.popup.update_idletasks()
+				width = self.popup.winfo_width()
+				height = self.popup.winfo_height()
+				x = (self.popup.winfo_screenwidth() // 2) - (width // 2)
+				y = (self.popup.winfo_screenheight() // 2) - (height // 2)
+				self.popup.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
+			elif self.modeVar.get() == PREVIEW:
+
+				# Set fan colors to currently stored DC's:
+				for slaveIndex, slave in enumerate(self.slavesToDCs):
+					for i, dc in \
+						enumerate(slave[self.layerDisplacement::2]):
+						
+						self.canvas.itemconfig(
+							self.slavesToCells[slaveIndex]\
+								[i*2+self.layerDisplacement],
+							fill = self.colormap\
+								[int(dc/100*(self.colormapSize-1))]
+						)
+
+				# Save currently stored DC's in case of discard:
+				self.previousSlavesToDCs = cp.deepcopy(self.slavesToDCs)
 
 
 
 		except:
 			self._printE()
 
-		# End _displayVarCallback ==============================================
+		# End _modeVarCallback =================================================
+
+	def _popupApplyDutyCycles(self, event = None): # ===========================
+		try:
+			
+			self._sendSteady()
+			self.popup.destroy()
+			self.popup = None
+
+		except:
+			_printE("Exception in Grid popup")
+
+		# End _popupApplyDutyCycles ============================================
+
+	def _popupDiscardDutyCycles(self, event = None): # =========================
+		try:
+			
+			del self.slavesToDCs
+			self.slavesToDCs = self.previousSlavesToDCs
+			self.previousSlavesToDCs = None
+
+			self.popup.destroy()
+			self.popup = None
+
+		except:
+			_printE("Exception in Grid popup")
+
+		# End _popupDiscardDutyCycles ==========================================
+
+	def _popupSaveDutyCycles(self, event = None): # ============================
+		try:
+			# TODO:
+			pass
+			self.popup.destroy()
+			self.popup = None
+
+		except:
+			_printE("Exception in Grid popup")
+
+		# End _popupSaveDutyCycles =============================================
 	
 	def _redraw(self, *event): # ===============================================
 		try:

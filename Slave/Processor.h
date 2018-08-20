@@ -151,7 +151,8 @@ private:
 
 	//			BUFFERS:
 	char		inBuffer[MAX_MESSAGE_LENGTH],
-				outBuffer[MAX_MESSAGE_LENGTH];
+				outBuffer[MAX_MESSAGE_LENGTH],
+				pastCommand[MAX_MESSAGE_LENGTH];
 
     // Fan array data ----------------------------------------------------------
     Fan fanArray[MAX_FANS];

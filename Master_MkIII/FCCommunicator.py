@@ -100,7 +100,8 @@ REBOOT = 53
 
 SET_DC = 54
 SET_DC_GROUP = 55
-SET_RPM = 56
+SET_DC_MULTI = 56
+SET_RPM = 57
 
 # Bootloader commands:
 
@@ -127,6 +128,7 @@ MOSI_RPM = 23
 MOSI_RPM_ALL = 24
 MOSI_DISCONNECT = 25
 MOSI_REBOOT = 26
+MOSI_DC_MULTI = 27
 
 # Change codes:
 NO_CHANGE = 0
@@ -485,19 +487,18 @@ class FCCommunicator:
 						
 						# Classify command:
 						if command[wg.COMMAND] == ADD:
-							print("Command is 'ADD'")
+							
 							if command[wg.VALUE] == ALL:
 								for index, slave in enumerate(self.slaves):
 									self.add(index)
 										# NOTE: Unapplicable Slaves will be
 										# automatically ignored	
 							else:
-								print("Adding ",command[wg.VALUE])
 								self.add(command[wg.VALUE])
 
 
 						elif command[wg.COMMAND] == DISCONNECT:
-							print("Command is 'DISCONNECT'")
+
 							if command[wg.VALUE] == ALL:
 								self.sendDisconnect()
 							else:
@@ -505,7 +506,7 @@ class FCCommunicator:
 									setMOSI((MOSI_DISCONNECT,),False)
 
 						elif command[wg.COMMAND] == REBOOT:
-							print("Command is 'REBOOT'")
+
 							if command[wg.VALUE] == ALL:
 								self.sendReboot()
 							else:
@@ -515,7 +516,6 @@ class FCCommunicator:
 							self.stop()
 
 						elif command[wg.COMMAND] == SET_DC:
-							print("Command is 'SET_DC': ",format(command))
 							
 							if command[wg.VALUE + 2] == ALL:
 			
@@ -541,8 +541,6 @@ class FCCommunicator:
 										)
 
 						elif command[wg.COMMAND] is SET_DC_GROUP:
-							print("Command is 'SET_DC_GROUP'", 
-								format(command))
 							
 							dc = command[wg.VALUE]
 							
@@ -557,7 +555,7 @@ class FCCommunicator:
 									
 								if self.slaves[pair[0]].getStatus()\
 									== sv.CONNECTED:
-									print("Setting slave",pair[0],pair[1])
+									
 									self.slaves[pair[0]].setMOSI(
 										(MOSI_DC,
 										dc) # Duty cycle
@@ -565,8 +563,19 @@ class FCCommunicator:
 										
 									)
 
+						elif command[wg.COMMAND] is SET_DC_MULTI:
+							# NOTE: Here wg.VALUE contains a list of tuples
+							# of the form (INDEX, DC1, DC2 ... DCN)
+
+							for slaveTuple in command[wg.VALUE]:
+								if self.slaves[slaveTuple[0]].getStatus()\
+									== sv.CONNECTED:
+
+									self.slaves[slaveTuple[0]].setMOSI(
+										(MOSI_DC_MULTI, ) + slaveTuple[1:]
+									)
+
 						elif command[wg.COMMAND] is SET_RPM:
-							print("Command is 'SET_RPM': ",format(command))
 							
 							if command[wg.VALUE + 2] is ALL:
 			
@@ -1291,6 +1300,13 @@ class FCCommunicator:
 								
 							message = "S|D:{}:{}".format(
 								fetchedMessage[1]*0.01, self.fullSelection)
+
+							self._send(message, slave, 2)
+
+						elif fetchedMessage[0] == MOSI_DC_MULTI:
+							message = "S|F:"
+							for dc in fetchedMessage[1:]:
+								message += str(dc*0.01) + ','
 
 							self._send(message, slave, 2)
 
