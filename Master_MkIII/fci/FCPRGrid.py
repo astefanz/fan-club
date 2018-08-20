@@ -32,6 +32,7 @@ This module is a multiprocessing wrapper around the FC Grid widget.
 # GUI:
 #from mttkinter import mtTkinter as Tk
 import tkinter as Tk
+import tkinter.ttk
 
 # System:
 import sys			# Exception handling
@@ -87,6 +88,10 @@ STS_LIST = 1
 # IIDsToFans list:
 ITF_INDEX = 0
 
+# Display variable values:
+ARRAY = 1
+PREVIEW = 2
+
 ## PROCESS WIDGET ##############################################################
 
 class FCPRGridProcessWidget(Tk.Frame):
@@ -120,6 +125,11 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.startDisplacement = 2
 		self.endDisplacement = 2 + self.profile[ac.maxFans]
+
+		self.updateLock = threading.Lock()
+		self.stopCalled = False
+		self.isActive = False
+		self.readyToClose = False
 
 		self._printM("Building Grid")
 
@@ -240,17 +250,76 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.grid_propagate(True)
 
-		# TOP BAR ..............................................................
-
+		# TOP BAR --------------------------------------------------------------
+		"""
 		self.topBar = Tk.Frame(
 			self,
 			bg = self.bg
 		)
 		self.topBar.grid(row = 0, column = 0, sticky = "EW")
 
+		# Display switch:
+		# (Switch between showing the state of the tunnel or a preview)
+		self.displaySwitchLabel = Tk.Label(
+			self.topBar,
+			bg = self.bg,
+			fg = self.fg,
+			text = "Display:  "
+		)
+		self.displaySwitchLabel.pack(side = Tk.LEFT)
+		
+		self.displayVar = Tk.IntVar()
+		self.displayVar.set(ARRAY)
+
+		self.displayArrayButton = Tk.Radiobutton(
+			self.topBar,
+			variable = self.displayVar,
+			text = "Live Feedback",
+			value = ARRAY,
+			indicatoron = 0
+		)
+		self.displayArrayButton.pack(side = Tk.LEFT)
+
+		self.displayPreviewButton = Tk.Radiobutton(
+			self.topBar,
+			variable = self.displayVar,
+			text = "Command Preview",
+			value = PREVIEW,
+			indicatoron = 0
+		)
+		self.displayPreviewButton.pack(side = Tk.LEFT)
+		"""
+		# CONTROL BAR ----------------------------------------------------------
+		self.controlBar = Tk.Frame(
+			self,
+			bg = self.bg
+		)
+		self.controlBar.grid(row = 1, column = 0, sticky = "EW")
+
+		self.notebook = tkinter.ttk.Notebook(
+			self.controlBar
+		)
+		self.notebook.enable_traversal()
+		self.notebook.pack(fill = Tk.X, expand = True)
+
+		self.tabIDs = []
+
+		# MANUAL CONTROL .......................................................
+		self.manualControlFrame = Tk.Frame(
+			None,
+			bg = self.bg
+		)
+
+		self.tabIDs.append(
+			self.notebook.add(
+				self.manualControlFrame,
+				text = "Manual Control"
+			)
+		)
+
 		# Control layer
 		self.targetLabel = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Control: "
@@ -260,7 +329,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.targetMenuVar.trace('w', self._targetMenuCallback)
 		self.targetMenuVar.set(self.layers[0])
 		self.targetMenu = Tk.OptionMenu(
-			self.topBar,
+			self.manualControlFrame,
 			self.targetMenuVar,
 			*self.layers
 		)
@@ -275,7 +344,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Display layer
 		self.displayLabel = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Display: "
@@ -285,7 +354,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.displayMenuVar.trace('w', self._displayMenuCallback)
 		self.displayMenuVar.set(self.layers[0])
 		self.displayMenu = Tk.OptionMenu(
-			self.topBar,
+			self.manualControlFrame,
 			self.displayMenuVar,
 			*self.layers
 		)
@@ -300,7 +369,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Matrix counter
 		self.matrixCounterLabel = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Matrices: "
@@ -310,7 +379,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.matrixCounterVar = Tk.IntVar()
 		self.matrixCounterVar.set(0)
 		self.matrixCounterDisplay = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			textvariable = self.matrixCounterVar,
 			relief = Tk.SUNKEN,
 			bd = 1,
@@ -324,7 +393,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		# Unit:
 		self.unitLabel = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Unit: "
@@ -334,7 +403,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.unitMenuVar.trace('w', self._unitMenuCallback)
 		self.unitMenuVar.set("DC")
 		self.unitMenu = Tk.OptionMenu(
-			self.topBar,
+			self.manualControlFrame,
 			self.unitMenuVar,
 			"DC",
 			"RPM"
@@ -350,7 +419,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Command:
 		self.commandLabel = Tk.Label(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Command: "
@@ -360,7 +429,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.commandMenuVar.trace('w', self._commandMenuCallback)
 		self.commandMenuVar.set(self.commands[0])
 		self.commandMenu = Tk.OptionMenu(
-			self.topBar,
+			self.manualControlFrame,
 			self.commandMenuVar,
 			*self.commands
 		)
@@ -375,7 +444,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		# Entry:
 		validateCE = self.register(self._validateCommandEntry)
 		self.commandEntry = Tk.Entry(
-			self.topBar, 
+			self.manualControlFrame, 
 			highlightbackground = self.bg,
 			bg = 'white',
 			fg = self.fg,
@@ -388,7 +457,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		# Send Button:
 		self.sendButton = Tk.Button(
-			self.topBar,
+			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			highlightbackground = self.bg,
@@ -401,7 +470,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		self.rememberValueToggleVar = Tk.BooleanVar()
 		self.rememberValueToggle = Tk.Checkbutton(
-			self.topBar, 
+			self.manualControlFrame, 
 			text ="Remember value", 
 			variable = self.rememberValueToggleVar, 
 			bg = self.bg, 
@@ -412,7 +481,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.rememberSelectionToggleVar = Tk.BooleanVar()
 		self.rememberSelectionToggle = Tk.Checkbutton(
-			self.topBar, 
+			self.manualControlFrame, 
 			text ="Remember selection", 
 			variable = self.rememberSelectionToggleVar, 
 			bg = self.bg, 
@@ -421,7 +490,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.rememberSelectionToggleVar.set(False)
 		self.rememberSelectionToggle.pack(side = Tk.LEFT)
 
-		# GRID .................................................................
+		# FLOW BUILDER .........................................................
+
+		self.flowBuilderFrame = Tk.Frame(
+			None,
+			bg = self.bg
+		)
+
+		self.tabIDs.append(
+			self.notebook.add(
+				self.flowBuilderFrame,
+				text = "Flow Builder",
+			)
+		)
+
+		# GRID -----------------------------------------------------------------
 
 		self.gridFrame = Tk.Frame(
 			self,
@@ -429,7 +512,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bd = 5,
 			relief = Tk.SUNKEN
 		)
-		self.gridFrame.grid(row = 1, column = 0, sticky = "NSEW")
+		self.gridFrame.grid(row = 2, column = 0, sticky = "NSEW")
 
 		
 		# Get canvas starting size:
@@ -454,16 +537,26 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self._buildGrid()
 
 		# WRAP UP ..............................................................
+		self.isActive = True
 		self._updateRoutine()
 		
 		# End __init__ =========================================================
 
 	def _stop(self, *event): # =================================================
 		
-		self._printM("Closing Grid")
+		if not self.stopCalled:
+			self._printM("Closing Grid...")
+			self.stopCalled = True
+		
+		self.isActive = False
 
-		self.destroy()
-		self.master.quit()
+		if self.readyToClose:
+
+			self.destroy()
+			self.master.quit()
+
+		else:
+			self.after(100, self._stop)
 
 		# End _stop ============================================================
 
@@ -900,21 +993,27 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 	def _updateRoutine(self): # ================================================
 		try:
+			active = self.isActive
+			
+			if active:
+				# Check updates:
+				if self.updatePipeOut.poll():
+					self.updateIn(self.updatePipeOut.recv())
+					
+				# Check matrices:
+				if self.misoMatrixPipeOut.poll():
+					self.matrixIn(self.misoMatrixPipeOut.recv())
 
-			# Check updates:
-			if self.updatePipeOut.poll():
-				self.updateIn(self.updatePipeOut.recv())
-				
-			# Check matrices:
-			if self.misoMatrixPipeOut.poll():
-				self.matrixIn(self.misoMatrixPipeOut.recv())
+			else:
+				self.readyToClose = True
 
 		except:
 			self._printE("Exception in Grid update routine: ")
 
 		finally:
-			self.after(100, self._updateRoutine)
-
+			if active:
+				self.after(100, self._updateRoutine)
+			
 		# End _updateRoutine ===================================================
 
 	# CALLBACKS (GRID) ---------------------------------------------------------
