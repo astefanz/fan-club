@@ -33,6 +33,7 @@ This module is a multiprocessing wrapper around the FC Grid widget.
 #from mttkinter import mtTkinter as Tk
 import tkinter as Tk
 import tkinter.ttk
+import tkinter.font
 
 # System:
 import sys			# Exception handling
@@ -46,6 +47,9 @@ import multiprocessing as pr # The big guns
 import time			# Timing
 import queue
 import copy as cp
+import random as rd
+import parser
+from math import * # Use this way for parser
 
 # FCMkII:
 import FCCommunicator as cm
@@ -513,6 +517,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.commandEntry.grid(sticky = 'E',row = self.manualControlRows, column = 0)
 		self.commandEntry.bind('<Return>', self._send)
 		self.commandEntry.focus_set()
+		self.commandEntry.bind('<Control-a>', self._selectGridAll)
+		self.commandEntry.bind('<Control-A>', self._selectGridAll)
+		self.commandEntry.bind('<Control-d>', self._deselectGridAll)
+		self.commandEntry.bind('<Control-D>', self._deselectGridAll)
 		
 		# Send Button:
 		self.sendButton = Tk.Button(
@@ -551,6 +559,171 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.rememberSelectionToggleVar.set(False)
 		self.rememberSelectionToggle.grid(sticky = 'W',
 			row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
+
+		# Randomizer:
+		self.randomizerFrame = Tk.Frame(
+			self.manualControlFrame,
+			bg = self.bg,
+			bd = 1,
+			relief = Tk.RIDGE
+		)
+		self.randomizerFrame.grid(
+			row =self.manualControlRows, column = 0, 
+			columnspan = 3, sticky = "WE")
+		self.manualControlRows += 1
+
+		self.randomizerLabel = Tk.Label(
+			self.randomizerFrame,
+			bg = self.bg,
+			fg = self.fg,
+			text = "  Random Generator",
+		)
+		self.randomizerLabel.pack(side = Tk.TOP, fill = Tk.X)
+
+		self.randomizerRangeFrame = Tk.Frame(
+			self.randomizerFrame,
+			bg = self.bg
+		)
+		self.randomizerRangeFrame.pack(side = Tk.TOP, fill = Tk.X)
+
+		self.randomizerRangeLabel = Tk.Label(
+			self.randomizerRangeFrame,
+			bg = self.bg,
+			fg = self.fg,
+			text = "  Range: ["
+		)
+		self.randomizerRangeLabel.pack(side = Tk.LEFT)
+
+		self.randomizerLowBoundEntry = Tk.Entry(
+			self.randomizerRangeFrame,
+			highlightbackground = self.bg,
+			bg = 'white',
+			fg = self.fg,
+			width = 4, validate = 'key', validatecommand = \
+				(validateCE, '%S', '%s', '%d'))
+		self.randomizerLowBoundEntry.pack(side = Tk.LEFT)
+		self.randomizerLowBoundEntry.bind('<Return>', self._applyRandomizer)
+		self.randomizerLowBoundEntry.bind('<Control-a>', self._selectGridAll)
+		self.randomizerLowBoundEntry.bind('<Control-A>', self._selectGridAll)
+		self.randomizerLowBoundEntry.bind('<Control-d>', self._deselectGridAll)
+		self.randomizerLowBoundEntry.bind('<Control-D>', self._deselectGridAll)
+		
+		self.randomizerCommaLabel = Tk.Label(
+			self.randomizerRangeFrame, 
+			bg = self.bg,
+			fg = self.fg,
+			text = ","
+		)
+		self.randomizerCommaLabel.pack(side = Tk.LEFT)
+
+		self.randomizerHighBoundEntry = Tk.Entry(
+			self.randomizerRangeFrame, 
+			highlightbackground = self.bg,
+			bg = 'white',
+			fg = self.fg,
+			width = 4, validate = 'key', validatecommand = \
+				(validateCE, '%S', '%s', '%d'))
+		self.randomizerHighBoundEntry.pack(side = Tk.LEFT)
+		self.randomizerHighBoundEntry.bind('<Return>', self._applyRandomizer)
+		self.randomizerHighBoundEntry.bind('<Control-a>', self._selectGridAll)
+		self.randomizerHighBoundEntry.bind('<Control-A>', self._selectGridAll)
+		self.randomizerHighBoundEntry.bind('<Control-d>', self._deselectGridAll)
+		self.randomizerHighBoundEntry.bind('<Control-D>', self._deselectGridAll)
+		
+		self.randomizerClosingLabel = Tk.Label(
+			self.randomizerRangeFrame, 
+			bg = self.bg,
+			fg = self.fg,
+			text = "] (in [0.0, 100.0])"
+		)
+		self.randomizerClosingLabel.pack(side = Tk.LEFT)
+
+		self.randomizerButton = Tk.Button(
+			self.randomizerFrame,
+			bg = self.bg,
+			highlightbackground = self.bg,
+			fg = self.fg,
+			text = "Apply to Selection",
+			command = self._applyRandomizer
+		)
+		self.randomizerButton.pack(side = Tk.TOP, fill =Tk.X)
+		
+		# Spatial function parser:
+		self.steadyFormulaFrame = Tk.Frame(
+			self.manualControlFrame,
+			bg = self.bg,
+			bd = 1,
+			relief = Tk.RIDGE
+		)
+		self.steadyFormulaFrame.grid(
+			row =self.manualControlRows, column = 0, 
+			columnspan = 2, sticky = "WE")
+		self.manualControlRows += 1
+
+		self.steadyFormulaLabel = Tk.Label(
+			self.steadyFormulaFrame,
+			bg = self.bg,
+			fg = self.fg,
+			text = "  Input Formula",
+		)
+		self.steadyFormulaLabel.pack(side = Tk.TOP, fill = Tk.X)
+		
+		self.steadyFormulaVariablesLabel = Tk.Label(
+			self.steadyFormulaFrame,
+			bg = self.bg,
+			fg = 'darkgray',
+			justify = Tk.LEFT,
+			text = \
+				"  - r : Fan's row\n"\
+				"  - c : Fan's column\n"\
+				"  - R : Number of rows\n"\
+				"  - C : Number of columns\n",
+			font = 'TkFixedFont'
+		)
+		self.steadyFormulaVariablesLabel.pack(side = Tk.TOP, fill = Tk.X)
+
+		self.steadyFormulaInputFrame = Tk.Frame(
+			self.steadyFormulaFrame,
+			bg = self.bg
+		)
+		self.steadyFormulaInputFrame.pack(side = Tk.TOP, fill = Tk.X)
+		
+		self.steadyFormulaLabel = Tk.Label(
+			self.steadyFormulaInputFrame,
+			bg = self.bg,
+			fg = 'darkgray',
+			text = "DC(r,c) = ",
+			font = ('TkFixedFont', 9)
+		)
+		self.steadyFormulaLabel.pack(side = Tk.LEFT)
+		
+		self.steadyFormulaEntry = Tk.Entry(
+			self.steadyFormulaInputFrame, 
+			highlightbackground = self.bg,
+			bg = 'lightgray',
+			fg = '#424242',
+			selectbackground = 'darkgray',
+			font = 'TkFixedFont',
+		)
+		self.steadyFormulaEntry.pack(side = Tk.LEFT, fill = Tk.X, expand = True)
+		self.steadyFormulaEntry.bind('<Return>', self._applySteadyFormula)
+		self.steadyFormulaEntry.bind('<Control-a>', self._selectGridAll)
+		self.steadyFormulaEntry.bind('<Control-A>', self._selectGridAll)
+		self.steadyFormulaEntry.bind('<Control-d>', self._deselectGridAll)
+		self.steadyFormulaEntry.bind('<Control-D>', self._deselectGridAll)
+		
+		self.steadyFormulaButton = Tk.Button(
+			self.steadyFormulaFrame,
+			bg = self.bg,
+			highlightbackground = self.bg,
+			fg = self.fg,
+			text = "Apply to Selection",
+			command = self._applySteadyFormula
+		)
+		self.steadyFormulaButton.pack(side = Tk.TOP, fill =Tk.X)
+		
+
 
 		# FLOW BUILDER .........................................................
 
@@ -562,6 +735,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.notebook.add(
 			self.flowBuilderFrame,
 			text = "Unsteady Flow Generator",
+			state = Tk.DISABLED
 		)
 		self.flowBuilderTabIndex = self.tabCount
 		self.tabCount += 2
@@ -755,6 +929,17 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._selectGridAll
 		)
 	
+		self.canvas.tag_bind(
+			selectAllCornerIID,
+			'<ButtonPress-3>',
+			self._deselectGridAll
+		)
+		self.canvas.tag_bind(
+			selectAllLabelIID,
+			'<ButtonPress-3>',
+			self._deselectGridAll
+		)
+	
 
 		y += self.cellLength
 
@@ -798,6 +983,24 @@ class FCPRGridProcessWidget(Tk.Frame):
 					"<ButtonRelease-1>",
 					self._onRowSelectorRelease
 				)
+				
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonPress-3>",
+					self._onRowSelectorClick2
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<B3-Motion>",
+					self._onRowSelectorClick2
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonRelease-3>",
+					self._onRowSelectorRelease2
+				)
 	
 		y = ymargin
 		
@@ -839,6 +1042,24 @@ class FCPRGridProcessWidget(Tk.Frame):
 					iid,
 					"<ButtonRelease-1>",
 					self._onColumnSelectorRelease
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonPress-3>",
+					self._onColumnSelectorClick2
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<B3-Motion>",
+					self._onColumnSelectorClick2
+				)
+
+				self.canvas.tag_bind(
+					iid,
+					"<ButtonRelease-3>",
+					self._onColumnSelectorRelease2
 				)
 
 		
@@ -896,10 +1117,15 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 				self.canvas.tag_bind(
 					newIID,
+					'<ButtonPress-3>',
+					self._onCellClick2
+				)
+				self.canvas.tag_bind(
+					newIID,
 					'<B1-Motion>',
 					self._onCellDrag
 				)
-
+				
 				self.canvas.tag_bind(
 					newIID,
 					'<ButtonRelease-1>',
@@ -908,8 +1134,20 @@ class FCPRGridProcessWidget(Tk.Frame):
 				
 				self.canvas.tag_bind(
 					newIID,
+					'<ButtonRelease-3>',
+					self._onCellRelease2
+				)
+				
+				self.canvas.tag_bind(
+					newIID,
 					'<Double-Button-1>',
 					self._onCellDoubleClick
+				)
+				
+				self.canvas.tag_bind(
+					newIID,
+					'<Double-Button-3>',
+					self._onCellDoubleClick2
 				)
 
 				# DEBUG: Show text:
@@ -1144,6 +1382,55 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Canvas row-selector callback")
 		# End _onRowSelectorRelease ============================================
 
+
+	def _onRowSelectorClick2(self, event): # ===================================
+		try:
+			
+			if self.commandCode == SELECT_CODE:
+
+				# Get clicked cell:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+
+				# Select clicked row:
+				self._deselectGridRow(self.selectorIIDsToRows[cell])
+
+				# Change color:
+				self.canvas.itemconfig(
+					self.rowSelectorIIDs[self.selectorIIDsToRows[cell]],
+					fill = COLOR_SELECTOR_CLICKED
+				)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas row-selector callback")
+		# End _onRowSelectorClick2 =============================================
+
+	def _onRowSelectorRelease2(self, event): # =================================
+		try:
+			
+			if self.commandCode == SELECT_CODE:
+				
+				for iid in self.rowSelectorIIDs:
+
+					# Change color:
+					self.canvas.itemconfig(
+						iid,
+						fill = COLOR_SELECTOR_STD
+					)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas row-selector callback")
+		# End _onRowSelectorRelease2 ===========================================
+
 	def _onColumnSelectorClick(self, event): # =================================
 		try:
 
@@ -1192,6 +1479,54 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Canvas column-selector callback")
 		# End _onColumnSelectorRelease =========================================
 
+	def _onColumnSelectorClick2(self, event): # ================================
+		try:
+
+			if self.commandCode == SELECT_CODE:
+
+				# Get clicked cell:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+
+				# Select clicked row:
+				self._deselectGridColumn(self.selectorIIDsToColumns[cell])
+
+				# Change color:
+				self.canvas.itemconfig(
+					self.columnSelectorIIDs[self.selectorIIDsToColumns[cell]],
+					fill = COLOR_SELECTOR_CLICKED
+				)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas column-selector callback")
+		# End _onColumnSelectorClick2 ==========================================
+
+	def _onColumnSelectorRelease2(self, event): # ==============================
+		try:
+			
+			if self.commandCode == SELECT_CODE:
+				
+				for iid in self.columnSelectorIIDs:
+
+					# Change color:
+					self.canvas.itemconfig(
+						iid,
+						fill = COLOR_SELECTOR_STD
+					)
+
+		except KeyError:
+			# If an unapplicable widget is selected by accident, ignore it
+			return
+
+		except:
+			self._printE("Exception in Canvas column-selector callback")
+		# End _onColumnSelectorRelease2 ========================================
+
 	def _onCellClick(self, event): # ===========================================
 		try:
 
@@ -1204,6 +1539,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 				
 				if self.commandCode == SELECT_CODE:
 					self.gridDragStartIID = cell	
+					self._toggleGridCell(cell)
 				
 				elif self.commandCode == TRACE_CODE:
 					self._selectGridCell(cell)
@@ -1212,6 +1548,28 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell Callback:")
 		
 		# End _onCellClick =====================================================
+	
+	def _onCellClick2(self, event): # ==========================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+			
+			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
+				
+				if self.commandCode == SELECT_CODE:
+					self.gridDragStartIID = cell	
+					self._deselectGridCell(cell)
+				
+				elif self.commandCode == TRACE_CODE:
+					self._deselectGridCell(cell)
+
+		except:
+			self._printE("Exception in Cell Callback:")
+		
+		# End _onCellClick2 ====================================================
 
 	def _onCellDrag(self, event): # ===========================================
 		try:
@@ -1236,6 +1594,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell Callback:")
 
 		# End _onCellDrag ======================================================
+
+	def _onCellDrag2(self, event): # ==========================================
+		try:
+				
+			# Get mode:
+			if self.commandCode == SELECT_CODE:
+				return
+			
+			elif self.commandCode == TRACE_CODE:
+				return
+
+		except:
+			self._printE("Exception in Cell Callback:")
+
+		# End _onCellDrag2 =====================================================
 
 	def _onCellRelease(self, event): # =========================================
 		try:
@@ -1267,7 +1640,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 								self._selectGridCell(self.coordsToIIDs[selectedRow][selectedColumn])
 					
 					else:
-						self._toggleGridCell(cell)
+						pass
 
 				elif self.commandCode == TRACE_CODE:
 					
@@ -1278,6 +1651,48 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell Callback:")
 		
 		# End _onCellRelease ===================================================
+
+	def _onCellRelease2(self, event): # ========================================
+		try:
+
+			# Get clicked cell:
+			cell = self.canvas.find_closest(
+				self.canvas.canvasx(event.x),
+				self.canvas.canvasy(event.y))[0]
+			
+			# Check if the object clicked is actually part of the grid:
+			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
+				
+				if self.commandCode == SELECT_CODE:
+
+					if cell != self.gridDragStartIID:
+						startRow = int((self.gridDragStartIID-self.gridIIDLow)/self.numberOfRows)
+						endRow = int((cell-self.gridIIDLow)/self.numberOfRows)
+
+						startColumn = int((self.gridDragStartIID-self.gridIIDLow)%self.numberOfRows)
+						endColumn = int((cell-self.gridIIDLow)%self.numberOfRows)
+
+						
+						# Drag-select:
+						for selectedRow in range(min(startRow,endRow), max(startRow, endRow) + 1):
+
+							for selectedColumn in \
+								range(min(startColumn, endColumn), max(startColumn, endColumn) + 1):
+							
+								self._deselectGridCell(self.coordsToIIDs[selectedRow][selectedColumn])
+					
+					else:
+						pass
+
+				elif self.commandCode == TRACE_CODE:
+					
+					self._send()
+					self._deselectGridAll()
+
+		except:
+			self._printE("Exception in Cell Callback:")
+		
+		# End _onCellRelease2 ==================================================
 
 	def _selectGridCell(self, iid): # ==========================================
 
@@ -1322,7 +1737,17 @@ class FCPRGridProcessWidget(Tk.Frame):
 		try:
 			
 			if self.commandCode == SELECT_CODE:
-				self._deselectGridAll()
+				# Select module:
+				
+				# Get iid:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+
+				# Get all fans under this Slave and select it:
+				for iid in self.slavesToCells[self.iidsToFans[cell][0]].values():
+					self._selectGridCell(iid)
+					
 
 			elif self.commandCode == TRACE_CODE:
 				pass
@@ -1331,6 +1756,30 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell callback:")
 
 		# End _onCellDoubleClick ===============================================
+
+	def _onCellDoubleClick2(self, event): # ====================================
+		try:
+			
+			if self.commandCode == SELECT_CODE:
+				# Select module:
+				
+				# Get iid:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+
+				# Get all fans under this Slave and select it:
+				for iid in self.slavesToCells[self.iidsToFans[cell][0]].values():
+					self._deselectGridCell(iid)
+					
+
+			elif self.commandCode == TRACE_CODE:
+				pass
+
+		except:
+			self._printE("Exception in Cell callback:")
+
+		# End _onCellDoubleClick2 ==============================================
 
 	def _deselectGridCell(self, iid): # ========================================
 		try:
@@ -1435,6 +1884,28 @@ class FCPRGridProcessWidget(Tk.Frame):
 		except:
 			self._printE("Exception in Cell select-row callback")
 		# End _selectGridColumn ================================================
+
+	def _deselectGridRow(self, row, *event): # =================================
+		try:
+			
+			for iid in self.coordsToIIDs[row].values():
+
+				self._deselectGridCell(iid)
+
+		except:
+			self._printE("Exception in Cell select-row callback")
+		# End _deselectGridRow =================================================
+
+	def _deselectGridColumn(self, column, *event): # ===========================
+		try:
+			
+			for row in self.coordsToIIDs.values():
+
+				self._deselectGridCell(row[column])
+
+		except:
+			self._printE("Exception in Cell select-row callback")
+		# End _deselectGridColumn ==============================================
 
 	# CALLBACKS (TOOLS) --------------------------------------------------------
 	def _send(self, *event): # =================================================
@@ -1558,6 +2029,126 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Grid send S")
 
 		# End _sendSteady ======================================================
+
+	def _applyRandomizer(self, event = None): # ===============================
+		try:
+
+			# Check for missing entries:
+			if self.randomizerLowBoundEntry.get() == '' or \
+				self.randomizerHighBoundEntry.get() == '':
+				# Missing entry
+				return
+
+			else:
+
+				# Get values to be used:
+				low = float(self.randomizerLowBoundEntry.get())
+				high = float(self.randomizerHighBoundEntry.get())
+
+				# Validate:
+				if low >= high:
+					return
+				
+
+				# Get selection and apply random values to each:
+				for slaveIndex in self.selectedSlaves:
+					
+					for fanIndex, fanSelection in enumerate(
+						self.slavesToSelections[slaveIndex][STS_LIST]):
+						
+
+						# Modify duty cycle data structure:
+						if fanSelection == 1:
+							
+							dc = rd.uniform(low, high)
+							self.slavesToDCs[slaveIndex][fanIndex] = dc
+						
+							if self.modeVar.get() == PREVIEW:
+								# If previewing, modify colors appropriately:
+								self.canvas.itemconfig(
+									self.slavesToCells[slaveIndex][fanIndex],
+									fill = self.colormap\
+										[int(dc/100*(self.colormapSize-1))]
+								)
+
+
+				
+				# Once done assigning duty cycles, check if the Grid is actually
+				# in Live Control mode, in which case the commands should be 
+				# sent immedately
+				
+				if self.modeVar.get() == ARRAY:
+					self._sendSteady()
+
+
+		except:
+			self._printE("Exception in Grid randomizer callback")
+		
+		# End _applyRandomizer =================================================
+
+	def _applySteadyFormula(self, event = None): # =============================
+		try:
+			
+			if self.steadyFormulaEntry.get() == '':
+				return
+
+			else:
+
+				# See https://stackoverflow.com/questions/594266/
+				#	equation-parsing-in-python
+				self.steadyFormulaButton.config(
+					text = "Applying...",
+					state = Tk.DISABLED
+				)
+				self.steadyFormulaEntry.config(state = Tk.DISABLED)
+					
+				raw = self.steadyFormulaEntry.get()
+				code = parser.expr(raw).compile()
+
+				R = self.numberOfRows
+				C = self.numberOfColumns
+					
+				for r in self.coordsToIIDs:
+					for c in self.coordsToIIDs[r]:
+						
+						iid = self.coordsToIIDs[r][c]
+
+						if self.iidsToSelection[iid]:
+							dc = eval(code)
+							
+							for fan in self.iidsToFans[iid][1:]:
+								self.slavesToDCs[self.iidsToFans[iid][0]][fan] = dc
+
+							if self.modeVar.get() == PREVIEW:
+
+								self.canvas.itemconfig(
+									iid,
+									fill = self.colormap\
+										[int(dc/100*(self.colormapSize-1))]
+								)
+
+
+				if self.modeVar.get() == ARRAY:
+					self._sendSteady()
+
+				# Check "remember" settings:
+				if not self.rememberValueToggleVar.get():
+					# Clear value entry:
+					self.steadyFormulaEntry.config(state = Tk.NORMAL)
+					self.steadyFormulaEntry.delete(0, Tk.END)
+
+				if not self.rememberSelectionToggleVar.get():
+					# Clear selection:
+					self._deselectGridAll()
+					
+				self.steadyFormulaEntry.config(state = Tk.NORMAL)
+				self.steadyFormulaButton.config(
+					text = "Apply to Selection",
+					state = Tk.NORMAL
+				)
+
+		except:
+			self._printE("Exception in Grid Steady Formula")
 	
 	def _targetMenuCallback(self, *event): # ===================================
 		try:
@@ -1714,7 +2305,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 						"be sent."\
 						"\nWhat would you like to do?"
 				)
-				message.grid(row = 0, column = 0, columnspan = 3)
+				message.grid(row = 0, column = 0, columnspan = 2)
 				
 				parenthesis = Tk.Label(
 					self.popup,
@@ -1724,7 +2315,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 					text = "\n(If you already saved this set of duty cycles, "\
 						"you may safely discard this cache)\n"
 				)
-				parenthesis.grid(row = 1, column = 0, columnspan = 3)
+				parenthesis.grid(row = 1, column = 0, columnspan = 2)
 
 				applyButton = Tk.Button(
 					self.popup,
