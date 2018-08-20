@@ -643,10 +643,10 @@ class FCMainWindow(Tk.Frame):
 
 		self.printM("Ending processes and closing GUI... ", 'W')
 	
-		# Close GUI:
-		self.destroy()
-		self.master.quit()
+		# Schedule close independent of widget stop success:
+		self.after(100, self.master.destroy)
 		
+		# Stop widgets
 		for fcWdgetKey, fcWidget in self.fcWidgets.items():
 			fcWidget.stop()
 

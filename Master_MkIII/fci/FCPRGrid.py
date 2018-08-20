@@ -74,7 +74,7 @@ COLORMAP = list(reversed(cs.COLORMAP_GALCIT))
 OUTLINE_SELECTED = 'orange'
 OUTLINE_DESELECTED = 'black'
 COLOR_OFF = '#282828'
-COLOR_EMPTY = 'white'
+COLOR_EMPTY = 'darkgray'
 
 COLOR_SELECTOR_STD = '#939292'
 COLOR_SELECTOR_CLICKED = '#7c7c7c'
@@ -154,6 +154,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.numberOfColumns = self.profile[ac.columns]
 		self.numberOfLayers = self.profile[ac.layers]
 		self.modules = self.profile[ac.modules]
+		self.numberOfModules = len(self.modules)
 		self.defaultAssignment = self.profile[ac.defaultModuleAssignment]
 
 		self.gridIIDLow = -1
@@ -251,14 +252,18 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.grid_rowconfigure(1, weight = 1)
 
 		self.grid_propagate(True)
-
+		
 		# SIDE PANEL -----------------------------------------------------------
 		# This panel will contain all control and user input widgets
 		self.sidePanel = Tk.Frame(
 			self,
+			bd = 4,
+			relief = Tk.RIDGE,
 			bg = self.bg
 		)
-		self.sidePanel.grid(row = 0, column = 0, sticky = "WNS")
+		self.sidePanel.grid(row = 0, column = 0, sticky = "WENS")
+		self.grid_rowconfigure(0, weight = 2)
+		self.sidePanel.grid_columnconfigure(0, weight = 1)
 
 		# TOP BAR --------------------------------------------------------------
 		self.topBar = Tk.Frame(
@@ -279,11 +284,12 @@ class FCPRGridProcessWidget(Tk.Frame):
 		
 		self.displayVar = Tk.IntVar()
 		self.displayVar.set(ARRAY)
+		self.displayVar.trace('w', self._displayVarCallback)
 
 		self.displayArrayButton = Tk.Radiobutton(
 			self.topBar,
 			variable = self.displayVar,
-			text = "Live Feedback",
+			text = "Live Control",
 			value = ARRAY,
 			indicatoron = 0
 		)
@@ -292,7 +298,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.displayPreviewButton = Tk.Radiobutton(
 			self.topBar,
 			variable = self.displayVar,
-			text = "Command Preview",
+			text = "Flow Builder",
 			value = PREVIEW,
 			indicatoron = 0
 		)
@@ -303,7 +309,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self.sidePanel,
 			bg = self.bg
 		)
-		self.controlBar.grid(row = 1, column = 0, sticky = "EW")
+		self.controlBar.grid(row = 1, column = 0, sticky = "NEWS")
+		self.sidePanel.grid_rowconfigure(1, weight = 1)
 
 		self.notebook = tkinter.ttk.Notebook(
 			self.controlBar
@@ -311,7 +318,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.notebook.enable_traversal()
 		self.notebook.pack(fill = Tk.BOTH, expand = True)
 
-		self.tabIDs = []
+		self.tabCount = 0
 
 		# MANUAL CONTROL .......................................................
 		self.manualControlFrame = Tk.Frame(
@@ -319,12 +326,12 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bg = self.bg
 		)
 
-		self.tabIDs.append(
-			self.notebook.add(
-				self.manualControlFrame,
-				text = "Manual Control"
-			)
+		self.notebook.add(
+			self.manualControlFrame,
+			text = "Steady Flow Generator"
 		)
+		self.manualControlTabIndex = self.tabCount
+		self.tabCount += 1
 		
 		self.manualControlRows = 0
 		
@@ -529,33 +536,30 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bg = self.bg
 		)
 
-		self.tabIDs.append(
-			self.notebook.add(
-				self.flowBuilderFrame,
-				text = "Flow Builder",
-			)
+		self.notebook.add(
+			self.flowBuilderFrame,
+			text = "Unsteady Flow Generator",
 		)
+		self.flowBuilderTabIndex = self.tabCount
+		self.tabCount += 2
 
 		# GRID -----------------------------------------------------------------
 
 		self.gridFrame = Tk.Frame(
 			self,
 			bg = self.bg,
-			bd = 5,
-			relief = Tk.SUNKEN
 		)
 		self.gridFrame.grid(row = 0, column = 1, sticky = "NSEW")
+		self.grid_columnconfigure(1, weight = 1)
 
 		
 		# Get canvas starting size:
 		self.pack(fill = Tk.BOTH, expand = True)
 		self.update_idletasks()
-
+		
 		self.canvas = Tk.Canvas(
 			self.gridFrame,
 			bg = self.bg,
-			bd = 2,
-			relief = Tk.RIDGE,
 			width  = int(self.master.winfo_screenwidth()*0.6),
 			height = int(self.master.winfo_screenheight()*0.8),
 			cursor = SELECT_CURSOR
@@ -588,8 +592,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		if self.readyToClose:
 
-			self.destroy()
-			self.master.quit()
+			self.master.destroy()
 
 		else:
 			self.after(100, self._stop)
@@ -614,7 +617,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self.matrixCounterVar.set(self.matrixCount)
 
 			# Apply RPMs:
-			for index, matrixRow in enumerate(newMatrix):
+			for index, matrixRow in enumerate(newMatrix[:self.numberOfModules]):
 				
 				if matrixRow[0] != sv.CONNECTED:
 					# Slave disconnected
@@ -1034,9 +1037,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 				if self.updatePipeOut.poll():
 					self.updateIn(self.updatePipeOut.recv())
 					
+
 				# Check matrices:
 				if self.misoMatrixPipeOut.poll():
-					self.matrixIn(self.misoMatrixPipeOut.recv())
+
+					
+					# Check if live feedback is to be displayed:
+					if self.displayVar.get() == ARRAY:
+						self.matrixIn(self.misoMatrixPipeOut.recv())
+
+					else:
+						# No live feedback for now... discard matrix to 
+						# avoid backlogs and display the current preview 
+						# matrix:
+						self.misoMatrixPipeOut.recv()
+						self.matrixCount += 1
 
 			else:
 				self.readyToClose = True
@@ -1055,19 +1070,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _onRowSelectorClick(self, event): # ====================================
 		try:
 			
-			# Get clicked cell:
-			cell = self.canvas.find_closest(
-				self.canvas.canvasx(event.x),
-				self.canvas.canvasy(event.y))[0]
+			if self.commandCode == SELECT_CODE:
 
-			# Select clicked row:
-			self._selectGridRow(self.selectorIIDsToRows[cell])
+				# Get clicked cell:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
 
-			# Change color:
-			self.canvas.itemconfig(
-				self.rowSelectorIIDs[self.selectorIIDsToRows[cell]],
-				fill = COLOR_SELECTOR_CLICKED
-			)
+				# Select clicked row:
+				self._selectGridRow(self.selectorIIDsToRows[cell])
+
+				# Change color:
+				self.canvas.itemconfig(
+					self.rowSelectorIIDs[self.selectorIIDsToRows[cell]],
+					fill = COLOR_SELECTOR_CLICKED
+				)
 
 		except KeyError:
 			# If an unapplicable widget is selected by accident, ignore it
@@ -1080,13 +1097,15 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _onRowSelectorRelease(self, event): # ==================================
 		try:
 			
-			for iid in self.rowSelectorIIDs:
+			if self.commandCode == SELECT_CODE:
+				
+				for iid in self.rowSelectorIIDs:
 
-				# Change color:
-				self.canvas.itemconfig(
-					iid,
-					fill = COLOR_SELECTOR_STD
-				)
+					# Change color:
+					self.canvas.itemconfig(
+						iid,
+						fill = COLOR_SELECTOR_STD
+					)
 
 		except KeyError:
 			# If an unapplicable widget is selected by accident, ignore it
@@ -1099,19 +1118,21 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _onColumnSelectorClick(self, event): # =================================
 		try:
 
-			# Get clicked cell:
-			cell = self.canvas.find_closest(
-				self.canvas.canvasx(event.x),
-				self.canvas.canvasy(event.y))[0]
+			if self.commandCode == SELECT_CODE:
 
-			# Select clicked row:
-			self._selectGridColumn(self.selectorIIDsToColumns[cell])
+				# Get clicked cell:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
 
-			# Change color:
-			self.canvas.itemconfig(
-				self.columnSelectorIIDs[self.selectorIIDsToColumns[cell]],
-				fill = COLOR_SELECTOR_CLICKED
-			)
+				# Select clicked row:
+				self._selectGridColumn(self.selectorIIDsToColumns[cell])
+
+				# Change color:
+				self.canvas.itemconfig(
+					self.columnSelectorIIDs[self.selectorIIDsToColumns[cell]],
+					fill = COLOR_SELECTOR_CLICKED
+				)
 
 		except KeyError:
 			# If an unapplicable widget is selected by accident, ignore it
@@ -1124,13 +1145,15 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _onColumnSelectorRelease(self, event): # ===============================
 		try:
 			
-			for iid in self.columnSelectorIIDs:
+			if self.commandCode == SELECT_CODE:
+				
+				for iid in self.columnSelectorIIDs:
 
-				# Change color:
-				self.canvas.itemconfig(
-					iid,
-					fill = COLOR_SELECTOR_STD
-				)
+					# Change color:
+					self.canvas.itemconfig(
+						iid,
+						fill = COLOR_SELECTOR_STD
+					)
 
 		except KeyError:
 			# If an unapplicable widget is selected by accident, ignore it
@@ -1388,18 +1411,20 @@ class FCPRGridProcessWidget(Tk.Frame):
 	def _send(self, *event): # =================================================
 		try:
 
-			# Update button:
-			self.sendButton.config(
-				state = Tk.DISABLED,
-				text = "Sending..."
-			)
-
-			# Get duty cycle to send:
 			if self.commandEntry.get() == '':
 				# Nothing to send
 				return
 
-			else:
+			elif self.displayVar.get() == ARRAY:
+				# Controlling array (as opposed to displaying a preview)
+				
+				# Update button:
+				self.sendButton.config(
+					state = Tk.DISABLED,
+					text = "Sending..."
+				)
+
+				# Get duty cycle to send:
 				dc = float(self.commandEntry.get())
 				
 				# Cache data to be sent for better synchronization:
@@ -1437,6 +1462,20 @@ class FCPRGridProcessWidget(Tk.Frame):
 					state = Tk.NORMAL,
 					text = "Send"
 				)
+
+			elif self.displayVar.get() == PREVIEW:
+				# Displaying a preview... Change grid colors only:
+				
+				# Get duty cycle to send:
+				dc = float(self.commandEntry.get())/100
+
+				# Get selections:
+				for iid in self.iidsToSelection:
+					if self.iidsToSelection[iid]:
+						self.canvas.itemconfig(
+							iid,
+							fill = self.colormap[int(dc*(self.colormapSize-1))]
+						)
 
 		except:
 			self._printE("Exception in Grid send")
@@ -1548,6 +1587,24 @@ class FCPRGridProcessWidget(Tk.Frame):
 		except:
 			self._printE()
 		# End _validateCommandEntry ============================================
+
+	def _displayVarCallback(self, *event): # ===================================
+		try:
+			
+			# Reset fan colors:
+			for cellIID in range(self.gridIIDLow, self.gridIIDHigh + 1):
+				self.canvas.itemconfig(
+					cellIID,
+					fill = COLOR_EMPTY if self.displayVar.get() == ARRAY \
+						else self.colormap[0]
+				)
+
+
+
+		except:
+			self._printE()
+
+		# End _displayVarCallback ==============================================
 	
 	def _redraw(self, *event): # ===============================================
 		try:

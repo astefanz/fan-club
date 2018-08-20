@@ -811,8 +811,7 @@ class LiveTableWidget(Tk.Frame):
 			self._playPause()
 		
 		# Close GUI:
-		self.destroy()
-		self.master.quit()
+		self.master.destroy()
 		
 		# End _stop ============================================================
 
