@@ -92,6 +92,14 @@ ITF_INDEX = 0
 ARRAY = 1
 PREVIEW = 2
 
+# Commands:
+SELECT = "Select"
+TRACE = "Trace"
+
+SELECT_CODE = 1
+TRACE_CODE = 2
+
+
 ## PROCESS WIDGET ##############################################################
 
 class FCPRGridProcessWidget(Tk.Frame):
@@ -229,17 +237,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.layers = ("All", ) + \
 			tuple(map(str, tuple(range(1,self.numberOfLayers+1))))
 		self.selectedLayer = 2
-
-		# Commands:
-		SELECT = "Select"
-		TRACE = "Trace"
-
-		self.commands = (
-			SELECT,
-			TRACE
-		)
-
-
+		
 		# BUILD WIDGET
 		
 		self.grid_rowconfigure(0, weight = 0)
@@ -250,10 +248,17 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		self.grid_propagate(True)
 
-		# TOP BAR --------------------------------------------------------------
-		"""
-		self.topBar = Tk.Frame(
+		# SIDE PANEL -----------------------------------------------------------
+		# This panel will contain all control and user input widgets
+		self.sidePanel = Tk.Frame(
 			self,
+			bg = self.bg
+		)
+		self.sidePanel.grid(row = 0, column = 0, sticky = "WNS")
+
+		# TOP BAR --------------------------------------------------------------
+		self.topBar = Tk.Frame(
+			self.sidePanel,
 			bg = self.bg
 		)
 		self.topBar.grid(row = 0, column = 0, sticky = "EW")
@@ -288,10 +293,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 			indicatoron = 0
 		)
 		self.displayPreviewButton.pack(side = Tk.LEFT)
-		"""
+
 		# CONTROL BAR ----------------------------------------------------------
 		self.controlBar = Tk.Frame(
-			self,
+			self.sidePanel,
 			bg = self.bg
 		)
 		self.controlBar.grid(row = 1, column = 0, sticky = "EW")
@@ -300,7 +305,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self.controlBar
 		)
 		self.notebook.enable_traversal()
-		self.notebook.pack(fill = Tk.X, expand = True)
+		self.notebook.pack(fill = Tk.BOTH, expand = True)
 
 		self.tabIDs = []
 
@@ -316,6 +321,34 @@ class FCPRGridProcessWidget(Tk.Frame):
 				text = "Manual Control"
 			)
 		)
+		
+		self.manualControlRows = 0
+		
+		# Matrix counter
+		self.matrixCounterLabel = Tk.Label(
+			self.manualControlFrame,
+			bg = self.bg,
+			fg = self.fg,
+			text = "  Matrices: "
+		)
+		self.matrixCounterLabel.grid(sticky = 'W',row =self.manualControlRows, column = 0)
+
+		self.matrixCount = 0
+		self.matrixCounterVar = Tk.IntVar()
+		self.matrixCounterVar.set(0)
+		self.matrixCounterDisplay = Tk.Label(
+			self.manualControlFrame,
+			textvariable = self.matrixCounterVar,
+			relief = Tk.SUNKEN,
+			bd = 1,
+			bg = self.bg,
+			fg = self.fg,
+			width = 10
+		)
+		self.matrixCounterDisplay.grid(
+			sticky = 'WE',row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
+
 
 		# Control layer
 		self.targetLabel = Tk.Label(
@@ -324,7 +357,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg,
 			text = "  Control: "
 		)
-		self.targetLabel.pack(side = Tk.LEFT)
+		self.targetLabel.grid(sticky = 'W',row = self.manualControlRows, column = 0)
+
 		self.targetMenuVar = Tk.StringVar()
 		self.targetMenuVar.trace('w', self._targetMenuCallback)
 		self.targetMenuVar.set(self.layers[0])
@@ -340,7 +374,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			foreground = self.fg,
 			state = Tk.DISABLED
 		)
-		self.targetMenu.pack(side = Tk.LEFT)
+		self.targetMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
 
 		# Display layer
 		self.displayLabel = Tk.Label(
@@ -349,7 +384,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg,
 			text = "  Display: "
 		)
-		self.displayLabel.pack(side = Tk.LEFT)
+		self.displayLabel.grid(sticky = 'W',row = self.manualControlRows, column = 0)
+
 		self.displayMenuVar = Tk.StringVar()
 		self.displayMenuVar.trace('w', self._displayMenuCallback)
 		self.displayMenuVar.set(self.layers[0])
@@ -365,29 +401,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			foreground = self.fg,
 			state = Tk.DISABLED
 		)
-		self.displayMenu.pack(side = Tk.LEFT)
-
-		# Matrix counter
-		self.matrixCounterLabel = Tk.Label(
-			self.manualControlFrame,
-			bg = self.bg,
-			fg = self.fg,
-			text = "  Matrices: "
-		)
-		self.matrixCounterLabel.pack(side = Tk.LEFT)
-		self.matrixCount = 0
-		self.matrixCounterVar = Tk.IntVar()
-		self.matrixCounterVar.set(0)
-		self.matrixCounterDisplay = Tk.Label(
-			self.manualControlFrame,
-			textvariable = self.matrixCounterVar,
-			relief = Tk.SUNKEN,
-			bd = 1,
-			bg = self.bg,
-			fg = self.fg,
-			width = 10
-		)
-		self.matrixCounterDisplay.pack(side = Tk.LEFT)
+		self.displayMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
 
 		# Command input
 		
@@ -398,7 +413,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg,
 			text = "  Unit: "
 		)
-		self.unitLabel.pack(side = Tk.LEFT)
+		self.unitLabel.grid(sticky = 'W',row =self.manualControlRows, column = 0)
 		self.unitMenuVar = Tk.StringVar()
 		self.unitMenuVar.trace('w', self._unitMenuCallback)
 		self.unitMenuVar.set("DC")
@@ -415,16 +430,24 @@ class FCPRGridProcessWidget(Tk.Frame):
 			foreground = self.fg,
 			state = Tk.DISABLED
 		)
-		self.unitMenu.pack(side = Tk.LEFT)
+		self.unitMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
 
 		# Command:
+
+		self.commands = (
+			SELECT,
+			TRACE
+		)
+		self.commandCode = SELECT_CODE
+
 		self.commandLabel = Tk.Label(
 			self.manualControlFrame,
 			bg = self.bg,
 			fg = self.fg,
 			text = "  Command: "
 		)
-		self.commandLabel.pack(side = Tk.LEFT)
+		self.commandLabel.grid(sticky = 'W',row =self.manualControlRows, column = 0)
 		self.commandMenuVar = Tk.StringVar()
 		self.commandMenuVar.trace('w', self._commandMenuCallback)
 		self.commandMenuVar.set(self.commands[0])
@@ -439,7 +462,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			highlightbackground = self.bg,
 			foreground = self.fg,
 		)
-		self.commandMenu.pack(side = Tk.LEFT)
+		self.commandMenu.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+		self.manualControlRows += 1
 
 		# Entry:
 		validateCE = self.register(self._validateCommandEntry)
@@ -451,7 +475,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			width = 7, validate = 'key', validatecommand = \
 				(validateCE, '%S', '%s', '%d'))
 		self.commandEntry.insert(0, '0')
-		self.commandEntry.pack(side = Tk.LEFT)
+		self.commandEntry.grid(sticky = 'E',row = self.manualControlRows, column = 0)
 		self.commandEntry.bind('<Return>', self._send)
 		self.commandEntry.focus_set()
 		
@@ -465,7 +489,9 @@ class FCPRGridProcessWidget(Tk.Frame):
 			text = "Send",
 			command = self._send,
 		)
-		self.sendButton.pack(side = Tk.LEFT)
+		self.sendButton.grid(sticky = 'W',row = self.manualControlRows, column = 1)
+
+		self.manualControlRows += 1
 
 		
 		self.rememberValueToggleVar = Tk.BooleanVar()
@@ -477,7 +503,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg, 
 			)
 		self.rememberValueToggleVar.set(False)
-		self.rememberValueToggle.pack(side = Tk.LEFT)
+		self.rememberValueToggle.grid(sticky = 'W',row = self.manualControlRows, column = 0)
 
 		self.rememberSelectionToggleVar = Tk.BooleanVar()
 		self.rememberSelectionToggle = Tk.Checkbutton(
@@ -488,7 +514,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg, 
 			)
 		self.rememberSelectionToggleVar.set(False)
-		self.rememberSelectionToggle.pack(side = Tk.LEFT)
+		self.rememberSelectionToggle.grid(sticky = 'W',
+			row = self.manualControlRows, column = 1)
 
 		# FLOW BUILDER .........................................................
 
@@ -512,7 +539,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bd = 5,
 			relief = Tk.SUNKEN
 		)
-		self.gridFrame.grid(row = 2, column = 0, sticky = "NSEW")
+		self.gridFrame.grid(row = 0, column = 1, sticky = "NSEW")
 
 		
 		# Get canvas starting size:
@@ -523,13 +550,16 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self.gridFrame,
 			bg = self.bg,
 			bd = 2,
-			relief = Tk.RIDGE
+			relief = Tk.RIDGE,
+			width  = int(self.master.winfo_screenwidth()*0.6),
+			height = int(self.master.winfo_screenheight()*0.8)
 		)
 		self.canvas.pack(fill = "none", expand = True)
 		
+		self.update_idletasks()
 		self.canvas.config(
-			width = self.gridFrame.winfo_width(),
-			height = int(3*self.gridFrame.winfo_width()/4)
+			height = self.gridFrame.winfo_height(),
+			width = self.gridFrame.winfo_width()
 		)
 		self.update_idletasks()
 
@@ -704,7 +734,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			newRowLabelIID = self.canvas.create_text(
 				xborder + int(self.cellLength/2), y + int(self.cellLength/2),
 				anchor = 'w',
-				text = str(row)
+				text = str(row + 1)
 			)
 
 			
@@ -747,7 +777,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 			
 			newColumnLabelIID = self.canvas.create_text(
 				x + int(self.cellLength/2), yborder + int(self.cellLength/2),
-				text = str(column)
+				text = str(column + 1)
 			)
 		
 			for iid in (newColumnSelectorIID, newColumnLabelIID):
@@ -826,13 +856,11 @@ class FCPRGridProcessWidget(Tk.Frame):
 					self._onCellClick
 				)
 
-				"""
 				self.canvas.tag_bind(
 					newIID,
 					'<B1-Motion>',
 					self._onCellDrag
 				)
-				"""
 
 				self.canvas.tag_bind(
 					newIID,
@@ -938,12 +966,12 @@ class FCPRGridProcessWidget(Tk.Frame):
 				x,
 				y,
 				x + self.canvas.winfo_width() - xborder,
-				y + stepHeight + (1 if stepResidue != 0 and i%stepResidue == 0 else 0),
+				y + stepHeight, #+ (1 if stepResidue != 0 and i%stepResidue == 0 else 0),
 				fill = COLORMAP[i],
 				width = 0
 			)
 
-			y += stepHeight + (1 if stepResidue != 0 and i%stepResidue == 0 else 0)
+			y += stepHeight #+ (1 if stepResidue != 0 and i%stepResidue == 0 else 0)
 	
 		colormapLower = y
 
@@ -969,7 +997,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.canvas.create_text(
 			xmargin + self.cellLength + self.numberOfRows*self.cellLength + xborder,
 			ymargin + yborder,
-			text = "{} RPM -- 100% DC".format(self.maxRPM), 
+			text = "{} RPM".format(self.maxRPM), 
 			anchor = "nw",
 			fill = 'white'
 		)	
@@ -977,7 +1005,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		self.canvas.create_text(
 			xmargin + self.cellLength + self.numberOfRows*self.cellLength + xborder,
 			colormapLower + yborder,
-			text = "0 RPM -- 0% DC", 
+			text = "0 RPM", 
 			anchor = "nw",
 			fill = 'black'
 		)	
@@ -1115,31 +1143,40 @@ class FCPRGridProcessWidget(Tk.Frame):
 				self.canvas.canvasy(event.y))[0]
 			
 			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
-
-				self.gridDragStartIID = cell	
+				
+				if self.commandCode == SELECT_CODE:
+					self.gridDragStartIID = cell	
+				
+				elif self.commandCode == TRACE_CODE:
+					self._selectGridCell(cell)
 
 		except:
 			self._printE("Exception in Cell Callback:")
 		
 		# End _onCellClick =====================================================
 
-	def _onCellDrag(self, event): # ============================================
+	def _onCellDrag(self, event): # ===========================================
 		try:
-
-			# Get clicked cell:
-			cell = self.canvas.find_closest(
-				self.canvas.canvasx(event.x),
-				self.canvas.canvasy(event.y))[0]
+				
+			# Get mode:
+			if self.commandCode == SELECT_CODE:
+				return
 			
-			if cell > self.gridIIDLow and cell < self.gridIIDHigh:
-				self.canvas.itemconfig(
-					cell,
-					fill = 'red'
-				)
+			elif self.commandCode == TRACE_CODE:
+
+				# Get clicked cell:
+				cell = self.canvas.find_closest(
+					self.canvas.canvasx(event.x),
+					self.canvas.canvasy(event.y))[0]
+			
+				# Check if the object clicked is actually part of the grid:
+				if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
+		
+					self._selectGridCell(cell)
 
 		except:
 			self._printE("Exception in Cell Callback:")
-		
+
 		# End _onCellDrag ======================================================
 
 	def _onCellRelease(self, event): # =========================================
@@ -1150,25 +1187,34 @@ class FCPRGridProcessWidget(Tk.Frame):
 				self.canvas.canvasx(event.x),
 				self.canvas.canvasy(event.y))[0]
 			
+			# Check if the object clicked is actually part of the grid:
 			if cell >= self.gridIIDLow and cell <= self.gridIIDHigh:
 				
-				if cell != self.gridDragStartIID:
-					startRow = int((self.gridDragStartIID-self.gridIIDLow)/self.numberOfRows)
-					endRow = int((cell-self.gridIIDLow)/self.numberOfRows)
+				if self.commandCode == SELECT_CODE:
 
-					startColumn = int((self.gridDragStartIID-self.gridIIDLow)%self.numberOfRows)
-					endColumn = int((cell-self.gridIIDLow)%self.numberOfRows)
+					if cell != self.gridDragStartIID:
+						startRow = int((self.gridDragStartIID-self.gridIIDLow)/self.numberOfRows)
+						endRow = int((cell-self.gridIIDLow)/self.numberOfRows)
 
-					
-					# Drag-select:
-					for selectedRow in range(min(startRow,endRow), max(startRow, endRow) + 1):
+						startColumn = int((self.gridDragStartIID-self.gridIIDLow)%self.numberOfRows)
+						endColumn = int((cell-self.gridIIDLow)%self.numberOfRows)
 
-						for selectedColumn in range(min(startColumn, endColumn), max(startColumn, endColumn) + 1):
 						
-							self._selectGridCell(self.coordsToIIDs[selectedRow][selectedColumn])
+						# Drag-select:
+						for selectedRow in range(min(startRow,endRow), max(startRow, endRow) + 1):
+
+							for selectedColumn in \
+								range(min(startColumn, endColumn), max(startColumn, endColumn) + 1):
+							
+								self._selectGridCell(self.coordsToIIDs[selectedRow][selectedColumn])
+					
+					else:
+						self._toggleGridCell(cell)
+
+			elif self.commandCode == TRACE_CODE:
 				
-				else:
-					self._toggleGridCell(cell)
+				self._send()
+				self._deselectGridAll()
 
 
 		except:
@@ -1177,6 +1223,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 		# End _onCellRelease ===================================================
 
 	def _selectGridCell(self, iid): # ==========================================
+
 		try:
 			
 			# NOTE: Assuming a cell selects all fans it represents
@@ -1421,9 +1468,13 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 	def _commandMenuCallback(self, *event): # ==================================
 		try:
+			
+			if self.commandMenuVar.get() == SELECT:
+				self.commandCode = SELECT_CODE
 
-			self._printM("_commandMenuCallback", 'W')
-
+			elif self.commandMenuVar.get() == TRACE:
+				self.commandCode = TRACE_CODE
+				self._deselectGridAll()
 		except:
 			self._printE()
 		# End _commandMenuCallback =============================================
