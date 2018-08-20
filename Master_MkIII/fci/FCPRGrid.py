@@ -99,6 +99,10 @@ TRACE = "Trace"
 SELECT_CODE = 1
 TRACE_CODE = 2
 
+# Cursors:
+SELECT_CURSOR = "cross"
+TRACE_CURSOR = "pencil"
+
 
 ## PROCESS WIDGET ##############################################################
 
@@ -435,6 +439,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 
 		# Command:
 
+		self.canvas = None
+
 		self.commands = (
 			SELECT,
 			TRACE
@@ -474,7 +480,6 @@ class FCPRGridProcessWidget(Tk.Frame):
 			fg = self.fg,
 			width = 7, validate = 'key', validatecommand = \
 				(validateCE, '%S', '%s', '%d'))
-		self.commandEntry.insert(0, '0')
 		self.commandEntry.grid(sticky = 'E',row = self.manualControlRows, column = 0)
 		self.commandEntry.bind('<Return>', self._send)
 		self.commandEntry.focus_set()
@@ -552,7 +557,8 @@ class FCPRGridProcessWidget(Tk.Frame):
 			bd = 2,
 			relief = Tk.RIDGE,
 			width  = int(self.master.winfo_screenwidth()*0.6),
-			height = int(self.master.winfo_screenheight()*0.8)
+			height = int(self.master.winfo_screenheight()*0.8),
+			cursor = SELECT_CURSOR
 		)
 		self.canvas.pack(fill = "none", expand = True)
 		
@@ -871,7 +877,7 @@ class FCPRGridProcessWidget(Tk.Frame):
 				self.canvas.tag_bind(
 					newIID,
 					'<Double-Button-1>',
-					self._deselectGridAll
+					self._onCellDoubleClick
 				)
 
 				# DEBUG: Show text:
@@ -1211,11 +1217,10 @@ class FCPRGridProcessWidget(Tk.Frame):
 					else:
 						self._toggleGridCell(cell)
 
-			elif self.commandCode == TRACE_CODE:
-				
-				self._send()
-				self._deselectGridAll()
-
+				elif self.commandCode == TRACE_CODE:
+					
+					self._send()
+					self._deselectGridAll()
 
 		except:
 			self._printE("Exception in Cell Callback:")
@@ -1260,6 +1265,20 @@ class FCPRGridProcessWidget(Tk.Frame):
 			self._printE("Exception in Cell selection callback:")
 
 		# End _selectGridCell ==================================================
+
+	def _onCellDoubleClick(self, event): # =====================================
+		try:
+			
+			if self.commandCode == SELECT_CODE:
+				self._deselectGridAll()
+
+			elif self.commandCode == TRACE_CODE:
+				pass
+
+		except:
+			self._printE("Exception in Cell callback:")
+
+		# End _onCellDoubleClick ===============================================
 
 	def _deselectGridCell(self, iid): # ========================================
 		try:
@@ -1316,9 +1335,15 @@ class FCPRGridProcessWidget(Tk.Frame):
 	
 	def _selectGridAll(self, *event): # ========================================
 		try:
-			for iid in self.iidsToSelection:
-				if not self.iidsToSelection[iid]:
-					self._selectGridCell(iid)
+			
+			if self.commandCode == SELECT_CODE:
+
+				for iid in self.iidsToSelection:
+					if not self.iidsToSelection[iid]:
+						self._selectGridCell(iid)
+
+			elif self.commandCode == TRACE_CODE:
+				pass
 
 		except:
 			self._printE("Exception in Cell select-all callback")
@@ -1370,70 +1395,48 @@ class FCPRGridProcessWidget(Tk.Frame):
 			)
 
 			# Get duty cycle to send:
-			dc = float(self.commandEntry.get())
-			
-			"""
-			for index in self.slavesToCells:
-				# For each module, check if it has any fans selected. If so,
-				# format a command to send and send it down the update 
-				# pipe
+			if self.commandEntry.get() == '':
+				# Nothing to send
+				return
 
-				selected = False
-				selection = ()
-
-				for fan in self.slavesToCells[index]:
-					if self.iidsToSelection[self.slavesToCells[index][fan]]:
-						selection += (1,)
-						selected = True
-
-					else:
-						selection += (0,)
-
-				# If at least one fan is selected, send it down the 
-				# command pipe:
+			else:
+				dc = float(self.commandEntry.get())
 				
-				if selected:
-					self.commandQueue.put_nowait(
-					(mw.COMMUNICATOR, cm.SET_DC, dc, selection, index)
-					)
-			
-			"""
-			
-			# Cache data to be sent for better synchronization:
-			selection = []
-			
-			for index in self.selectedSlaves:
+				# Cache data to be sent for better synchronization:
+				selection = []
 				
-				selection.append(
-					(
-						index,
-						tuple(self.slavesToSelections[index][STS_LIST]), 
+				for index in self.selectedSlaves:
+					
+					selection.append(
+						(
+							index,
+							tuple(self.slavesToSelections[index][STS_LIST]), 
+						)
 					)
+
+				
+				self.commandQueue.put_nowait(
+					(mw.COMMUNICATOR,
+					cm.SET_DC_GROUP,
+					dc,
+					selection)
 				)
 
-			
-			self.commandQueue.put_nowait(
-				(mw.COMMUNICATOR,
-				cm.SET_DC_GROUP,
-				dc,
-				selection)
-			)
+				# Check "remember" settings:
 
-			# Check "remember" settings:
+				if not self.rememberValueToggleVar.get():
+					# Clear value entry:
+					self.commandEntry.delete(0, Tk.END)
 
-			if not self.rememberValueToggleVar.get():
-				# Clear value entry:
-				self.commandEntry.delete(0, Tk.END)
+				if not self.rememberSelectionToggleVar.get():
+					# Clear selection:
+					self._deselectGridAll()
 
-			if not self.rememberSelectionToggleVar.get():
-				# Clear selection:
-				self._deselectGridAll()
-
-			# Update button:
-			self.sendButton.config(
-				state = Tk.NORMAL,
-				text = "Send"
-			)
+				# Update button:
+				self.sendButton.config(
+					state = Tk.NORMAL,
+					text = "Send"
+				)
 
 		except:
 			self._printE("Exception in Grid send")
@@ -1472,9 +1475,35 @@ class FCPRGridProcessWidget(Tk.Frame):
 			if self.commandMenuVar.get() == SELECT:
 				self.commandCode = SELECT_CODE
 
+				if self.canvas is not None:
+					self.canvas.config(
+						cursor = SELECT_CURSOR
+					)
+					self.rememberValueToggle.config(
+						state = Tk.NORMAL
+					)
+					self.rememberSelectionToggle.config(
+						state = Tk.NORMAL
+					)
+
 			elif self.commandMenuVar.get() == TRACE:
 				self.commandCode = TRACE_CODE
 				self._deselectGridAll()
+				
+				if self.canvas is not None:
+					self.canvas.config(
+						cursor = TRACE_CURSOR
+					)
+					self.rememberValueToggleVar.set(True)
+					self.rememberSelectionToggleVar.set(False)
+
+					self.rememberValueToggle.config(
+						state = Tk.DISABLED
+					)
+					self.rememberSelectionToggle.config(
+						state = Tk.DISABLED
+					)
+
 		except:
 			self._printE()
 		# End _commandMenuCallback =============================================
