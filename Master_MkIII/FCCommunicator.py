@@ -1,23 +1,23 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" ## File: FCCommunicator.py              ##
+## Project: Fan Club Mark II "Master" ## File: FCCommunicator.py	      ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
-## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
+## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES			      ##
 ##----------------------------------------------------------------------------##
-##      ____      __      __  __      _____      __      __    __    ____     ##
-##     / __/|   _/ /|    / / / /|  _- __ __\    / /|    / /|  / /|  / _  \    ##
-##    / /_ |/  / /  /|  /  // /|/ / /|__| _|   / /|    / /|  / /|/ /   --||   ##
-##   / __/|/ _/    /|/ /   / /|/ / /|    __   / /|    / /|  / /|/ / _  \|/    ##
+##	____	  __	  __  __      _____	 __	 __    __    ____     ##
+##     / __/|	_/ /|	 / / / /|  _- __ __\	/ /|	/ /|  / /|  / _	 \    ##
+##    / /_ |/  / /  /|	/  // /|/ / /|__| _|   / /|    / /|  / /|/ /   --||   ##
+##   / __/|/ _/	   /|/ /   / /|/ / /|	 __   / /|    / /|  / /|/ / _  \|/    ##
 ##  / /|_|/ /  /  /|/ / // //|/ / /|__- / /  / /___  / -|_ - /|/ /     /|     ##
-## /_/|/   /_/ /_/|/ /_/ /_/|/ |\ ___--|_|  /_____/| |-___-_|/  /____-/|/     ##
-## |_|/    |_|/|_|/  |_|/|_|/   \|___|-    |_____|/   |___|     |____|/       ##
-##                   _ _    _    ___   _  _      __   __                      ##
-##                  | | |  | |  | T_| | || |    |  | |  |                     ##
-##                  | _ |  |T|  |  |  |  _|      ||   ||                      ##
-##                  || || |_ _| |_|_| |_| _|    |__| |__|                     ##
-##                                                                            ##
+## /_/|/   /_/ /_/|/ /_/ /_/|/ |\ ___--|_|  /_____/| |-___-_|/	/____-/|/     ##
+## |_|/	   |_|/|_|/  |_|/|_|/	\|___|-	   |_____|/   |___|	|____|/	      ##
+##		     _ _    _	 ___   _  _	 __   __		      ##
+##		    | | |  | |	| T_| | || |	|  | |	|		      ##
+##		    | _ |  |T|	|  |  |	 _|	 ||   ||		      ##
+##		    || || |_ _| |_|_| |_| _|	|__| |__|		      ##
+##									      ##
 ##----------------------------------------------------------------------------##
-## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
+## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##		      ##
 ################################################################################
 
 ## ABOUT #######################################################################
@@ -41,9 +41,10 @@ import random		# Random names, boy
 import threading	# Multitasking
 import _thread		# thread.error
 import multiprocessing # The big guns
-import platform # Check OS and Python version
 
-if platform.system() != 'Windows':
+import platform # Check OS and Python version
+IN_WINDOWS = platform.system() != 'Windows'
+if IN_WINDOWS:
 	import resource		# Socket limit
 
 # Data:
@@ -93,10 +94,10 @@ REBOOT = 53
 
 # NOTE: Array command e.g.: 
 #		(COMMUNICATOR, SET_DC, DC, FANS, ALL)
-# 		(COMMUNICATOR, SET_DC, DC, FANS, 1,2,3,4)
+#		(COMMUNICATOR, SET_DC, DC, FANS, 1,2,3,4)
 #		(COMMUNICATOR, SET_DC_MANY, DC, SELECTIONS)
-#											|
-#									(INDEX, FANS)
+#							|
+#					(INDEX, FANS)
 
 SET_DC = 54
 SET_DC_GROUP = 55
@@ -161,7 +162,7 @@ class FCCommunicator:
 			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Store parameters -------------------------------------------------
-
+			
 			self.profile = profile
 
 			# Network:
@@ -331,7 +332,10 @@ class FCCommunicator:
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			self.httpd = socketserver.ForkingTCPServer(
+			TCPServerType = socketserver.ForkingTCPServer \
+					if not IN_WINDOWS else \
+                                           socketserver.ThreadingTCPServer
+			self.httpd = TCPServerType(
 				("", 0), 
 				self.flashHTTPHandler
 			)
@@ -492,7 +496,7 @@ class FCCommunicator:
 								for index, slave in enumerate(self.slaves):
 									self.add(index)
 										# NOTE: Unapplicable Slaves will be
-										# automatically ignored	
+										# automatically ignored 
 							else:
 								self.add(command[wg.VALUE])
 
@@ -778,10 +782,10 @@ class FCCommunicator:
 
 					- STD from MkII:
 						A|PCODE|SV:MA:CA:DD:RE:SS|N|SMISO|SMOSI|VERSION
-						0     1                 2 3     4     5 6
+						0     1			2 3	4     5 6
 					- STD from Bootloader:
 						B|PCODE|SV:MA:CA:DD:RE:SS|N|[BOOTLOADER_VERSION]
-						0	  1					2 3				 	4
+						0	  1					2 3					4
 
 					- Error from MkII:
 						A|PCODE|SV:MA:CA:DD:RE:SS|E|ERRMESSAGE
@@ -1473,7 +1477,7 @@ class FCCommunicator:
 								# sider the connection compromised, continue.
 								# print "Reply missed ({}/{})".
 								#   format(timeouts, 
-								#       self.maxTimeouts)
+								#	self.maxTimeouts)
 
 								# Restart loop:
 								pass
@@ -1614,7 +1618,7 @@ class FCCommunicator:
 			outgoing = "{}|{}".format(message, self.passcode)
 			for i in range(repeat):
 				slave._mosiSocket().sendto(bytearray(outgoing,'ascii'), 
-				(slave.ip, self.broadcastPort))	
+				(slave.ip, self.broadcastPort)) 
 		else:
 			# Send through broadcast:
 			# Prepare message:
@@ -1633,7 +1637,7 @@ class FCCommunicator:
 		# - slave: Slave unit for which to listen.
 		# RETURNS:
 		# - three-tuple: 
-		#       (exchange index (int), keyword (str), command (str) or None)
+		#	(exchange index (int), keyword (str), command (str) or None)
 		#   or None upon failure (socket timeout or invalid message)
 		# RAISES: 
 		# - What exceptions may arise from passing an invalid argument.
@@ -1659,7 +1663,7 @@ class FCCommunicator:
 				# DEBUG DEACTV
 				"""
 				print "Received: \"{}\" from {}".\
-				 	format(message, sender)
+					format(message, sender)
 				"""
 
 				try:
@@ -1681,7 +1685,7 @@ class FCCommunicator:
 					# DEBUG PRINT:
 					#print \
 					#    "Got {} part(s) from split: {}".\
-					#        format(len(splitted), str(splitted)), "D"
+					#	 format(len(splitted), str(splitted)), "D"
 
 					output = None
 
@@ -1716,7 +1720,7 @@ class FCCommunicator:
 					# Handle potential Exceptions from format mismatches:
 
 					# print "Bad message: \"{}\"".
-					#       format(e), "W")
+					#	format(e), "W")
 
 					if not indexMatch:
 						# If the correct index has not yet been found, keep lo-
