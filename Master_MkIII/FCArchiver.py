@@ -118,193 +118,193 @@ M_ASSIGNMENT = 6
 ## CLASS DEFINITION ############################################################
 
 class FCArchiver:
-	# ABOUT: This module holds all "variable" data that should be kept in nonvo-
-	# latile storage.
+    # ABOUT: This module holds all "variable" data that should be kept in nonvo-
+    # latile storage.
 
-	def __init__(self, filename = None): # =====================================
-		# ABOUT: Constructor for class FCArchiver.
+    def __init__(self, filename = None): # =====================================
+        # ABOUT: Constructor for class FCArchiver.
 
-		self.filename = 'tmp.fanarray'
+        self.filename = 'tmp.fanarray'
 
-		# ASSEMBLE DATA STRUCTURE ==============================================
-		self.profile = {}
+        # ASSEMBLE DATA STRUCTURE ==============================================
+        self.profile = {}
 
-		# Administrative data --------------------------------------------------
-		self.profile[name] = [hc.DEF_PROFILE_NAME, str, 
-			threading.Lock()]
-		self.profile[description] = ["This is a test Profile", str, 
-			threading.Lock()]
+        # Administrative data --------------------------------------------------
+        self.profile[name] = [hc.DEF_PROFILE_NAME, str, 
+            threading.Lock()]
+        self.profile[description] = ["This is a test Profile", str, 
+            threading.Lock()]
 
-		# Communications -------------------------------------------------------
-		self.profile[broadcastPort] = \
-			[hc.DEF_BROADCAST_PORT, int, threading.Lock()]
-		self.profile[periodMS] = \
-			[hc.DEF_PERIOD_MS, int, threading.Lock()]
-		self.profile[broadcastPeriodMS] = \
-			[hc.DEF_BROADCAST_PERIOD_MS, int, threading.Lock()]
-		self.profile[broadcastPeriodS] = [\
-			self.profile[broadcastPeriodMS][0]/1000.0,
-			float, threading.Lock()]
-		self.profile[periodS] = \
-			[hc.DEF_PERIOD_MS/1000.0, float, threading.Lock()]
-		self.profile[passcode] = \
-			["CT", str, threading.Lock()]
-		self.profile[maxLength] = \
-			[hc.DEF_MAX_LENGTH, int, threading.Lock()]
-		self.profile[maxTimeouts] = \
-			[hc.DEF_MAX_TIMEOUTS, int, threading.Lock()]
-		self.profile[mainQueueSize] = \
-			[hc.DEF_MAIN_QUEUE_SIZE, int, threading.Lock()]
-		self.profile[misoQueueSize] = \
-			[hc.DEF_MISO_QUEUE_SIZE, int, threading.Lock()]
-		self.profile[printerQueueSize] =\
-			[hc.DEF_PRINTER_QUEUE_SIZE, int, threading.Lock()]
+        # Communications -------------------------------------------------------
+        self.profile[broadcastPort] = \
+            [hc.DEF_BROADCAST_PORT, int, threading.Lock()]
+        self.profile[periodMS] = \
+            [hc.DEF_PERIOD_MS, int, threading.Lock()]
+        self.profile[broadcastPeriodMS] = \
+            [hc.DEF_BROADCAST_PERIOD_MS, int, threading.Lock()]
+        self.profile[broadcastPeriodS] = [\
+            self.profile[broadcastPeriodMS][0]/1000.0,
+            float, threading.Lock()]
+        self.profile[periodS] = \
+            [hc.DEF_PERIOD_MS/1000.0, float, threading.Lock()]
+        self.profile[passcode] = \
+            ["CT", str, threading.Lock()]
+        self.profile[maxLength] = \
+            [hc.DEF_MAX_LENGTH, int, threading.Lock()]
+        self.profile[maxTimeouts] = \
+            [hc.DEF_MAX_TIMEOUTS, int, threading.Lock()]
+        self.profile[mainQueueSize] = \
+            [hc.DEF_MAIN_QUEUE_SIZE, int, threading.Lock()]
+        self.profile[misoQueueSize] = \
+            [hc.DEF_MISO_QUEUE_SIZE, int, threading.Lock()]
+        self.profile[printerQueueSize] =\
+            [hc.DEF_PRINTER_QUEUE_SIZE, int, threading.Lock()]
 
-		# Wind tunnel ----------------------------------------------------------
-		
-		# Slave list ...........................................................
-		self.profile[savedSlaves] = \
-			[hc.DEF_SLAVELIST, list, threading.Lock()]
+        # Wind tunnel ----------------------------------------------------------
+        
+        # Slave list ...........................................................
+        self.profile[savedSlaves] = \
+            [hc.DEF_SLAVELIST, list, threading.Lock()]
 
-		# End Slave list ....................................................... 
-		self.profile[rows] = [hc.DEF_GRID_ROWS, int, threading.Lock()]
-		self.profile[columns] = [hc.DEF_GRID_COLUMNS, int, threading.Lock()]
-		self.profile[layers] = [hc.DEF_GRID_LAYERS, int, threading.Lock()]
-		self.profile[modules] = [hc.DEF_GRID_MODULES, tuple, threading.Lock()]
+        # End Slave list ....................................................... 
+        self.profile[rows] = [hc.DEF_GRID_ROWS, int, threading.Lock()]
+        self.profile[columns] = [hc.DEF_GRID_COLUMNS, int, threading.Lock()]
+        self.profile[layers] = [hc.DEF_GRID_LAYERS, int, threading.Lock()]
+        self.profile[modules] = [hc.DEF_GRID_MODULES, tuple, threading.Lock()]
 
-		self.profile[maxFans] =  [hc.DEF_MAX_FANS, int, threading.Lock()]
+        self.profile[maxFans] =  [hc.DEF_MAX_FANS, int, threading.Lock()]
 
-		# Fan array ------------------------------------------------------------
-		self.profile[fanModel] = [hc.DEF_FAN_MODEL, str, threading.Lock()]
-		self.profile[fanMode]  = [SINGLE, int, threading.Lock()]
-		self.profile[targetRelation] = \
-			[hc.DEF_TARGET_RELATION, tuple, threading.Lock()]
-		self.profile[chaserTolerance]  = \
-			[hc.DEF_CHASER_TOLERANCE, float, threading.Lock()]
-		self.profile[fanFrequencyHZ] = \
-			[hc.DEF_FAN_FREQUENCY_HZ, int, threading.Lock()]
-		self.profile[counterCounts] = \
-			[hc.DEF_COUNTER_COUNTS, int, threading.Lock()]
-		self.profile[counterTimeoutMS]  = \
-			[hc.DEF_COUNTER_TIMEOUT_MS, int, threading.Lock()]
-		self.profile[pulsesPerRotation]  = \
-			[hc.DEF_PULSES_PER_ROTATION, int, threading.Lock()]
-		self.profile[maxRPM]  = \
-			[hc.DEF_MAX_RPM, int, threading.Lock()]
-		self.profile[minRPM]  = \
-			[hc.DEF_MIN_RPM, int, threading.Lock()]
-		self.profile[minDC]  = \
-			[hc.DEF_MIN_DC, int, threading.Lock()]
-		self.profile[maxFanTimeouts] = \
-			[hc.DEF_MAX_FAN_TIMEOUTS, int, threading.Lock()]
-		self.profile[defaultModuleDimensions] = \
-			[hc.DEF_MODULE_DIMENSIONS, tuple, threading.Lock()]
-		self.profile[defaultModuleAssignment] = \
-			[hc.DEF_MODULE_ASSIGNMENT, str, threading.Lock()]
-		self.profile[defaultPinout] = \
-			[hc.DEF_PINOUT, str, threading.Lock()]
+        # Fan array ------------------------------------------------------------
+        self.profile[fanModel] = [hc.DEF_FAN_MODEL, str, threading.Lock()]
+        self.profile[fanMode]  = [SINGLE, int, threading.Lock()]
+        self.profile[targetRelation] = \
+            [hc.DEF_TARGET_RELATION, tuple, threading.Lock()]
+        self.profile[chaserTolerance]  = \
+            [hc.DEF_CHASER_TOLERANCE, float, threading.Lock()]
+        self.profile[fanFrequencyHZ] = \
+            [hc.DEF_FAN_FREQUENCY_HZ, int, threading.Lock()]
+        self.profile[counterCounts] = \
+            [hc.DEF_COUNTER_COUNTS, int, threading.Lock()]
+        self.profile[counterTimeoutMS]  = \
+            [hc.DEF_COUNTER_TIMEOUT_MS, int, threading.Lock()]
+        self.profile[pulsesPerRotation]  = \
+            [hc.DEF_PULSES_PER_ROTATION, int, threading.Lock()]
+        self.profile[maxRPM]  = \
+            [hc.DEF_MAX_RPM, int, threading.Lock()]
+        self.profile[minRPM]  = \
+            [hc.DEF_MIN_RPM, int, threading.Lock()]
+        self.profile[minDC]  = \
+            [hc.DEF_MIN_DC, int, threading.Lock()]
+        self.profile[maxFanTimeouts] = \
+            [hc.DEF_MAX_FAN_TIMEOUTS, int, threading.Lock()]
+        self.profile[defaultModuleDimensions] = \
+            [hc.DEF_MODULE_DIMENSIONS, tuple, threading.Lock()]
+        self.profile[defaultModuleAssignment] = \
+            [hc.DEF_MODULE_ASSIGNMENT, str, threading.Lock()]
+        self.profile[defaultPinout] = \
+            [hc.DEF_PINOUT, str, threading.Lock()]
 
-	# End FCArchiver constructor ===============================================
+    # End FCArchiver constructor ===============================================
 
-	def get(self, param): # ====================================================
-		# ABOUT: Get the value of the specified parameter, given as a constant
-		# as defined in FCArchiver.py.
-		# NOTE: Used locks for thread-safety.
-		# NOTE: If the requested parameter is not immutable (int, tuple...)
-		#	this method will perform and return a deep copy.
-		# NOTE: Raises KeyError if the requested parameter does not exist.
+    def get(self, param): # ====================================================
+        # ABOUT: Get the value of the specified parameter, given as a constant
+        # as defined in FCArchiver.py.
+        # NOTE: Used locks for thread-safety.
+        # NOTE: If the requested parameter is not immutable (int, tuple...)
+        #    this method will perform and return a deep copy.
+        # NOTE: Raises KeyError if the requested parameter does not exist.
 
-		try:
-			self.profile[param][LOCK].acquire()
-			
-			# Check parameter type to choose how to return it:
-			if self.profile[param][TYPE] in (int, str, float, tuple):
-				# Immutable value, no need for fancy copying
-				value = self.profile[param][VALUE]
-			
-			else:
-				# Probably a mutable type, such a list. Return a copy.
-				value = copy.deepcopy(self.profile[param][VALUE])
+        try:
+            self.profile[param][LOCK].acquire()
+            
+            # Check parameter type to choose how to return it:
+            if self.profile[param][TYPE] in (int, str, float, tuple):
+                # Immutable value, no need for fancy copying
+                value = self.profile[param][VALUE]
+            
+            else:
+                # Probably a mutable type, such a list. Return a copy.
+                value = copy.deepcopy(self.profile[param][VALUE])
 
-			return value
+            return value
 
-		finally:
-			self.profile[param][LOCK].release()
+        finally:
+            self.profile[param][LOCK].release()
 
-		# End get ==============================================================
+        # End get ==============================================================
 
-	def set(self, param, value): # =============================================
-		# ABOUT: Set the value of the specified parameter, given as a constant
-		# as defined in FCArchiver.py.
-		# NOTE: Uses locks for thread-safety.
-		# NOTE: Raises TypeError if the given value is not of the right type.
-		# NOTE: Raises KeyError if the requested parameter does not exist.
+    def set(self, param, value): # =============================================
+        # ABOUT: Set the value of the specified parameter, given as a constant
+        # as defined in FCArchiver.py.
+        # NOTE: Uses locks for thread-safety.
+        # NOTE: Raises TypeError if the given value is not of the right type.
+        # NOTE: Raises KeyError if the requested parameter does not exist.
 
-		try:
-			self.profile[param][LOCK].acquire()
+        try:
+            self.profile[param][LOCK].acquire()
 
-			# Check type:
-			if type(value) is not self.profile[param][TYPE]:
-				raise TypeError("New value ({}) for requested parameter ({}) \
-				must be	of type {}, not {}".\
-				format(value, param, self.profile[param][TYPE], type(param)))
+            # Check type:
+            if type(value) is not self.profile[param][TYPE]:
+                raise TypeError("New value ({}) for requested parameter ({}) \
+                must be    of type {}, not {}".\
+                format(value, param, self.profile[param][TYPE], type(param)))
 
-			# Assign new value:
-			self.profile[param][VALUE] = value
+            # Assign new value:
+            self.profile[param][VALUE] = value
 
-			return
+            return
 
-		finally:
-			self.profile[param][LOCK].release()
+        finally:
+            self.profile[param][LOCK].release()
 
-		# End set ==============================================================
+        # End set ==============================================================
 
-	def save(self, name = None): # =============================================
-		# ABOUT: Save current profile to a file with the given name. If no
-		# name is given, the loaded file will be overwritten. If there is
-		# no current profile, a provisional name will be made instead.
+    def save(self, name = None): # =============================================
+        # ABOUT: Save current profile to a file with the given name. If no
+        # name is given, the loaded file will be overwritten. If there is
+        # no current profile, a provisional name will be made instead.
 
-		raise IOError("FCArchiver save functionality not yet implemented!")
+        raise IOError("FCArchiver save functionality not yet implemented!")
 
-		# End save =============================================================
+        # End save =============================================================
 
-	def getProfile(self): # ====================================================
-		# Get a copy of the current profile as a dictionary of the form:
-		#		ACCODE -> VALUE
-		# NOTE: Be advised, this process is bulky and should be used only during
-		# initialization
+    def getProfile(self): # ====================================================
+        # Get a copy of the current profile as a dictionary of the form:
+        #        ACCODE -> VALUE
+        # NOTE: Be advised, this process is bulky and should be used only during
+        # initialization
 
-		profile = {}
-		for itemKey in self.profile:
-			try:
-				self.profile[itemKey][LOCK].acquire()
-				profile[itemKey] = self.profile[itemKey][VALUE]
-			finally:
-				self.profile[itemKey][LOCK].release()
+        profile = {}
+        for itemKey in self.profile:
+            try:
+                self.profile[itemKey][LOCK].acquire()
+                profile[itemKey] = self.profile[itemKey][VALUE]
+            finally:
+                self.profile[itemKey][LOCK].release()
 
-		return profile
-		
-		# End getProfile =======================================================
+        return profile
+        
+        # End getProfile =======================================================
 
-	# NOTE: How to load files? How to deal with multiple profiles? 
-	# L-> IDEA: If there is one profile, load it; if there are no profile or 
-	#		more than one, throw an exception during construction and let FCI
-	#		handle it by notifying the user, and then calling FCArchiver's
-	#		constructor again using a specific argument on __init__() to either
-	#		specify the filename (give a list with the original exception) or
-	#		that it is okay to start w/ null values.
+    # NOTE: How to load files? How to deal with multiple profiles? 
+    # L-> IDEA: If there is one profile, load it; if there are no profile or 
+    #        more than one, throw an exception during construction and let FCI
+    #        handle it by notifying the user, and then calling FCArchiver's
+    #        constructor again using a specific argument on __init__() to either
+    #        specify the filename (give a list with the original exception) or
+    #        that it is okay to start w/ null values.
 
-	# NOTE: Another idea... Use some sort of "getAll" function to procedurally
-	#		get all parameters and their values. This way, we can generate
-	#		settings" displays easily!
+    # NOTE: Another idea... Use some sort of "getAll" function to procedurally
+    #        get all parameters and their values. This way, we can generate
+    #        settings" displays easily!
 
 
 ## INDEPENDENT TEST SUITE ######################################################
 
 if __name__ == "__main__":
-	print(("#### FCMkII: FCArchiver version \"{}\" test suite started ".\
-		format(VERSION)))
-	
-	print("No singly-testable code here...")
+    print(("#### FCMkII: FCArchiver version \"{}\" test suite started ".\
+        format(VERSION)))
+    
+    print("No singly-testable code here...")
 
-	print("#### FCMkII: FCArchiver test suite terminated")
+    print("#### FCMkII: FCArchiver test suite terminated")
