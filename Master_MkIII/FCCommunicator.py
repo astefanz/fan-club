@@ -43,8 +43,8 @@ import _thread		# thread.error
 import multiprocessing # The big guns
 
 import platform # Check OS and Python version
-IN_WINDOWS = platform.system() != 'Windows'
-if IN_WINDOWS:
+IN_WINDOWS = platform.system() == 'Windows'
+if not IN_WINDOWS:
 	import resource		# Socket limit
 
 # Data:
@@ -224,7 +224,7 @@ class FCCommunicator:
 			"""
 			self.printM("\tDetected platform: {}".format(platform.system()))
 
-			if platform.system() != 'Windows':
+			if not IN_WINDOWS:
 
 				self.printM(
 					"\tNOTE: Increasing socket limit w/ \"resource\"",'W')
@@ -332,10 +332,10 @@ class FCCommunicator:
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			if IN_WINDOWS:
-				TCPServerType = socketserver.ThreadingTCPServer
-			else:
+			if not IN_WINDOWS:
 				TCPServerType = socketserver.ForkingTCPServer
+			else:
+				TCPServerType = socketserver.ThreadingTCPServer
 			self.httpd = TCPServerType(
 				("", 0), 
 				self.flashHTTPHandler
