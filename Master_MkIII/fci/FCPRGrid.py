@@ -78,7 +78,7 @@ COLORMAP = list(reversed(cs.COLORMAP_GALCIT))
 OUTLINE_SELECTED = 'orange'
 OUTLINE_DESELECTED = 'black'
 COLOR_OFF = '#282828'
-COLOR_EMPTY = 'darkgray'
+COLOR_EMPTY = 'red' # 'darkgray'
 
 COLOR_SELECTOR_STD = '#939292'
 COLOR_SELECTOR_CLICKED = '#7c7c7c'
@@ -232,19 +232,31 @@ class FCPRGridProcessWidget(Tk.Frame):
             cellIndex = 0
             cells = module[ac.M_ASSIGNMENT]
             if cells == '':
-                cells = self.defaultAssignment.split(',')
-
+                cells = self.defaultAssignment
+            cells = cells.split(',')
+            # DEBUG: print(cells)
             for moduleRow in range(module[ac.M_NUMROWS]):
-
-                for moduleColumn in range(module[ac.M_NUMCOLUMNS]):
-
-                    self.coordsToFans\
-                        [module[ac.M_ROW] + moduleRow]\
-                        [module[ac.M_COLUMN] + moduleColumn] = \
-                            (module[ac.M_INDEX], ) + tuple(map(int,cells[cellIndex].split('-')))
+                for moduleColumn in range(module[ac.M_NUMCOLUMNS]):                    
+                        cell = cells[cellIndex]
+                        if cell != '':
+                                self.coordsToFans[module[ac.M_ROW] + moduleRow][module[ac.M_COLUMN] + moduleColumn] = (module[ac.M_INDEX], ) 
                         
-                    cellIndex += 1
+                                for fan_index in cell.split('-'):
+                                        self.coordsToFans[module[ac.M_ROW] + moduleRow][module[ac.M_COLUMN] + moduleColumn] += (int(fan_index),)
 
+                                        
+                                #print(module[ac.M_ROW]+moduleRow, module[ac.M_COLUMN]+moduleColumn,':',self.coordsToFans[module[ac.M_ROW] + moduleRow][module[ac.M_COLUMN] + moduleColumn])
+                        cellIndex += 1
+                """                                                
+                self.coordsToFans\
+                [module[ac.M_ROW] + moduleRow]\
+                [module[ac.M_COLUMN] + moduleColumn] = \
+                (module[ac.M_INDEX], ) +\
+                tuple(map(lambda e: int(e) if e not in ('',',') else None,
+                cells[cellIndex].split('-')))
+                
+                cellIndex += 1
+                """
         # Lastly, track selection
 
 
@@ -1242,12 +1254,12 @@ class FCPRGridProcessWidget(Tk.Frame):
                 x,
                 y,
                 x + self.canvas.winfo_width() - xborder,
-                y + stepHeight, #+ (1 if stepResidue != 0 and i%stepResidue == 0 else 0),
+                y + stepHeight,
                 fill = COLORMAP[i],
                 width = 0
             )
 
-            y += stepHeight #+ (1 if stepResidue != 0 and i%stepResidue == 0 else 0)
+            y += stepHeight
     
         colormapLower = y
 
@@ -1705,8 +1717,7 @@ class FCPRGridProcessWidget(Tk.Frame):
                 
                 # Get selection record for this Slave:
                 record = self.slavesToSelections[\
-                    self.iidsToFans[iid][ITF_INDEX]]
-                
+                    self.iidsToFans[iid][ITF_INDEX]]                
                 fanIndices = self.iidsToFans[iid][1:]
                 
                 # Update record counter:
@@ -1715,8 +1726,12 @@ class FCPRGridProcessWidget(Tk.Frame):
                 
                 # Update list:
                 for fanIndex in fanIndices:
-                    record[STS_LIST][fanIndex] = 1
-                
+                    try:
+                        record[STS_LIST][fanIndex] = 1
+                    except IndexError:
+                        print('SV: ', self.iidsToFans[iid][0])
+                        print("FanIndices: ", fanIndices)
+                        print(fanIndex, len(record[STS_LIST]), record[STS_LIST])
                 # Update list of selected Slaves:
                 self.selectedSlaves.add(self.iidsToFans[iid][ITF_INDEX])
 
@@ -1727,7 +1742,7 @@ class FCPRGridProcessWidget(Tk.Frame):
                 )
                 
                 self.iidsToSelection[iid] = True
-
+                
         except:
             self._printE("Exception in Cell selection callback:")
 
