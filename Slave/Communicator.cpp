@@ -107,9 +107,9 @@ Communicator::Communicator(const char version[]):
 	red(LED3), 
 	green(LED1),
 
-	xred(D3), 
+	xred(D3)
 	#ifndef JPL
-	xgreen(D5)
+	,xgreen(D5)
 	#endif 
 	{ // // // // // // // // // // // // // // // // // // // // // // // // //
 	/* ABOUT: Constructor for class Communicator. Starts networking threads.
