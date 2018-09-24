@@ -332,9 +332,10 @@ class FCCommunicator:
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			TCPServerType = socketserver.ForkingTCPServer \
-					if not IN_WINDOWS else \
-                                           socketserver.ThreadingTCPServer
+			if IN_WINDOWS:
+				TCPServerType = socketserver.ThreadingTCPServer
+			else:
+				TCPServerType = socketserver.ForkingTCPServer
 			self.httpd = TCPServerType(
 				("", 0), 
 				self.flashHTTPHandler
