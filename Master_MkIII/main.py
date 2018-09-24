@@ -20,7 +20,7 @@
 ## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
 ################################################################################
 
-VERSION = "\"MP2\"" # Reference for consecutive versions
+VERSION = "\"MP3\"" # Reference for consecutive versions
 
 #### IMPORTS ###################################################################
 # System:
@@ -37,20 +37,6 @@ import auxiliary.errorPopup as ep
 if __name__ == '__main__':
 	print((">>> FCMkII Started on {}".format(time.strftime(
 		"%a %d %b %Y %H:%M:%S", time.localtime()))))
-	"""
-	# Backup original AutoProxy function
-	backup_autoproxy = mp.managers.AutoProxy
-
-	# Defining a new AutoProxy that handles unwanted key argument 'manager_owned'
-	def redefined_autoproxy(token, serializer, manager=None, authkey=None,
-			  exposed=None, incref=True, manager_owned=True):
-		# Calling original AutoProxy without the unwanted key argument
-		return backup_autoproxy(token, serializer, manager, authkey,
-						 exposed, incref)
-
-	# Updating AutoProxy definition in mp.managers package
-	mp.managers.AutoProxy = redefined_autoproxy
-	"""
 	try:
 
 		manager = mp.Manager()
