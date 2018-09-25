@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fan Club Mark II "Master" ## File: hardcoded.py                   ##
+## Project: Fan Club Mark III "Master" ## File: hardcoded.py                  ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             ##
@@ -17,7 +17,9 @@
 ##                  || || |_ _| |_|_| |_| _|    |__| |__|                     ##
 ##                                                                            ##
 ##----------------------------------------------------------------------------##
-## Alejandro A. Stefan Zavala ## <alestefanz@hotmail.com> ##                  ##
+## Alejandro A. Stefan Zavala ## <astefanz@berkeley.com>  ##                  ##
+## Christopher J. Dougherty   ## <cdougher@caltech.edu>   ##                  ##
+## Marcel Veismann            ## <mveisman@caltech.edu>   ##                  ##
 ################################################################################
 
 ## ABOUT #######################################################################
@@ -35,9 +37,13 @@ from . import names
 # Basement:
 SPEC_BASEMENT_MODULE_DIMENSIONS = (3,3) # (rows, columns) 
 SPEC_BASEMENT_PINOUT = "FGHMALXWKJUVNISOBQTDC qsrnabdtfhvuepckmljoi"
-SPEC_CAST_DIMENSIONS = (10, 10)
-SPEC_CAST_MAX_FANS = 21
-SPEC_CAST_DEF_ACTIVE_FANS = 21
+SPEC_BASEMENT_DIMENSIONS = (10, 10)
+SPEC_BASEMENT_MAX_FANS = 21
+SPEC_BASEMENT_DEF_ACTIVE_FANS = 21
+
+SPEC_CAST_DIMENSIONS = (36, 36)
+SPEC_CAST_MAX_FANS = 18
+SPEC_CAST_DEF_ACTIVE_FANS = 18
 
 SPEC_CAST_DIMS_12 = (36,36) # (9, 12)
 
@@ -1344,23 +1350,45 @@ DEF_LISTENER_QUEUE_SIZE = 3
 DEF_MISO_QUEUE_SIZE = 2
 DEF_PRINTER_QUEUE_SIZE = 3
 
-# FAN ARRAY:
+# FAN ARRAY ------------------------------------------------------------------
 # NOTE: That of GALCIT's "basement wind tunnel," using DELTA PFR0912XHE-SP00
 # fans.
 
+# Relevant for entire array:
 DEF_FAN_MODEL = "DELTA GFC..."# "DELTA PFR0912XHE-SP00"
 DEF_FAN_MODE = -2
-DEF_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
-DEF_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
+DEF_MAX_FANS = SPEC_BASEMENT_MAX_FANS
+
+# Relevant for PWM signal:
 DEF_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
-DEF_COUNTER_COUNTS = 2 # (Measure time between pulses once)
-DEF_COUNTER_TIMEOUT_MS = 30 # (Assume fan is not spinning after 30ms)
+
+# Relevant for RPM reads:
+
+""" No. of measurements to make. Smaller -> faster, more responsive; 
+    Larger -> slower, but more accurate, less fluctuations 
+"""
+DEF_COUNTER_COUNTS = 2
+
+""" ms before assuming a fan is off and reporting 0 RPM. Should be an
+    upper bound on the estimate ms between pulses in the slowest nominal RPM
+    The smaller it is, the faster the fans will react when controlled at
+    lower duty cycles.
+"""
+DEF_COUNTER_TIMEOUT_MS = 30
+
+""" No. of pulses in hall effect sensor signal that correspond to one full
+    rotation. Used to go from pulses -> RPM. Fan specific. Usually 2 or 4.
+"""
 DEF_PULSES_PER_ROTATION = 2 # (Fan generates 2 pulses per rotation)
-DEF_MAX_RPM = 16000 # 11500 BASEMENT # (Maximum nominal RPM)
+
+# Relevant for RPM Chaser:
+DEF_MAX_RPM = 16000 # Approx. 11500 BASEMENT # (Maximum nominal RPM)
 DEF_MIN_RPM = 1200  # (Minimum nominal RPM)
 DEF_MIN_DC = 0.5 # NOTE (10% duty cycle corresponds to ~1185 RPM)
-DEF_MAX_FANS = SPEC_CAST_MAX_FANS
-DEF_MAX_FAN_TIMEOUTS = 1 
+DEF_TARGET_RELATION = (1.0,0.0) # (For double fans, irrelevant if on SINGLE)
+DEF_CHASER_TOLERANCE = 0.02 # (2% of target RPM)
+DEF_MAX_FAN_TIMEOUTS = 1
+# ----------------------------------------------------------------------------
 
 # GRID MAPPING:
 
