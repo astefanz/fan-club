@@ -1,0 +1,26 @@
+Using the following tools to build these:
+
+1. ARM GCC TOOLS. Two versions have been used:
+
+    1.1 First version, downloaded in newer setup and not yet tested in main
+        fan array:
+
+        gcc version 7.3.1 20180622 (release)
+        [ARM/embedded-7-branch revision 261907]
+        (GNU Tools for Arm Embedded Processors 7-2018-q2-update)
+
+        Obtained by downloading the following package through apt:
+
+        binutils-arm-none-eabi:amd64 (2.27-9ubuntu1+9)
+
+    1.2 Second version, downloaded in older setup and tested in main fan array:
+
+        gcc version 7.2.1 20170904 (release)
+        [ARM/embedded-7-branch revision 255204]
+        (GNU Tools for Arm Embedded Processors 7-2017-q4-major)
+
+2. Mbed CLI:
+
+    Command-line code management tool for ARM mbed OS - http://www.mbed.com
+    version 1.7.5
+
