@@ -1,0 +1,44 @@
+////////////////////////////////////////////////////////////////////////////////
+// Project: Fanclub Mark IV Notes // File: notes.txt                          //
+//----------------------------------------------------------------------------//
+// CALIFORNIA INSTITUTE OF TECHNOLOGY // GRADUATE AEROSPACE LABORATORY //     //
+// CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      //     //
+//----------------------------------------------------------------------------//
+//      ____      __      __  __      _____      __      __    __    ____     //
+//     / __/|   _/ /|    / / / /|  _- __ __\    / /|    / /|  / /|  / _  \    //
+//    / /_ |/  / /  /|  /  // /|/ / /|__| _|   / /|    / /|  / /|/ /   --||   //
+//   / __/|/ _/    /|/ /   / /|/ / /|    __   / /|    / /|  / /|/ / _  \|/    //
+//  / /|_|/ /  /  /|/ / // //|/ / /|__- / /  / /___  / -|_ - /|/ /     /|     //
+// /_/|/   /_/ /_/|/ /_/ /_/|/ |\ ___--|_|  /_____/| |-___-_|/  /____-/|/     //
+// |_|/    |_|/|_|/  |_|/|_|/   \|___|-    |_____|/   |___|     |____|/       //
+//                   _ _    _    ___   _  _      __  __   __                  //
+//                  | | |  | |  | T_| | || |    |  ||_ | | _|                 //
+//                  | _ |  |T|  |  |  |  _|      ||   \\_//                   //
+//                  || || |_ _| |_|_| |_| _|    |__|  |___|                   //
+//                                                                            //
+//----------------------------------------------------------------------------//
+// Alejandro A. Stefan Zavala // <astefanz@berkeley.edu>   //                 //
+// Chris J. Dougherty         // <cdougher@caltech.edu>    //                 //
+// Marcel Veismann            // <mveisman@caltech.edu>    //                 //
+////////////////////////////////////////////////////////////////////////////////
+
+/* ABOUT ***********************************************************************
+ * Development notes on FCMkIV. "Forgotten mistakes are doomed to be repeated."
+ ******************************************************************************/
+
+## ON TESTING AND DEBUGGING ####################################################
+
+- Want an automated build and test rig.
+- Want debugging tools for:
+    - Line execution checking
+
+> Reading command line arguments:
+https://www.tutorialspoint.com/python3/python_command_line_arguments.htm
+
+## ON COMPILING PYTHON #########################################################
+
+- See PyInstaller:
+https://pyinstaller.readthedocs.io/en/stable/
+
+** NOTE: See platform-specific notes at:
+https://pyinstaller.readthedocs.io/en/stable/usage.html#platform-specific-notes
