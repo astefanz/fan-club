@@ -33,42 +33,93 @@
 VERSION = "IV-1"
 
 CODE = 1
-SYMBOL = "PROF"
+SYMBOL = "AC"
 
-OTHER = -1
+# Platforms:
+UNKNOWN = -1
 WINDOWS = 0
 MACOS = 1
 LINUX = 2
 
+# Fan modes:
+SINGLE = 1
+DOUBLE = 2
+
 # PARAMETER NAMES ==============================================================
 
-# core:
-platform = 0
+# Core -------------------------------------------------------------------------
 name = 1
 description = 2
+platform = 3
 
-# communications:
-broadcastPort  = 10
-periodMS = 11
-broadcastPeriodMS = 12
-maxLength = 13
-maxTimeouts = 14
+# Network ----------------------------------------------------------------------
+broadcastPort  = 100
+broadcastPeriodMS = 101
+broadcastPeriodS = 102
+periodMS = 103
+periodS = 104
+maxLength = 105
+maxTimeouts = 106
 
-mainQueueSize = 15
-slaveQueueSize= 16
-broadcastQueueSize = 17
-listenerQueueSize = 18
-misoQueueSize = 19
-printerQueueSize = 20
+mainQueueSize = 107
+slaveQueueSize= 108
+broadcastQueueSize = 109
+listenerQueueSize = 110
+misoQueueSize = 111
+printerQueueSize = 112
+passcode = 113
 
-periodS = 21
-broadcastPeriodS = 22
-passcode = 23
+defaultSlave = 114
+savedSlaves = 115
 
-# fan array:
+# For each Slave .........
+SV_name = 116
+SV_mac = 117
+SV_index = 118
+SV_fanModel = 119
+SV_fanMode = 120
+SV_targetRelation = 121
+SV_chaserTolerance = 122
+SV_fanFrequencyHZ = 123
+SV_counterCounts = 124
+SV_counterTimeoutMS = 125
+SV_pulsesPerRotation = 126
+SV_maxRPMs = 127
+SV_minRPMs = 128
+SV_minDCs = 129
+SV_maxFans = 130
+SV_pinout = 131
+# ........................
 
-savedSlaves = 30
+pinouts = 132
 
+# Fan array --------------------------------------------------------------------
+defaultModule = 200
+
+fanArrays = 204
+
+# TODO: Finish writing down items (See spec.). Don't forget to add prefixes like
+# FA_ and MD_
+
+# For each fan array .....
+name = 205
+description = 206
+rows = 208
+columns = 209
+layers = 210
+modules = 211
+
+# For each module . . . .
+slaveIndex = 300
+row = 301
+column = 302
+rows = 303
+columns = 304
+
+# . . . . . . . . . . . .
+# ........................
+
+"""
 fanModel = 31
 fanMode =  32
 targetRelation = 33
@@ -90,7 +141,7 @@ layers = 43
 modules = 44
 defaultModuleDimensions = 45
 defaultModuleAssignment = 46
-
+"""
 
 # FAN MODES (Not parameters):
 SINGLE = -1

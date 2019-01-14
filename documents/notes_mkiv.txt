@@ -53,3 +53,7 @@ https://docs.python.org/3/tutorial/modules.html
 - Using a dictionary to store profile data:
 https://stackoverflow.com/questions/1336791/
     dictionary-vs-object-which-is-more-efficient-and-why
+
+## REDIRECTING TERMINAL OUTPUT TO GUI ##########################################
+https://stackoverflow.com/questions/12351786/
+    how-to-redirect-print-statements-to-tkinter-text-widget
