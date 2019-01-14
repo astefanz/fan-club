@@ -47,3 +47,9 @@ https://pyinstaller.readthedocs.io/en/stable/usage.html#platform-specific-notes
 
 - See official documentation:
 https://docs.python.org/3/tutorial/modules.html
+
+## ON PROFILE DESIGN ###########################################################
+
+- Using a dictionary to store profile data:
+https://stackoverflow.com/questions/1336791/
+    dictionary-vs-object-which-is-more-efficient-and-why
