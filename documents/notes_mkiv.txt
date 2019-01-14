@@ -42,3 +42,8 @@ https://pyinstaller.readthedocs.io/en/stable/
 
 ** NOTE: See platform-specific notes at:
 https://pyinstaller.readthedocs.io/en/stable/usage.html#platform-specific-notes
+
+## ON PYTHON PACKAGES ##########################################################
+
+- See official documentation:
+https://docs.python.org/3/tutorial/modules.html

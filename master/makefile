@@ -70,7 +70,7 @@ M = "[No message given]"
 
 ## MAIN ########################################################################
 
-default: build clean
+default: unit build clean
 
 warn:
 	@echo "WARNING: See PyInstaller Platform-specific notes"
@@ -79,7 +79,7 @@ warn:
 	@echo "REMINDER: Check PyInstaller bytecode encryption"
 	@echo "REMINDER: Use 'peek' flag for basic integration testing"
 
-build: warn unit
+build: warn
 	@echo "WARNING: No icons yet"
 	python3 -OO -m PyInstaller \
     --clean --onefile --name Fan\ Club main.py --distpath=$(DPATH)
@@ -91,7 +91,7 @@ check:
 	@echo "WARNING: empty check recipe"
 
 clean:
-	rm -rf *.pyc *.spec build __pycache__
+	rm -rf *.pyc *.spec build __pycache__ */__pycache__
 
 wipe: clean
 	rm -rf dist

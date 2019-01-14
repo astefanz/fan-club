@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master" debug test suite ## File: debug.test.py  ##
+## Project: Fanclub Mark IV "Master" utilities ## File: utils.py              ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,21 +23,35 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Unit tests for the FCMkIV debug facilities.
+ + Auxiliary functions and definitions for testing and debugging.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import unittest
-if __package__ == '':
-    import fcd
-else:
-    from . import fcd
 
-## TEST CASES ##################################################################
+import inspect
+    # Print line numbers. See:
+    #   http://code.activestate.com/recipes/
+    #       145297-grabbing-the-current-line-number-easily/
+import sys
 
-class TestDebugTools(unittest.TestCase):
+## GLOBAL CONSTANTS ############################################################
+PREFIX = "[DEBUG]"
+FILE = sys.stdout
 
-    """ Test line number print function. """
-    def testL(self):
-        self.assertEqual(fcd.ln(), 42)
-        self.assertEqual(fcd.ln(), 43)
+## HELPER DEBUG FUNCTIONS ######################################################
+
+def ln():
+    """ Return the number of the line in source code in which this function is
+        called.
+    """
+    return inspect.currentframe().f_back.f_lineno
+
+def l(message = "", prefix = PREFIX, postfix = '\n'):
+    """ Print the number of the line in which the function is called.
+        - MESSAGE specifies an optional text to include when printing.
+          Defaults to an empty string.
+        - PREFIX defaults to the standard debug prefix string.
+        - POSTFIX defaults to newline.
+    """
+    print(prefix, "L:", inspect.currentframe().f_back.f_lineno, message,
+        end = postfix, file = FILE)
