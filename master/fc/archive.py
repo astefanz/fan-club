@@ -28,12 +28,15 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
+import pickle as pk
+import copy as cp
+    # For deep copies. See:
+    # https://stackoverflow.com/questions/3975376/\
+    #   understanding-dict-copy-shallow-or-deep/3975388
 
 ## GLOBALS #####################################################################
 VERSION = "IV-1"
-
 CODE = 1
-SYMBOL = "AC"
 
 # Platforms:
 UNKNOWN = -1
@@ -44,6 +47,18 @@ LINUX = 2
 # Fan modes:
 SINGLE = 1
 DOUBLE = 2
+
+# Built-in pinouts:
+PINOUTS = {
+    "BASE" : "FGHMALXWKJUVNISOBQTDC qsrnabdtfhvuepckmljoi",
+    "CAST" : "ETRGMLWXPQJKUVBADC edcb_^ng`w\\]porqfs",
+    "JPL"  : "FGCDABNOLMHITUQSJK efcdabnolmhirspqjk"
+}
+
+# Parameter categories:
+UNCLASSIFIED = 0
+ARRAY = 1
+NETWORK = 2
 
 # PARAMETER NAMES ==============================================================
 
@@ -95,80 +110,197 @@ pinouts = 132
 
 # Fan array --------------------------------------------------------------------
 defaultModule = 200
+defaultFanArray = 201
 
 fanArrays = 204
 
-# TODO: Finish writing down items (See spec.). Don't forget to add prefixes like
-# FA_ and MD_
-
 # For each fan array .....
-name = 205
-description = 206
-rows = 208
-columns = 209
-layers = 210
-modules = 211
+FA_name = 205
+FA_description = 206
+FA_rows = 208
+FA_columns = 209
+FA_layers = 210
+FA_modules = 211
 
 # For each module . . . .
-slaveIndex = 300
-row = 301
-column = 302
-rows = 303
-columns = 304
-
+MD_slaveIndex = 300
+MD_row = 301
+MD_column = 302
+MD_rows = 303
+MD_columns = 304
+MD_fans = 305
+MD_fanAssignment = 306
 # . . . . . . . . . . . .
 # ........................
 
-"""
-fanModel = 31
-fanMode =  32
-targetRelation = 33
-chaserTolerance = 34
-fanFrequencyHZ = 35
-counterCounts = 36
-counterTimeoutMS = 37
-pulsesPerRotation = 38
-maxRPM = 39
-minRPM = 310
-minDC = 311
-maxFans = 312
-maxFanTimeouts = 313
-defaultPinout = 314
-
-rows = 41
-columns = 42
-layers = 43
-modules = 44
-defaultModuleDimensions = 45
-defaultModuleAssignment = 46
-"""
-
-# FAN MODES (Not parameters):
-SINGLE = -1
-DOUBLE = -2
-
-# PARAMETER LIST ITEMS:
-VALUE = 0
-TYPE = 1
-LOCK = 2
-
-# ARRAY MAPPING INDICES:
-M_INDEX = 0
-M_ROW = 1
-M_COLUMN = 2
-M_NUMROWS = 3
-M_NUMCOLUMNS = 4
-M_NUMFANS = 5
-M_ASSIGNMENT = 6
 ## MAIN ########################################################################
 
 class FCArchive:
+    """
+    Handles the data that distinguishes FC configurations, such as fan array
+    details, network settings and known slaves, as well as its storage and
+    retrieval to and from files.
+    """
 
-    """
-    Create a new FCProfile.
-    - PLATFORM: One of the constants (defined in fc.profile) that represents
-      a supported platform --WINDOWS, MACOS, LINUX or OTHER.
-    """
-    def __init__(self, platform):
-        self.profile = {}
+    """ Default profile. """
+    DEFAULT = {
+        name : "Unnamed FC Profile",
+        description : "",
+        platform : UNKNOWN,
+
+        broadcastPort  : 65000,
+        broadcastPeriodMS : 1000,
+        broadcastPeriodS : 1,
+        periodMS : 100,
+        periodS : 0.1,
+        maxLength : 512,
+        maxTimeouts : 10,
+
+        mainQueueSize : 10,
+        slaveQueueSize: 10,
+        broadcastQueueSize : 2,
+        listenerQueueSize : 3,
+        misoQueueSize : 2,
+        printerQueueSize : 3,
+        passcode : "CT",
+
+        defaultSlave :
+            {
+                SV_name : "Module",
+                SV_mac : "None",
+                SV_index : -1,
+                SV_fanModel : "Unknown",
+                SV_fanMode : SINGLE,
+                SV_targetRelation :(1.0, 0.0),
+                SV_chaserTolerance : 0.02,
+                SV_fanFrequencyHZ : 25000,
+                SV_counterCounts : 2,
+                SV_counterTimeoutMS : 30,
+                SV_pulsesPerRotation : 2,
+                SV_maxRPMs : 16000,
+                SV_minRPMs : 1200,
+                SV_minDCs : 0.5,
+                SV_maxFans : 21,
+                SV_pinout : "BASE"
+            },
+        savedSlaves : (),
+        pinouts : PINOUTS.copy(),
+
+        defaultModule : {
+            MD_slaveIndex : -1,
+            MD_row : -1,
+            MD_column : -1,
+            MD_rows : 0,
+            MD_columns : 0,
+            MD_fans : 0,
+            MD_fanAssignment : ()
+        },
+        defaultFanArray : {
+            FA_name : "Fan Array",
+            FA_description : "",
+            FA_rows : 0,
+            FA_columns : 0,
+            FA_layers : 0,
+            FA_modules : ()
+        },
+        fanArrays : ()
+    }
+
+    """ Profile attributes that support the FCArchive add method. """
+    ADDABLE = {savedSlaves, fanArrays}
+
+    """ Profile attributes categories. """
+    CATEGORIES = {
+        ARRAY : {defaultModule, defaultFanArray, fanArrays},
+        NETWORK : {broadcastPort, broadcastPeriodMS, broadcastPeriodS,
+            periodMS, periodS, maxLength, maxTimeouts, mainQueueSize,
+            slaveQueueSize, broadcastQueueSize, listenerQueueSize,
+            misoQueueSize, printerQueueSize, passcode, defaultSlave, pinouts
+        }
+    }
+
+    def __init__(self, currentPlatform):
+        """
+        Create a new FCProfile with no profile.
+        CURRENTPLATFORM must be one of the constants defined in this module
+        that represents a supported platform --WINDOWS, MACOS, LINUX or UNKNOWN.
+
+        Note that a profile must be loaded (may be the default) before this
+        instance is used.
+        """
+        self.currentPlatform = currentPlatform
+        self.P = None
+
+    def default(self):
+        """
+        Load the default profile.
+        """
+        self.P = cp.deepcopy(FCArchive.DEFAULT)
+        self.P[platform] = self.currentPlatform
+
+    def profile(self):
+        """
+        Return a copy of the current profile, represented as a dictionary who's
+        keys are constants defined in this module.
+
+        Raises an AttributeError if this instance has no profile loaded.
+        """
+        if self.P is not None:
+            return cp.deepcopy(self.P)
+        else:
+            raise AttributeError("No profile loaded")
+
+    def set(self, attribute, value):
+        """
+        Replace the current value of ATTRIBUTE (an attribute constant defined in
+        this module) in the current profile for the given VALUE, which must be
+        valid and of the correct type. Returns the category that was modified.
+
+        Note that nothing is saved to persistent storage unless the save method
+        is called.
+        """
+        # TODO: Validate?
+        self.P[attribute] = value
+        for category in FCArchive.CATEGORIES:
+            if attribute in FCArchive.CATEGORIES[category]:
+                return category
+        return UNCLASSIFIED
+
+    def add(self, attribute, value):
+        """
+        Append the value VALUE to ATTRIBUTE (same as in the set method) in the
+        current profile.
+
+        Raises a ValueError if the given ATTRIBUTE does not support adding
+        (such as periodMS or passcode; attributes like savedSlaves do support
+        appending).
+        """
+        if attribute in FCArchive.ADDABLE:
+            # TODO: Validate? (Or validate just at set?)
+            self.set(attribute, self.P[attribute] + (value,))
+        else:
+            raise ValueError(
+                "Can't add to non-addable attribute ({})".format(attribute))
+
+    def load(self, name):
+        """
+        Load profile data from a file named NAME with extension.
+
+        Any IOError raised will be passed to the caller, in which case the
+        current profile won't be changed.
+        """
+        new = pk.load(open(name, 'rb'))
+        # TODO: Validate?
+        self.P = new
+        self.P[platform] = self.currentPlatform
+
+    def save(self, name):
+        """
+        Save current profile to file named NAME.
+        Note that if a file with this name and extension exists it will be
+        overwritten.
+
+        Any IOError raised will be passed to the caller.
+        """
+        pk.dump(self.profile(), open(name, 'wb'))
 
