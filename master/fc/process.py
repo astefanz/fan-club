@@ -332,3 +332,9 @@ class FCProcess:
 
         except Exception as e:
             us.printexc(e, signature = SIGNATURE)
+
+    def __str__(self):
+        """
+        String representation. Returns name.
+        """
+        return self.name

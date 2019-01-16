@@ -36,6 +36,8 @@ import fc.process as process
 import tkinter as tk
 
 ## TEST CASES ##################################################################
+
+# process ----------------------------------------------------------------------
 class FCProcessTest(ut.TestCase):
 
     class DummyProcess(process.FCProcess):
@@ -188,5 +190,27 @@ class FCProcessTest(ut.TestCase):
         self.assertFalse(stuck.isActive(),
             "Unable to forcibly stop stuck process")
 
+        us.dprint("[TS] Testing multiple dummy processes active at once")
+        d1 = self.DummyProcess()
+        d2 = self.DummyProcess()
+
+        dummy.name = 'dummy 0'
+        d1.name = 'dummy 1'
+        d2.name = 'dummy 2'
+
+        for p in (d1, d2, dummy):
+            p.start({})
+            self.assertTrue(p.isActive(),
+                "Dummy process \"{}\" failed to start".format(p))
+
+        for p in (d1, d2, dummy):
+            p.stop()
+            self.assertFalse(p.isActive(),
+                "Dummy process \"{}\" failed to stop".format(p))
+
         print("[TS] FCProcess test suite complete ({:.3f}s)".format(
             tm.time() - fcpstart))
+
+# profile ----------------------------------------------------------------------
+
+
