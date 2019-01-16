@@ -32,7 +32,7 @@
  + as follows (given a message M):
  +
  + M[fc.process.SENDER] := integer that identifies the sender
- + M[fc.process.TARGET] := integer that identifies the receiver
+ + M[fc.process.RECEIVER] := integer that identifies the receiver
  + M[fc.process.SUBJECT] := object that identifies the message (usually int)
  + M[fc.process.ARGUMENTS] := tuple containing extra data, may be empty
  +
@@ -50,7 +50,11 @@
 import multiprocessing as mp
 import threading as mt
 
+import fc.utils as us
+
 ## CONSTANTS ###################################################################
+SIGNATURE = "[FP]"
+
 # Pipe dictionary constants:
 MESSAGE = 0
 MATRIX = 1
@@ -62,21 +66,24 @@ PARENT = 0
 CHILD = 1
 
 # Inter-process communication --------------------------------------------------
-def message(sender, target, subject, arguments = ()):
+def message(sender, receiver, subject, arguments = ()):
     """
-    Generate an inter-process message with SENDER, TARGET, SUBJECT and
+    Generate an inter-process message with SENDER, RECEIVER, SUBJECT and
     ARGUMENTS, where ARGUMENTS may be omitted depending on the message.
+
+    ARGUMENTS is expected to be a (possibly empty) tuple.
     """
-    return (sender, target, subject, arguments)
+    return (sender, receiver, subject) + arguments
 
 # Significant indices:
 SENDER = 0
-TARGET = 1
+RECEIVER = 1
 SUBJECT = 2
 ARGUMENTS = 3
 
 # Basic messages:
-STOP = 0
+STOP = -69
+ERROR = 666
 
 # Sender ID that represents the lack of a sender ID:
 SYMBOL = 0
@@ -189,7 +196,7 @@ class FCProcess:
                         format(self.name))
             self.stopper = None
             self.pipes = self._pipes()
-            self.data.update({'profile':self.profile, 'pipes':self.pipes,
+            self.data.update({'profile':profile, 'pipes':self.pipes[CHILD],
                 'symbol':self.symbol})
             self.data.update(args)
             self.process = mp.Process(
@@ -205,7 +212,7 @@ class FCProcess:
         else:
             raise mp.ProcessError("Tried to start already active FCProcess")
 
-    def stop(self, timeout = 2, callback = lambda s: None):
+    def stop(self, timeout = 0.5, callback = lambda s: None):
         """
         Stop this instance's active process, assuming there is one.
         TIMEOUT is the number of seconds to wait for the process to end on its
@@ -224,15 +231,14 @@ class FCProcess:
 
         if not self.isRunnable():
             raise mp.ProcessError("Tried to stop non-runnable FCProcess")
-        elif not self.isActive():
-            raise mp.ProcessError("Tried to stop already inactive FCProcess")
 
-    def hasMessage(self):
+    def hasMessage(self, timeout = 0):
         """
         Return whether this instance's running process, if any, has a message
-        to send to another FCProcess.
+        to send to another FCProcess. TIMEOUT specifies the number of seconds
+        to wait before assuming there is no message and defaults to 0.
         """
-        return self.isActive() and self.pipes[PARENT][MESSAGE].poll()
+        return self.isActive() and self.pipes[PARENT][MESSAGE].poll(timeout)
 
     def getMessage(self):
         """
@@ -253,12 +259,13 @@ class FCProcess:
             else:
                 self.pipes[PARENT][MESSAGE].send(message)
 
-    def hasCommand(self):
+    def hasCommand(self, timeout = 0):
         """
         Return whether this FCProcess has a fan array command buffered for
-        sending.
+        sending. TIMEOUT specifies the number of seconds to wait before
+        assuming there is no command and defaults to 0.
         """
-        return self.isActive() and self.pipes[PARENT][COMMAND].poll()
+        return self.isActive() and self.pipes[PARENT][COMMAND].poll(timeout)
 
     def getCommand(self):
         """
@@ -289,6 +296,7 @@ class FCProcess:
             pipes[CHILD][NETWORK], pipes[PARENT][NETWORK] = mp.Pipe(False)
         if self.usesSlaveList():
             pipes[CHILD][SLAVES], pipes[PARENT][SLAVES] = mp.Pipe(False)
+        return pipes
 
     def _stopper(self, timeout, callback):
         """
@@ -298,23 +306,29 @@ class FCProcess:
         TIMEOUT seconds).
         """
         try:
+
             self.pipes[PARENT][MESSAGE].send(
                 message(self.symbol, self.symbol, STOP))
             self.process.join(timeout)
 
+            process = self.process
             self.process = None
             for pipe in self.pipes[PARENT].values():
                 pipe.close()
             self.pipes = None
 
-            if self.process.exitcode is None:
-                print("Process '{}' timed out after {} seconds (terminating)",
-                    self.name, timeout)
-                while self.process.exitcode is None or self.process.is_alive():
-                    self.process.terminate()
-                print("Process '{}' terminated",
-                    self.name, timeout)
+            if process.exitcode is None:
+                us.printwrn(
+                    "Process '{}' timed out after {}s".\
+                        format(self.name, timeout), signature = SIGNATURE)
+                while process.exitcode is None or process.is_alive():
+                    process.terminate()
+                us.printwrn("Process '{}' terminated (timed out)".\
+                    format(self.name, timeout), signature = SIGNATURE)
                 callback(False)
             else:
-                print("Process '{}' stopped successfully", self.name)
+                us.dprint("Process '{}' stopped".format(self.name))
                 callback(True)
+
+        except Exception as e:
+            us.printexc(e, signature = SIGNATURE)

@@ -57,3 +57,18 @@ https://stackoverflow.com/questions/1336791/
 ## REDIRECTING TERMINAL OUTPUT TO GUI ##########################################
 https://stackoverflow.com/questions/12351786/
     how-to-redirect-print-statements-to-tkinter-text-widget
+
+## ON MULTIPROCESSING ##########################################################
+
+- If you get the following "Fatal" error:
+
+Fatal Python error: could not acquire lock for
+    <_io.BufferedWriter name='<stdout>'> at interpreter shutdown,
+    possibly due to daemon threads
+
+See:
+    https://stackoverflow.com/questions/45267439/
+        fatal-python-error-and-bufferedwriter
+(Should not be a problem once interface is built... still may want to build a
+print queue)
+

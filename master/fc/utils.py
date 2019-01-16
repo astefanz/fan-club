@@ -33,25 +33,68 @@ import inspect
     #   http://code.activestate.com/recipes/
     #       145297-grabbing-the-current-line-number-easily/
 import sys
+import traceback
+import io as io
+    # StringIO to redirect stdout. See:
+    # https://stackoverflow.com/questions/1218933/
+    #   can-i-redirect-the-stdout-in-python-into-some-sort-of-string-buffer
 
 ## GLOBAL CONSTANTS ############################################################
-PREFIX = "[DEBUG]"
-FILE = sys.stdout
+DPREFIX = "[DBG]"
+EPREFIX = "[ERR]"
+WPREFIX = "[WRN]"
 
-## HELPER DEBUG FUNCTIONS ######################################################
+OUT = sys.stdout
+WRN = sys.stdout
+ERR = sys.stderr
+
+DEBUGP = False
+
+## AUXILIARY FUNCTIONS #########################################################
 
 def ln():
-    """ Return the number of the line in source code in which this function is
-        called.
+    """
+    Return the number of the line in source code in which this function is
+    called.
     """
     return inspect.currentframe().f_back.f_lineno
 
-def l(message = "", prefix = PREFIX, postfix = '\n'):
-    """ Print the number of the line in which the function is called.
-        - MESSAGE specifies an optional text to include when printing.
-          Defaults to an empty string.
-        - PREFIX defaults to the standard debug prefix string.
-        - POSTFIX defaults to newline.
+def l(message = "", prefix = DPREFIX, postfix = '\n'):
+    """
+    Print the number of the line in which the function is called.
+    - MESSAGE specifies an optional text to include when printing.
+      Defaults to an empty string.
+    - PREFIX defaults fc.utils.DPREFIX.
+    - POSTFIX defaults to newline.
     """
     print(prefix, "L:", inspect.currentframe().f_back.f_lineno, message,
-        end = postfix, file = FILE)
+        end = postfix, file = OUT)
+
+def printerr(message, preamble = EPREFIX, signature = ''):
+    """
+    Print error message MESSAGE to fc.utils.ERR, appending PREAMBLE (defaults
+    to fc.utils.EPREFIX) and SIGNATURE (defaults to empty string).
+    """
+    print(preamble + signature, message, file = ERR)
+
+def printwrn(message, preamble = WPREFIX, signature = ''):
+    """
+    Print warning message MESSAGE to fc.utils.WRN, appending PREAMBLE (defaults
+    to fc.utils.WPREFIX) and SIGNATURE (defaults to empty string).
+    """
+    print(preamble + signature, message, file = WRN)
+
+def printexc(exception, preamble = EPREFIX, signature = ''):
+    """
+    Print EXCEPTION to fc.utils.ERR, appending PREAMBLE (defaults to
+    fc.utils.EPREFIX) and SIGNATURE (defaults to empty string).
+    """
+    print(preamble + signature, traceback.format_exc(), file = ERR)
+
+def dprint(*args):
+    """
+    Wrapper around the standard Python print function that works only when the
+    global fc.utils.DEBUGP flag is set to True.
+    """
+    if DEBUGP:
+        print(*args)
