@@ -86,7 +86,7 @@ STOP = -69
 ERROR = 666
 
 # Sender ID that represents the lack of a sender ID:
-SYMBOL = 0
+SID = 0
 
 ## MAIN ########################################################################
 class FCProcess:
@@ -98,9 +98,10 @@ class FCProcess:
     """
 
     """ To be placed at the SENDER position in inter-process messages. """
-    symbol = SYMBOL
+    sid = SID
 
-    def __init__(self, routine = None, args = {}, name = "FC process"):
+    def __init__(self, pqueue, routine = None, args = {}, name = "FC process",
+        symbol = "[FP]"):
         """
         Initialize an FCProcess whose process executes ROUTINE, which may be
         omitted and defaults to None if this FCProcess is not runnable. (If it
@@ -109,17 +110,26 @@ class FCProcess:
 
         ARGS is a dictionary containing serializable (pickleable) data that
         should be forwarded to the process. Though not necessary, it is by
-        convention expected to use str keys --keys 'profile', 'pipes', and
-        'symbol' are reserved.
+        convention expected to use str keys --keys 'profile', 'pipes', 'pqueue'
+        and 'sid' are reserved.
         NAME is an optional string to represent this process.
+
+        PQUEUE is a "print queue" to use for multiprocess printing.
+        (See fc.utils.printers and fc.utils.TerminalPrinter)
+
+        SYMBOL is the string (by convention two capitalized letters in square
+        brackets) to add as a prefix on prints.
         """
 
+        self.pqueue = pqueue
         self.routine = routine
         self.name = name
         self.process = None
         self.pipes = None
         self.data = args
         self.stopper = None
+
+        self.prints, self.printe = us.printers(pqueue, symbol = symbol)
 
         if self.isRunnable() and self.routine is None:
             raise mp.ProcessError(
@@ -197,7 +207,7 @@ class FCProcess:
             self.stopper = None
             self.pipes = self._pipes()
             self.data.update({'profile':profile, 'pipes':self.pipes[CHILD],
-                'symbol':self.symbol})
+                'sid':self.sid, 'pqueue':self.pqueue})
             self.data.update(args)
             self.process = mp.Process(
                 target = self.routine,
@@ -308,7 +318,7 @@ class FCProcess:
         try:
 
             self.pipes[PARENT][MESSAGE].send(
-                message(self.symbol, self.symbol, STOP))
+                message(self.sid, self.sid, STOP))
             self.process.join(timeout)
 
             process = self.process
@@ -318,20 +328,20 @@ class FCProcess:
             self.pipes = None
 
             if process.exitcode is None:
-                us.printwrn(
+                self.prints(
                     "Process '{}' timed out after {}s".\
-                        format(self.name, timeout), signature = SIGNATURE)
+                        format(self.name, timeout), us.W)
                 while process.exitcode is None or process.is_alive():
                     process.terminate()
-                us.printwrn("Process '{}' terminated (timed out)".\
-                    format(self.name, timeout), signature = SIGNATURE)
+                self.prints("Process '{}' terminated (timed out)".\
+                    format(self.name, timeout), us.W)
                 callback(False)
             else:
-                us.dprint("Process '{}' stopped".format(self.name))
+                self.prints("Process '{}' stopped".format(self.name), us.D)
                 callback(True)
 
         except Exception as e:
-            us.printexc(e, signature = SIGNATURE)
+            self.printe(e)
 
     def __str__(self):
         """

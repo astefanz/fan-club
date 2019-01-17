@@ -38,19 +38,135 @@ import io as io
     # StringIO to redirect stdout. See:
     # https://stackoverflow.com/questions/1218933/
     #   can-i-redirect-the-stdout-in-python-into-some-sort-of-string-buffer
+import multiprocessing as mp
+import time as tm
 
 ## GLOBAL CONSTANTS ############################################################
+DEBUGP = False
+
 DPREFIX = "[DBG]"
 EPREFIX = "[ERR]"
 WPREFIX = "[WRN]"
 
-OUT = sys.stdout
 WRN = sys.stdout
 ERR = sys.stderr
+OUT = sys.stdout
 
-DEBUGP = False
+# Inter-process printing constants ---------------------------------------------
+
+# Message codes:
+D = 100000 # Debug
+R = 100001 # Regular
+W = 100002 # Warning
+E = 100003 # Error
+S = 100004 # Success
+
+# Message code to string marks:
+CODE_TO_STR = {
+    R : "",
+    W : "[WARNING]",
+    E : "[*ERROR*]",
+    S : "",
+    D : "[_DEBUG_]",
+}
+
+# Message content indices:
+MI_CODE = 0
+MI_TIME = 1
+MI_CONT = 2
 
 ## AUXILIARY FUNCTIONS #########################################################
+
+## Printing utilities ----------------------------------------------------------
+def printers(queue, symbol = "[--]"):
+    """
+    Generate and return standard FC print functions that redirect their output
+    to the multiprocess queue QUEUE after prefixing SYMBOL. A tuple of the
+    following form is returned:
+            (prints, printe)
+    Where prints takes a string to print and an optional "message code" constant
+    (defined in fc.utils) that specifies the kind of message being sent
+    (a regular message, a warning, a success message, or an error)
+    and printe expects an Exception instance and an
+    optional message and is used to print error and traceback information.
+
+    Note that the given queue will be used through its put_nowait method, and no
+    Exception checking is done.
+    """
+    symbol += ' '
+    def prints(message, code = R, prefix = True):
+        """
+        Send MESSAGE with message code CODE to the given print queue for output.
+        PREFIX specifies whether to prefix the given symbol.
+        """
+        if code is not D or DEBUGP:
+            queue.put_nowait(
+                (code, tm.time(), (symbol if prefix else '') + message))
+
+    def printe(exception, message = ''):
+        """
+        Format EXCEPTION along with MESSAGE (defaults to empty string) and
+        send it through the given queue for printing as an error message.
+        """
+        queue.put_nowait(
+            (E, tm.time(), symbol + traceback.format_exc()))
+
+    return (prints, printe)
+
+class TerminalPrinter:
+    """
+    Print FC output (using multiprocessing.Queue) to a given file in a
+    multiprocessing.Process. The process is made daemonic so it terminates
+    automatically if needed.
+    """
+
+    @staticmethod
+    def routine(queue, file, lock):
+        """
+        Continuously scan QUEUE to print its contents to TARGET.
+
+        Stop when LOCK is released.
+        """
+        T = {
+            R : "[R]",
+            W : "[W]",
+            E : "[!]",
+            S : "[S]",
+        }
+        while not lock.acquire(block = False):
+            if not queue.empty():
+                message = queue.get_nowait()
+                print(T[message[MI_CODE]] + message[MI_CONT],
+                    file = file)
+        lock.release()
+
+    def __init__(self, queue, file = sys.stdout):
+        """
+        New TerminalPrinter instance that prints messages sent to QUEUE to FILE.
+        """
+        self.file = file
+        self.queue = queue
+        self.lock = mp.Lock()
+        self.process = mp.Process(
+            name = "FC TerminalPrinter",
+            target = self.routine,
+            args = (self.queue, self.file, self.lock),
+            daemon = True)
+        self.lock.acquire()
+
+    def start(self):
+        """
+        Start the printer process.
+        """
+        self.process.start()
+
+    def stop(self):
+        """
+        Stop the printer process.
+        """
+        self.lock.release()
+
+## Debug utilities -------------------------------------------------------------
 
 def ln():
     """

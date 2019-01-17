@@ -34,6 +34,8 @@ import copy as cp
     # https://stackoverflow.com/questions/3975376/\
     #   understanding-dict-copy-shallow-or-deep/3975388
 
+import fc.process as pr
+
 ## GLOBALS #####################################################################
 VERSION = "IV-1"
 CODE = 1
@@ -135,7 +137,7 @@ MD_fanAssignment = 306
 
 ## MAIN ########################################################################
 
-class FCArchive:
+class FCArchive(pr.FCProcess):
     """
     Handles the data that distinguishes FC configurations, such as fan array
     details, network settings and known slaves, as well as its storage and
@@ -228,6 +230,8 @@ class FCArchive:
         Note that a profile must be loaded (may be the default) before this
         instance is used.
         """
+        pr.FCProcess.__init__(self, name = "FC Archive")
+
         self.currentPlatform = currentPlatform
         self.P = None
 
@@ -304,3 +308,19 @@ class FCArchive:
         """
         pk.dump(self.profile(), open(name, 'wb'))
 
+    def messageIn(self, message):
+        """
+        Process inter-process message MESSAGE.
+        """
+        # FIXME
+
+        # TODO:
+        # - load
+        # - default
+        # - save
+        # - update
+        # - add
+        # ~ query
+        # ~ validate
+
+        pass
