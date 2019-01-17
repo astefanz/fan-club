@@ -85,7 +85,13 @@ ARGUMENTS = 3
 STOP = -69
 ERROR = 666
 
-# Sender ID that represents the lack of a sender ID:
+# Categories:
+ALL = -70042
+FANARRAY = -70043
+NETWORK = -70044
+SLAVELIST = -70045
+
+# Default sender ID that represents the lack of a sender ID:
 SID = 0
 
 ## MAIN ########################################################################

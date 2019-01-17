@@ -34,6 +34,7 @@ import copy as cp
     # https://stackoverflow.com/questions/3975376/\
     #   understanding-dict-copy-shallow-or-deep/3975388
 
+import fc.utils as us
 import fc.process as pr
 
 ## GLOBALS #####################################################################
@@ -57,17 +58,22 @@ PINOUTS = {
     "JPL"  : "FGCDABNOLMHITUQSJK efcdabnolmhirspqjk"
 }
 
-# Parameter categories:
-UNCLASSIFIED = 0
-ARRAY = 1
-NETWORK = 2
+# Supported I-P Comms. Messages:
+# Message -------- | Arguments
+DEFAULT = 5001  #  | N/A
+LOAD = 5002     #  | file to load as str (e.g "prof.fc")
+SAVE = 5003     #  | file name as str (e.g "prof.fc")
+UPDATE = 5004   #  | dict. to use for update
 
 # PARAMETER NAMES ==============================================================
 
 # Core -------------------------------------------------------------------------
 name = 1
 description = 2
+
+# Runtime ----------------------------------------------------------------------
 platform = 3
+printQueue = 4
 
 # Network ----------------------------------------------------------------------
 broadcastPort  = 100
@@ -144,6 +150,8 @@ class FCArchive(pr.FCProcess):
     retrieval to and from files.
     """
 
+    symbol = "[AC]"
+
     """ Default profile. """
     DEFAULT = {
         name : "Unnamed FC Profile",
@@ -168,7 +176,7 @@ class FCArchive(pr.FCProcess):
 
         defaultSlave :
             {
-                SV_name : "Module",
+                SV_name : "FAWT Module",
                 SV_mac : "None",
                 SV_index : -1,
                 SV_fanModel : "Unknown",
@@ -208,20 +216,7 @@ class FCArchive(pr.FCProcess):
         fanArrays : ()
     }
 
-    """ Profile attributes that support the FCArchive add method. """
-    ADDABLE = {savedSlaves, fanArrays}
-
-    """ Profile attributes categories. """
-    CATEGORIES = {
-        ARRAY : {defaultModule, defaultFanArray, fanArrays},
-        NETWORK : {broadcastPort, broadcastPeriodMS, broadcastPeriodS,
-            periodMS, periodS, maxLength, maxTimeouts, mainQueueSize,
-            slaveQueueSize, broadcastQueueSize, listenerQueueSize,
-            misoQueueSize, printerQueueSize, passcode, defaultSlave, pinouts
-        }
-    }
-
-    def __init__(self, currentPlatform):
+    def __init__(self, pqueue, currentPlatform):
         """
         Create a new FCProfile with no profile.
         CURRENTPLATFORM must be one of the constants defined in this module
@@ -229,18 +224,28 @@ class FCArchive(pr.FCProcess):
 
         Note that a profile must be loaded (may be the default) before this
         instance is used.
-        """
-        pr.FCProcess.__init__(self, name = "FC Archive")
 
-        self.currentPlatform = currentPlatform
+        See FCProcess for PQUEUE.
+        """
+        pr.FCProcess.__init__(self, pqueue, name = "FC Archive")
+        self.runtime = {platform : currentPlatform, printQueue : pqueue}
+
         self.P = None
+        self.modified = False
+
+    def modified(self):
+        """
+        Return whether the current profile has been modified without saving.
+        """
+        return self.modified
 
     def default(self):
         """
         Load the default profile.
         """
         self.P = cp.deepcopy(FCArchive.DEFAULT)
-        self.P[platform] = self.currentPlatform
+        self.P.update(self.runtime)
+        self.modified = False
 
     def profile(self):
         """
@@ -263,28 +268,15 @@ class FCArchive(pr.FCProcess):
         Note that nothing is saved to persistent storage unless the save method
         is called.
         """
-        # TODO: Validate?
-        self.P[attribute] = value
-        for category in FCArchive.CATEGORIES:
-            if attribute in FCArchive.CATEGORIES[category]:
-                return category
-        return UNCLASSIFIED
-
-    def add(self, attribute, value):
-        """
-        Append the value VALUE to ATTRIBUTE (same as in the set method) in the
-        current profile.
-
-        Raises a ValueError if the given ATTRIBUTE does not support adding
-        (such as periodMS or passcode; attributes like savedSlaves do support
-        appending).
-        """
-        if attribute in FCArchive.ADDABLE:
-            # TODO: Validate? (Or validate just at set?)
-            self.set(attribute, self.P[attribute] + (value,))
-        else:
-            raise ValueError(
-                "Can't add to non-addable attribute ({})".format(attribute))
+        try:
+            # TODO: Validate?
+            # Check if runtime is being modified (should we allow this?)
+            # Check if type is valid
+            # Check if value is valid
+            self.P[attribute] = value
+            self.modified = True
+        except KeyError as e:
+            self.prints("Invalid FC Archive key \"{}\"".format(attribute), us.E)
 
     def load(self, name):
         """
@@ -293,10 +285,16 @@ class FCArchive(pr.FCProcess):
         Any IOError raised will be passed to the caller, in which case the
         current profile won't be changed.
         """
-        new = pk.load(open(name, 'rb'))
-        # TODO: Validate?
-        self.P = new
-        self.P[platform] = self.currentPlatform
+        try:
+            old = self.P
+            new = pk.load(open(name, 'rb'))
+            # TODO: Validate?
+            self.P = new
+            self.P.update(self.runtime)
+            self.modified = False
+        except IOError as e:
+            self.printe(e, "Could not load profile")
+            self.P = old
 
     def save(self, name):
         """
@@ -304,23 +302,41 @@ class FCArchive(pr.FCProcess):
         Note that if a file with this name and extension exists it will be
         overwritten.
 
-        Any IOError raised will be passed to the caller.
+        IOErrors will cancel the operation and cause an error message to be
+        sent to the print queue.
         """
-        pk.dump(self.profile(), open(name, 'wb'))
+        try:
+            pk.dump(self.profile(), open(name, 'wb'))
+            self.modified = False
+        except IOError as e:
+            self.printe(e, "Could not save profile")
+
+    def update(self, update):
+        """
+        Update the current profile by replacing matching entries with
+        those in UPDATE (expected to be a Python dictionary whose keys are
+        all preexisting FCArchive keys whose values are valid).
+        """
+        for key in update:
+            self.set(key, update[key])
 
     def messageIn(self, message):
         """
         Process inter-process message MESSAGE.
         """
-        # FIXME
-
-        # TODO:
-        # - load
-        # - default
-        # - save
-        # - update
-        # - add
-        # ~ query
-        # ~ validate
-
-        pass
+        S = message[pr.SUBJECT]
+        F = message[pr.SENDER]
+        if S is DEFAULT:
+            self.prints("Loading default profile ({})".format(F))
+            self.default()
+        elif S is LOAD:
+            self.prints("Loading profile \"{}\" ({})".\
+                format(message[pr.ARGUMENTS], F))
+        elif S is SAVE:
+            self.prints("Saving profile as \"{}\"".\
+                format(message[pr.ARGUMENTS], F))
+        elif S is UPDATE:
+            self.prints("Updating profile ({})".format(F), us.D)
+        else:
+            self.prints("Unrecognized I.P. message subject \"{}\"".\
+                format(S), us.E)

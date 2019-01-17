@@ -33,7 +33,13 @@ Attribute \hfill Default value
     \begin{itemize}
         \item Name\dt{"Unnamed FC Profile"}
         \item Description\dt{\es}
-        \item Platform\dt{UNKNOWN}
+    \end{itemize}
+
+\item \textbf{Runtime}
+
+    \begin{itemize}
+        \item Platform\dt{UNKNOWN \textit{(given at runtime)}}
+        \item Print Queue\dt{\textit{mp.Queue (given at runtime)}}
     \end{itemize}
 
 \item \textbf{Network}
@@ -57,9 +63,9 @@ Attribute \hfill Default value
     \vp
     \item Default slave values (tuple)\dt{}
         \begin{itemize}
-            \item Name\dt{"Module"}
+            \item Name\dt{"FAWT Module"}
             \item MAC\dt{\textit{Given by slave}}
-            \item Index\dt{\textit{list index}}
+            \item Index\dt{\textit{assigned automatically}}
             \vp
             \item Fan model\dt{"Unknown"}
             \item Fan mode\dt{SINGLE}
