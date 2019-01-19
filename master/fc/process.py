@@ -135,7 +135,12 @@ class FCProcess:
         self.data = args
         self.stopper = None
 
-        self.prints, self.printe = us.printers(pqueue, symbol = symbol)
+
+        printers = us.printers(pqueue, symbol = symbol)
+
+        self.printr, self.printe, self.printw, self.printd, self.prints, \
+            self.printx = printers[us.R], printers[us.E], printers[us.W], \
+                printers[us.D], printers[us.S], printers[us.X]
 
         if self.isRunnable() and self.routine is None:
             raise mp.ProcessError(
@@ -334,20 +339,20 @@ class FCProcess:
             self.pipes = None
 
             if process.exitcode is None:
-                self.prints(
+                self.printw(
                     "Process '{}' timed out after {}s".\
-                        format(self.name, timeout), us.W)
+                        format(self.name, timeout))
                 while process.exitcode is None or process.is_alive():
                     process.terminate()
-                self.prints("Process '{}' terminated (timed out)".\
-                    format(self.name, timeout), us.W)
+                self.printw("Process '{}' terminated (timed out)".\
+                    format(self.name, timeout))
                 callback(False)
             else:
-                self.prints("Process '{}' stopped".format(self.name), us.D)
+                self.printd("Process '{}' stopped".format(self.name))
                 callback(True)
 
         except Exception as e:
-            self.printe(e)
+            self.printx(e)
 
     def __str__(self):
         """

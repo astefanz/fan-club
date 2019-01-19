@@ -46,7 +46,10 @@ class FCUnitTest(ut.TestCase):
     def setUp(self):
         self.Q = mp.Queue()
         self.printer = us.TerminalPrinter(self.Q)
-        self.prints, self.printe = us.printers(self.Q, symbol = self.symbol)
+        printers = us.printers(self.Q, symbol = self.symbol)
+        self.printr, self.printe, self.printw, self.printd, self.printx, \
+            self.prints = printers[us.R], printers[us.E], printers[us.W], \
+            printers[us.D], printers[us.X], printers[us.S]
         self.printer.start()
 
     def tearDown(self):
@@ -70,9 +73,11 @@ class FCProcessTest(FCUnitTest):
             sid = data['sid']
             pipes = data['pipes']
 
-            prints, printe = us.printers(data['pqueue'], "[DR]")
+            printers = us.printers(data['pqueue'], "[DR]")
+            printr, printx, printd = \
+                printers[us.R], printers[us.X], printers[us.D]
 
-            prints("[DP] DummyProcess routine started", us.D)
+            printd("[DP] DummyProcess routine started")
             gui = tk.Tk()
 
 
@@ -101,7 +106,7 @@ class FCProcessTest(FCUnitTest):
                 if thread.is_alive():
                     raise RuntimeError("DT Auxiliary thread stuck")
             except Exception as e:
-                printe(e)
+                printx(e)
                 pipes[process.MESSAGE].send(
                     process.message(0, 0, process.ERROR, (str(e),)))
 
@@ -146,7 +151,7 @@ class FCProcessTest(FCUnitTest):
 
     def test(self):
         dummy = self.DummyProcess(self.Q)
-        self.prints("[TS] FCProcess test suite started")
+        self.printr("[TS] FCProcess test suite started")
         fcpstart = tm.time()
 
         self.assertFalse(dummy.isActive())
@@ -166,7 +171,7 @@ class FCProcessTest(FCUnitTest):
         timeout = 1 # Seconds
         for key in channels:
 
-            self.prints("[TS] Sending message over key {}".format(key), us.D)
+            self.printd("[TS] Sending message over key {}".format(key))
             channels[key](process.message(
                 sender, receiver, key))
             start = tm.time()
@@ -179,8 +184,8 @@ class FCProcessTest(FCUnitTest):
             message = dummy.getMessage()
             command = dummy.getCommand()
 
-            self.prints("[TS] Messages circled back over key {} in {:.3f}s".\
-                format(key, stop - start), us.D)
+            self.printd("[TS] Messages circled back over key {} in {:.3f}s".\
+                format(key, stop - start))
 
             if message[process.SUBJECT] is process.ERROR:
                 ut.fail("[TS] Error in DummyProcess: \"{}\"".\
@@ -192,7 +197,7 @@ class FCProcessTest(FCUnitTest):
         dummy.messageIn(process.message(sender, receiver, process.STOP))
         self.assertFalse(dummy.isActive())
 
-        self.prints("[TS] Testing FCProcess' forced termination", us.D)
+        self.printd("[TS] Testing FCProcess' forced termination")
         stuck = self.StuckProcess(self.Q)
         stuck.start(profile = {})
         stuck.stop()
@@ -200,7 +205,7 @@ class FCProcessTest(FCUnitTest):
         self.assertFalse(stuck.isActive(),
             "Unable to forcibly stop stuck process")
 
-        self.prints("[TS] Testing multiple dummy processes active at once",us.D)
+        self.printd("[TS] Testing multiple dummy processes active at once")
         d1 = self.DummyProcess(self.Q)
         d2 = self.DummyProcess(self.Q)
 
@@ -218,7 +223,7 @@ class FCProcessTest(FCUnitTest):
             self.assertFalse(p.isActive(),
                 "Dummy process \"{}\" failed to stop".format(p))
 
-        self.prints("[TS] FCProcess test suite complete ({:.3f}s)".format(
+        self.printr("[TS] FCProcess test suite complete ({:.3f}s)".format(
             tm.time() - fcpstart))
 
 # archive ----------------------------------------------------------------------

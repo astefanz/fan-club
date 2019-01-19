@@ -60,6 +60,7 @@ R = 100001 # Regular
 W = 100002 # Warning
 E = 100003 # Error
 S = 100004 # Success
+X = 100005 # Exception
 
 # Message code to string marks:
 CODE_TO_STR = {
@@ -72,8 +73,7 @@ CODE_TO_STR = {
 
 # Message content indices:
 MI_CODE = 0
-MI_TIME = 1
-MI_CONT = 2
+MI_CONT = 1
 
 ## AUXILIARY FUNCTIONS #########################################################
 
@@ -81,37 +81,56 @@ MI_CONT = 2
 def printers(queue, symbol = "[--]"):
     """
     Generate and return standard FC print functions that redirect their output
-    to the multiprocess queue QUEUE after prefixing SYMBOL. A tuple of the
-    following form is returned:
-            (prints, printe)
-    Where prints takes a string to print and an optional "message code" constant
-    (defined in fc.utils) that specifies the kind of message being sent
-    (a regular message, a warning, a success message, or an error)
-    and printe expects an Exception instance and an
-    optional message and is used to print error and traceback information.
+    to the multiprocess queue QUEUE after prefixing SYMBOL. The functions are
+    returned inside a dictionary in which the constants R, W, E, S, D and X,
+    defined in fc.utils correspond as keys to 'regular,' 'warning,' 'error,'
+    'success' and 'exception' print functions.
 
-    Note that the given queue will be used through its put_nowait method, and no
-    Exception checking is done.
+    The exception print function expects an Exception instance whose traceback
+    to print and an optional string to include as an error message; all other
+    functions expect a string to print as output and an optional boolean that
+    specifies whether to append SYMBOL as a prefix.
+
+    NOTE: Debug prints can be turned on (True) or off (False) by modifying the
+    global variable fc.utils.DEBUGP.
+
+    NOTE: the given queue will be used through its put_nowait method, and no
+    Exception checking is done within the print functions.
     """
     symbol += ' '
-    def prints(message, code = R, prefix = True):
-        """
-        Send MESSAGE with message code CODE to the given print queue for output.
-        PREFIX specifies whether to prefix the given symbol.
-        """
-        if code is not D or DEBUGP:
-            queue.put_nowait(
-                (code, tm.time(), (symbol if prefix else '') + message))
-
-    def printe(exception, message = ''):
-        """
-        Format EXCEPTION along with MESSAGE (defaults to empty string) and
-        send it through the given queue for printing as an error message.
-        """
+    funcs = {}
+    def printr(message, prefix = True):
         queue.put_nowait(
-            (E, tm.time(), symbol + traceback.format_exc()))
+            (R, (symbol if prefix else '') + message))
+    funcs[R] = printr
 
-    return (prints, printe)
+    def printe(message, prefix = True):
+        queue.put_nowait(
+            (E, (symbol if prefix else '') + message))
+    funcs[E] = printe
+
+    def printw(message, prefix = True):
+        queue.put_nowait(
+            (W, (symbol if prefix else '') + message))
+    funcs[W] = printw
+
+    def printd(message, prefix = True):
+        if DEBUGP:
+            queue.put_nowait(
+                (D, (symbol if prefix else '') + message))
+    funcs[D] = printd
+
+    def prints(message, prefix = True):
+        queue.put_nowait(
+            (S, (symbol if prefix else '') + message))
+    funcs[S] = prints
+
+    def printx(exception, message = ''):
+        queue.put_nowait(
+            (E, symbol + traceback.format_exc()))
+    funcs[X] = printx
+
+    return funcs
 
 class TerminalPrinter:
     """

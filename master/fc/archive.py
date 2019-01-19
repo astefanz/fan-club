@@ -276,7 +276,7 @@ class FCArchive(pr.FCProcess):
             self.P[attribute] = value
             self.modified = True
         except KeyError as e:
-            self.prints("Invalid FC Archive key \"{}\"".format(attribute), us.E)
+            self.printe("Invalid FC Archive key \"{}\"".format(attribute))
 
     def load(self, name):
         """
@@ -293,7 +293,7 @@ class FCArchive(pr.FCProcess):
             self.P.update(self.runtime)
             self.modified = False
         except IOError as e:
-            self.printe(e, "Could not load profile")
+            self.printx(e, "Could not load profile")
             self.P = old
 
     def save(self, name):
@@ -309,7 +309,7 @@ class FCArchive(pr.FCProcess):
             pk.dump(self.profile(), open(name, 'wb'))
             self.modified = False
         except IOError as e:
-            self.printe(e, "Could not save profile")
+            self.printx(e, "Could not save profile")
 
     def update(self, update):
         """
@@ -324,19 +324,20 @@ class FCArchive(pr.FCProcess):
         """
         Process inter-process message MESSAGE.
         """
+        # FIXME: Finish options
         S = message[pr.SUBJECT]
         F = message[pr.SENDER]
         if S is DEFAULT:
-            self.prints("Loading default profile ({})".format(F))
+            self.printr("Loading default profile ({})".format(F))
             self.default()
         elif S is LOAD:
-            self.prints("Loading profile \"{}\" ({})".\
+            self.printr("Loading profile \"{}\" ({})".\
                 format(message[pr.ARGUMENTS], F))
         elif S is SAVE:
-            self.prints("Saving profile as \"{}\"".\
+            self.printr("Saving profile as \"{}\"".\
                 format(message[pr.ARGUMENTS], F))
         elif S is UPDATE:
-            self.prints("Updating profile ({})".format(F), us.D)
+            self.printd("Updating profile ({})".format(F))
         else:
-            self.prints("Unrecognized I.P. message subject \"{}\"".\
-                format(S), us.E)
+            self.printe("Unrecognized I.P. message subject \"{}\"".\
+                format(S))
