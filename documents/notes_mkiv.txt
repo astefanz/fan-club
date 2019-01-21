@@ -72,3 +72,20 @@ See:
 (Should not be a problem once interface is built... still may want to build a
 print queue)
 
+## ON STREAMLINED TKINTER GUI ##################################################
+
+- To use PAGE (a drag and drop Tkinter GUI builder) you need to install Tcl and
+'wish' (in package tk):
+
+sudo apt install tcl
+sudo apt install tk
+
+- For PAGE, see:
+http://page.sourceforge.net/
+
+- Download the archive and expand it to Home. You may hide the page directory.
+Run the 'configure' script in it (./configure)
+
+- Add the 'page' binary to your PATH so you can launch PAGE by typing it into
+the terminal emulator.
+
