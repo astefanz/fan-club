@@ -29,8 +29,10 @@
 ## IMPORTS #####################################################################
 import tkinter as tk
 import tkinter.ttk as ttk
+import time as tm
 
 import widget as wg
+import splash as spl
 
 ## AUXILIARY GLOBALS ###########################################################
 
@@ -140,7 +142,18 @@ class Base(wg.FCWidget):
 if __name__ == '__main__':
 
     print("FC GUI Base demo started")
+
+    # Splash screen:
+    S = spl.SplashHandler(spl.FCSplashWidget, 'Demo', width = 750, height = 500,
+        useFactor = False)
+
+    S.start()
+    tm.sleep(1)
+    S.stop()
+
+    # GUI:
     root = tk.Tk()
+
     base = Base(root, title = "FC MkIV Base GUI Demo", version = "Demo")
 
     top = tk.Label(base.getTopBar(), text = "Top Bar")

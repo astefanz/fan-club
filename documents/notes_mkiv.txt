@@ -89,3 +89,8 @@ Run the 'configure' script in it (./configure)
 - Add the 'page' binary to your PATH so you can launch PAGE by typing it into
 the terminal emulator.
 
+## ON TKINTER TRANSPARENCY #####################################################
+
+- OS-dependent solution. See:
+https://stackoverflow.com/questions/19080499/
+    transparent-background-in-a-tkinter-window

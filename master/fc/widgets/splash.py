@@ -73,9 +73,14 @@ class SplashFrame(tk.Frame):
 class FCSplashWidget(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
-        self.config(bg = 'red')
-        self.label = tk.Label(self, text = 'TEST')
-        self.label.pack(fill = tk.BOTH, expand = True)
+
+        self.image = tk.PhotoImage(file = "splash_tp.png")
+        self.image = self.image.subsample(2)
+        self.label = tk.Label(self, image = self.image, anchor = tk.CENTER,
+            bg = '#ff6e1f')
+        self.label.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
+
+
 
 class SplashHandler:
 
@@ -87,6 +92,7 @@ class SplashHandler:
         root = tk.Tk()
         splash = SplashFrame(master = root, widget = widget, **kwargs)
         start = tm.time()
+
 
         def r():
             while not \
@@ -166,7 +172,7 @@ if __name__ == '__main__':
     S = SplashHandler(FCSplashWidget, 'Demo', width = 800, height = 500,
         useFactor = False)
     S.start()
-    tm.sleep(3)
+    tm.sleep(1)
     S.stop()
 
     print("FC Splash Screen demo finished")
