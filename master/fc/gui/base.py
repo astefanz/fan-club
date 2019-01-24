@@ -27,13 +27,16 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
+import time as tm
 import tkinter as tk
 import tkinter.ttk as ttk
-import time as tm
 
-import widget as wg
-import splash as spl
-import profile as pro
+if __name__ == '__main__':
+    import widget as wg
+    import embedded.caltech as cte
+else:
+    from . import widget as wg
+    from .embedded import caltech as cte
 
 ## AUXILIARY GLOBALS ###########################################################
 
@@ -64,7 +67,7 @@ class Base(wg.FCWidget):
         self.topBar = tk.Frame(self, relief = 'ridge', borderwidth = 2)
         self.topBar.grid(row = 0, sticky = 'EW')
 
-        self.caltechImage = tk.PhotoImage(file = "caltech.png")
+        self.caltechImage = tk.PhotoImage(data = cte.CALTECH)
         self.caltechImage = self.caltechImage.subsample(25)
         self.caltechLabel = tk.Label(self.topBar, image = self.caltechImage)
         self.caltechLabel.pack(side = tk.LEFT, ipady = 4, padx = 6)
@@ -141,6 +144,8 @@ class Base(wg.FCWidget):
 
 ## DEMO ########################################################################
 if __name__ == '__main__':
+    import splash as spl
+    import profile as pro
 
     print("FC GUI Base demo started")
 

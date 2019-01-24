@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master" unit tests ## File:                      ##
+## Project: Fanclub Mark IV "Master"                 ## File: embedded.py     ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,13 +23,21 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Unit tests.
+ + Embedded-image solution to carry pictures into the compiled standalone.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import unittest
-import traceback
-    # See: https://stackoverflow.com/questions/3702675/
-    #   how-to-print-the-full-traceback-without-halting-the-program
+import base64 as b64
 
-## TEST CASES ##################################################################
+################################################################################
+def encode(path):
+    with open(path, 'rb') as image:
+        encoded = b64.b64encode(image.read())
+    return encoded
+
+def decode(data):
+    return b64.b64decode(data)
+
+def save(data, filename, varname):
+    with open(filename, 'wt') as F:
+        F.write("{} = {}".format(varname, data))

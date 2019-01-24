@@ -38,6 +38,11 @@ import multiprocessing as mp
 import threading as mt
 import time as tm
 
+if __name__ == "__main__":
+    import embedded.splash_tp as stp
+else:
+    from .embedded import splash_tp as stp
+
 ## AUXILIARY GLOBALS ###########################################################
 
 ## MAIN ########################################################################
@@ -74,7 +79,7 @@ class FCSplashWidget(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
 
-        self.image = tk.PhotoImage(file = "splash_tp.png")
+        self.image = tk.PhotoImage(data = stp.SPLASH)
         self.image = self.image.subsample(2)
         self.label = tk.Label(self, image = self.image, anchor = tk.CENTER,
             bg = '#ff6e1f')

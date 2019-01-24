@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master"  ## File:                                ##
+## Project: Fanclub Mark IV "Master"              ## File: guiutils.py        ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,9 +23,28 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ + Auxiliary tools for GUI.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
+import sys
+import os
 
-## MAIN ########################################################################
-# WARNING: Currently a placeholder
+## DEFINITIONS #################################################################
+def resource_path(relative_path):
+    """
+    Get absolute path to resource, works for dev and for PyInstaller.
+    e.g.
+            Logo = resource_path("Logo.png")
+    Source:
+        https://stackoverflow.com/questions/31836104/
+        pyinstaller-and-onefile-how-to-include-an-image-in-the-exe-file
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+

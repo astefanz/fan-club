@@ -82,7 +82,7 @@ warn:
 build: warn
 	@echo "WARNING: No icons yet"
 	python3 -OO -m PyInstaller \
-    --clean --onefile --name Fan\ Club main.py --distpath=$(DPATH)
+        --clean --onefile --name FanClub main.py --distpath=$(DPATH)
 
 unit:
 	python3 -m unittest

@@ -27,15 +27,43 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import debug.fcd as db
+import time as tm
+import tkinter as tk
+
+from fc.gui import splash as spl, base as bas, profile as pro
 
 ## MAIN ########################################################################
-# WARNING: Currently a placeholder
+# NOTE: Currently a GUI demo 'empty shell'
+print("FC MkIV GUI demo started")
 
-def launch():
+# Splash screen:
+S = spl.SplashHandler(spl.FCSplashWidget, 'Demo', width = 750, height = 500,
+    useFactor = False)
 
-    class Placeholder:
-        def close(self):
-            pass
+S.start()
+tm.sleep(1)
+S.stop()
 
-    return Placeholder()
+# GUI:
+root = tk.Tk()
+
+base = bas.Base(root, title = "FC MkIV Base GUI Demo", version = "Demo")
+
+top = tk.Label(base.getTopBar(), text = "Top Bar")
+base.addToTop(top)
+
+profile = pro.ProfileDisplay(base.getProfileTab())
+base.setProfileWidget(profile)
+
+network = tk.Label(base.getNetworkTab(), text = "Network Tab")
+base.setNetworkWidget(network)
+
+control = tk.Label(base.getControlTab(), text = "Control Tab")
+base.setControlWidget(control)
+
+bot = tk.Label(base.getBottomBar(), text = "Bottom Bar")
+base.addToBottom(bot)
+
+base.pack(fill = tk.BOTH, expand = True)
+root.mainloop()
+print("FC MkIV GUI demo finished")
