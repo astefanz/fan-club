@@ -33,6 +33,7 @@ import time as tm
 
 import widget as wg
 import splash as spl
+import profile as pro
 
 ## AUXILIARY GLOBALS ###########################################################
 
@@ -115,7 +116,7 @@ class Base(wg.FCWidget):
         if self.profileWidget is not None:
             self.profileWidget.destroy()
         self.profileWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True)
+        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
 
     def getNetworkTab(self):
         return self.networkTab
@@ -124,7 +125,7 @@ class Base(wg.FCWidget):
         if self.networkWidget is not None:
             self.networkWidget.destroy()
         self.networkWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True)
+        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
 
     def getControlTab(self):
         return self.controlTab
@@ -133,7 +134,7 @@ class Base(wg.FCWidget):
         if self.controlWidget is not None:
             self.controlWidget.destroy()
         self.controlWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True)
+        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
 
     def setTitle(self, title):
         self.winfo_toplevel().title(title)
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     top = tk.Label(base.getTopBar(), text = "Top Bar")
     base.addToTop(top)
 
-    profile = tk.Label(base.getProfileTab(), text = "Profile Tab")
+    profile = pro.ProfileDisplay(base.getProfileTab())
     base.setProfileWidget(profile)
 
     network = tk.Label(base.getNetworkTab(), text = "Network Tab")
