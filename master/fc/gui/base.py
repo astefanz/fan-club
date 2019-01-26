@@ -32,21 +32,19 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 if __name__ == '__main__':
-    import widget as wg
     import embedded.caltech as cte
 else:
-    from . import widget as wg
     from .embedded import caltech as cte
 
 ## AUXILIARY GLOBALS ###########################################################
 
 ## MAIN ########################################################################
-class Base(wg.FCWidget):
+class Base(tk.Frame):
 
     def __init__(self, master, title = "FC MkIV", version = "N/A"):
 
         # Core setup -----------------------------------------------------------
-        wg.FCWidget.__init__(self, master = master)
+        tk.Frame.__init__(self, master = master)
 
 
         self.screenWidth = self.master.winfo_screenwidth()
