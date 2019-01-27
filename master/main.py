@@ -49,8 +49,12 @@ root = tk.Tk()
 
 base = bas.Base(root, title = "FC MkIV Base GUI Demo", version = "Demo")
 
-top = tk.Label(base.getTopBar(), text = "Top Bar")
-base.addToTop(top)
+mcp = tk.Button(base.getTopBar(), text = "Motion Capture")
+ter = tk.Button(base.getTopBar(), text = "Console")
+hlp = tk.Button(base.getTopBar(), text = "Help")
+base.addToTop(hlp)
+base.addToTop(ter)
+base.addToTop(mcp)
 
 profile = pro.ProfileDisplay(base.getProfileTab())
 base.setProfileWidget(profile)
@@ -72,7 +76,7 @@ bot = ntw.StatusBarWidget(base.getBottomFrame())
 base.setBottom(bot)
 
 base.pack(fill = tk.BOTH, expand = True)
-base.tab(bas.Base.T_CONTROL)
+base.focusControl()
 
 root.mainloop()
 print("FC MkIV GUI demo finished")

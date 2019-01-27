@@ -41,11 +41,6 @@ else:
 ## MAIN ########################################################################
 class Base(tk.Frame):
 
-    """ Tab codes """
-    T_PROFILE = 0
-    T_NETWORK = 1
-    T_CONTROL = 2
-
     def __init__(self, master, title = "FC MkIV", version = "N/A"):
 
         # Core setup -----------------------------------------------------------
@@ -142,11 +137,14 @@ class Base(tk.Frame):
     def setTitle(self, title):
         self.winfo_toplevel().title(title)
 
-    def tab(self, code):
-        """
-        Swap to tab with tab code CODE (predefined constant class attribute).
-        """
-        self.notebook.select(code)
+    def focusProfile(self):
+        self.notebook.select(0)
+
+    def focusNetwork(self):
+        self.notebook.select(1)
+
+    def focusControl(self):
+        self.notebook.select(2)
 
 ## DEMO ########################################################################
 if __name__ == '__main__':
@@ -160,7 +158,7 @@ if __name__ == '__main__':
         useFactor = False)
 
     S.start()
-    tm.sleep(1)
+    tm.sleep(.69)
     S.stop()
 
     # GUI:
