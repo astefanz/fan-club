@@ -27,8 +27,13 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
+import os
+import shutil as sh
+
 import tkinter as tk
+import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
+import tkinter.font as fnt
 
 ## WIDGETS #####################################################################
 
@@ -125,26 +130,471 @@ class FirmwareUpdateWidget(tk.Frame):
     GUI front-end for the FC firmware update tools, i.e the Mark III
     "Bootloader."
     """
-    def __init__(self, master):
+    def __init__(self, master, printd = lambda s:None, printx = lambda e:None):
+        # Setup ................................................................
         tk.Frame.__init__(self, master)
-        # TODO finish init
-        l = tk.Label(self, text = "Firmware Update", bg = "gray", fg = "green")
-        l.pack(fill = tk.BOTH, expand = True)
+        self.main = tk.Frame(self)
+        self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
+        self.setupWidgets = []
 
-    # TODO methods
+        self.printx = printx
+        self.printd = printd
+
+        # File .................................................................
+        self.fileFrame = tk.Frame(self.main)
+        self.fileFrame.pack(fill = tk.X, expand = True)
+
+        self.fileLabel = tk.Label(self.fileFrame, text = "File: ", padx = 10,
+            pady = 5)
+        self.fileLabel.pack(side = tk.LEFT)
+
+        self.filename = ""
+        self.fileSize = 0
+        self.fileVar = tk.StringVar()
+        self.fileEntry = tk.Entry(self.fileFrame, textvariable = self.fileVar)
+        self.fileEntry.pack(side = tk.LEFT, fill = tk.X, expand = True,
+            padx = 10)
+        self.fileEntry.config(state = tk.DISABLED)
+
+        self.fileButton = tk.Button(self.fileFrame, text = "...",
+            command = self._chooseFile)
+        self.fileButton.pack(side = tk.LEFT)
+        self.setupWidgets.append(self.fileButton)
+
+        # Version ..............................................................
+        self.bottomFrame = tk.Frame(self.main)
+        self.bottomFrame.pack(fill = tk.X, expand = True)
+
+        self.versionLabel = tk.Label(self.bottomFrame, text = "Version Code: ",
+            padx = 10, pady = 5)
+        self.versionLabel.pack(side = tk.LEFT)
+
+        self.version = tk.StringVar()
+        self.versionEntry = tk.Entry(self.bottomFrame, width = 10,
+            textvariable = self.version, font = 'TkFixedFont')
+        self.versionEntry.pack(side = tk.LEFT, fill = tk.X, expand = False,
+            padx = 10)
+        self.setupWidgets.append(self.versionEntry)
+
+        # Start ................................................................
+        self.startButton = tk.Button(self.bottomFrame, command = self._start,
+            text = "Start", padx = 10, pady = 5)
+        self.startButton.pack(side = tk.LEFT, padx = 20)
+        self.inactiveLabelConfig = {'text':'(Inactive)', 'fg':'gray',
+            'font':'TkDefaultFont'}
+        self.readyLabelConfig = {'text':'Ready', 'fg':'black',
+            'font':'TkDefaultFont'}
+        self.liveLabelConfig = {'text':'LIVE', 'fg':'red',
+            'font':'TkBoldFont'}
+        self.statusLabel = tk.Label(self.bottomFrame, padx = 10, pady = 5,
+            **self.inactiveLabelConfig)
+        self.statusLabel.pack(side = tk.LEFT)
+
+        self.start = lambda f, v, s: None
+        self.stop = lambda: None
+
+        self.fileVar.trace('w', self._checkReady)
+        self.version.trace('w', self._checkReady)
+        self._inactive()
+
+    def setStartCallback(self, callback):
+        """
+        Set the method to be called to start a firmware update. The
+        method must take two string positional arguments --the name (path) of
+        the file to be uploaded and the version code-- followed by an integer
+        representing the size of the file in bytes.
+        """
+        self.start = callback
+
+    def setStopCallback(self, callback):
+        """
+        Set the method to be called to stop an ongoing firmware update. The
+        method will be called without arguments.
+        """
+        self.stop = callback
+
+    def _start(self, *args):
+        """
+        Start a firmware update.
+        """
+        self.startButton.config(text = "Starting", state = tk.DISABLED)
+        self._setWidgetState(tk.DISABLED)
+        self.start(self.filename, self.version.get(), self.fileSize)
+        self._live()
+
+    def _stop(self, *args):
+        """
+        Stop a firmware update.
+        """
+        self.startButton.config(text = "Stopping", state = tk.DISABLED)
+        self.stop()
+        self._ready()
+
+    def _chooseFile(self, *args):
+        try:
+            self._setWidgetState(tk.DISABLED)
+            self.fileVar.set(
+                fdg.askopenfilename(
+                    initialdir = os.getcwd(), # Get current working directory
+                    title = "Choose file",
+                    filetypes = (("Binary files","*.bin"),("All files","*.*"))
+                )
+            )
+            self.fileEntry.xview_moveto(1.0)
+
+            if len(self.fileVar.get()) > 0:
+
+                self.fileSize = os.path.getsize(self.fileVar.get())
+
+                # Move file to current directory:
+                newFileName = os.getcwd() + \
+                        os.sep + \
+                        os.path.basename(self.fileVar.get())
+                try:
+                    sh.copyfile(self.fileVar.get(), newFileName)
+                except sh.SameFileError:
+                    pass
+
+                self.filename = os.path.basename(newFileName)
+                self.printd(
+                    "Target binary:\n\tFile: {}"\
+                    "\n\tSize: {} bytes"\
+                    "\n\tCopied as \"{}\" for flashing".\
+                    format(
+                        self.fileVar.get(),
+                        self.fileSize,
+                        self.filename
+                    )
+                )
+                self._checkReady()
+            else:
+                self._inactive()
+        except Exception as e:
+            self.printx(e)
+            self._inactive()
+
+    def _setWidgetState(self, state):
+        """
+        Set the state of the interface widgets (entries, file chooser button...)
+        to STATE (either tk.NORMAL or tk.DISABLED).
+        """
+        for widget in self.setupWidgets:
+            widget.config(state = state)
+
+    def _inactive(self):
+        """
+        Set the widget as not ready to launch a firmware update.
+        """
+        self.startButton.config(text = "Start", command = self._start,
+            state = tk.DISABLED)
+        self.statusLabel.config(**self.inactiveLabelConfig)
+        self._setWidgetState(tk.NORMAL)
+
+    def _ready(self):
+        """
+        Set the widget as ready to launch an update.
+        """
+        self.startButton.config(text = "Start", command = self._start,
+            state = tk.NORMAL)
+        self.statusLabel.config(**self.readyLabelConfig)
+        self._setWidgetState(tk.NORMAL)
+
+    def _live(self):
+        """
+        Set the widget as currently running a firmware update.
+        """
+        self.startButton.config(text = "Stop", command = self._stop,
+            state = tk.NORMAL)
+        self.statusLabel.config(**self.liveLabelConfig)
+        self._setWidgetState(tk.DISABLED)
+
+    def _checkReady(self, *args):
+        """
+        Check whether the widget is ready to launch a firmware update and update
+        its state accordingly. ARGS is ignored
+        """
+        if len(self.filename) > 0 and len(self.version.get()) > 0 \
+            and self.fileSize > 0:
+            self._ready()
+        elif self.fileSize is 0 and len(self.filename) > 0:
+            self.printx(RuntimeError("Given file \"{}\" is empty".format(
+                self.filename)))
+        else:
+            self._inactive()
 
 # Slave list ===================================================================
 class SlaveListWidget(tk.Frame):
     """
     GUI front-end for the FC Slave List display.
     """
-    def __init__(self, master):
-        tk.Frame.__init__(self, master)
-        # TODO finish init
-        l = tk.Label(self, text = "Slave List", bg = "blue", fg = "red")
-        l.pack(fill = tk.BOTH, expand = True)
 
-    # TODO methods
+    """ Compatible status codes. """
+    CONNECTED = 'C'
+    KNOWN = 'K'
+    DISCONNECTED = 'D'
+    AVAILABLE = 'A'
+    UPDATING = 'U'
+    TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
+
+    """ Slave tuple indices. """
+    I_INDEX = 0
+    I_MAC = 1
+    I_STATUS = 2
+    I_FANS = 3
+    I_VERSION = 4
+
+    """ Status 'long' names. """
+    STATUSES = {
+        CONNECTED : 'Connected',
+        KNOWN : 'Known',
+        DISCONNECTED : 'Disconnected',
+        AVAILABLE : 'Available',
+        UPDATING : 'Updating'
+    }
+
+    def __init__(self, master):
+        # Setup ................................................................
+        tk.Frame.__init__(self, master)
+        self.main = tk.LabelFrame(self, text = "Slave List",
+            padx = 10, pady = 5)
+        self.main.pack(fill = tk.BOTH, expand = True)
+
+        self.main.grid_rowconfigure(1, weight = 1)
+        self.main.grid_columnconfigure(0, weight = 1)
+
+        # Options ..............................................................
+        self.optionsFrame = tk.Frame(self.main, pady = 5)
+        self.optionsFrame.grid(row = 2, sticky = "EW")
+
+        self.sortButton = tk.Button(self.optionsFrame, text = "Sort",
+            padx = 10, pady = 5, command = self.sort)
+        self.sortButton.pack(side = tk.LEFT, padx = 10)
+
+        self.selectAllButton = tk.Button(self.optionsFrame, text = "Select All",
+            padx = 10, pady = 5, command = self._selectAll)
+        self.selectAllButton.pack(side = tk.LEFT, padx = 10)
+
+        self.deselectAllButton = tk.Button(self.optionsFrame,
+            text = "Deselect All", padx = 10, pady = 5,
+            command = self._deselectAll)
+        self.deselectAllButton.pack(side = tk.LEFT, padx = 10)
+
+        self.autoVar = tk.BooleanVar()
+        self.autoVar.set(True)
+        self.autoButton = tk.Checkbutton(self.optionsFrame,
+            text = "Move on Change", variable = self.autoVar,
+            indicatoron = False, padx = 10, pady = 5)
+        self.autoButton.pack(side = tk.RIGHT, padx = 10)
+
+        # Slave list ...........................................................
+        self.slaveList = ttk.Treeview(self.main, selectmode = "extended")
+        self.slaveList["columns"] = ("Index","MAC","Status","Fans", "Version")
+
+        # Configure row height dynamically
+        # See: https://stackoverflow.com/questions/26957845/
+        #       ttk-treeview-cant-change-row-height
+        font = fnt.Font(family = 'TkDefaultFont', size = 12)
+        self.style = ttk.Style(self.winfo_toplevel())
+        self.style.configure('Treeview',
+            rowheight = font.metrics()['linespace'])
+
+        # Create columns:
+        self.slaveList.column('#0', width = 20, stretch = False)
+        self.slaveList.column("Index", width = 20, anchor = "center")
+        self.slaveList.column("MAC", width = 70, anchor = "center")
+        self.slaveList.column("Status", width = 70, anchor = "center")
+        self.slaveList.column("Fans", width = 50, stretch = True,
+            anchor = "center")
+        self.slaveList.column("Version", width = 50,
+            anchor = "center")
+
+        # Configure column headings:
+        self.slaveList.heading("Index", text = "Index")
+        self.slaveList.heading("MAC", text = "MAC")
+        self.slaveList.heading("Status", text = "Status")
+        self.slaveList.heading("Fans", text = "Fans")
+        self.slaveList.heading("Version", text = "Version")
+
+        # Configure tags:
+        self.slaveList.tag_configure(
+            "C",
+            background= '#d1ffcc',
+            foreground = '#0e4707',
+            font = 'TkFixedFont 12 ') # Connected
+
+        self.slaveList.tag_configure(
+            "U",
+            background ='#a6c1fc',
+            foreground= '#192560',
+            font = 'TkFixedFont 12 bold') # Bootloader
+
+        self.slaveList.tag_configure(
+        "D",
+        background= '#ffd3d3',
+        foreground ='#560e0e',
+        font = 'TkFixedFont 12 bold')# Disconnected
+
+        self.slaveList.tag_configure(
+        "K",
+        background= '#fffaba',
+        foreground ='#44370b',
+        font = 'TkFixedFont 12 bold') # Known
+
+        self.slaveList.tag_configure(
+        "A",
+        background= '#ededed',
+        foreground ='#666666',
+        font = 'TkFixedFont 12 ') # Available
+
+        # Save previous selection:
+        self.oldSelection = None
+
+        # Bind command:
+        self.slaveList.bind('<Double-1>', self._onDoubleClick)
+        self.slaveList.bind('<Control-a>', self._selectAll)
+        self.slaveList.bind('<Control-A>', self._selectAll)
+        self.slaveList.bind('<Control-d>', self._deselectAll)
+        self.slaveList.bind('<Control-D>', self._deselectAll)
+
+        self.slaveList.grid(row = 1, sticky = "NEWS")
+
+        # DATA -------------------------------------------------------------
+        self.slaves = {}
+        self.indices = []
+        self.numSlaves = 0
+
+        self.callback = lambda i: None
+
+    # API ......................................................................
+    def addSlave(self, slave):
+        """
+        Add SLAVE to the list. ValueError is raised if a slave with that index
+        already exists. SLAVE is expected to be a tuple (or list) of the form
+            (INDEX, MAC, STATUS, FANS, VERSION)
+        Where INDEX is an integer that is expected to be unique among slaves,
+        MAC and VERSION are strings, STATUS is one of the status codes
+        defined as class attributes of this class, FANS is an integer.
+        """
+        if slave[self.I_INDEX] in self.slaves:
+            raise ValueError("Repeated Slave index {}".format(slave[self.I_INDEX]))
+        elif slave[self.I_STATUS] not in self.TAGS:
+            raise ValueError("Invalid status tag \"{}\"".format(
+                slave[self.I_STATUS]))
+        else:
+            index = slave[self.I_INDEX]
+            iid = self.slaveList.insert('', 0,
+                values = (index + 1, slave[self.I_MAC],
+                    self.STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
+                    slave[self.I_VERSION]),
+                tag = slave[self.I_STATUS])
+            self.slaves[index] = slave + (iid,)
+            self.indices.append(index)
+
+    def addSlaves(self, slaves):
+        """
+        Iterate over SLAVES and add each Slave to the list. ValueError is
+        raised if two slaves share the same index.
+        """
+        for slave in slaves:
+            self.addSlave(slave)
+
+    def updateSlave(self, slave):
+        """
+        Modify the entry on SLAVE. KeyError is raised if there is no slave
+        with SLAVE's index.
+        """
+        index = slave[self.I_INDEX]
+        iid = self.slaves[index][-1]
+
+        self.slaveList.item(
+            iid, values = (index + 1, slave[self.I_MAC],
+                self.STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
+                slave[self.I_VERSION]),
+            tag = slave[self.I_STATUS])
+
+        self.slaves[self.I_INDEX] = slave + (iid,)
+
+        if self.autoVar.get():
+            self.slaveList.move(iid, '', 0)
+
+    def updateSlaves(self, slaves):
+        """
+        Iterate over SLAVES and update the existing entry on each one.
+        ValueError is raised if one slave's index is not found.
+        """
+        for slave in slaves:
+            self.updateSlave(slave)
+
+    def setStatus(self, index, status):
+        """
+        Modify only the status of the Slave at index INDEX to STATUS.
+        """
+        slave = self.slaves[index]
+        self.slaves[index] = slave[:self.I_STATUS] + (status,) \
+            + slave[self.I_STATUS + 1:]
+
+        self.slaveList.item(slave[-1],
+            values = (index + 1, slave[self.I_MAC],
+                self.STATUSES[status], slave[self.I_FANS],
+                slave[self.I_VERSION]),
+            tag = status)
+
+        if self.autoVar.get():
+            self.slaveList.move(self.slaves[index][-1], '', 0)
+
+    def clear(self):
+        """
+        Empty the list.
+        """
+        for index, slave in self.slaves.items():
+            self.slaveList.delete(slave[-1])
+        self.slaves = {}
+        self.indices = []
+
+    def selected(self, status = None):
+        """
+        Return a list of the indices of slaves selected. STATUS (optional)
+        returns a list of only the indices of slaves with such status code, if
+        any exist.
+        """
+        selected = []
+        for iid in self.slaveList.selection():
+            if status is None \
+                or self.slaveList.item(iid)['values'][self.I_STATUS] == status:
+                selected.append(
+                    self.slaveList.item(iid)['values'][self.I_INDEX] - 1)
+        return selected
+
+    def setCallback(self, callback):
+        """
+        Set the method to be called when a Slave on the list is double clicked.
+        The method will be passed one integer argument representing the index
+        of the Slave double clicked.
+        """
+        self.callback = callback
+
+    def sort(self):
+        """
+        Sort the Slaves in ascending or descending (toggle) order of index.
+        """
+        self.indices.reverse()
+        for index in self.indices:
+            self.slaveList.move(self.slaves[index][-1], '', 0)
+
+
+    # Internal methods .........................................................
+    def _onDoubleClick(self, *A):
+        if len(self.slaves) > 0:
+            selected = self.selected()
+            if len(selected) > 0:
+                self.callback(selected[0])
+
+    def _selectAll(self, *A):
+        for index, slave in self.slaves.items():
+            self.slaveList.selection_add(slave[-1])
+
+    def _deselectAll(self, *A):
+        self.slaveList.selection_set(())
 
 # Network status bar ===========================================================
 class StatusBarWidget(tk.Frame):
@@ -163,24 +613,31 @@ class NetworkWidget(tk.Frame):
     Container for all the FC network GUI front-end widgets, except the FC
     status bar.
     """
-    def __init__(self, master):
+    def __init__(self, master, printd = lambda s:None, printx = lambda e:None):
         # Core setup -----------------------------------------------------------
         tk.Frame.__init__(self, master)
-        self.grid_columnconfigure(0, weight = 1)
-        self.grid_rowconfigure(1, weight = 1)
+        self.main = tk.Frame(self)
+        self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
+
+        self.main.grid_columnconfigure(0, weight = 1)
+        self.main.grid_rowconfigure(2, weight = 1)
+
+        self.printd, self.printx = printd, printx
 
         # ----------------------------------------------------------------------
-        self.notebook = ttk.Notebook(self)
+        self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
+        self.networkFrame.grid(row = 0, sticky = "EW")
+        self.networkControl = NetworkControlWidget(self.networkFrame)
+        self.networkControl.pack(fill = tk.BOTH, expand = True)
 
-        self.networkControl = NetworkControlWidget(self.notebook)
-        self.firmwareUpdate = FirmwareUpdateWidget(self.notebook)
-        self.slaveList = SlaveListWidget(self)
+        self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
+        self.firmwareFrame.grid(row = 1, sticky = "EW")
+        self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame,
+            printd = printd, printx = printx)
+        self.firmwareUpdate.pack(fill = tk.BOTH, expand = True)
 
-        self.notebook.add(self.networkControl, text = "Network Control")
-        self.notebook.add(self.firmwareUpdate, text = "Firmware Update")
-
-        self.notebook.grid(row = 0, sticky = "EW")
-        self.slaveList.grid(row = 1, sticky = "NEWS")
+        self.slaveList = SlaveListWidget(self.main)
+        self.slaveList.grid(row = 2, sticky = "NEWS")
 
     def getNetworkControlWidget(self):
         return self.networkControl
@@ -188,13 +645,16 @@ class NetworkWidget(tk.Frame):
     def getFirmwareUpdateWidget(self):
         return self.firmwareUpdate
 
+    def getSlaveList(self):
+        return self.slaveList
+
 ## DEMO ########################################################################
 if __name__ == "__main__":
     print("FCMkIV Network GUI demo started")
 
     # Base
     mw = tk.Tk()
-    NW = NetworkWidget(mw)
+    NW = NetworkWidget(mw, printd = print, printx = print)
     N = NW.getNetworkControlWidget()
 
     for i in range(1, 4):
@@ -205,6 +665,18 @@ if __name__ == "__main__":
         print("Sending message [{}] to target [{}]".format(m, t))
 
     N.setCallback(callback)
+
+    S = NW.getSlaveList()
+
+    S.addSlaves((
+        (0, "XX:XX", 'D', 69, 'FAKE'),
+        (1, "XX:XX", 'D', 69, 'FAKE'),
+        (2, "XX:XX", 'D', 69, 'FAKE'),
+        (3, "XX:XX", 'D', 69, 'FAKE'),
+    ))
+
+    S.updateSlave((0, "XX:XX", 'C', 69, 'FAKE'))
+    S.setStatus(1, 'A')
 
     NW.pack(fill = tk.BOTH, expand = True)
     mw.mainloop()

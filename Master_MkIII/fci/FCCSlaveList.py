@@ -33,7 +33,7 @@ Custom Tkinter widget to display Slave statuses.
 # GUI:
 #from mttkinter import mtTkinter as Tk
 import tkinter as Tk
-import tkinter.filedialog 
+import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.font
 import tkinter.ttk # "Notebooks"
@@ -55,14 +55,14 @@ import FCCommunicator as cm
 
 class FCCSlaveList(Tk.Frame): # ================================================
 
-	# NOTE: Slaves are stored as: 
+	# NOTE: Slaves are stored as:
 	# [Index + 1, cm.MAC, status, fans, version, iid]
 	#          0    1       2     3    4      5
 
 	def __init__(self, master): # ==============================================
 		try:
 			# Parameters displayed:
-			# - Index 
+			# - Index
 			# - cm.MAC
 			# - Status
 			# - Fans
@@ -73,16 +73,16 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.background = "#d3d3d3"
 			self.foreground = "black"
 			self.config(
-				bg = self.background, 
+				bg = self.background,
 				relief = Tk.SUNKEN,
 				borderwidth = 2
 			)
-		
+
 			# BUILD ------------------------------------------------------------
-			
+
 			# Create list:
 			self.slaveList = tkinter.ttk.Treeview(
-				self, 
+				self,
 				selectmode="extended"
 			)
 			self.slaveList["columns"] = \
@@ -93,9 +93,9 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.slaveList.column("Index", width = 20, anchor = "center")
 			self.slaveList.column("MAC", width = 70, anchor = "center")
 			self.slaveList.column("Status", width = 70, anchor = "center")
-			self.slaveList.column("Fans", width = 50, stretch = False, 
+			self.slaveList.column("Fans", width = 50, stretch = False,
 				anchor = "center")
-			self.slaveList.column("Version", width = 50, 
+			self.slaveList.column("Version", width = 50,
 				anchor = "center")
 
 			# Configure column headings:
@@ -107,21 +107,21 @@ class FCCSlaveList(Tk.Frame): # ================================================
 
 			# Configure tags:
 			self.slaveList.tag_configure(
-				"C", 
-				background= '#d1ffcc', 
-				foreground = '#0e4707', 
+				"C",
+				background= '#d1ffcc',
+				foreground = '#0e4707',
 				font = 'TkFixedFont 12 ') # Connected
-			
+
 			self.slaveList.tag_configure(
-				"B", 
-				background ='#a6c1fc', 
-				foreground= '#192560', 
+				"B",
+				background ='#a6c1fc',
+				foreground= '#192560',
 				font = 'TkFixedFont 12 bold') # Bootloader
 
 			self.slaveList.tag_configure(
-			"D", 
-			background= '#ffd3d3', 
-			foreground ='#560e0e', 
+			"D",
+			background= '#ffd3d3',
+			foreground ='#560e0e',
 			font = 'TkFixedFont 12 bold')# Disconnected
 
 			self.slaveList.tag_configure(
@@ -131,8 +131,8 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			font = 'TkFixedFont 12 bold') # Known
 
 			self.slaveList.tag_configure(
-			"A", 
-			background= '#ededed', 
+			"A",
+			background= '#ededed',
 			foreground ='#666666',
 			font = 'TkFixedFont 12 ') # Available
 
@@ -151,22 +151,22 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			# DATA -------------------------------------------------------------
 			self.slaves = {}
 			self.numSlaves = 0
-			
+
 			#self.pack(fill = Tk.BOTH, expand = True, side = Tk.TOP)
 
-		
+
 		except Exception as e: # Print uncaught exceptions
 			tkinter.messagebox.showerror(title = "FCMkII Fatal Error",
 				message = "Warning: Uncaught exception in "\
 				"SList constructor: \"{}\"".\
 				format(traceback.format_exc()))
-		
+
 		# End __init__ =========================================================
 
 	def addSlaves(self, newSlaves): # ==========================================
 		# Expected format:
 		# (Index, cm.MAC, Status, Fans, Version)
-	
+
 		for newSlave in newSlaves:
 
 			if newSlave[cm.INDEX] in self.slaves:
@@ -176,7 +176,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			else:
 				index = newSlave[cm.INDEX]
 				iid = self.slaveList.insert(
-					'', 
+					'',
 					0,
 					values = (
 						index + 1,
@@ -188,13 +188,13 @@ class FCCSlaveList(Tk.Frame): # ================================================
 					tag = sv.translate(newSlave[cm.STATUS], True)
 				)
 				self.slaves[index] = newSlave + (iid,)
-		
+
 		# End add ==============================================================
 
 	def updateSlaves(self, slaves): # ==========================================
 		# Expected format:
 		# (Index, cm.MAC, Status, Fans, Version)
-	
+
 		for newValues in slaves:
 			index = newValues[cm.INDEX]
 			iid = self.slaves[index][cm.IID]
@@ -202,7 +202,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.slaves[index] = newValues + (iid,)
 
 			self.slaveList.item(
-				iid,	
+				iid,
 				values = (
 						index + 1,
 						newValues[cm.MAC],
@@ -211,7 +211,7 @@ class FCCSlaveList(Tk.Frame): # ================================================
 						newValues[cm.VERSION]
 						),
 				tag = sv.translate(newValues[cm.STATUS], True)
-			)	
+			)
 
 			if newValues[cm.STATUS] is not sv.CONNECTED:
 				self.slaveList.move(
@@ -267,14 +267,14 @@ class FCCSlaveList(Tk.Frame): # ================================================
 		del self.slaves[index]
 
 		# End remove ===========================================================
-	
+
 	def getSelection(self, statusFilter = None): # =============================
-	
+
 		selection = ()
 		for iid in self.slaveList.selection():
 			if statusFilter is None or \
-				selfslaveList.item(iid)['values'][cm.STATUS] == statusFilter:
-				
+				self.slaveList.item(iid)['values'][cm.STATUS] == statusFilter:
+
 				selection += (
 					self.slaveList.item(iid)['values'][cm.INDEX] - 1,
 				)
@@ -288,20 +288,20 @@ class FCCSlaveList(Tk.Frame): # ================================================
 		# and selects such Slaves in the SlaveList... If the list is omitted,
 		# all Slaves will be selected. Optional argument "status" will cause
 		# this function to only select Slaves with the given status code.
-		
+
 		#iids = []
 
 		if selection is None:
 			iterable = self.slaves
 		else:
 			iterable = selection
-		
+
 		for index in iterable:
 			if status is None or self.slaves[index][cm.STATUS] == status:
 				#iids.append(self.slaves[index][cm.IID])
 				self.slaveList.selection_add(self.slaves[index][cm.IID])
 				#print "Selected {}: {}".format(index, self.slaves[index][cm.IID])
-		
+
 		#self.slaveList.selection_add(tuple(iids))
 
 		# End setSelection =====================================================
@@ -312,14 +312,14 @@ class FCCSlaveList(Tk.Frame): # ================================================
 			self.slaveList.selection_add(self.slaves[index][cm.IID])
 
 		# End selectAll ========================================================
-	
+
 	def toggleAll(self, event): # ==============================================
 		for index in self.slaves:
 			#iids.append(self.slaves[index][cm.IID])
 			self.slaveList.selection_toggle(self.slaves[index][cm.IID])
 
 		# End toggleAll ========================================================
-	
+
 	def deselectAll(self, event): # ============================================
 		#iids.append(self.slaves[index][cm.IID])
 		self.slaveList.selection_set(())
@@ -330,22 +330,22 @@ class FCCSlaveList(Tk.Frame): # ================================================
 	def setStatus(self, index, newStatus): # ===================================
 
 		self.slaves[index][2] = sv.translate(newStatus)
-		self.slaveList.item(self.slaves[index][-1], # <- cm.IID 
+		self.slaveList.item(self.slaves[index][-1], # <- cm.IID
 			values = self.slaves[index],
 			tag = sv.translate(newStatus, True))
 
 		# Move:
 		if newStatus is not sv.CONNECTED:
 			self.slaveList.move(self.slaves[index][-1], '', 0)
-			
+
 		# End setStatus ========================================================
-	
+
 	def setVersion(self, index, newVersion): # =================================
 
 		self.slaves[index][4] = sv.translate(newVersion)
-		self.slaveList.item(self.slaves[index][-1], # <- cm.IID 
+		self.slaveList.item(self.slaves[index][-1], # <- cm.IID
 			values = self.slaves[index],
-			
+
 		# End setVersion ========================================================
 	"""
 
@@ -357,23 +357,23 @@ class FCCSlaveList(Tk.Frame): # ================================================
 ## TEST SUITE ##################################################################
 
 if __name__ is '__main__':
-	
+
 	import threading as tr
 	import time as tm
 
 	def _routine(sl): # --------------------------------------------------------
-		
+
 		sl.add((1,'COUNTRY:ROAD', sv.KNOWN, 47, 'Freedom'))
 		tm.sleep(.2)
 		sl.add((2,'PI:V', sv.CONNECTED, 75, 'Freedom'))
 		tm.sleep(.2)
-		
+
 		sl.update((1,'PI:V', sv.DISCONNECTED, 75, 'Freedom'))
 		tm.sleep(.2)
-		
+
 		sl.clear()
 		tm.sleep(.2)
-		
+
 		sl.add((0, 'Doodle', sv.DISCONNECTED, 22, 'Doods'))
 		tm.sleep(.2)
 		sl.remove(0)
@@ -400,7 +400,7 @@ if __name__ is '__main__':
 
 	sl = SlaveList(frame)
 	sl.pack(fill = Tk.BOTH, expand = True)
-	
+
 	thread = tr.Thread(target = _routine, args = (sl,))
 	thread.setDaemon(True)
 	thread.start()
