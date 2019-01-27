@@ -30,7 +30,7 @@
 import time as tm
 import tkinter as tk
 
-from fc.gui import splash as spl, base as bas, profile as pro
+from fc.gui import splash as spl, base as bas, profile as pro, network as ntw
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
@@ -55,15 +55,24 @@ base.addToTop(top)
 profile = pro.ProfileDisplay(base.getProfileTab())
 base.setProfileWidget(profile)
 
-network = tk.Label(base.getNetworkTab(), text = "Network Tab")
+network = ntw.NetworkWidget(base.getNetworkTab())
 base.setNetworkWidget(network)
+
+netWidget = network.getNetworkControlWidget()
+netWidget.addTarget("All", 1)
+netWidget.addTarget("Selected", 2)
+
+for message, code in {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}.items():
+    netWidget.addMessage(message, code)
 
 control = tk.Label(base.getControlTab(), text = "Control Tab")
 base.setControlWidget(control)
 
-bot = tk.Label(base.getBottomBar(), text = "Bottom Bar")
-base.addToBottom(bot)
+bot = ntw.StatusBarWidget(base.getBottomFrame())
+base.setBottom(bot)
 
 base.pack(fill = tk.BOTH, expand = True)
+base.tab(bas.Base.T_CONTROL)
+
 root.mainloop()
 print("FC MkIV GUI demo finished")

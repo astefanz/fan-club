@@ -28,12 +28,50 @@
 
 ## IMPORTS #####################################################################
 import os
+import time as tm
 import shutil as sh
 
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
+
+## GLOBALS #####################################################################
+
+""" Status codes. """
+CONNECTED = 'C'
+KNOWN = 'K'
+DISCONNECTED = 'D'
+AVAILABLE = 'A'
+UPDATING = 'U'
+TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
+
+""" Status 'long' names. """
+STATUSES = {
+    CONNECTED : 'Connected',
+    KNOWN : 'Known',
+    DISCONNECTED : 'Disconnected',
+    AVAILABLE : 'Available',
+    UPDATING : 'Updating'
+}
+
+""" Status foreground colors. """
+FOREGROUNDS = {
+    CONNECTED : '#0e4707',
+    KNOWN : '#44370b',
+    DISCONNECTED : '#560e0e',
+    AVAILABLE : '#666666',
+    UPDATING : '#192560'
+}
+
+""" Status background colors. """
+BACKGROUNDS = {
+    CONNECTED : '#d1ffcc',
+    KNOWN : '#fffaba',
+    DISCONNECTED : '#ffd3d3',
+    AVAILABLE : '#ededed',
+    UPDATING : '#a6c1fc'
+}
 
 ## WIDGETS #####################################################################
 
@@ -49,6 +87,28 @@ class NetworkControlWidget(tk.Frame):
 
         frameconfig = {"side" : tk.TOP, "fill" : tk.BOTH, "expand" : True,
             "padx" : 10, "pady" : 5}
+
+        # Connection ...........................................................
+        self.isConnected = False
+        self._connectCallback = lambda: None
+        self._disconnectCallback = lambda: None
+
+        self.connectionFrame = tk.Frame(self, relief = tk.RIDGE, bd = 1)
+        self.connectionFrame.pack(**frameconfig)
+
+        self.connectButton = tk.Button(self.connectionFrame, text = "Connect",
+            command = self._onConnect, padx = 10, pady = 5, width = 12)
+        self.connectButton.pack(side = tk.LEFT, padx = 0, fill = tk.Y)
+
+        self.connectionVar = tk.StringVar()
+        self.connectionVar.set("TEST")
+        self.connectionLabel = tk.Label(self.connectionFrame,
+            textvariable = self.connectionVar, width = 15,
+            relief = tk.SUNKEN, font = "Courier 10 bold", padx = 10, pady = 5)
+        self.connectionLabel.pack(side = tk.RIGHT, fill = tk.Y, pady = 5,
+            padx = 10)
+
+        self.activeWidgets = []
 
         # Target ...............................................................
         self.targetFrame = tk.Frame(self)
@@ -78,16 +138,35 @@ class NetworkControlWidget(tk.Frame):
         self.sendButton = tk.Button(self.sendFrame, text = "Send",
             command = self._send, padx = 10, pady = 5)
         self.sendButton.pack(side = tk.LEFT)
-        self.callback = lambda t, m: None
+        self.sendCallback = lambda t, m: None
+        self.activeWidgets.append(self.sendButton)
 
-    def setCallback(self, callback):
+        # Wrap-up ..............................................................
+        self.disconnected()
+
+    # API ......................................................................
+    def setConnectCallback(self, callback):
+        """
+        Set the method to be called, without arguments, when the "Connect"
+        button is pressed.
+        """
+        self._connectCallback = callback
+
+    def setDisconnectCallback(self, callback):
+        """
+        Set the method to be called, without arguments, when the "Disconnect"
+        button is pressed.
+        """
+        self._disconnectCallback = callback
+
+    def setSendCallback(self, callback):
         """
         Set the method to be called when the "Send" button is pressed. CALLBACK
         must receie two integer codes, the first of which refers to the selected
         target and the second to the selected message. (See addTarget and
         addMessage)
         """
-        self.callback = callback
+        self.sendCallback = callback
 
     def addTarget(self, name, code):
         """
@@ -96,9 +175,11 @@ class NetworkControlWidget(tk.Frame):
         """
         button = tk.Radiobutton(self.targetFrame, text = name, value = code,
             variable = self.target, indicatoron = False, padx = 10, pady = 5)
+        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
 
-        button.pack(side = tk.LEFT, anchor = tk.W)
+        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
         self.targetButtons.append(button)
+        self.activeWidgets.append(button)
 
         if len(self.targetButtons) is 1:
             self.target.set(code)
@@ -110,19 +191,76 @@ class NetworkControlWidget(tk.Frame):
         """
         button = tk.Radiobutton(self.messageFrame, text = name, value = code,
             variable = self.message, indicatoron = False, padx = 10, pady = 5)
+        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
 
-        button.pack(side = tk.LEFT, anchor = tk.W)
+        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
         self.messageButtons.append(button)
+        self.activeWidgets.append(button)
 
         if len(self.messageButtons) is 1:
             self.message.set(code)
+
+    def connecting(self):
+        """
+        Indicate that a connection is being activated.
+        """
+        self.connectButton.config(state = tk.DISABLED, text = "Connecting")
+        self._setWidgetState(tk.DISABLED)
+        self.isConnected = False
+
+    def connected(self):
+        """
+        Indicate that there is an active network connection.
+        """
+        self.connectButton.config(state = tk.NORMAL, text = "Disconnect",
+            command = self._onDisconnect)
+        self.connectionVar.set("Connected")
+        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED])
+        self._setWidgetState(tk.NORMAL)
+        self.isConnected = True
+
+    def disconnecting(self):
+        """
+        Indicate that a connection is being terminated.
+        """
+        self.connectButton.config(state = tk.DISABLED, text = "Disconnecting")
+        self._setWidgetState(tk.DISABLED)
+        self.isConnected = False
+
+    def disconnected(self):
+        """
+        Indicate that there is an active network connection.
+        """
+        self.connectButton.config(state = tk.NORMAL, text = "Connect",
+            command = self._onConnect)
+        self.connectionVar.set("Disconnected")
+        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED])
+        self._setWidgetState(tk.DISABLED)
+        self.isConnected = False
+
+    # Internal methods .........................................................
+    def _onConnect(self, *event):
+        self._connectCallback()
+        self.connected()
+
+    def _onDisconnect(self, *event):
+        self._disconnectCallback()
+        self.disconnected()
 
     def _send(self, *E):
         """
         Call the given callback and pass it the currently selected target and
         message codes. Nonexistent codes are set to 0.
         """
-        self.callback(self.target.get(), self.message.get())
+        self.sendCallback(self.target.get(), self.message.get())
+
+    def _setWidgetState(self, state):
+        """
+        Set the state of all network control 'interactive' widgets, such as
+        buttons, to the Tkinter state STATE.
+        """
+        for button in self.activeWidgets:
+            button.config(state = state)
 
 # Firmware update ==============================================================
 class FirmwareUpdateWidget(tk.Frame):
@@ -328,13 +466,6 @@ class SlaveListWidget(tk.Frame):
     GUI front-end for the FC Slave List display.
     """
 
-    """ Compatible status codes. """
-    CONNECTED = 'C'
-    KNOWN = 'K'
-    DISCONNECTED = 'D'
-    AVAILABLE = 'A'
-    UPDATING = 'U'
-    TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
 
     """ Slave tuple indices. """
     I_INDEX = 0
@@ -343,14 +474,6 @@ class SlaveListWidget(tk.Frame):
     I_FANS = 3
     I_VERSION = 4
 
-    """ Status 'long' names. """
-    STATUSES = {
-        CONNECTED : 'Connected',
-        KNOWN : 'Known',
-        DISCONNECTED : 'Disconnected',
-        AVAILABLE : 'Available',
-        UPDATING : 'Updating'
-    }
 
     def __init__(self, master):
         # Setup ................................................................
@@ -362,28 +485,30 @@ class SlaveListWidget(tk.Frame):
         self.main.grid_rowconfigure(1, weight = 1)
         self.main.grid_columnconfigure(0, weight = 1)
 
+        bc = {'font':"TkDefaultFont 7"}
+
         # Options ..............................................................
         self.optionsFrame = tk.Frame(self.main, pady = 5)
         self.optionsFrame.grid(row = 2, sticky = "EW")
 
         self.sortButton = tk.Button(self.optionsFrame, text = "Sort",
-            padx = 10, pady = 5, command = self.sort)
+            padx = 10, pady = 5, command = self.sort, **bc)
         self.sortButton.pack(side = tk.LEFT, padx = 10)
 
         self.selectAllButton = tk.Button(self.optionsFrame, text = "Select All",
-            padx = 10, pady = 5, command = self._selectAll)
+            padx = 10, pady = 5, command = self._selectAll, **bc)
         self.selectAllButton.pack(side = tk.LEFT, padx = 10)
 
         self.deselectAllButton = tk.Button(self.optionsFrame,
             text = "Deselect All", padx = 10, pady = 5,
-            command = self._deselectAll)
+            command = self._deselectAll, **bc)
         self.deselectAllButton.pack(side = tk.LEFT, padx = 10)
 
         self.autoVar = tk.BooleanVar()
         self.autoVar.set(True)
         self.autoButton = tk.Checkbutton(self.optionsFrame,
             text = "Move on Change", variable = self.autoVar,
-            indicatoron = False, padx = 10, pady = 5)
+            indicatoron = False, padx = 10, pady = 5, **bc)
         self.autoButton.pack(side = tk.RIGHT, padx = 10)
 
         # Slave list ...........................................................
@@ -417,34 +542,34 @@ class SlaveListWidget(tk.Frame):
 
         # Configure tags:
         self.slaveList.tag_configure(
-            "C",
-            background= '#d1ffcc',
-            foreground = '#0e4707',
-            font = 'TkFixedFont 12 ') # Connected
+            CONNECTED,
+            background = BACKGROUNDS[CONNECTED],
+            foreground = FOREGROUNDS[CONNECTED],
+            font = 'Courier 12 ')
 
         self.slaveList.tag_configure(
-            "U",
-            background ='#a6c1fc',
-            foreground= '#192560',
-            font = 'TkFixedFont 12 bold') # Bootloader
+            UPDATING,
+            background = BACKGROUNDS[UPDATING],
+            foreground = FOREGROUNDS[UPDATING],
+            font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-        "D",
-        background= '#ffd3d3',
-        foreground ='#560e0e',
-        font = 'TkFixedFont 12 bold')# Disconnected
+            DISCONNECTED,
+            background = BACKGROUNDS[DISCONNECTED],
+            foreground = FOREGROUNDS[DISCONNECTED],
+            font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-        "K",
-        background= '#fffaba',
-        foreground ='#44370b',
-        font = 'TkFixedFont 12 bold') # Known
+            KNOWN,
+            background = BACKGROUNDS[KNOWN],
+            foreground = FOREGROUNDS[KNOWN],
+            font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-        "A",
-        background= '#ededed',
-        foreground ='#666666',
-        font = 'TkFixedFont 12 ') # Available
+            AVAILABLE,
+            background = BACKGROUNDS[AVAILABLE],
+            foreground = FOREGROUNDS[AVAILABLE],
+            font = 'Courier 12 ')
 
         # Save previous selection:
         self.oldSelection = None
@@ -477,14 +602,14 @@ class SlaveListWidget(tk.Frame):
         """
         if slave[self.I_INDEX] in self.slaves:
             raise ValueError("Repeated Slave index {}".format(slave[self.I_INDEX]))
-        elif slave[self.I_STATUS] not in self.TAGS:
+        elif slave[self.I_STATUS] not in TAGS:
             raise ValueError("Invalid status tag \"{}\"".format(
                 slave[self.I_STATUS]))
         else:
             index = slave[self.I_INDEX]
             iid = self.slaveList.insert('', 0,
                 values = (index + 1, slave[self.I_MAC],
-                    self.STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
+                    STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
                     slave[self.I_VERSION]),
                 tag = slave[self.I_STATUS])
             self.slaves[index] = slave + (iid,)
@@ -508,7 +633,7 @@ class SlaveListWidget(tk.Frame):
 
         self.slaveList.item(
             iid, values = (index + 1, slave[self.I_MAC],
-                self.STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
+                STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
                 slave[self.I_VERSION]),
             tag = slave[self.I_STATUS])
 
@@ -534,9 +659,8 @@ class SlaveListWidget(tk.Frame):
             + slave[self.I_STATUS + 1:]
 
         self.slaveList.item(slave[-1],
-            values = (index + 1, slave[self.I_MAC],
-                self.STATUSES[status], slave[self.I_FANS],
-                slave[self.I_VERSION]),
+            values = (index + 1, slave[self.I_MAC], STATUSES[status],
+                slave[self.I_FANS], slave[self.I_VERSION]),
             tag = status)
 
         if self.autoVar.get():
@@ -601,11 +725,110 @@ class StatusBarWidget(tk.Frame):
     """
     GUI front-end for the FC "status bar."
     """
-    def __init__(self, master):
-        tk.Frame.__init__(self, master)
-        # TODO finish init
 
-    # TODO methods
+    TOTAL = 'T'
+
+    def __init__(self, master):
+        # Setup ................................................................
+        tk.Frame.__init__(self, master)
+        self.config(relief = tk.RIDGE, borderwidth = 2)
+
+        # Status counters ......................................................
+        self.statusFrame = tk.Frame(self, relief = tk.SUNKEN, borderwidth = 0)
+        self.statusFrame.pack(side = tk.LEFT)
+
+        self.statusFrames = {}
+        self.statusVars, self.statusLabels, self.statusDisplays  = {}, {}, {}
+
+        for code, name in ((self.TOTAL, "Total"),) + tuple(STATUSES.items()):
+            self.statusFrames[code] = tk.Frame(self.statusFrame,
+                relief = tk.SUNKEN, bd = 1)
+            self.statusFrames[code].pack(side = tk.LEFT, padx = 5, pady = 3)
+
+            self.statusVars[code] = tk.IntVar()
+            self.statusVars[code].set(0)
+
+            self.statusLabels[code] = tk.Label(self.statusFrames[code],
+                text = name + ": ", font = "Courier 7", padx = 10, pady = 5,
+                fg = FOREGROUNDS[code] if code in FOREGROUNDS else 'black')
+            self.statusLabels[code].pack(side = tk.LEFT, pady = 5)
+
+            self.statusDisplays[code] = tk.Label(self.statusFrames[code],
+                textvariable = self.statusVars[code], font = "Courier 7",
+                padx = 10, pady = 5,
+                fg = FOREGROUNDS[code] if code in FOREGROUNDS else 'black')
+            self.statusDisplays[code].pack(side = tk.LEFT)
+
+        # Buttons ..............................................................
+        self._shutdownCallback = lambda: None
+
+        self.buttonFrame = tk.Frame(self)
+        self.buttonFrame.pack(side = tk.RIGHT, fill = tk.Y)
+
+        self.shutdownButton = tk.Button(self.buttonFrame, text = "SHUTDOWN",
+            command = self._onShutdown, padx = 10,
+            font = "Calibri 9 bold",
+            highlightbackground= 'black',
+            activebackground = "#560e0e", activeforeground = "#ffd3d3",
+            foreground ='#560e0e')
+        self.shutdownButton.pack(side = tk.RIGHT, fill = tk.Y)
+
+
+    # API ......................................................................
+    def setShutdownCallback(self, callback):
+        """
+        Set the method to be called, without arguments, when the "Shutdown"
+        button is pressed.
+        """
+        self._shutdownCallback = callback
+
+    def setCount(self, status, count):
+        """
+        Set the status counter that corresponds to status code STATUS to COUNT.
+        """
+        self.statusVars[status].set(count)
+
+    def addCount(self, status, count = 1):
+        """
+        Add COUNT (defaults to 1) to the current value in the status counter
+        that corresponds to status code STATUS.
+        """
+        self.statusVars[status].set(count + self.statusVars[status].get())
+
+    def getCount(self, status):
+        """
+        Return the current count corresponding to status code STATUS.
+        """
+        return self.statusVars[status].get()
+
+    def setTotal(self, count):
+        """
+        Set the total counter to COUNT.
+        """
+        self.statusVars[self.TOTAL].set(count)
+
+    def addTotal(self, count = 1):
+        """
+        Add COUNT (defaults to 1) to the total counter.
+        """
+        self.statusVars[self.TOTAL].set(count + self.statusVars[self.TOTAL])
+
+    def getTotal(self):
+        """
+        Return the current total.
+        """
+        return self.statusVars[self.TOTAL].get()
+
+    def clear(self):
+        """
+        Set all counters to 0
+        """
+        for count in self.statusVars.values():
+            count.set(0)
+
+    # Internal methods .........................................................
+    def _onShutdown(self, *event):
+        self._shutdownCallback()
 
 ## BASE ########################################################################
 class NetworkWidget(tk.Frame):
@@ -678,9 +901,20 @@ if __name__ == "__main__":
     S.updateSlave((0, "XX:XX", 'C', 69, 'FAKE'))
     S.setStatus(1, 'A')
 
-    NW.pack(fill = tk.BOTH, expand = True)
-    mw.mainloop()
+    mw.grid_columnconfigure(0, weight = 1)
+    mw.grid_rowconfigure(0, weight = 1)
+    NW.grid(row = 0, sticky = "NEWS")
 
-    # Status bar
+    SB = StatusBarWidget(mw)
+    SB.grid(row = 1, sticky = "EW")
+
+    SB.setCount(CONNECTED, 10)
+    for i in range(3):
+        SB.addCount(DISCONNECTED)
+
+    SB.addCount(CONNECTED, -1)
+    SB.setTotal(SB.getCount(CONNECTED))
+
+    mw.mainloop()
 
     print("FCMkIV Network GUI demo finished")

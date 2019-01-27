@@ -41,6 +41,11 @@ else:
 ## MAIN ########################################################################
 class Base(tk.Frame):
 
+    """ Tab codes """
+    T_PROFILE = 0
+    T_NETWORK = 1
+    T_CONTROL = 2
+
     def __init__(self, master, title = "FC MkIV", version = "N/A"):
 
         # Core setup -----------------------------------------------------------
@@ -59,7 +64,6 @@ class Base(tk.Frame):
 
         self.version = version
         # Containers -----------------------------------------------------------
-        K = self.kwargs
 
         # Top bar ..............................................................
         self.topBar = tk.Frame(self, relief = 'ridge', borderwidth = 2)
@@ -68,6 +72,7 @@ class Base(tk.Frame):
         self.caltechImage = tk.PhotoImage(data = cte.CALTECH)
         self.caltechImage = self.caltechImage.subsample(25)
         self.caltechLabel = tk.Label(self.topBar, image = self.caltechImage)
+
         self.caltechLabel.pack(side = tk.LEFT, ipady = 4, padx = 6)
 
         self.topWidgets = []
@@ -89,12 +94,9 @@ class Base(tk.Frame):
         self.notebook.grid(row = 1, sticky = 'NWES')
 
         # Bottom bar ...........................................................
-        self.bottomBar = tk.Frame(self, relief = 'ridge', borderwidth = 2)
+        self.bottomBar = tk.Frame(self)
         self.bottomBar.grid(row = 2, sticky = 'EW')
-        self.versionLabel = tk.Label(self.bottomBar,
-            text = "Version: \"{}\"".format(self.version))
-        self.versionLabel.pack(side = tk.RIGHT, padx = 6)
-        self.bottomWidgets = []
+        self.bottomWidget = None
 
     def getTopBar(self):
         return self.topBar
@@ -103,12 +105,12 @@ class Base(tk.Frame):
         self.topWidgets.append(widget)
         widget.pack(side = tk.RIGHT)
 
-    def getBottomBar(self):
+    def getBottomFrame(self):
         return self.bottomBar
 
-    def addToBottom(self, widget):
-        self.bottomWidgets.append(widget)
-        widget.pack(side = tk.LEFT)
+    def setBottom(self, widget):
+        self.bottomWidget = widget
+        widget.pack(side = tk.LEFT, fill = tk.X, expand = True)
 
     def getProfileTab(self):
         return self.profileTab
@@ -139,6 +141,12 @@ class Base(tk.Frame):
 
     def setTitle(self, title):
         self.winfo_toplevel().title(title)
+
+    def tab(self, code):
+        """
+        Swap to tab with tab code CODE (predefined constant class attribute).
+        """
+        self.notebook.select(code)
 
 ## DEMO ########################################################################
 if __name__ == '__main__':
