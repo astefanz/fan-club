@@ -45,7 +45,8 @@ class BaseGrid(tk.Frame):
         cell color changes. """
 
 
-    def __init__(self, master, R, C, cursor = 'crosshair', empty = "white"):
+    def __init__(self, master, R, C, cursor = 'crosshair', empty = "white",
+        minCell = 10):
         """
         Initialize an R row and C column 2D grid as a TKinter widget with parent
         MASTER.
@@ -59,6 +60,7 @@ class BaseGrid(tk.Frame):
         self.master = master
         self.R = R
         self.C = C
+        self.minCell = minCell
 
         self.canvas = None
         self.empty = empty
@@ -84,9 +86,18 @@ class BaseGrid(tk.Frame):
         self.canvas = tk.Canvas(self)
         self.canvas.pack(fill = tk.BOTH, expand = True)
 
+        self.winfo_toplevel().update_idletasks()
         self.margin = margin
-        self.maxWidth = self.master.winfo_width() - self.margin
-        self.maxHeight = self.master.winfo_height() - self.margin
+        self.maxWidth = self.winfo_width() - self.margin
+        self.maxHeight = self.winfo_height() - self.margin
+
+        if self.maxWidth <= 0 or self.maxHeight <= 0:
+
+            self.config(width = self.minCell*self.C,
+                height = self.minCell*self.R)
+
+            self.maxWidth = self.winfo_reqwidth() - self.margin
+            self.maxHeight = self.winfo_reqheight() - self.margin
 
         self.cellLength = cellLength if cellLength is not None else int(
             min(self.maxHeight/self.R, self.maxWidth/self.C))

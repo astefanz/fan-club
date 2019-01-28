@@ -30,7 +30,8 @@
 import time as tm
 import tkinter as tk
 
-from fc.gui import splash as spl, base as bas, profile as pro, network as ntw
+from fc.gui import splash as spl, base as bas, profile as pro, network as ntw, \
+    control as ctr
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
@@ -69,7 +70,7 @@ netWidget.addTarget("Selected", 2)
 for message, code in {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}.items():
     netWidget.addMessage(message, code)
 
-control = tk.Label(base.getControlTab(), text = "Control Tab")
+control = ctr.ControlWidget(base.getControlTab())
 base.setControlWidget(control)
 
 bot = ntw.StatusBarWidget(base.getBottomFrame())
@@ -77,6 +78,7 @@ base.setBottom(bot)
 
 base.pack(fill = tk.BOTH, expand = True)
 base.focusControl()
+control.grid.d()
 
 root.mainloop()
 print("FC MkIV GUI demo finished")

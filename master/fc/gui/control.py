@@ -37,8 +37,10 @@ import tkinter.font as fnt
 
 if __name__ == "__main__":
     import embedded.colormaps as cms
+    import grid as gd
 else:
     from .embedded import colormaps as cms
+    from . import grid as gd
 
 ## GLOBALS #####################################################################
 # Pre-defined configurations:
@@ -369,15 +371,26 @@ class ControlPanelWidget(tk.Frame):
         # TODO
         pass
 
-class GridWidget(tk.Frame):
+class GridWidget(gd.BaseGrid):
     """
     Front end for the 2D interactive Grid.
     """
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
-        tk.Frame.__init__(self, master)
+    def __init__(self, master, R, C, printr = lambda s:None,
+        printx = lambda e:None):
+        # Setup ................................................................
+        gd.BaseGrid.__init__(self, master, R, C)
+        self.config(cursor = "fleur")
+        self.bind("<ButtonPress-1>", self.d)
+
+        self.d()
         # FIXME
-        l = tk.Label(self, text = "Grid", bg = 'white', fg = 'black')
-        l.pack(fill = tk.BOTH, expand = True)
+
+    def d(self, *E):
+        self.draw(margin = 10)
+        self.canvas.bind("<ButtonPress-1>", self.d)
+
+    # FIXME
+
 
 class ColorBarWidget(tk.Frame):
     """
@@ -463,7 +476,7 @@ class ControlWidget(tk.Frame):
         self.main.add(self.control, weight = 2)
         # Grid -----------------------------------------------------------------
         # FIXME
-        self.grid = GridWidget(self.main, printr, printx)
+        self.grid = GridWidget(self.main, 32, 32, printr, printx)
         self.main.add(self.grid, weight = 16)
 
         # Color Bar ------------------------------------------------------------
