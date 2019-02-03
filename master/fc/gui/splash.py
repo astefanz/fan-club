@@ -98,7 +98,6 @@ class SplashHandler:
         splash = SplashFrame(master = root, widget = widget, **kwargs)
         start = tm.time()
 
-
         def r():
             while not \
                 (lock.acquire(block = False) and \
@@ -113,7 +112,8 @@ class SplashHandler:
         thread.start()
         root.mainloop()
 
-    def __init__(self, widget, version, timeout = None, **kwargs):
+    def __init__(self, version, timeout = None, widget = FCSplashWidget,
+        **kwargs):
         """
         WIDGET is a class that inherits from Tkinter's Frame class, to be
         instantiated with no arguments (other than a parent Frame), and packed
@@ -149,6 +149,16 @@ class SplashHandler:
         """
         if self.isActive():
             self.lock.release()
+
+    def join(self, timeout = None):
+        """
+        Block until the splash screen process ends on its own. Terminate after
+        TIMEOUT seconds (wait forever if no TIMEOUT is given). Returns
+        immediately if the process is not active.
+        """
+        self.process.join(timeout)
+        self.stop()
+        self.terminate()
 
     def terminate(self):
         """
