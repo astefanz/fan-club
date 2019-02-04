@@ -95,16 +95,20 @@ class SplashHandler:
         To be executed by the separate process that displays the splash screen.
         """
         root = tk.Tk()
+        root.bind("<Button-1>", lambda e: root.destroy())
         splash = SplashFrame(master = root, widget = widget, **kwargs)
         start = tm.time()
 
         def r():
-            while not \
-                (lock.acquire(block = False) and \
-                (tm.time() - start < timeout if timeout is not None else True)):
+            acquired = False
+            while (tm.time()-start < timeout) if timeout is not None else True:
                 tm.sleep(.01)
-            lock.release()
-            root.quit()
+                if lock.acquire(False):
+                    acquired = True
+                    break
+            if acquired:
+                lock.release()
+            root.destroy()
 
         thread = mt.Thread(name = "FC Splash Screen Watchdog", target = r,
             daemon = True)

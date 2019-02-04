@@ -23,125 +23,76 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + FC GUI Master object (instance of FCProcess).
+ + Base class for all FC Interfaces.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import time as tm
 import threading as mt
-import multiprocessing as mp
-import tkinter as tk
 
 import fc.process as pr
 import fc.utils as us
 
-from fc.gui import splash as spl, base as bas, profile as pro, network as ntw, \
-    control as ctr
-
-## CONSTANTS ###################################################################
-SID = 2
-SIGNATURE = "[GU]"
-TITLE = "FC MkIV"
-
-SPLASH_SECONDS = 3
-
 ################################################################################
-class GUI(pr.FCProcess):
-    sid = SID
+class FCInterface(pr.FCProcess):
+    """
+    Base class for all FC front-ends. Behaves like an FCProcess in terms of
+    inter-process communication through the FC Core. It is meant to be
+    subclassed by different types of FC front ends, each of which handles the
+    interface-specific details.
 
-    @staticmethod
-    def routine(data):
+    It also runs a "sentinel" thread in charge of monitoring inter-process
+    messages to and from the interface. The sentinel "target" (function) must be
+    passed to the constructor, and it will receive the standard child-end set
+    of pipes as its first argument. (It is started when mainloop() is called.)
+    The sentinel may also "listen" to the "stop lock" to check whether it should
+    stop execution.
+
+    NOTE: An FCInterface is meant to be executed once throughout its lifetime.
+    """
+    def __init__(self, pqueue, routine, sid, name = "FC Interface",
+        symbol = "[IT]", data = {}):
+        pr.FCProcess.__init__(self, pqueue = pqueue, name = name,
+            symbol = symbol)
+
+        self.sid = sid
+        self.routine = routine
+        self.data = data
+
+    def mainloop(self):
         """
-        To be executed by the child process. Runs GUI main loop. See FCProcess
-        for more on DATA argument.
+        Run the main loop of the interface. Expected to block during the entire
+        execution of the interface. (Returning means the interface has been
+        closed.)
+
+        Note: override the parent class' _mainloop method to specify its
+        behavior. Otherwise, it will simply start and stop the sentinel and
+        return immediately.
         """
-        # Setup ................................................................
-        profile, pipes, sid, pqueue = data['profile'], data['pipes'], \
-            data['sid'], data['pqueue']
-
-        P = us.printers(pqueue, SIGNATURE)
-        printr, printe, printw, printd, prints, printx = \
-            P[us.R], P[us.E], P[us.W], P[us.D], P[us.S], P[us.X]
-
-        # Build GUI ............................................................
-        # Splash:
-        splash = spl.SplashHandler(version = "0", timeout = SPLASH_SECONDS,
-            width = 750, height = 500, useFactor = False)
-        st = tm.time()
-        splash.start()
-
-        # GUI:
-        root = tk.Tk()
-        base = bas.Base(root, title = TITLE + " " + version, version = version)
-
-        # FIXME ----------------------------------------------------------------
-        # TODO: Fix API
-        mcp = tk.Button(base.getTopBar(), text = "Motion Capture")
-        ter = tk.Button(base.getTopBar(), text = "Console")
-        hlp = tk.Button(base.getTopBar(), text = "Help")
-        base.addToTop(hlp)
-        base.addToTop(ter)
-        base.addToTop(mcp)
-
-        profile = pro.ProfileDisplay(base.getProfileTab())
-        base.setProfileWidget(profile)
-
-        network = ntw.NetworkWidget(base.getNetworkTab())
-        base.setNetworkWidget(network)
-
-        netWidget = network.getNetworkControlWidget()
-        netWidget.addTarget("All", 1)
-        netWidget.addTarget("Selected", 2)
-
-        for message, code in \
-            {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}.items():
-            netWidget.addMessage(message, code)
-
-        control = ctr.ControlWidget(base.getControlTab())
-        base.setControlWidget(control)
-
-        bot = ntw.StatusBarWidget(base.getBottomFrame())
-        base.setBottom(bot)
-
-        base.pack(fill = tk.BOTH, expand = True)
-        base.focusControl()
-        control.grid.d()
-        # (end) FIXME ----------------------------------------------------------
-        # Set up watchdog ......................................................
         lock = mt.Lock()
-        def wroutine(P, L):
-            """
-            Watch the message pipe P for STOP signal. Terminate if L is acquired
-            by the thread.
-            """
-            while not L.acquire(False):
-                if P.poll(0):
-                    message = P.recv()
-                    if message is pr.STOP:
-                        base.quit()
-            L.release()
+        pipes = self._pipes()
 
-        watchdog = mt.Thread(name = "FCMkIV GUI watchdog", target = wroutine,
-            args = (pipes[pr.MESSAGE], lock))
+        self.data.update({'pipes': pipes[pr.CHILD]})
+        self.data.update({'pqueue': self.pqueue})
+        self.data.update({'lock': lock})
 
-        # Launch ...............................................................
-        # End splash screen:
-        splash.join(SPLASH_SECONDS)
-        # Start main loop:
+        sentinel = mt.Thread(name = "FCI Sentinel", target = self.routine,
+            args = (self.data,), daemon = True)
         lock.acquire()
-        watchdog.start()
-        root.mainloop()
 
-        # End ..................................................................
+        sentinel.start()
+        self._mainloop()
+
         if not lock.acquire(False):
             lock.release()
 
-    def __init__(self, pqueue, version = ""):
-        pr.FCProcess.__init__(self, pqueue, self.routine, name = "FC GUI",
-            symbol = SIGNATURE, args = {'version' : version})
+    def _mainloop(self):
+        """
+        Override to specify the behavior of the interface's main loop.
+        """
+        return
 
     def isRunnable(self):
-        return True
+        return False
 
     def usesMatrix(self):
         return True

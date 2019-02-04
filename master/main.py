@@ -27,23 +27,16 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import multiprocessing as mp
-import time as tm
-import tkinter as tk
+import fc.tkgui as gui
 
-from fc.gui import splash as spl, base as bas, profile as pro, network as ntw, \
-    control as ctr
-
-from fc import interface as itf
+import multiprocessing as mp # FIXME (temp)
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
 print("FC MkIV GUI demo started")
 
 Q = mp.Queue()
-G = itf.GUI(Q, "DEMO")
-G.start({})
-while (G.isActive()):
-    pass
+G = gui.GUI(Q, "DEMO")
+G.mainloop()
 
 print("FC MkIV GUI demo finished")
