@@ -68,11 +68,9 @@ class GUI(itf.FCInterface):
     def _mainloop(self):
         # Build GUI ............................................................
         # Splash:
-        splash = spl.SplashHandler(version = "0", timeout = SPLASH_SECONDS,
-            width = 750, height = 500, useFactor = False)
-        st = tm.time()
-        splash.start()
-        splash.join()
+        splash = spl.SerialSplash(version = "0", width = 750, height = 500,
+            useFactor = False)
+        splash.run(SPLASH_SECONDS)
 
         # GUI:
         root = tk.Tk()

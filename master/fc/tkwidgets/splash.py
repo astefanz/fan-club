@@ -44,6 +44,7 @@ else:
     from .embedded import splash_tp as stp
 
 ## AUXILIARY GLOBALS ###########################################################
+DEFAULT_TIMEOUT = 3
 
 ## MAIN ########################################################################
 class SplashFrame(tk.Frame):
@@ -85,9 +86,35 @@ class FCSplashWidget(tk.Frame):
             bg = '#ff6e1f')
         self.label.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
 
+class SerialSplash:
+    """
+    Splash screen that blocks while it is desplayed (better cross-platform
+    compatibility).
+    """
 
+    def __init__(self, version = "[...]", widget = FCSplashWidget, **kwargs):
+        self.version = version
+        self.widget = widget
+        self.kwargs = kwargs
 
-class SplashHandler:
+    def run(self, timeout = DEFAULT_TIMEOUT):
+        """
+        Display the splash screen for TIMEOUT seconds. If omitted, TIMEOUT
+        defaults to DEFAULT_TIMEOUT.
+        """
+        root = tk.Tk()
+        root.bind("<Button-1>", lambda e: root.destroy())
+        splash = SplashFrame(master = root, widget = self.widget, **self.kwargs)
+        start = tm.time()
+
+        root.after(1000*timeout, root.destroy)
+        root.mainloop()
+
+class ParallelSplash:
+    """
+    Splash window that is built as a separate process, allowing for other tasks
+    to be done while it is being displayed.
+    """
 
     @staticmethod
     def _routine(lock, widget, timeout, kwargs = {}):
@@ -184,14 +211,3 @@ class SplashHandler:
             target = self._routine,
             args = (self.lock, self.widget, self.timeout, self.kwargs),
             daemon = True)
-
-## DEMO ########################################################################
-if __name__ == '__main__':
-    print("FC Splash Screen demo started")
-    S = SplashHandler(FCSplashWidget, 'Demo', width = 800, height = 500,
-        useFactor = False)
-    S.start()
-    tm.sleep(1)
-    S.stop()
-
-    print("FC Splash Screen demo finished")
