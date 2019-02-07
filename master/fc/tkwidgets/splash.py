@@ -39,9 +39,9 @@ import threading as mt
 import time as tm
 
 if __name__ == "__main__":
-    import embedded.splash_tp as stp
+    import embedded.splash2_bg as stp
 else:
-    from .embedded import splash_tp as stp
+    from .embedded import splash2_bg as stp
 
 ## AUXILIARY GLOBALS ###########################################################
 DEFAULT_TIMEOUT = 3
