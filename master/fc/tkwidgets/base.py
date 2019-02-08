@@ -51,8 +51,10 @@ class Base(tk.Frame):
         self.screenHeight = self.master.winfo_screenheight()
 
         self.winfo_toplevel().title(title)
+        """
         self.winfo_toplevel().geometry("{}x{}".format(
             self.screenWidth//2, self.screenHeight//2))
+        """
 
         self.grid_columnconfigure(0, weight = 1)
         self.grid_rowconfigure(1, weight = 1)

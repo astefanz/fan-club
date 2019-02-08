@@ -35,6 +35,8 @@ import fc.utils as us
 from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
     control as ctr, profile as pro
 
+from fc.tkwidgets.embedded import icon as icn
+
 ## CONSTANTS ###################################################################
 SID = 2
 SIGNATURE = "[GI]"
@@ -74,17 +76,18 @@ class GUI(itf.FCInterface):
 
         # GUI:
         root = tk.Tk()
+
         base = bas.Base(root, title = TITLE + " " +
             self.version, version = self.version)
 
         # FIXME ----------------------------------------------------------------
         # TODO: Fix API
-        mcp = tk.Button(base.getTopBar(), text = "Motion Capture")
+        ext = tk.Button(base.getTopBar(), text = "External Control")
         ter = tk.Button(base.getTopBar(), text = "Console")
         hlp = tk.Button(base.getTopBar(), text = "Help")
         base.addToTop(hlp)
         base.addToTop(ter)
-        base.addToTop(mcp)
+        base.addToTop(ext)
 
         profile = pro.ProfileDisplay(base.getProfileTab())
         base.setProfileWidget(profile)
