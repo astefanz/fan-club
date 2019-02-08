@@ -42,7 +42,7 @@ SID = 2
 SIGNATURE = "[GI]"
 TITLE = "FC MkIV"
 
-SPLASH_SECONDS = 3
+SPLASH_SECONDS = 5
 
 ################################################################################
 class GUI(itf.FCInterface):
@@ -63,11 +63,25 @@ class GUI(itf.FCInterface):
 
         # FIXME
 
-    def __init__(self, pqueue, version = ""):
+    def __init__(self, pqueue, version = "", platform = us.UNKNOWN):
+        """
+        Initialize a new Tkinter-based FC GUI. PQUEUE is a multiprocess.Queue
+        instance to be used for printing, VERSION is a string to display as
+        the current software version, and PLATFORM is a constant defined in
+        fc.utils (see fc.platform).
+        """
         itf.FCInterface.__init__(self, pqueue, self.sroutine, sid = self.sid)
         self.version = version
+        self.platform = platform
 
     def _mainloop(self):
+
+        # Fix Windows DPI ......................................................
+        if self.platform is us.WINDOWS:
+            from ctypes import windll
+            windll.shcore.SetProcessDpiAwareness(1)
+
+
         # Build GUI ............................................................
         # Splash:
         splash = spl.SerialSplash(version = "0", width = 750, height = 500,
@@ -82,6 +96,8 @@ class GUI(itf.FCInterface):
 
         # FIXME ----------------------------------------------------------------
         # TODO: Fix API
+
+
         ext = tk.Button(base.getTopBar(), text = "External Control")
         ter = tk.Button(base.getTopBar(), text = "Console")
         hlp = tk.Button(base.getTopBar(), text = "Help")

@@ -41,6 +41,8 @@ import io as io
 import multiprocessing as mp
 import time as tm
 
+import platform as plt
+
 ## GLOBAL CONSTANTS ############################################################
 DEBUGP = False
 
@@ -51,6 +53,11 @@ WPREFIX = "[WRN]"
 WRN = sys.stdout
 ERR = sys.stderr
 OUT = sys.stdout
+
+WINDOWS = 'WIN'
+MAC = 'MAC'
+LINUX = 'LNX'
+UNKNOWN = 'UNK'
 
 # Inter-process printing constants ---------------------------------------------
 
@@ -184,6 +191,23 @@ class TerminalPrinter:
         Stop the printer process.
         """
         self.lock.release()
+
+## Multiplatform facilities ----------------------------------------------------
+def platform():
+    """
+    Return a string representing the current platform:
+    utils.WINDOWS, utils.MAC, utils.LINUX or utils.UNKNOWN
+
+    """
+    S = plt.system()
+    if S == 'Windows':
+        return WINDOWS
+    elif S == 'Linux':
+        return LINUX
+    elif S == 'Darwin':
+        return MAC
+    else:
+        return UNKNOWN
 
 ## Debug utilities -------------------------------------------------------------
 

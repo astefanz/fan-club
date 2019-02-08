@@ -43,6 +43,10 @@ https://pyinstaller.readthedocs.io/en/stable/
 ** NOTE: See platform-specific notes at:
 https://pyinstaller.readthedocs.io/en/stable/usage.html#platform-specific-notes
 
+- For PyInstaller usage on Windows:
+python3 -m PyInstaller --clean --onefile --noconsole --name=FanClub main.py
+PLUS: --icon='path\to\icon.ico'
+
 ## ON PYTHON PACKAGES ##########################################################
 
 - See official documentation:
@@ -116,6 +120,14 @@ Instead, use the base64 package to encode the image and pass the raw data to
 tkinter.PhotoImage as 'data' instead of 'file.' See:
 https://stackoverflow.com/questions/42834675/base64-string-to-image-in-tkinter
 
+## ON MULTIPLATFORM ############################################################
 
+- For Windows DPI resolution fix, See:
+https://stackoverflow.com/questions/41315873/
+attempting-to-resolve-blurred-tkinter-text-scaling-on-windows-10-high-dpi-disp
+
+Note that only a few lines of code are required:
+from ctypes import windll
+windll.shcore.SetProcessDpiAwareness(1)
 
 

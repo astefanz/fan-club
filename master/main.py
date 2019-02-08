@@ -28,15 +28,17 @@
 
 ## IMPORTS #####################################################################
 import fc.tkgui as gui
+import fc.utils as us
 
 import multiprocessing as mp # FIXME (temp)
+
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
 print("FC MkIV GUI demo started")
 
 Q = mp.Queue()
-G = gui.GUI(Q, "DEMO")
+G = gui.GUI(Q, "DEMO", us.platform())
 G.mainloop()
 
 print("FC MkIV GUI demo finished")
