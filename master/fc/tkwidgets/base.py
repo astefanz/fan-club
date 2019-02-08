@@ -32,9 +32,9 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 if __name__ == '__main__':
-    import embedded.caltech as cte
+    import embedded.caltech_white as cte
 else:
-    from .embedded import caltech as cte
+    from .embedded import caltech_white as cte
 
 ## AUXILIARY GLOBALS ###########################################################
 
@@ -61,12 +61,14 @@ class Base(tk.Frame):
         # Containers -----------------------------------------------------------
 
         # Top bar ..............................................................
-        self.topBar = tk.Frame(self, relief = 'ridge', borderwidth = 2)
+        self.topBar = tk.Frame(self, relief = 'ridge', borderwidth = 2,
+            bg = '#ff6e1f')
         self.topBar.grid(row = 0, sticky = 'EW')
 
         self.caltechImage = tk.PhotoImage(data = cte.CALTECH)
-        self.caltechImage = self.caltechImage.subsample(25)
-        self.caltechLabel = tk.Label(self.topBar, image = self.caltechImage)
+        self.caltechImage = self.caltechImage.subsample(15)
+        self.caltechLabel = tk.Label(self.topBar, image = self.caltechImage,
+            bg = self.topBar['bg'])
 
         self.caltechLabel.pack(side = tk.LEFT, ipady = 4, padx = 6)
 
