@@ -102,3 +102,4 @@ class FCInterface(pr.FCProcess):
 
     def usesSlaveList(self):
         return True
+

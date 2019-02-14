@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master"  ## File: tkgui.py                       ##
+## Project: Fanclub Mark IV "Master"  ## File: gui.py                         ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,14 +23,13 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Tkinter-based FC GUI.
+ + Fan Club GUI.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
 import time as tm
 import tkinter as tk
 
-import fc.interface as itf
 import fc.utils as us
 from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
     control as ctr, profile as pro
@@ -38,15 +37,12 @@ from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
 from fc.tkwidgets.embedded import icon as icn
 
 ## CONSTANTS ###################################################################
-SID = 2
-SIGNATURE = "[GI]"
 TITLE = "FC MkIV"
-
 SPLASH_SECONDS = 5
 
 ################################################################################
-class GUI(itf.FCInterface):
-    sid = SID
+class GUI:
+    symbol = "[GI]"
 
     @staticmethod
     def sroutine(data):
@@ -55,11 +51,7 @@ class GUI(itf.FCInterface):
         messages to and from this GUI.
         """
         # Setup ................................................................
-        pipes,pqueue = data['pipes'] ,  data['pqueue']
-
-        P = us.printers(pqueue, SIGNATURE)
-        printr, printe, printw, printd, prints, printx = \
-            P[us.R], P[us.E], P[us.W], P[us.D], P[us.S], P[us.X]
+        pipes,pqueue = data['pipes'],data['pqueue']
 
         # FIXME
 
@@ -70,11 +62,32 @@ class GUI(itf.FCInterface):
         the current software version, and PLATFORM is a constant defined in
         fc.utils (see fc.platform).
         """
-        itf.FCInterface.__init__(self, pqueue, self.sroutine, sid = self.sid)
+        # FIXME: itf.FCInterface.__init__(self, pqueue, self.sroutine, sid = self.sid)
         self.version = version
         self.platform = platform
 
-    def _mainloop(self):
+    def mainloop(self):
+        """
+        Run the main loop of the interface. Expected to block during the entire
+        execution of the interface. (Returning means the interface has been
+        closed.)
+        """
+        # FIXME: add missing behavior from Interface base class
+
+        # Sentinel setup .......................................................
+        slock = mt.Lock()
+        pipes = self._pipes()
+
+        data = {}
+        data.update({'pipes': None}) # FIXME
+        data.update({'pqueue': self.pqueue})
+        data.update({'lock': slock})
+
+        sentinel = mt.Thread(name = "FCI Sentinel", target = self.sroutine,
+            args = (data,), daemon = True)
+        slock.acquire()
+
+        sentinel.start()
 
         # Fix Windows DPI ......................................................
         if self.platform is us.WINDOWS:
@@ -84,7 +97,7 @@ class GUI(itf.FCInterface):
 
         # Build GUI ............................................................
         # Splash:
-        splash = spl.SerialSplash(version = "0", width = 750, height = 500,
+        plash = spl.SerialSplash(version = "0", width = 750, height = 500,
             useFactor = False)
         splash.run(SPLASH_SECONDS)
 
@@ -131,3 +144,7 @@ class GUI(itf.FCInterface):
 
         # Start main loop:
         root.mainloop()
+
+        # Cleanup ..............................................................
+        if not slock.acquire(False):
+            slock.release()

@@ -35,7 +35,6 @@ import copy as cp
     #   understanding-dict-copy-shallow-or-deep/3975388
 
 import fc.utils as us
-import fc.process as pr
 
 ## GLOBALS #####################################################################
 VERSION = "IV-1"
@@ -143,7 +142,7 @@ MD_fanAssignment = 306
 
 ## MAIN ########################################################################
 
-class FCArchive(pr.FCProcess):
+class FCArchive(us.PrintClient):
     """
     Handles the data that distinguishes FC configurations, such as fan array
     details, network settings and known slaves, as well as its storage and
@@ -224,12 +223,9 @@ class FCArchive(pr.FCProcess):
 
         Note that a profile must be loaded (may be the default) before this
         instance is used.
-
-        See FCProcess for PQUEUE.
         """
-        pr.FCProcess.__init__(self, pqueue, name = "FC Archive")
+        us.PrintClient.__init__(self, pqueue, self.symbol)
         self.runtime = {platform : currentPlatform, printQueue : pqueue}
-
         self.P = None
         self.modified = False
 
@@ -319,25 +315,3 @@ class FCArchive(pr.FCProcess):
         """
         for key in update:
             self.set(key, update[key])
-
-    def messageIn(self, message):
-        """
-        Process inter-process message MESSAGE.
-        """
-        # FIXME: Finish options
-        S = message[pr.SUBJECT]
-        F = message[pr.SENDER]
-        if S is DEFAULT:
-            self.printr("Loading default profile ({})".format(F))
-            self.default()
-        elif S is LOAD:
-            self.printr("Loading profile \"{}\" ({})".\
-                format(message[pr.ARGUMENTS], F))
-        elif S is SAVE:
-            self.printr("Saving profile as \"{}\"".\
-                format(message[pr.ARGUMENTS], F))
-        elif S is UPDATE:
-            self.printd("Updating profile ({})".format(F))
-        else:
-            self.printe("Unrecognized I.P. message subject \"{}\"".\
-                format(S))

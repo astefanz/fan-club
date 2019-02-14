@@ -139,6 +139,34 @@ def printers(queue, symbol = "[--]"):
 
     return funcs
 
+class PrintClient:
+    """
+    Simple class to be inherited from by classes that use the queued-printing
+    facilities given by printers. Serves as a shortcut for common member
+    function creation.
+    """
+
+    def __init__(self, pqueue, symbol = "[--]"):
+        """
+        Create the following member functions for streamlined queued printing
+        in this instance:
+
+        - printr: regular print
+        - printe: error print
+        - printw: warning print
+        - printd: debug print
+        - prints: success print
+        - printx: exception print
+
+        """
+        P = printers(pqueue, symbol)
+        self.printr = P[R]
+        self.printe = P[E]
+        self.printw = P[W]
+        self.printd = P[D]
+        self.prints = P[S]
+        self.printx = P[X]
+
 class TerminalPrinter:
     """
     Print FC output (using multiprocessing.Queue) to a given file in a
@@ -257,3 +285,4 @@ def dprint(*args):
     """
     if DEBUGP:
         print(*args)
+
