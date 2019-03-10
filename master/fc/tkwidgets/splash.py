@@ -53,8 +53,7 @@ class SplashFrame(tk.Frame):
     screen.
     """
 
-    def __init__(self, widget, master=None, width=0.3, height=0.3,
-        useFactor=True):
+    def __init__(self, widget, master=None, width=750, height=500, ratio=False):
 
         tk.Frame.__init__(self, master)
         self.pack(side = tk.TOP, fill = tk.BOTH, expand = tk.YES)
@@ -62,8 +61,8 @@ class SplashFrame(tk.Frame):
         # Screen size
         ws = self.master.winfo_screenwidth()
         hs = self.master.winfo_screenheight()
-        w = (useFactor and ws*width) or width
-        h = (useFactor and ws*height) or height
+        w = (ratio and ws*width) or width
+        h = (ratio and ws*height) or height
 
         # Position
         x = (ws/2) - (w/2)

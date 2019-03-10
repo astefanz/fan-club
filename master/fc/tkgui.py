@@ -33,6 +33,7 @@ import tkinter as tk
 
 import fc.utils as us
 import fc.interface as it
+import fc.communicator as cm
 from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
     control as ctr, profile as pro
 from fc.tkwidgets.embedded import icon as icn
@@ -74,20 +75,19 @@ class FCGUI(it.FCInterface):
 
         # Build GUI ............................................................
         # Splash:
-        splash = spl.SerialSplash(version = "0", width = 750, height = 500,
-            useFactor = False)
+        splash = spl.SerialSplash(version = "0")
         splash.run(SPLASH_SECONDS)
 
         # GUI:
         self.root = tk.Tk()
 
-        base = bas.Base(self.root, title = TITLE + " " +
-            self.version, version = self.version)
+        title = TITLE + " " + self.version
+        base = bas.Base(self.root, title = title, version = self.version)
 
         # FIXME ----------------------------------------------------------------
         # TODO: Fix API
 
-
+        # Top bar:
         ext = tk.Button(base.getTopBar(), text = "External Control")
         ter = tk.Button(base.getTopBar(), text = "Console")
         hlp = tk.Button(base.getTopBar(), text = "Help")
@@ -95,19 +95,14 @@ class FCGUI(it.FCInterface):
         base.addToTop(ter)
         base.addToTop(ext)
 
+        # Profile tab:
         profile = pro.ProfileDisplay(base.getProfileTab())
         base.setProfileWidget(profile)
 
-        network = ntw.NetworkWidget(base.getNetworkTab())
+        # Network tab:
+        network = ntw.NetworkWidget(base.getNetworkTab(),
+            messages = cm.MESSAGES, targets = cm.TARGETS)
         base.setNetworkWidget(network)
-
-        netWidget = network.getNetworkControlWidget()
-        netWidget.addTarget("All", 1)
-        netWidget.addTarget("Selected", 2)
-
-        for message, code in \
-            {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}.items():
-            netWidget.addMessage(message, code)
 
         control = ctr.ControlWidget(base.getControlTab())
         base.setControlWidget(control)

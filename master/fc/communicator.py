@@ -32,6 +32,19 @@ import fc.utils as us
 ## CONSTANT DEFINITIONS ########################################################
 MP_STOP_TIMEOUT_S = 0.5
 
+# Message codes:
+MSG_ADD = 3031
+MSG_DISCONNECT = 3032
+MSG_REBOOT = 3033
+MSG_REMOVE = 3034
+MESSAGES = {"Add":MSG_ADD, "Disconnect":MSG_DISCONNECT, "Reboot":MSG_REBOOT,
+    "Remove": MSG_REMOVE}
+
+# Target codes:
+TGT_ALL = 4041
+TGT_SELECTED = 4042
+TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
+
 ## CLASS DEFINITION ############################################################
 class FCCommunicator(us.PrintClient):
     """

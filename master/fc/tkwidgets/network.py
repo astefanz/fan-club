@@ -73,6 +73,58 @@ BACKGROUNDS = {
     UPDATING : '#a6c1fc'
 }
 
+## BASE ########################################################################
+class NetworkWidget(tk.Frame):
+    """
+    Container for all the FC network GUI front-end widgets, except the FC
+    status bar.
+    """
+
+    DEMO_MESSAGES = {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}
+    DEMO_TARGETS = {"All":1, "Selected":2}
+
+    def __init__(self, master, messages = DEMO_MESSAGES, targets = DEMO_TARGETS,
+        printd = lambda s:None, printx = lambda e:None):
+
+        # Core setup -----------------------------------------------------------
+        tk.Frame.__init__(self, master)
+        self.main = tk.Frame(self)
+        self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
+
+        self.main.grid_columnconfigure(0, weight = 1)
+        self.main.grid_rowconfigure(2, weight = 1)
+
+        self.printd, self.printx = printd, printx
+
+        # ----------------------------------------------------------------------
+        self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
+        self.networkFrame.grid(row = 0, sticky = "EW")
+        self.networkControl = NetworkControlWidget(self.networkFrame)
+        self.networkControl.pack(fill = tk.BOTH, expand = True)
+
+        self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
+        self.firmwareFrame.grid(row = 1, sticky = "EW")
+        self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame,
+            printd = printd, printx = printx)
+        self.firmwareUpdate.pack(fill = tk.BOTH, expand = True)
+
+        self.slaveList = SlaveListWidget(self.main)
+        self.slaveList.grid(row = 2, sticky = "NEWS")
+
+        for message, code in messages.items():
+            self.networkControl.addMessage(message, code)
+        for target, code in targets.items():
+            self.networkControl.addTarget(target, code)
+
+    def getNetworkControlWidget(self):
+        return self.networkControl
+
+    def getFirmwareUpdateWidget(self):
+        return self.firmwareUpdate
+
+    def getSlaveList(self):
+        return self.slaveList
+
 ## WIDGETS #####################################################################
 
 # Network control ==============================================================
@@ -829,48 +881,6 @@ class StatusBarWidget(tk.Frame):
     # Internal methods .........................................................
     def _onShutdown(self, *event):
         self._shutdownCallback()
-
-## BASE ########################################################################
-class NetworkWidget(tk.Frame):
-    """
-    Container for all the FC network GUI front-end widgets, except the FC
-    status bar.
-    """
-    def __init__(self, master, printd = lambda s:None, printx = lambda e:None):
-        # Core setup -----------------------------------------------------------
-        tk.Frame.__init__(self, master)
-        self.main = tk.Frame(self)
-        self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
-
-        self.main.grid_columnconfigure(0, weight = 1)
-        self.main.grid_rowconfigure(2, weight = 1)
-
-        self.printd, self.printx = printd, printx
-
-        # ----------------------------------------------------------------------
-        self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
-        self.networkFrame.grid(row = 0, sticky = "EW")
-        self.networkControl = NetworkControlWidget(self.networkFrame)
-        self.networkControl.pack(fill = tk.BOTH, expand = True)
-
-        self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
-        self.firmwareFrame.grid(row = 1, sticky = "EW")
-        self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame,
-            printd = printd, printx = printx)
-        self.firmwareUpdate.pack(fill = tk.BOTH, expand = True)
-
-        self.slaveList = SlaveListWidget(self.main)
-        self.slaveList.grid(row = 2, sticky = "NEWS")
-
-    def getNetworkControlWidget(self):
-        return self.networkControl
-
-    def getFirmwareUpdateWidget(self):
-        return self.firmwareUpdate
-
-    def getSlaveList(self):
-        return self.slaveList
-
 ## DEMO ########################################################################
 if __name__ == "__main__":
     print("FCMkIV Network GUI demo started")
