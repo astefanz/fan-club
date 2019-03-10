@@ -1,4 +1,4 @@
-################################################################################
+#!/usr/bin/python3 #############################################################
 ## Project: Fanclub Mark IV "Master" main file ## File: main.py               ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
@@ -27,18 +27,25 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import fc.tkgui as gui
+import multiprocessing as mp
+
+import fc.tkgui as tkg
+import fc.archive as ac
+import fc.communicator as cm
 import fc.utils as us
 
-import multiprocessing as mp # FIXME (temp)
-
+## GLOBALS #####################################################################
+VERSION = "0.2"
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
-print("FC MkIV GUI demo started")
 
-Q = mp.Queue()
-G = gui.GUI(Q, "DEMO", us.platform())
-G.mainloop()
+print(us.HEADER)
+print("[--] FC MkIV GUI demo started") # FIXME
+pqueue = mp.Queue()
+archive = ac.FCArchive(pqueue, VERSION)
+communicator = cm.FCCommunicator(pqueue)
+interface = tkg.FCGUI(pqueue, archive, communicator)
+interface.run()
 
-print("FC MkIV GUI demo finished")
+print("[--] FC MkIV GUI demo finished") # FIXME

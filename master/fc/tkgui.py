@@ -1,5 +1,5 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master"  ## File: gui.py                         ##
+## Project: Fanclub Mark IV "Master"  ## File: tkgui.py                       ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,71 +23,48 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Fan Club GUI.
+ + Tkinter-based Fan Club GUI.
+ +
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import time as tm
+import multiprocessing as mp
 import tkinter as tk
 
 import fc.utils as us
+import fc.interface as it
 from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
     control as ctr, profile as pro
-
 from fc.tkwidgets.embedded import icon as icn
 
-## CONSTANTS ###################################################################
+## GLOBALS #####################################################################
 TITLE = "FC MkIV"
 SPLASH_SECONDS = 5
 
+SENTINEL_PERIOD = .01
+
 ################################################################################
-class GUI:
+class FCGUI(it.FCInterface):
     symbol = "[GI]"
 
-    @staticmethod
-    def sroutine(data):
+    def __init__(self, pqueue, archive, communicator, period = SENTINEL_PERIOD):
         """
-        Target for the sentinel thread. Monitors pipes to process inter-process
-        messages to and from this GUI.
+        Build a new FCGUI using PQUEUE for printing, ARCHIVE (FCArchive) and
+        COMMUNNICATOR (FCCommunicator). NOTE: The Tkinter root will be
+        created here, and hence visible without assembly.
+
+        Optional argument PERIOD sets the seconds between sentinel cycles (i.e
+        periodic checks to distribute inter-process data and print messages.)
+        defaults to fc.interface.SENTINEL_PERIOD.
         """
-        # Setup ................................................................
-        pipes,pqueue = data['pipes'],data['pqueue']
+        it.FCInterface.__init__(self, pqueue, archive, communicator, period)
 
-        # FIXME
-
-    def __init__(self, pqueue, version = "", platform = us.UNKNOWN):
+    def _mainloop(self):
         """
-        Initialize a new Tkinter-based FC GUI. PQUEUE is a multiprocess.Queue
-        instance to be used for printing, VERSION is a string to display as
-        the current software version, and PLATFORM is a constant defined in
-        fc.utils (see fc.platform).
+        Overriden. Build GUI and run main loop. See fc.interface.FCInterface.
         """
-        # FIXME: itf.FCInterface.__init__(self, pqueue, self.sroutine, sid = self.sid)
-        self.version = version
-        self.platform = platform
 
-    def mainloop(self):
-        """
-        Run the main loop of the interface. Expected to block during the entire
-        execution of the interface. (Returning means the interface has been
-        closed.)
-        """
-        # FIXME: add missing behavior from Interface base class
-
-        # Sentinel setup .......................................................
-        slock = mt.Lock()
-        pipes = self._pipes()
-
-        data = {}
-        data.update({'pipes': None}) # FIXME
-        data.update({'pqueue': self.pqueue})
-        data.update({'lock': slock})
-
-        sentinel = mt.Thread(name = "FCI Sentinel", target = self.sroutine,
-            args = (data,), daemon = True)
-        slock.acquire()
-
-        sentinel.start()
+        # FIXME: add missing behavior from Interface base class (?)
 
         # Fix Windows DPI ......................................................
         if self.platform is us.WINDOWS:
@@ -97,14 +74,14 @@ class GUI:
 
         # Build GUI ............................................................
         # Splash:
-        plash = spl.SerialSplash(version = "0", width = 750, height = 500,
+        splash = spl.SerialSplash(version = "0", width = 750, height = 500,
             useFactor = False)
         splash.run(SPLASH_SECONDS)
 
         # GUI:
-        root = tk.Tk()
+        self.root = tk.Tk()
 
-        base = bas.Base(root, title = TITLE + " " +
+        base = bas.Base(self.root, title = TITLE + " " +
             self.version, version = self.version)
 
         # FIXME ----------------------------------------------------------------
@@ -142,9 +119,43 @@ class GUI:
         base.focusControl()
         control.grid.d()
 
-        # Start main loop:
-        root.mainloop()
+        # Start sentinels:
+        self._start()
 
-        # Cleanup ..............................................................
-        if not slock.acquire(False):
-            slock.release()
+        # Main loop ------------------------------------------------------------
+        self.root.mainloop()
+
+    def process(self, code, text):
+        """
+        Overriden. See fc.utils.PrintServer.
+        """
+        # FIXME need actual implementation.
+        print(us.CODE_TO_STR[code] + text)
+
+    # Overriding sentinel thread implementation --------------------------------
+    def start(self):
+        """
+        Overriden. Modified to do nothing so that sentinel threads can be
+        started after Tkinter root has been initialized.
+        """
+        return
+
+    def _start(self):
+        """
+        Overriden. Starts sentinel threads.
+        """
+        self._checkStarted()
+        self.root.after(self.period_ms, self._cycle)
+        self._setStarted()
+
+    def _cycle(self):
+        """
+        Overriden. Executes single cycle of both print and inter-process
+        sentinels.
+        """
+
+        it.FCInterface._cycle(self)
+        if not self.done.is_set():
+            self.root.after(self.period_ms, self._cycle)
+        else:
+            print(self.symbol, "Sentinels terminated")

@@ -73,6 +73,7 @@ description = 2
 # Runtime ----------------------------------------------------------------------
 platform = 3
 printQueue = 4
+version = 5
 
 # Network ----------------------------------------------------------------------
 broadcastPort  = 100
@@ -215,18 +216,21 @@ class FCArchive(us.PrintClient):
         fanArrays : ()
     }
 
-    def __init__(self, pqueue, currentPlatform):
+    def __init__(self, pqueue, ver):
         """
-        Create a new FCProfile with no profile.
-        CURRENTPLATFORM must be one of the constants defined in this module
-        that represents a supported platform --WINDOWS, MACOS, LINUX or UNKNOWN.
+        Create a new FCProfile with no profile. PQUEUE is a Queue object in
+        which to place standardized (by fc.utils) console output messages.
+
+        VER is a string representing the current FC version.
 
         Note that a profile must be loaded (may be the default) before this
         instance is used.
         """
         us.PrintClient.__init__(self, pqueue, self.symbol)
-        self.runtime = {platform : currentPlatform, printQueue : pqueue}
-        self.P = None
+        self.runtime = {platform : us.platform(), printQueue : pqueue,
+            version : ver}
+        self.P = {}
+        self.P.update(self.runtime)
         self.modified = False
 
     def modified(self):
@@ -315,3 +319,10 @@ class FCArchive(us.PrintClient):
         """
         for key in update:
             self.set(key, update[key])
+
+    def __getitem__(self, key):
+        """
+        Fetch a value from the current profile, indexed by KEY. Here KEY must
+        be a valid key value defined in fc.archive.
+        """
+        return self.P[key]
