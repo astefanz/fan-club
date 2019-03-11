@@ -34,6 +34,7 @@ import time as tm
 
 import fc.archive as ac
 import fc.utils as us
+import fc.communicator as cm
 
 ## GLOBALS #####################################################################
 
@@ -82,6 +83,15 @@ class FCInterface(us.PrintServer):
         self.__buildPipes()
         self.__buildLists()
 
+        # Build backend abstraction:
+        def startNetwork():
+            communicator.start(archive.profile(), self.feedbackPipeSend,
+                self.controlPipeRecv, self.networkPipeSend,
+                self.slavesPipeSend, self.messagePipeBackEnd)
+
+        self.network = cm.NetworkAbstraction(communicator,
+            self.messagePipeFrontEnd, self.controlPipeSend, startNetwork)
+
     # "PUBLIC" INTERFACE -------------------------------------------------------
     def run(self):
         """
@@ -123,17 +133,6 @@ class FCInterface(us.PrintServer):
         if client.usesSlaves():
             self.slavesClients.append(client.slavesIn)
 
-    def _sendCommand(self, command, value = None):
-        """
-        Sends command with code COMMAND (as defined in FCCommunicator's file)
-        with value VALUE when appropriate. Does nothing if the Communicator is
-        not active
-        """
-        if self.communicator.active():
-            self.commandPipeFrontEnd.send((command, value))
-        else:
-            self.printw("Tried to send command offline ({})".format(command))
-
     def _cycle(self):
         """
         Execute one iteration of the inter-process and print sentinels.
@@ -142,8 +141,8 @@ class FCInterface(us.PrintServer):
         exceptions from breaking the sentinel loop.
         """
         us.PrintServer._cycle(self)
-        if self.matrixPipeRecv.poll():
-            matrix = self.matrixPipeRecv.recv()
+        if self.feedbackPipeRecv.poll():
+            matrix = self.feedbackPipeRecv.recv()
             for client in self.matrixClients:
                 client.matrixIn(matrix)
         if self.networkPipeRecv.poll():
@@ -161,10 +160,11 @@ class FCInterface(us.PrintServer):
         Create the multiprocessing Pipe instances used by this FCInterface and
         assign them to the corresponding member attributes.
         """
-        self.matrixPipeRecv, self.matrixPipeSend = mp.Pipe(False)
+        self.feedbackPipeRecv, self.feedbackPipeSend = mp.Pipe(False)
+        self.controlPipeRecv, self.controlPipeSend = mp.Pipe(False)
         self.networkPipeRecv, self.networkPipeSend = mp.Pipe(False)
         self.slavesPipeRecv, self.slavesPipeSend = mp.Pipe(False)
-        self.commandPipeFrontEnd, self.commandPipeBackEnd = mp.Pipe(True)
+        self.messagePipeFrontEnd, self.messagePipeBackEnd = mp.Pipe(True)
 
     def __buildLists(self):
         """

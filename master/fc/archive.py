@@ -227,8 +227,7 @@ class FCArchive(us.PrintClient):
         instance is used.
         """
         us.PrintClient.__init__(self, pqueue, self.symbol)
-        self.runtime = {platform : us.platform(), printQueue : pqueue,
-            version : ver}
+        self.runtime = {platform : us.platform(), version : ver}
         self.P = {}
         self.P.update(self.runtime)
         self.modified = False

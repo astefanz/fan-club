@@ -83,9 +83,16 @@ class NetworkWidget(tk.Frame):
     DEMO_MESSAGES = {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}
     DEMO_TARGETS = {"All":1, "Selected":2}
 
-    def __init__(self, master, messages = DEMO_MESSAGES, targets = DEMO_TARGETS,
+    def __init__(self, master, network,
         printd = lambda s:None, printx = lambda e:None):
+        """
+        Create a new NetworkWidget inside MASTER, interfaced with the network
+        backend using the NETWORK abstraction.
+        (See fc.communicator.NetworkAbstraction.)
 
+        Optionally, methods PRINTD and PRINTX as defined in fc.utils may
+        be passed on to be used for print feedback.
+        """
         # Core setup -----------------------------------------------------------
         tk.Frame.__init__(self, master)
         self.main = tk.Frame(self)
@@ -94,27 +101,27 @@ class NetworkWidget(tk.Frame):
         self.main.grid_columnconfigure(0, weight = 1)
         self.main.grid_rowconfigure(2, weight = 1)
 
+        self.network = network
+
         self.printd, self.printx = printd, printx
 
-        # ----------------------------------------------------------------------
-        self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
-        self.networkFrame.grid(row = 0, sticky = "EW")
-        self.networkControl = NetworkControlWidget(self.networkFrame)
-        self.networkControl.pack(fill = tk.BOTH, expand = True)
 
+        # ----------------------------------------------------------------------
         self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
         self.firmwareFrame.grid(row = 1, sticky = "EW")
-        self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame,
+        self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame, network,
             printd = printd, printx = printx)
         self.firmwareUpdate.pack(fill = tk.BOTH, expand = True)
 
-        self.slaveList = SlaveListWidget(self.main)
+        self.slaveList = SlaveListWidget(self.main, network)
         self.slaveList.grid(row = 2, sticky = "NEWS")
 
-        for message, code in messages.items():
-            self.networkControl.addMessage(message, code)
-        for target, code in targets.items():
-            self.networkControl.addTarget(target, code)
+        self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
+        self.networkFrame.grid(row = 0, sticky = "EW")
+        self.networkControl = NetworkControlWidget(self.networkFrame, network,
+            self.slaveList)
+        self.networkControl.pack(fill = tk.BOTH, expand = True)
+
 
     def getNetworkControlWidget(self):
         return self.networkControl
@@ -134,16 +141,18 @@ class NetworkControlWidget(tk.Frame):
     Slaves).
     """
 
-    def __init__(self, master):
+    def __init__(self, master, network, slaveList):
         tk.Frame.__init__(self, master)
+        self.network = network
+        self.slaveList = slaveList
 
         frameconfig = {"side" : tk.TOP, "fill" : tk.BOTH, "expand" : True,
             "padx" : 10, "pady" : 5}
 
         # Connection ...........................................................
         self.isConnected = False
-        self._connectCallback = lambda: None
-        self._disconnectCallback = lambda: None
+        self._connectCallback = network.connect
+        self._disconnectCallback = network.disconnect
 
         self.connectionFrame = tk.Frame(self, relief = tk.RIDGE, bd = 1)
         self.connectionFrame.pack(**frameconfig)
@@ -190,68 +199,18 @@ class NetworkControlWidget(tk.Frame):
         self.sendButton = tk.Button(self.sendFrame, text = "Send",
             command = self._send, padx = 10, pady = 5)
         self.sendButton.pack(side = tk.LEFT)
-        self.sendCallback = lambda t, m: None
+        self._sendCallback = network.sendMessage
         self.activeWidgets.append(self.sendButton)
+
+        for message, code in self.network.messages():
+            self._addMessage(message, code)
+        for target, code in self.network.targets():
+            self._addTarget(target, code)
 
         # Wrap-up ..............................................................
         self.disconnected()
 
     # API ......................................................................
-    def setConnectCallback(self, callback):
-        """
-        Set the method to be called, without arguments, when the "Connect"
-        button is pressed.
-        """
-        self._connectCallback = callback
-
-    def setDisconnectCallback(self, callback):
-        """
-        Set the method to be called, without arguments, when the "Disconnect"
-        button is pressed.
-        """
-        self._disconnectCallback = callback
-
-    def setSendCallback(self, callback):
-        """
-        Set the method to be called when the "Send" button is pressed. CALLBACK
-        must receie two integer codes, the first of which refers to the selected
-        target and the second to the selected message. (See addTarget and
-        addMessage)
-        """
-        self.sendCallback = callback
-
-    def addTarget(self, name, code):
-        """
-        Allow the user to specify the target named NAME with the code CODE
-        passed to the send callback.
-        """
-        button = tk.Radiobutton(self.targetFrame, text = name, value = code,
-            variable = self.target, indicatoron = False, padx = 10, pady = 5)
-        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
-
-        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
-        self.targetButtons.append(button)
-        self.activeWidgets.append(button)
-
-        if len(self.targetButtons) is 1:
-            self.target.set(code)
-
-    def addMessage(self, name, code):
-        """
-        Allow the user to send the message named NAME with the message code CODE
-        passed to the send callback.
-        """
-        button = tk.Radiobutton(self.messageFrame, text = name, value = code,
-            variable = self.message, indicatoron = False, padx = 10, pady = 5)
-        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
-
-        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
-        self.messageButtons.append(button)
-        self.activeWidgets.append(button)
-
-        if len(self.messageButtons) is 1:
-            self.message.set(code)
-
     def connecting(self):
         """
         Indicate that a connection is being activated.
@@ -293,18 +252,21 @@ class NetworkControlWidget(tk.Frame):
     # Internal methods .........................................................
     def _onConnect(self, *event):
         self._connectCallback()
-        self.connected()
+        self.connected() # FIXME
+        print("[WARNING] Widget connecting behavior not implemented")
 
     def _onDisconnect(self, *event):
         self._disconnectCallback()
-        self.disconnected()
+        self.disconnected() # FIXME
+        print("[WARNING] Widget disconnecting behavior not implemented")
 
     def _send(self, *E):
         """
-        Call the given callback and pass it the currently selected target and
-        message codes. Nonexistent codes are set to 0.
+        Send the selected target and
+        message codes, as well as the current slave list selection.
         """
-        self.sendCallback(self.target.get(), self.message.get())
+        self._sendCallback(self.target.get(), self.message.get(),
+            self.slaveList.selected())
 
     def _setWidgetState(self, state):
         """
@@ -314,15 +276,51 @@ class NetworkControlWidget(tk.Frame):
         for button in self.activeWidgets:
             button.config(state = state)
 
+    def _addTarget(self, name, code):
+        """
+        Allow the user to specify the target named NAME with the code CODE
+        passed to the send callback.
+        """
+        button = tk.Radiobutton(self.targetFrame, text = name, value = code,
+            variable = self.target, indicatoron = False, padx = 10, pady = 5)
+        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
+
+        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
+        self.targetButtons.append(button)
+        self.activeWidgets.append(button)
+
+        if len(self.targetButtons) is 1:
+            self.target.set(code)
+
+    def _addMessage(self, name, code):
+        """
+        Allow the user to send the message named NAME with the message code CODE
+        passed to the send callback.
+        """
+        button = tk.Radiobutton(self.messageFrame, text = name, value = code,
+            variable = self.message, indicatoron = False, padx = 10, pady = 5)
+        button.config(state = tk.NORMAL if self.isConnected else tk.DISABLED)
+
+        button.pack(side = tk.LEFT, anchor = tk.W, padx = 5)
+        self.messageButtons.append(button)
+        self.activeWidgets.append(button)
+
+        if len(self.messageButtons) is 1:
+            self.message.set(code)
+
 # Firmware update ==============================================================
 class FirmwareUpdateWidget(tk.Frame):
     """
     GUI front-end for the FC firmware update tools, i.e the Mark III
     "Bootloader."
     """
-    def __init__(self, master, printd = lambda s:None, printx = lambda e:None):
-        # Setup ................................................................
+    def __init__(self, master, network,
+        printd = lambda s:None, printx = lambda e:None):
+
         tk.Frame.__init__(self, master)
+        # Setup ................................................................
+        self.network = network
+
         self.main = tk.Frame(self)
         self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
         self.setupWidgets = []
@@ -380,28 +378,12 @@ class FirmwareUpdateWidget(tk.Frame):
             **self.inactiveLabelConfig)
         self.statusLabel.pack(side = tk.LEFT)
 
-        self.start = lambda f, v, s: None
-        self.stop = lambda: None
+        self.start = network.startBootloader
+        self.stop = network.stopBootloader
 
         self.fileVar.trace('w', self._checkReady)
         self.version.trace('w', self._checkReady)
         self._inactive()
-
-    def setStartCallback(self, callback):
-        """
-        Set the method to be called to start a firmware update. The
-        method must take two string positional arguments --the name (path) of
-        the file to be uploaded and the version code-- followed by an integer
-        representing the size of the file in bytes.
-        """
-        self.start = callback
-
-    def setStopCallback(self, callback):
-        """
-        Set the method to be called to stop an ongoing firmware update. The
-        method will be called without arguments.
-        """
-        self.stop = callback
 
     def _start(self, *args):
         """
@@ -527,9 +509,12 @@ class SlaveListWidget(tk.Frame):
     I_VERSION = 4
 
 
-    def __init__(self, master):
-        # Setup ................................................................
+    def __init__(self, master, network):
         tk.Frame.__init__(self, master)
+
+        # Setup ................................................................
+        self.network = network
+
         self.main = tk.LabelFrame(self, text = "Slave List",
             padx = 10, pady = 5)
         self.main.pack(fill = tk.BOTH, expand = True)
@@ -642,6 +627,8 @@ class SlaveListWidget(tk.Frame):
 
         self.callback = lambda i: None
 
+        print("[NOTE] No callback implemented for SlaveList double click")
+
     # API ......................................................................
     def addSlave(self, slave):
         """
@@ -741,14 +728,6 @@ class SlaveListWidget(tk.Frame):
                     self.slaveList.item(iid)['values'][self.I_INDEX] - 1)
         return selected
 
-    def setCallback(self, callback):
-        """
-        Set the method to be called when a Slave on the list is double clicked.
-        The method will be passed one integer argument representing the index
-        of the Slave double clicked.
-        """
-        self.callback = callback
-
     def sort(self):
         """
         Sort the Slaves in ascending or descending (toggle) order of index.
@@ -780,9 +759,11 @@ class StatusBarWidget(tk.Frame):
 
     TOTAL = 'T'
 
-    def __init__(self, master):
-        # Setup ................................................................
+    def __init__(self, master, network):
         tk.Frame.__init__(self, master)
+
+        # Setup ................................................................
+        self.network = network
         self.config(relief = tk.RIDGE, borderwidth = 2)
 
         # Status counters ......................................................
@@ -812,7 +793,7 @@ class StatusBarWidget(tk.Frame):
             self.statusDisplays[code].pack(side = tk.LEFT)
 
         # Buttons ..............................................................
-        self._shutdownCallback = lambda: None
+        self._shutdownCallback = network.shutdown
 
         self.buttonFrame = tk.Frame(self)
         self.buttonFrame.pack(side = tk.RIGHT, fill = tk.Y)
@@ -827,13 +808,6 @@ class StatusBarWidget(tk.Frame):
 
 
     # API ......................................................................
-    def setShutdownCallback(self, callback):
-        """
-        Set the method to be called, without arguments, when the "Shutdown"
-        button is pressed.
-        """
-        self._shutdownCallback = callback
-
     def setCount(self, status, count):
         """
         Set the status counter that corresponds to status code STATUS to COUNT.
@@ -881,8 +855,10 @@ class StatusBarWidget(tk.Frame):
     # Internal methods .........................................................
     def _onShutdown(self, *event):
         self._shutdownCallback()
+
 ## DEMO ########################################################################
 if __name__ == "__main__":
+    # NOTE: outdated (since NetworkAbstraction implementation)
     print("FCMkIV Network GUI demo started")
 
     # Base

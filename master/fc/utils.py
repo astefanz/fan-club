@@ -86,11 +86,11 @@ HEADER = \
 # Inter-process printing constants ---------------------------------------------
 
 # Message codes:
-D = 100000 # Debug
 R = 100001 # Regular
 W = 100002 # Warning
 E = 100003 # Error
 S = 100004 # Success
+D = 100000 # Debug
 X = 100005 # Exception
 
 # Message code to string marks:
@@ -132,33 +132,40 @@ def printers(queue, symbol = "[--]"):
     funcs = {}
     def printr(message, prefix = True):
         queue.put_nowait(
-            (R, (symbol if prefix else '') + message))
+            (R, tm.strftime("[%H:%M:%S]") + (symbol if prefix else '') \
+                + message))
     funcs[R] = printr
 
     def printe(message, prefix = True):
         queue.put_nowait(
-            (E, (symbol if prefix else '') + message))
+            (E,  tm.strftime("[%H:%M:%S]") + (symbol if prefix else '') \
+                + message))
     funcs[E] = printe
 
     def printw(message, prefix = True):
         queue.put_nowait(
-            (W, (symbol if prefix else '') + message))
+            (W,  tm.strftime("[%H:%M:%S]") + (symbol if prefix else '') \
+                + message))
     funcs[W] = printw
 
     def printd(message, prefix = True):
         if DEBUGP:
             queue.put_nowait(
-                (D, (symbol if prefix else '') + message))
+                (D,  tm.strftime("[%H:%M:%S]") + (symbol if prefix else '') \
+                    + message))
     funcs[D] = printd
 
     def prints(message, prefix = True):
         queue.put_nowait(
-            (S, (symbol if prefix else '') + message))
+            (S, ( tm.strftime("[%H:%M:%S]") + symbol if prefix else '') \
+                + message))
     funcs[S] = prints
 
     def printx(exception, message = ''):
         queue.put_nowait(
-            (E, symbol + ' ' + message + ' ' + traceback.format_exc()))
+            (E, tm.strftime("[%H:%M:%S]") + symbol + message \
+                + ' "{}"'.format(exception) \
+                + '\nTraceback:\n' + traceback.format_exc()))
     funcs[X] = printx
 
     return funcs

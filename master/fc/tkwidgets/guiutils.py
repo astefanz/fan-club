@@ -29,8 +29,22 @@
 ## IMPORTS #####################################################################
 import sys
 import os
+import traceback
+
+import tkinter as tk
+from tkinter import messagebox
+
+from .. import utils as us
 
 ## DEFINITIONS #################################################################
+# Pre-defined configurations:
+efont = {"font":"Courier 7"}
+fontc = {"font":"TkDefaultFont 7"}
+padc = {"padx":5, "pady":5}
+lfconf = {**fontc, **padc}
+lfpack = {"side":tk.TOP, "anchor":tk.N, "fill":tk.X, "expand":True}
+rbconf = {"indicatoron":False, **fontc, **padc}
+
 def resource_path(relative_path):
     """
     Get absolute path to resource, works for dev and for PyInstaller.
@@ -48,3 +62,10 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def popup_exception(title, message, exception):
+    """
+    Build a popup with TITLE, displaying MESSAGE and the traceback on EXCEPTION.
+    """
+    messagebox.showerror(title = title,
+        message = message + "\n\nException:\"{}\"".format(
+            traceback.format_exc()))

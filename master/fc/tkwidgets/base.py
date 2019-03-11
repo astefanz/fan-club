@@ -31,30 +31,40 @@ import time as tm
 import tkinter as tk
 import tkinter.ttk as ttk
 
+from . import network as ntw, control as ctr, profile as pro, console as csl
+
+
 if __name__ == '__main__':
     import embedded.caltech_white as cte
 else:
     from .embedded import caltech_white as cte
 
 ## AUXILIARY GLOBALS ###########################################################
+BG_CT = "#ff6e1f"
+BG_ERROR = "#510000"
+FG_ERROR = "red"
 
 ## MAIN ########################################################################
 class Base(tk.Frame):
 
-    def __init__(self, master, title = "FC MkIV", version = "N/A"):
+    ERROR_MESSAGE = "NOTE: There are unchecked error messages. See console."
 
-        # Core setup -----------------------------------------------------------
+    def __init__(self, master, network, title, version):
+        """
+        Create a new GUI base on the Tkinter root MASTER, with title TITLE and
+        showing the version VERSION.
+        """
         tk.Frame.__init__(self, master = master)
 
+        # Core setup -----------------------------------------------------------
+        self.network = network
 
         self.screenWidth = self.master.winfo_screenwidth()
         self.screenHeight = self.master.winfo_screenheight()
 
         self.winfo_toplevel().title(title)
-        """
         self.winfo_toplevel().geometry("{}x{}".format(
             self.screenWidth//2, self.screenHeight//2))
-        """
 
         self.grid_columnconfigure(0, weight = 1)
         self.grid_rowconfigure(1, weight = 1)
@@ -64,7 +74,7 @@ class Base(tk.Frame):
 
         # Top bar ..............................................................
         self.topBar = tk.Frame(self, relief = 'ridge', borderwidth = 2,
-            bg = '#ff6e1f')
+            bg = BG_CT)
         self.topBar.grid(row = 0, sticky = 'EW')
 
         self.caltechImage = tk.PhotoImage(data = cte.CALTECH)
@@ -74,72 +84,64 @@ class Base(tk.Frame):
 
         self.caltechLabel.pack(side = tk.LEFT, ipady = 4, padx = 6)
 
+        self.errorLabel = tk.Label(self.topBar, text = self.ERROR_MESSAGE,
+            bg = BG_ERROR, fg = FG_ERROR, padx = 10)
+        self.warning = False
+
         self.topWidgets = []
+
+        # Help:
+        self.helpButton = tk.Button(self.topBar, text = "Help",
+            command = self._helpCallback)
+        self.helpButton.pack(side = tk.RIGHT)
+        self.topWidgets.append(self.helpButton)
 
         # Notebook .............................................................
         self.notebook = ttk.Notebook(self)
         self.profileTab = tk.Frame(self.notebook)
         self.networkTab = tk.Frame(self.notebook)
         self.controlTab = tk.Frame(self.notebook)
+        self.consoleTab = tk.Frame(self.notebook)
 
-        self.profileWidget = None
-        self.networkWidget = None
-        self.controlWidget = None
+        # Profile tab:
+        self.profileWidget = pro.ProfileDisplay(self.profileTab)
+        self.profileWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
+            pady = 20)
+
+        # Network tab:
+        self.networkWidget = ntw.NetworkWidget(self.networkTab, network)
+        self.networkWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
+            pady = 20)
+
+        # Control tab:
+        self.controlWidget = ctr.ControlWidget(self.controlTab, network)
+        self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
+            pady = 20)
+
+        # Console tab:
+        self.consoleWidget = csl.ConsoleWidget(self.consoleTab,
+            self._consoleWarning)
+        self.consoleWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
+            pady = 20)
+        self.consoleTab.bind("<Visibility>", self._consoleCalm)
+        # FIXME
 
         self.notebook.add(self.profileTab, text = "Profile")
         self.notebook.add(self.networkTab, text = "Network")
         self.notebook.add(self.controlTab, text = "Control")
+        self.notebook.add(self.consoleTab, text = "Console")
 
         self.notebook.grid(row = 1, sticky = 'NWES')
 
         # Bottom bar ...........................................................
         self.bottomBar = tk.Frame(self)
         self.bottomBar.grid(row = 2, sticky = 'EW')
-        self.bottomWidget = None
+        self.bottomWidget = ntw.StatusBarWidget(self.bottomBar, network)
+        self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True)
 
-    def getTopBar(self):
-        return self.topBar
-
-    def addToTop(self, widget):
-        self.topWidgets.append(widget)
-        widget.pack(side = tk.RIGHT)
-
-    def getBottomFrame(self):
-        return self.bottomBar
-
-    def setBottom(self, widget):
-        self.bottomWidget = widget
-        widget.pack(side = tk.LEFT, fill = tk.X, expand = True)
-
-    def getProfileTab(self):
-        return self.profileTab
-
-    def setProfileWidget(self, widget):
-        if self.profileWidget is not None:
-            self.profileWidget.destroy()
-        self.profileWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
-
-    def getNetworkTab(self):
-        return self.networkTab
-
-    def setNetworkWidget(self, widget):
-        if self.networkWidget is not None:
-            self.networkWidget.destroy()
-        self.networkWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
-
-    def getControlTab(self):
-        return self.controlTab
-
-    def setControlWidget(self, widget):
-        if self.controlWidget is not None:
-            self.controlWidget.destroy()
-        self.controlWidget = widget
-        widget.pack(fill = tk.BOTH, expand = True, padx = 20, pady = 20)
-
-    def setTitle(self, title):
-        self.winfo_toplevel().title(title)
+        # FIXME:
+        print("[WARNING] Missing Ext. Control")
+        print("[WARNING] Missing Console")
 
     def focusProfile(self):
         self.notebook.select(0)
@@ -149,6 +151,36 @@ class Base(tk.Frame):
 
     def focusControl(self):
         self.notebook.select(2)
+        self.controlWidget.redrawGrid()
+
+    def focusConsole(self):
+        self.notebook.select(3)
+
+    def getConsoleMethods(self):
+        c = self.consoleWidget
+        return (c.printr, c.printw, c.printe, c.prints, c.printd, c.printx)
+
+    # Internal methods ---------------------------------------------------------
+    def _helpCallback(self):
+        """
+        To be called when the Help button is pressed.
+        """
+        print("[WARNING] Help button not yet built") # FIXME
+
+    def _consoleWarning(self):
+        """
+        To be used by the console to warn the user of errors.
+        """
+        self.errorLabel.pack(side = tk.LEFT, padx = 100, fill = tk.Y)
+        self.warning = True
+
+    def _consoleCalm(self, *E):
+        """
+        To be called after the console is  warnings have been checked.
+        """
+        if self.warning:
+            self.errorLabel.pack_forget()
+
 
 ## DEMO ########################################################################
 if __name__ == '__main__':

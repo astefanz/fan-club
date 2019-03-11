@@ -34,8 +34,7 @@ import tkinter as tk
 import fc.utils as us
 import fc.interface as it
 import fc.communicator as cm
-from fc.tkwidgets import splash as spl, base as bas, network as ntw, \
-    control as ctr, profile as pro
+from fc.tkwidgets import splash as spl, base as bas
 from fc.tkwidgets.embedded import icon as icn
 
 ## GLOBALS #####################################################################
@@ -65,8 +64,6 @@ class FCGUI(it.FCInterface):
         Overriden. Build GUI and run main loop. See fc.interface.FCInterface.
         """
 
-        # FIXME: add missing behavior from Interface base class (?)
-
         # Fix Windows DPI ......................................................
         if self.platform is us.WINDOWS:
             from ctypes import windll
@@ -80,52 +77,22 @@ class FCGUI(it.FCInterface):
 
         # GUI:
         self.root = tk.Tk()
-
         title = TITLE + " " + self.version
-        base = bas.Base(self.root, title = title, version = self.version)
-
-        # FIXME ----------------------------------------------------------------
-        # TODO: Fix API
-
-        # Top bar:
-        ext = tk.Button(base.getTopBar(), text = "External Control")
-        ter = tk.Button(base.getTopBar(), text = "Console")
-        hlp = tk.Button(base.getTopBar(), text = "Help")
-        base.addToTop(hlp)
-        base.addToTop(ter)
-        base.addToTop(ext)
-
-        # Profile tab:
-        profile = pro.ProfileDisplay(base.getProfileTab())
-        base.setProfileWidget(profile)
-
-        # Network tab:
-        network = ntw.NetworkWidget(base.getNetworkTab(),
-            messages = cm.MESSAGES, targets = cm.TARGETS)
-        base.setNetworkWidget(network)
-
-        control = ctr.ControlWidget(base.getControlTab())
-        base.setControlWidget(control)
-
-        bot = ntw.StatusBarWidget(base.getBottomFrame())
-        base.setBottom(bot)
-
+        base = bas.Base(self.root, self.network, title, self.version)
         base.pack(fill = tk.BOTH, expand = True)
+        self._setPrintMethods(base)
         base.focusControl()
-        control.grid.d()
-
-        # Start sentinels:
-        self._start()
 
         # Main loop ------------------------------------------------------------
+        self._start()
         self.root.mainloop()
+
 
     def process(self, code, text):
         """
         Overriden. See fc.utils.PrintServer.
         """
-        # FIXME need actual implementation.
-        print(us.CODE_TO_STR[code] + text)
+        self.outputs[code](text)
 
     # Overriding sentinel thread implementation --------------------------------
     def start(self):
@@ -148,9 +115,18 @@ class FCGUI(it.FCInterface):
         Overriden. Executes single cycle of both print and inter-process
         sentinels.
         """
-
         it.FCInterface._cycle(self)
         if not self.done.is_set():
             self.root.after(self.period_ms, self._cycle)
         else:
             print(self.symbol, "Sentinels terminated")
+
+    def _setPrintMethods(self, base):
+        """
+        Get the print methods from the base widgets. Placed here to keep build
+        code clean.
+        """
+        self.outputs = {}
+        self.outputs[us.R], self.outputs[us.W], self.outputs[us.E], \
+            self.outputs[us.S], self.outputs[us.D], self.outputs[us.X] = \
+            base.getConsoleMethods()

@@ -37,13 +37,126 @@ MSG_ADD = 3031
 MSG_DISCONNECT = 3032
 MSG_REBOOT = 3033
 MSG_REMOVE = 3034
-MESSAGES = {"Add":MSG_ADD, "Disconnect":MSG_DISCONNECT, "Reboot":MSG_REBOOT,
-    "Remove": MSG_REMOVE}
+MSG_SHUTDOWN = 3035
 
 # Target codes:
 TGT_ALL = 4041
 TGT_SELECTED = 4042
-TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
+
+# Control codes:
+CTL_DC = 5051
+# NOTE: From the old communicator, commands have been simplified by using only
+# "SET_DC_MULTI" Also, SET_RPM has been omitted until feedback control is to be
+# implemented.
+
+# Bootloader codes:
+BTL_START = 6061
+BTL_STOP = 6062
+
+## HELPER CLASSES ##############################################################
+class NetworkAbstraction(us.PrintClient):
+    """
+    Abstractions to be used by the FC front-end to interface with
+    communications.
+    """
+
+    MESSAGES = {"Add":MSG_ADD, "Disconnect":MSG_DISCONNECT, "Reboot":MSG_REBOOT,
+        "Remove": MSG_REMOVE, "Shutdown":MSG_SHUTDOWN}
+    TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
+
+    CONTROLS = {"DC":CTL_DC}
+
+    def __init__(self, communicator, messagePipe, inputPipe, startMethod):
+        """
+        Create a new NetworkAbstraction that sends messages to the given
+        Communicator instance (COMMUNICATOR) through MESSAGE_PIPE and input
+        vectors through INPUT_PIPE (both send-enabled Connection instances
+        returned by multiprocessing.Pipe).
+
+        START is a method (with no arguments) to be called when the
+        Communicator is to be started.
+        """
+        self.communicator = communicator
+        self.messagePipe = messagePipe
+        self.inputPipe = inputPipe
+        self.startMethod = startMethod
+
+    def send(self, command, value = ()):
+        """
+        Send a general command with command code COMMAND and value tuple VALUE
+        (when applicable, its particular value depends on the command). In
+        general. this method should be superseded by the specific send methods.
+
+        Raises a RuntimeError if this method is called while the Communicator
+        is inactive.
+        """
+        if self.communicator.active():
+            self.messagePipe.send((command) + value)
+        else:
+            raise RuntimeError("Tried to send command offline ({})".format(
+                command))
+
+    def connect(self):
+        """
+        Send a message to activate the Communicator backend.
+        """
+        self.startMethod()
+
+    def disconnect(self):
+        """
+        Send a message to stop the Communicator backend.
+        """
+        self.communicator.stop()
+
+    def shutdown(self):
+        """
+        Send a shutdown message to the Communicator backend.
+        """
+        self.send(MSG_SHUTDOWN, TGT_ALL)
+
+    def sendMessage(self, message, target, selection = ()):
+        """
+        Send a message with message code MESSAGE, target code TARGET and, if
+        applicable, SELECTION (may be omitted otherwise).
+        """
+        self.send(message, (target, selection))
+
+    def sendMatrix(self, matrix):
+        """
+        Send the control matrix MATRIX.
+
+        For performance, this method does not check if the communicator is
+        inactive.
+        """
+        # FIXME implement matrix behavior
+        raise RuntimeError("Control matrix behavior not yet implemented")
+
+    def startBootloader(self, filename, version, size):
+        """
+        Send a command to start the bootloader using the binary file at
+        FILENAME with version code VERSION and byte size SIZE.
+        """
+        self.send(BTL_START, (filename, version, size))
+
+    def stopBootloader(self):
+        """
+        Send a command to stop the flashing process.
+        """
+        seld.send(BTL_STOP)
+
+    def messages(self):
+        """
+        Return an iterable of (NAME, CODE) pairs representing the messages that
+        can be sent to the Communicator backend.
+        """
+        return self.MESSAGES.items()
+
+    def targets(self):
+        """
+        Return an iterable of (NAME, CODE) pairs representing the target options
+        that can be sent to the Communicator backend (in reference to messages).
+        """
+        return self.TARGETS.items()
 
 ## CLASS DEFINITION ############################################################
 class FCCommunicator(us.PrintClient):
@@ -72,20 +185,22 @@ class FCCommunicator(us.PrintClient):
 
         self.printw("Initialized FCCommunicator skeleton") # FIXME
 
-    def start(self, profile, matrixPipe, networkPipe, slavePipe, commandPipe,
-        timeout = MP_STOP_TIMEOUT_S):
+    def start(self, profile, feedbackPipe, inputPipe, networkPipe, slavesPipe,
+        messagePipe, timeout = MP_STOP_TIMEOUT_S):
         """
         Start this Communicator (launch the communication daemon). Stops and
         restarts this instance if it is already active.
 
         Arguments:
         - PROFILE: See FC Archive.
-        - PIPES (multiprocessing pipes, or multiprocessing-pipe-like):
-            - The MATRIX pipe end will be used bidirectionally: to SEND array
-              state vectors and to RECEIVE array input vectors.
-            - The NETWORK and SLAVE pipe ends will be used to SEND network and
-              slave list state vectors.
-            - The COMMAND pipe is a bidirectional pipe used to RECEIVE commands
+        - PIPES (multiprocessing Pipe Connections):
+            - FEEDBACK will be use to send array state vectors to
+              the front end.
+            - INPUT pipe will be used to receive input vectors from the front
+              end.
+            - NETWORK and SLAVES will be used to send network and slave list
+              state vectors.
+            - MESSAGE is a bidirectional pipe used to RECEIVE commands
               (such as a command to launch ethernet flashing) and may be used
               to SEND special messages if necessary, though this functionality
               remains undefined.

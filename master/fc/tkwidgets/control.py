@@ -35,21 +35,10 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-if __name__ == "__main__":
-    import embedded.colormaps as cms
-    import grid as gd
-else:
-    from .embedded import colormaps as cms
-    from . import grid as gd
+from . import guiutils as gus, grid as gd
+from .embedded import colormaps as cms
 
 ## GLOBALS #####################################################################
-# Pre-defined configurations:
-efont = {"font":"Courier 7"}
-fontc = {"font":"TkDefaultFont 7"}
-padc = {"padx":5, "pady":5}
-lfconf = {**fontc, **padc}
-lfpack = {"side":tk.TOP, "anchor":tk.N, "fill":tk.X, "expand":True}
-rbconf = {"indicatoron":False, **fontc, **padc}
 
 ## WIDGETS #####################################################################
 class SteadyControlWidget(tk.Frame):
@@ -61,9 +50,12 @@ class SteadyControlWidget(tk.Frame):
     DI_SELECT = 55
     DI_DRAW = 65
 
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
-        # Setup ................................................................
+    def __init__(self, master, network,
+        printr = lambda s:None, printx = lambda e:None):
         tk.Frame.__init__(self, master)
+
+        # Setup ................................................................
+        self.network = network
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
@@ -76,58 +68,60 @@ class SteadyControlWidget(tk.Frame):
 
 
         # Direct input .........................................................
-        self.directFrame = tk.LabelFrame(self, text = "Direct input", **lfconf)
+        self.directFrame = tk.LabelFrame(self, text = "Direct input",
+            **gus.lfconf)
         self.directFrame.grid(row = row, sticky = "EW")
         row += 1
 
         self.directMode = tk.IntVar()
         self.selectButton = tk.Radiobutton(self.directFrame,
             variable = self.directMode, value = self.DI_SELECT, text = "Select",
-            **rbconf)
-        self.selectButton.pack(side = tk.LEFT, **padc)
+            **gus.rbconf)
+        self.selectButton.pack(side = tk.LEFT, **gus.padc)
         self.drawButton = tk.Radiobutton(self.directFrame, text = "Draw",
-            variable = self.directMode, value = self.DI_DRAW, **rbconf)
-        self.drawButton.pack(side = tk.LEFT, **padc)
+            variable = self.directMode, value = self.DI_DRAW, **gus.rbconf)
+        self.drawButton.pack(side = tk.LEFT, **gus.padc)
         self.directMode.trace('w', self._onDirectModeChange)
 
-        self.directValueEntry = tk.Entry(self.directFrame, **efont, width = 6)
-        self.directValueEntry.pack(side = tk.LEFT, **padc)
+        self.directValueEntry = tk.Entry(self.directFrame, **gus.efont, width = 6)
+        self.directValueEntry.pack(side = tk.LEFT, **gus.padc)
         # FIXME validate
         self.sendDirectButton = tk.Button(self.directFrame, text = "Send",
-            **padc, **fontc, command = self._sendDirect)
-        self.sendDirectButton.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc, command = self._sendDirect)
+        self.sendDirectButton.pack(side = tk.LEFT, **gus.padc)
 
         # FIXME keyboard bindings
 
         # Random flow ..........................................................
-        self.randomFrame = tk.LabelFrame(self, text = "Random Flow", **lfconf)
+        self.randomFrame = tk.LabelFrame(self, text = "Random Flow",
+            **gus.lfconf)
         self.randomFrame.grid(row = row, sticky = "EW")
         row += 1
 
-        self.leftB = tk.Label(self.randomFrame, text = "[", **fontc)
+        self.leftB = tk.Label(self.randomFrame, text = "[", **gus.fontc)
         self.leftB.pack(side = tk.LEFT)
 
         # FIXME validate
-        self.randomLow = tk.Entry(self.randomFrame, **fontc, width = 5)
+        self.randomLow = tk.Entry(self.randomFrame, **gus.fontc, width = 5)
         self.randomLow.pack(side = tk.LEFT)
 
-        self.comma = tk.Label(self.randomFrame, text = ", ", **efont)
+        self.comma = tk.Label(self.randomFrame, text = ", ", **gus.efont)
         self.comma.pack(side = tk.LEFT)
 
         # FIXME validate
-        self.randomHigh = tk.Entry(self.randomFrame, **efont, width = 5)
+        self.randomHigh = tk.Entry(self.randomFrame, **gus.efont, width = 5)
         self.randomHigh.pack(side = tk.LEFT)
 
-        self.rightB = tk.Label(self.randomFrame, text = "]", **fontc)
+        self.rightB = tk.Label(self.randomFrame, text = "]", **gus.fontc)
         self.rightB.pack(side = tk.LEFT)
 
         self.sendRandomButton = tk.Button(self.randomFrame, text = "Send",
-            **padc, **fontc, command = self._sendRandom)
-        self.sendRandomButton.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc, command = self._sendRandom)
+        self.sendRandomButton.pack(side = tk.LEFT, **gus.padc)
 
         # Python interpreter
         self.pythonFrame = tk.LabelFrame(self, text = "Python (Expression)",
-            **lfconf)
+            **gus.lfconf)
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
 
@@ -150,22 +144,22 @@ class SteadyControlWidget(tk.Frame):
         self.pythonButtonFrame = tk.Frame(self.pythonFrame)
         self.pythonButtonFrame.grid(row = 1, column = 0, sticky = "WE")
         self.pythonSend = tk.Button(self.pythonButtonFrame, text = "Run",
-            **padc, **fontc)
-        self.pythonSend.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc)
+        self.pythonSend.pack(side = tk.LEFT, **gus.padc)
         self.pythonHelp = tk.Button(self.pythonButtonFrame, text = "Help",
-            **padc, **fontc)
-        self.pythonHelp.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc)
+        self.pythonHelp.pack(side = tk.LEFT, **gus.padc)
 
         # File
-        self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **lfconf)
+        self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **gus.lfconf)
         self.fileFrame.grid(row = row, sticky = "EW")
         row += 1
         self.loadButton = tk.Button(self.fileFrame, text = "Load",
-            **padc, **fontc, command = self._load)
-        self.loadButton.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc, command = self._load)
+        self.loadButton.pack(side = tk.LEFT, **gus.padc)
         self.saveButton = tk.Button(self.fileFrame, text = "Save",
-            **padc, **fontc, command = self._save)
-        self.saveButton.pack(side = tk.LEFT, **padc)
+            **gus.padc, **gus.fontc, command = self._save)
+        self.saveButton.pack(side = tk.LEFT, **gus.padc)
 
 
         # Wrap-up
@@ -246,9 +240,12 @@ class ControlPanelWidget(tk.Frame):
     VM_LIVE = 690
     VM_BUILDER = 691
 
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
-        # Setup ................................................................
+    def __init__(self, master, network,
+        printr = lambda s:None, printx = lambda e:None):
         tk.Frame.__init__(self, master)
+
+        # Setup ................................................................
+        self.network = network
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
@@ -259,7 +256,7 @@ class ControlPanelWidget(tk.Frame):
         # TODO: Callbacks and validations
 
         # Mode and layer .......................................................
-        self.viewFrame = tk.LabelFrame(self, text = "View", **fontc)
+        self.viewFrame = tk.LabelFrame(self, text = "View", **gus.fontc)
         self.viewFrame.grid(row = row, sticky = "EW")
         row += 1
 
@@ -267,23 +264,23 @@ class ControlPanelWidget(tk.Frame):
         self.viewVar.trace('w', self._onModeChange)
         self.liveButton = tk.Radiobutton(self.viewFrame,
             variable = self.viewVar, value = self.VM_LIVE, text = "Real Time",
-            **rbconf)
+            **gus.rbconf)
         self.liveButton.pack(side = tk.LEFT, pady = 5)
         self.builderButton = tk.Radiobutton(self.viewFrame,
             variable = self.viewVar, value = self.VM_BUILDER,
-            text = "Flow Builder", **rbconf)
+            text = "Flow Builder", **gus.rbconf)
         self.builderButton.pack(side = tk.LEFT, pady = 5)
 
         self.layerFrame = tk.Frame(self.viewFrame)
-        self.layerFrame.pack(side = tk.LEFT, **padc)
+        self.layerFrame.pack(side = tk.LEFT, **gus.padc)
         self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
-            **fontc, **padc)
-        self.layerLabel.pack(side = tk.LEFT, **padc)
+            **gus.fontc, **gus.padc)
+        self.layerLabel.pack(side = tk.LEFT, **gus.padc)
         self.layerVar = tk.IntVar()
         self.layerVar.trace('w', self._onLayerChange)
         self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar, 1)
-        self.layerMenu.config(**fontc)
-        self.layerMenu.pack(side = tk.LEFT, **padc)
+        self.layerMenu.config(**gus.fontc)
+        self.layerMenu.pack(side = tk.LEFT, **gus.padc)
 
         # Flow control .........................................................
         self.notebook = ttk.Notebook(self)
@@ -304,7 +301,7 @@ class ControlPanelWidget(tk.Frame):
         self.grid_rowconfigure(row, weight = 1)
         row += 1
 
-        self.recordFrame = tk.LabelFrame(self, text = "Record Data", **fontc)
+        self.recordFrame = tk.LabelFrame(self, text = "Record Data", **gus.fontc)
         self.recordFrame.grid(row = row, sticky = "EW")
         row += 1
 
@@ -312,33 +309,33 @@ class ControlPanelWidget(tk.Frame):
         self.fileFrame.pack(side = tk.TOP, fill = tk.X, expand = True)
 
         self.fileLabel = tk.Label(self.fileFrame, text = "File: ",
-            **fontc, **padc)
+            **gus.fontc, **gus.padc)
         self.fileLabel.pack(side = tk.LEFT)
-        self.fileField = tk.Entry(self.fileFrame, **fontc, width = 20,
+        self.fileField = tk.Entry(self.fileFrame, **gus.fontc, width = 20,
             state = tk.DISABLED)
         self.fileField.pack(side = tk.LEFT, fill = tk.X, expand = True)
-        self.fileButton = tk.Button(self.fileFrame, text = "...", **fontc,
-            **padc)
-        self.fileButton.pack(side = tk.LEFT, **padc)
+        self.fileButton = tk.Button(self.fileFrame, text = "...", **gus.fontc,
+            **gus.padc)
+        self.fileButton.pack(side = tk.LEFT, **gus.padc)
 
         self.recordControlFrame = tk.Frame(self.recordFrame)
         self.recordControlFrame.pack(side = tk.TOP, fill = tk.X, expand = True,
-            **padc)
+            **gus.padc)
         self.recordStartButton = tk.Button(self.recordControlFrame,
-            text = "Start", **fontc, **padc)
+            text = "Start", **gus.fontc, **gus.padc)
         self.recordStartButton.pack(side = tk.LEFT)
         self.recordPauseButton = tk.Button(self.recordControlFrame,
-            text = "Pause", **fontc, **padc, state = tk.DISABLED)
+            text = "Pause", **gus.fontc, **gus.padc, state = tk.DISABLED)
         self.recordPauseButton.pack(side = tk.LEFT, padx = 10)
 
         # Matrix count .........................................................
-        self.matrixCountFrame = tk.LabelFrame(self, **lfconf,
+        self.matrixCountFrame = tk.LabelFrame(self, **gus.lfconf,
             text = "Diagnostics")
         self.matrixCountFrame.grid(row = row, sticky = "EW")
         row += 1
         self.matrixCountLabel = tk.Label(self.matrixCountFrame,
-            text = "Matrix: ", **fontc, **padc)
-        self.matrixCountLabel.pack(side = tk.LEFT, **padc)
+            text = "Matrix: ", **gus.fontc, **gus.padc)
+        self.matrixCountLabel.pack(side = tk.LEFT, **gus.padc)
         self.matrixCountVar = tk.IntVar()
         self.matrixCountVar.set(0)
         self.matrixDisplay = tk.Label(self.matrixCountFrame,
@@ -464,15 +461,17 @@ class ControlWidget(tk.Frame):
     """
     Container for all the FC control GUI front-end widgets.
     """
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
-        # Core setup -----------------------------------------------------------
+    def __init__(self, master, network,
+        printr = lambda s:None, printx = lambda e:None):
         tk.Frame.__init__(self, master)
+
+        # Core setup -----------------------------------------------------------
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
 
         # Control panel --------------------------------------------------------
         # FIXME
-        self.control = ControlPanelWidget(self.main, printr, printx)
+        self.control = ControlPanelWidget(self.main, network, printr, printx)
         self.main.add(self.control, weight = 2)
         # Grid -----------------------------------------------------------------
         # FIXME
@@ -482,12 +481,18 @@ class ControlWidget(tk.Frame):
         # Color Bar ------------------------------------------------------------
         # FIXME
         self.bar = ColorBarWidget(self.main,
-            colors = cms.COLORMAP_GALCIT, printr = printr, printx = printx)
+            colors = cms.COLORMAP_GALCIT, printr = printr, printx = printx,
+            unit = "RPM")
         self.main.add(self.bar, weight = 0)
         # Wrap-up --------------------------------------------------------------
         # FIXME
 
     # FIXME: API
+    def redrawGrid(self):
+        """
+        Rebuild the grid widget.
+        """
+        self.grid.d()
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
