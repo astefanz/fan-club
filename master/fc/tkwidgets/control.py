@@ -41,6 +41,86 @@ from .embedded import colormaps as cms
 ## GLOBALS #####################################################################
 
 ## WIDGETS #####################################################################
+class PythonInputWidget(tk.Frame):
+    """
+    Base class for a widget for Python code input.
+    """
+    def __init__(self, master): # FIXME params
+        """
+        Create a Python input widget in which the user may define a function
+        of the form
+            f(r, c, l, p, d, t)
+              |  |  |  |  |  |
+              |  |  |  |  |  time
+              |  |  |  |  duty cycle
+              |  |  |  RPM
+              |  |  layer
+              |  column
+              row
+
+        CALLBACK is a method to which to pass the resulting Python function
+        after being parsed and instantiated.
+        """
+        tk.Frame.__init__(self, master)
+
+
+        # TODO:
+        # - output should be a function to be evaluated on the given params
+        # - receive which params are to be defined
+
+        # FIXME extra builds
+        self.grid_rowconfigure(1, weight = 1)
+        self.grid_columnconfigure(1, weight = 1)
+        row = 0
+
+        self.topLabel = tk.Label(self, font = "Courier 7 bold",
+            text = "def duty_cycle(r, c, l, p, d, t):", anchor = tk.W)
+        self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
+        row += 1
+
+        self.font = tk.font.Font(font = "Courier 7 bold")
+        self.tabstr = "  "
+        self.tabsize = self.font.measure(self.tabstr)
+
+        self.indent = tk.Label(self, font = self.font, text = self.tabstr)
+        self.indent.grid(row = row, column = 0, sticky = "NS")
+
+        self.text = tk.Text(self, font = self.font,
+            width = 30, height = 2, padx = 10, pady = 0, bg = 'black',
+            fg = 'lightgray', insertbackground = "#ff6e1f",
+            tabs = self.tabsize)
+        self.text.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
+
+        # For scrollbar, see:
+        # https://www.python-course.eu/tkinter_text_widget.php
+
+        self.scrollbar = tk.Scrollbar(self)
+        self.scrollbar.grid(row = row, column = 2, rowspan = 1,
+            sticky = "NS")
+        self.scrollbar.config(command = self.text.yview)
+        self.text.config(yscrollcommand = self.scrollbar.set)
+        row += 1
+
+        self.buttonFrame = tk.Frame(self)
+        self.buttonFrame.grid(row = row, column = 0, columnspan = 2,sticky = "WE")
+        self.sendButton = tk.Button(self.buttonFrame, text = "Run",
+            **gus.padc, **gus.fontc)
+        self.sendButton.pack(side = tk.LEFT, **gus.padc)
+
+        self.loadButton = tk.Button(self.buttonFrame, text = "Load",
+            **gus.padc, **gus.fontc)
+        self.loadButton.pack(side = tk.LEFT, **gus.padc)
+
+        self.saveButton = tk.Button(self.buttonFrame, text = "Save",
+            **gus.padc, **gus.fontc)
+        self.saveButton.pack(side = tk.LEFT, **gus.padc)
+
+        self.helpButton = tk.Button(self.buttonFrame, text = "Help",
+            **gus.padc, **gus.fontc)
+        self.helpButton.pack(side = tk.LEFT, **gus.padc)
+
+    # FIXME API
+
 class SteadyControlWidget(tk.Frame):
     """
     Container for the steady flow control tools.
@@ -120,35 +200,14 @@ class SteadyControlWidget(tk.Frame):
         self.sendRandomButton.pack(side = tk.LEFT, **gus.padc)
 
         # Python interpreter
+        self.grid_rowconfigure(row, weight = 1) # FIXME
         self.pythonFrame = tk.LabelFrame(self, text = "Python (Expression)",
             **gus.lfconf)
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
-
-        self.pythonFrame.grid_rowconfigure(0, weight = 1)
-        self.pythonFrame.grid_columnconfigure(0, weight = 1)
-
-        self.pythonText = tk.Text(self.pythonFrame, font = "Courier 7 bold",
-            width = 30, height = 2, padx = 10, pady = 10, bg = 'black',
-            fg = 'lightgray', insertbackground = "#ff6e1f")
-        self.pythonText.grid(row = 0, column = 0, sticky = "NEWS")
-
-        # For scrollbar, see:
-        # https://www.python-course.eu/tkinter_text_widget.php
-
-        self.pythonScrollbar = tk.Scrollbar(self.pythonFrame)
-        self.pythonScrollbar.grid(row = 0, column = 1, sticky = "NS")
-        self.pythonScrollbar.config(command = self.pythonText.yview)
-        self.pythonText.config(yscrollcommand = self.pythonScrollbar.set)
-
-        self.pythonButtonFrame = tk.Frame(self.pythonFrame)
-        self.pythonButtonFrame.grid(row = 1, column = 0, sticky = "WE")
-        self.pythonSend = tk.Button(self.pythonButtonFrame, text = "Run",
-            **gus.padc, **gus.fontc)
-        self.pythonSend.pack(side = tk.LEFT, **gus.padc)
-        self.pythonHelp = tk.Button(self.pythonButtonFrame, text = "Help",
-            **gus.padc, **gus.fontc)
-        self.pythonHelp.pack(side = tk.LEFT, **gus.padc)
+        self.python = PythonInputWidget(self.pythonFrame)
+        self.python.pack(fill = tk.BOTH, expand = True)
+        # FIXME configure python
 
         # File
         self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **gus.lfconf)
@@ -230,6 +289,17 @@ class DynamicControlWidget(tk.Frame):
         # FIXME
     # FIXME
 
+class ExternalControlWidget(tk.Frame):
+    """
+    Container for the "external" control tools.
+    """
+
+    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
+        tk.Frame.__init__(self, master)
+        l = tk.Label(self, text = "[External control goes here]")
+        l.pack(fill = tk.BOTH, expand = True)
+        # FIXME
+    # FIXME
 
 class ControlPanelWidget(tk.Frame):
     """
@@ -283,6 +353,7 @@ class ControlPanelWidget(tk.Frame):
         self.layerMenu.pack(side = tk.LEFT, **gus.padc)
 
         # Flow control .........................................................
+        self.grid_rowconfigure(row, weight = 1) # FIXME
         self.notebook = ttk.Notebook(self)
         self.notebook.grid(row = row, sticky = "NEWS")
         row += 1
@@ -294,11 +365,16 @@ class ControlPanelWidget(tk.Frame):
         # Dynamic ..............................................................
         self.dynamic = DynamicControlWidget(self.notebook, printr, printx)
         self.notebook.add(self.dynamic, text = "Dynamic Flow",
-            state = tk.DISABLED)
+            state = tk.NORMAL)
+
+        # External .............................................................
+        self.external = ExternalControlWidget(self.notebook, printr, printx)
+        self.notebook.add(self.external, text = "External Control",
+            state = tk.NORMAL)
 
         # Record ...............................................................
         # Add spacer:
-        self.grid_rowconfigure(row, weight = 1)
+        self.grid_rowconfigure(row, weight = 0) # FIXME
         row += 1
 
         self.recordFrame = tk.LabelFrame(self, text = "Record Data", **gus.fontc)
