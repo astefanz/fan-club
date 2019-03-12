@@ -45,7 +45,11 @@ class PythonInputWidget(tk.Frame):
     """
     Base class for a widget for Python code input.
     """
-    def __init__(self, master): # FIXME params
+
+    HEADER = "def duty_cycle(r, c, l, p, d, t):"
+    FOOTER = "self.func = duty_cycle"
+
+    def __init__(self, master, callback, printr, printx): # FIXME params
         """
         Create a Python input widget in which the user may define a function
         of the form
@@ -63,24 +67,23 @@ class PythonInputWidget(tk.Frame):
         """
         tk.Frame.__init__(self, master)
 
+        self.callback = callback
+        self.printr = printr
+        self.printx = printx
 
-        # TODO:
-        # - output should be a function to be evaluated on the given params
-        # - receive which params are to be defined
-
-        # FIXME extra builds
         self.grid_rowconfigure(1, weight = 1)
         self.grid_columnconfigure(1, weight = 1)
         row = 0
 
         self.topLabel = tk.Label(self, font = "Courier 7 bold",
-            text = "def duty_cycle(r, c, l, p, d, t):", anchor = tk.W)
+            text = self.HEADER, anchor = tk.W)
         self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
         row += 1
 
         self.font = tk.font.Font(font = "Courier 7 bold")
         self.tabstr = "  "
         self.tabsize = self.font.measure(self.tabstr)
+        self.realtabs = "    "
 
         self.indent = tk.Label(self, font = self.font, text = self.tabstr)
         self.indent.grid(row = row, column = 0, sticky = "NS")
@@ -102,22 +105,77 @@ class PythonInputWidget(tk.Frame):
         row += 1
 
         self.buttonFrame = tk.Frame(self)
-        self.buttonFrame.grid(row = row, column = 0, columnspan = 2,sticky = "WE")
-        self.sendButton = tk.Button(self.buttonFrame, text = "Run",
-            **gus.padc, **gus.fontc)
-        self.sendButton.pack(side = tk.LEFT, **gus.padc)
+        self.buttonFrame.grid(row = row, column = 0, columnspan = 2,
+            sticky = "WE")
 
+        # TODO
+        self.runButton = tk.Button(self.buttonFrame, text = "Run",
+            command = self._run, **gus.padc, **gus.fontc)
+        self.runButton.pack(side = tk.LEFT, **gus.padc)
+
+        # TODO
         self.loadButton = tk.Button(self.buttonFrame, text = "Load",
-            **gus.padc, **gus.fontc)
+            **gus.padc, **gus.fontc, command = self._load)
         self.loadButton.pack(side = tk.LEFT, **gus.padc)
 
+        # TODO
         self.saveButton = tk.Button(self.buttonFrame, text = "Save",
-            **gus.padc, **gus.fontc)
+            **gus.padc, **gus.fontc, command = self._save)
         self.saveButton.pack(side = tk.LEFT, **gus.padc)
 
+        # TODO
+        self.builtinButton = tk.Button(self.buttonFrame, text = "Built-in",
+            **gus.padc, **gus.fontc, command = self._builtin)
+        self.builtinButton.pack(side = tk.LEFT, **gus.padc)
+
+        # TODO
         self.helpButton = tk.Button(self.buttonFrame, text = "Help",
-            **gus.padc, **gus.fontc)
+            **gus.padc, **gus.fontc, command = self._help)
         self.helpButton.pack(side = tk.LEFT, **gus.padc)
+
+    def _run(self, *E):
+        """
+        To be called when the Run button is clicked. Parse the function and
+        pass it to the given callback.
+        """
+        try:
+            raw = self.text.get(1.0, tk.END)
+            retabbed = raw.replace('\t', self.realtabs)
+
+            built = self.HEADER + '\n'
+            for line in retabbed.split('\n'):
+                built += self.realtabs + line + '\n'
+            built += self.FOOTER + '\n'
+
+            exec(built) # TODO: fix security hole in exec
+            self.callback(self.func)
+
+        except Exception as e:
+            self.printx("Exception when parsing Python input:", e)
+
+    def _load(self, *E):
+        """
+        To be executed by Load button.
+        """
+        print("[WARNING] _load not implemented ")
+
+    def _builtin(self, *E):
+        """
+        To be executed by the Built-in button.
+        """
+        print("[WARNING] _builtin not implemented ")
+
+    def _save(self, *E):
+        """
+        To be executed by Save button.
+        """
+        print("[WARNING] _save not implemented ")
+
+    def _help(self, *E):
+        """
+        To be executed by Help button.
+        """
+        print("[WARNING] _help not implemented ")
 
     # FIXME API
 
@@ -140,9 +198,6 @@ class SteadyControlWidget(tk.Frame):
         row = 0
 
         # Callbacks:
-        self._loadCallback = self._nothing
-        self.saveCallback = self._nothing
-        self.sendCallback = self._nothing
         self.selectAll = self._nothing
         self.deselectAll = self._nothing
 
@@ -200,12 +255,13 @@ class SteadyControlWidget(tk.Frame):
         self.sendRandomButton.pack(side = tk.LEFT, **gus.padc)
 
         # Python interpreter
-        self.grid_rowconfigure(row, weight = 1) # FIXME
-        self.pythonFrame = tk.LabelFrame(self, text = "Python (Expression)",
+        self.grid_rowconfigure(row, weight = 1)
+        self.pythonFrame = tk.LabelFrame(self, text = "Python",
             **gus.lfconf)
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
-        self.python = PythonInputWidget(self.pythonFrame)
+        self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
+            lambda m: print(m), lambda x, m: print(x, m)) # FIXME
         self.python.pack(fill = tk.BOTH, expand = True)
         # FIXME configure python
 
@@ -243,10 +299,12 @@ class SteadyControlWidget(tk.Frame):
         # FIXME
         pass
 
-    def _sendPython(self, *E):
+    def _sendPython(self, function, *E):
         """
-        Send a command generated from a Python expression.
+        Send a command generated by the Python input.
         """
+        print("[WARNING] Python input not yet available. Received ",
+            function)
         # FIXME
         pass
 
@@ -254,13 +312,15 @@ class SteadyControlWidget(tk.Frame):
         """
         Save the current state. (Calls the save callback.)
         """
-        self.saveCallback()
+        # FIXME
+        pass
 
     def _load(self, *E):
         """
         Load a saved state. (Calls the load callback.)
         """
-        self.loadCallback()
+        # FIXME
+        pass
 
     def _onDirectModeChange(self, *E):
         """
@@ -284,10 +344,52 @@ class DynamicControlWidget(tk.Frame):
 
     def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
         tk.Frame.__init__(self, master)
-        l = tk.Label(self, text = "[Dynamic control goes here]")
-        l.pack(fill = tk.BOTH, expand = True)
+
+        self.grid_columnconfigure(0, weight = 1)
+        row = 0
+
+        # Python interpreter
+        self.grid_rowconfigure(row, weight = 1)
+        self.pythonFrame = tk.LabelFrame(self, text = "Python",
+            **gus.lfconf)
+        self.pythonFrame.grid(row = row, sticky = "NEWS")
+        row += 1
+        self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
+            lambda m: print(m), lambda x, m: print(x, m)) # FIXME
+        self.python.pack(fill = tk.BOTH, expand = True)
+        # FIXME configure python
+
+        # File
+        self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **gus.lfconf)
+        self.fileFrame.grid(row = row, sticky = "EW")
+        row += 1
+        self.loadButton = tk.Button(self.fileFrame, text = "Load",
+            **gus.padc, **gus.fontc, command = self._load)
+        self.loadButton.pack(side = tk.LEFT, **gus.padc)
+        self.saveButton = tk.Button(self.fileFrame, text = "Save",
+            **gus.padc, **gus.fontc, command = self._save)
+        self.saveButton.pack(side = tk.LEFT, **gus.padc)
+
+    def _sendPython(self, function, *E):
+        """
+        Python input callback.
+        """
         # FIXME
-    # FIXME
+        print("[WARNING] _sendPython not implemented")
+
+    def _save(self, *E):
+        """
+        Save button callback.
+        """
+        # FIXME
+        print("[WARNING] _save not implemented")
+
+    def _load(self, *E):
+        """
+        Load button callback.
+        """
+        # FIXME
+        print("[WARNING] _load not implemented")
 
 class ExternalControlWidget(tk.Frame):
     """
