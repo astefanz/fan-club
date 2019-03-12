@@ -47,7 +47,8 @@ FG_ERROR = "red"
 ## MAIN ########################################################################
 class Base(tk.Frame):
 
-    ERROR_MESSAGE = "NOTE: There are unchecked error messages. See console."
+    ERROR_MESSAGE = \
+        "[NOTE: There are error messages in the console. Click here.]"
 
     def __init__(self, master, network, title, version):
         """
@@ -86,6 +87,7 @@ class Base(tk.Frame):
 
         self.errorLabel = tk.Label(self.topBar, text = self.ERROR_MESSAGE,
             bg = BG_ERROR, fg = FG_ERROR, padx = 10)
+        self.errorLabel.bind("<Button-1>", self.focusConsole)
         self.warning = False
 
         self.topWidgets = []
@@ -143,17 +145,17 @@ class Base(tk.Frame):
         print("[WARNING] Missing Ext. Control")
         print("[WARNING] Missing Console")
 
-    def focusProfile(self):
+    def focusProfile(self, *_):
         self.notebook.select(0)
 
-    def focusNetwork(self):
+    def focusNetwork(self, *_):
         self.notebook.select(1)
 
-    def focusControl(self):
+    def focusControl(self, *_):
         self.notebook.select(2)
         self.controlWidget.redrawGrid()
 
-    def focusConsole(self):
+    def focusConsole(self, *_):
         self.notebook.select(3)
 
     def getConsoleMethods(self):

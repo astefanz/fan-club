@@ -35,7 +35,7 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus, grid as gd
+from . import guiutils as gus, grid as gd, loader as ldr
 from .embedded import colormaps as cms
 
 ## GLOBALS #####################################################################
@@ -113,15 +113,10 @@ class PythonInputWidget(tk.Frame):
             command = self._run, **gus.padc, **gus.fontc)
         self.runButton.pack(side = tk.LEFT, **gus.padc)
 
-        # TODO
-        self.loadButton = tk.Button(self.buttonFrame, text = "Load",
-            **gus.padc, **gus.fontc, command = self._load)
-        self.loadButton.pack(side = tk.LEFT, **gus.padc)
-
-        # TODO
-        self.saveButton = tk.Button(self.buttonFrame, text = "Save",
-            **gus.padc, **gus.fontc, command = self._save)
-        self.saveButton.pack(side = tk.LEFT, **gus.padc)
+        self.loader = ldr.LoaderWidget(self.buttonFrame,
+            filetypes = (("Fan Club Python Procedures", ".fcpy"),),
+            onSave = self._onSave, onLoad = self._onLoad)
+        self.loader.pack(side = tk.LEFT)
 
         # TODO
         self.builtinButton = tk.Button(self.buttonFrame, text = "Built-in",
@@ -153,11 +148,12 @@ class PythonInputWidget(tk.Frame):
         except Exception as e:
             self.printx("Exception when parsing Python input:", e)
 
-    def _load(self, *E):
+    def _onLoad(self, contents):
         """
-        To be executed by Load button.
+        To be executed by the Load routine within a LoaderWidget.
         """
-        print("[WARNING] _load not implemented ")
+        print("[WARNING] FCPY not yet implemented")
+        print(contents)
 
     def _builtin(self, *E):
         """
@@ -165,9 +161,9 @@ class PythonInputWidget(tk.Frame):
         """
         print("[WARNING] _builtin not implemented ")
 
-    def _save(self, *E):
+    def _onSave(self, *E):
         """
-        To be executed by Save button.
+        To be executed by the Save routine within a LoaderWidget.
         """
         print("[WARNING] _save not implemented ")
 
@@ -266,16 +262,14 @@ class SteadyControlWidget(tk.Frame):
         # FIXME configure python
 
         # File
-        self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **gus.lfconf)
+        self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
+            **gus.lfconf)
         self.fileFrame.grid(row = row, sticky = "EW")
         row += 1
-        self.loadButton = tk.Button(self.fileFrame, text = "Load",
-            **gus.padc, **gus.fontc, command = self._load)
-        self.loadButton.pack(side = tk.LEFT, **gus.padc)
-        self.saveButton = tk.Button(self.fileFrame, text = "Save",
-            **gus.padc, **gus.fontc, command = self._save)
-        self.saveButton.pack(side = tk.LEFT, **gus.padc)
 
+        self.loader = ldr.FlowLoaderWidget(self.fileFrame, self._onSave,
+            self._onLoad)
+        self.loader.pack(side = tk.LEFT)
 
         # Wrap-up
         self.directMode.set(self.DI_SELECT)
@@ -308,19 +302,19 @@ class SteadyControlWidget(tk.Frame):
         # FIXME
         pass
 
-    def _save(self, *E):
+    def _onSave(self):
         """
-        Save the current state. (Calls the save callback.)
+        Save callback for FlowLoader.
         """
         # FIXME
-        pass
+        print("[WARNING] _onSave not implemented")
 
-    def _load(self, *E):
+    def _onLoad(self, loaded):
         """
-        Load a saved state. (Calls the load callback.)
+        Load callback for FlowLoader.
         """
         # FIXME
-        pass
+        print("[WARNING] _onLoad not implemented")
 
     def _onDirectModeChange(self, *E):
         """
@@ -360,15 +354,14 @@ class DynamicControlWidget(tk.Frame):
         # FIXME configure python
 
         # File
-        self.fileFrame = tk.LabelFrame(self, text = "Load/Save", **gus.lfconf)
+        self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
+            **gus.lfconf)
         self.fileFrame.grid(row = row, sticky = "EW")
         row += 1
-        self.loadButton = tk.Button(self.fileFrame, text = "Load",
-            **gus.padc, **gus.fontc, command = self._load)
-        self.loadButton.pack(side = tk.LEFT, **gus.padc)
-        self.saveButton = tk.Button(self.fileFrame, text = "Save",
-            **gus.padc, **gus.fontc, command = self._save)
-        self.saveButton.pack(side = tk.LEFT, **gus.padc)
+
+        self.loader = ldr.FlowLoaderWidget(self.fileFrame, self._onSave,
+            self._onLoad)
+        self.loader.pack(side = tk.LEFT)
 
     def _sendPython(self, function, *E):
         """
@@ -377,19 +370,19 @@ class DynamicControlWidget(tk.Frame):
         # FIXME
         print("[WARNING] _sendPython not implemented")
 
-    def _save(self, *E):
+    def _onSave(self):
         """
-        Save button callback.
+        Save callback for FlowLoader.
         """
         # FIXME
-        print("[WARNING] _save not implemented")
+        print("[WARNING] _onSave not implemented")
 
-    def _load(self, *E):
+    def _onLoad(self, loaded):
         """
-        Load button callback.
+        Load callback for FlowLoader.
         """
         # FIXME
-        print("[WARNING] _load not implemented")
+        print("[WARNING] _onLoad not implemented")
 
 class ExternalControlWidget(tk.Frame):
     """
