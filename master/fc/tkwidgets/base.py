@@ -153,7 +153,7 @@ class Base(tk.Frame):
 
     def focusControl(self, *_):
         self.notebook.select(2)
-        self.controlWidget.redrawGrid()
+        #self.controlWidget.redrawGrid()
 
     def focusConsole(self, *_):
         self.notebook.select(3)

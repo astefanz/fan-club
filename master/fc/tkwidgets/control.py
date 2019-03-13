@@ -543,19 +543,20 @@ class GridWidget(gd.BaseGrid):
     """
     Front end for the 2D interactive Grid.
     """
+
+
     def __init__(self, master, R, C, printr = lambda s:None,
         printx = lambda e:None):
         # Setup ................................................................
         gd.BaseGrid.__init__(self, master, R, C)
         self.config(cursor = "fleur")
-        self.bind("<ButtonPress-1>", self.d)
+        self.adjusting = False
+        self.last_width, self.last_height = 0, 0
 
-        self.d()
         # FIXME
 
-    def d(self, *E):
+    def redraw(self, *E):
         self.draw(margin = 10)
-        self.canvas.bind("<ButtonPress-1>", self.d)
 
     # FIXME
 
@@ -576,7 +577,6 @@ class ColorBarWidget(tk.Frame):
         self.colors = colors
         self.colors.reverse()
         self.steps = len(colors)
-        self.config(cursor = "sb_v_double_arrow")
 
         # Widgets ..............................................................
         self.highLabel = tk.Label(self, text = "{} {}".format(high, unit),
@@ -590,8 +590,6 @@ class ColorBarWidget(tk.Frame):
         self.lowLabel = tk.Label(self, text = "{} {}".format(low, unit),
             font = "Courier 5", bg = "black", fg = "white")
         self.lowLabel.grid(row = 2, sticky = "EW")
-
-        self.canvas.bind("<ButtonPress-1>", self.redraw)
 
         self._draw()
 
@@ -632,6 +630,9 @@ class ControlWidget(tk.Frame):
     """
     Container for all the FC control GUI front-end widgets.
     """
+
+    RESIZE_MS = 400
+
     def __init__(self, master, network,
         printr = lambda s:None, printx = lambda e:None):
         tk.Frame.__init__(self, master)
@@ -639,6 +640,7 @@ class ControlWidget(tk.Frame):
         # Core setup -----------------------------------------------------------
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
+        self.bind("<Configure>", self._scheduleAdjust)
 
         # Control panel --------------------------------------------------------
         # FIXME
@@ -663,7 +665,16 @@ class ControlWidget(tk.Frame):
         """
         Rebuild the grid widget.
         """
-        self.grid.d()
+        self.grid.redraw()
+
+    def _scheduleAdjust(self, *E):
+        self.after(self.RESIZE_MS, self._adjust)
+        self.unbind("<Configure>")
+
+    def _adjust(self, *E):
+        self.grid.redraw()
+        self.bar.redraw()
+        self.bind("<Configure>", self._scheduleAdjust)
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
