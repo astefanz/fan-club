@@ -544,19 +544,59 @@ class GridWidget(gd.BaseGrid):
     Front end for the 2D interactive Grid.
     """
 
+    DEFAULT_COLORS = cms.COLORMAP_GALCIT_REVERSED
+    DEFAULT_OFF_COLOR = "#303030"
+    DEFAULT_HIGH = 100
+    DEFAULT_LOW = 0
+    CURSOR = "hand1"
 
-    def __init__(self, master, R, C, printr = lambda s:None,
-        printx = lambda e:None):
+    def __init__(self, master, R, C, colors = DEFAULT_COLORS,
+        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
+        low = DEFAULT_LOW, printr = lambda s:None, printx = lambda e:None):
         # Setup ................................................................
-        gd.BaseGrid.__init__(self, master, R, C)
-        self.config(cursor = "fleur")
+        gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
+            empty = off_color)
         self.adjusting = False
         self.last_width, self.last_height = 0, 0
+        self.colors = colors
+        self.numColors = len(colors)
+        self.maxColor = self.numColors - 1
+        self.high = high
+        self.low = low
+        self.off_color = off_color
 
         # FIXME
 
+    def update(self, values):
+        i = 0
+        for value in values:
+            self.setLinear(i, fill = self.colors[min(self.maxColor,
+                (value*self.maxColor//self.numColors))])
+            i += 1
+
+    def select(self, r, c):
+        # FIXME
+        pass
+
+    def deselect(self, r, c):
+        # FIXME
+        pass
+
+    def selectAll(self, r, c):
+        # FIXME
+        pass
+
+    def deselectAll(self, r, c):
+        # FIXME
+        pass
+
     def redraw(self, *E):
         self.draw(margin = 10)
+        self.canvas.bind("<Button-1>", self.__testbind) # FIXME
+
+    def __testbind(self, *E)
+        print("[DEV] __testbind")
+        self.update([i for i in range(self.R*self.C)])
 
     # FIXME
 
@@ -575,7 +615,6 @@ class ColorBarWidget(tk.Frame):
         self.grid_columnconfigure(0, weight = 1)
         self.grid_rowconfigure(1, weight = 1)
         self.colors = colors
-        self.colors.reverse()
         self.steps = len(colors)
 
         # Widgets ..............................................................
@@ -591,11 +630,11 @@ class ColorBarWidget(tk.Frame):
             font = "Courier 5", bg = "black", fg = "white")
         self.lowLabel.grid(row = 2, sticky = "EW")
 
+        print("[REM] Pass MAX RPM to color bar") # FIXME
+
         self._draw()
 
     # API ......................................................................
-
-    # TODO: Set top and bottom?
 
     def redraw(self, *E):
         """
@@ -622,9 +661,6 @@ class ColorBarWidget(tk.Frame):
         self.canvas.create_line(left, y, right, y, width = 4)
         self.canvas.create_line(left, y, right, y, width = 2, fill = 'white')
 
-    # FIXME?
-
-
 ## BASE ########################################################################
 class ControlWidget(tk.Frame):
     """
@@ -648,7 +684,8 @@ class ControlWidget(tk.Frame):
         self.main.add(self.control, weight = 2)
         # Grid -----------------------------------------------------------------
         # FIXME
-        self.grid = GridWidget(self.main, 32, 32, printr, printx)
+        self.grid = GridWidget(self.main, 32, 32, printr = printr,
+            printx = printx)
         self.main.add(self.grid, weight = 16)
 
         # Color Bar ------------------------------------------------------------
@@ -661,6 +698,18 @@ class ControlWidget(tk.Frame):
         # FIXME
 
     # FIXME: API
+    def blockAdjust(self):
+        """
+        Deactivate automatic adjustment of widgets upon window resizes.
+        """
+        self.unbind("<Configure>")
+
+    def unblockAdjust(self):
+        """
+        Activate automatic adjustment of widgets upon window resizes.
+        """
+        self.bind("<Configure>", self._scheduleAdjust)
+
     def redrawGrid(self):
         """
         Rebuild the grid widget.

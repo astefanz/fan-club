@@ -152,8 +152,10 @@ class Base(tk.Frame):
         self.notebook.select(1)
 
     def focusControl(self, *_):
+        self.controlWidget.blockAdjust()
         self.notebook.select(2)
-        #self.controlWidget.redrawGrid()
+        self.controlWidget.redrawGrid()
+        self.after(50, self.controlWidget.unblockAdjust)
 
     def focusConsole(self, *_):
         self.notebook.select(3)

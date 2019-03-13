@@ -75,6 +75,12 @@ class BaseGrid(tk.Frame):
             _DRAG : self._nothing
         }
 
+        self.cellColors = {}
+        for r in range(R):
+            self.cellColors[r] = {}
+            for c in range(C):
+                self.cellColors[r][c] = empty
+
     # Widget operations --------------------------------------------------------
     def draw(self, cellLength = None, margin = 1):
         """
@@ -130,7 +136,7 @@ class BaseGrid(tk.Frame):
             self.cellToIID[row] = {}
             for col in range(self.C):
                 iid = self.canvas.create_rectangle(
-                    x, y, x + l, y + l, fill = self.empty)
+                    x, y, x + l, y + l, fill = self.cellColors[row][col])
                 self.cellToIID[row][col] = iid
                 self.IIDToCell[iid] = (row, col)
 
@@ -157,11 +163,22 @@ class BaseGrid(tk.Frame):
         self.xmargin = xmargin
         self.ymargin = margin
 
+    def setLinear(self, i, **kwargs):
+        """
+        Configure the cell at 'index' I if grid cells are enumerated from
+        left to right and from top to bottom.
+        """
+        # NOTE: Possible optimization here
+        self.setCell(i//self.R, i%self.R, **kwargs)
+
     def setCell(self, r, c, **kwargs):
         """
         Configure the cell at row R and column C with the TKinter Canvas
         keyword arguments KWARGS (see the TKinter Canvas itemconfig method)
         """
+        # NOTE: Possible optimization here
+        if 'fill' in kwargs:
+            self.cellColors[r][c] = kwargs['fill']
         self.canvas.itemconfig(
             self.cellToIID[r][c], **kwargs)
 
