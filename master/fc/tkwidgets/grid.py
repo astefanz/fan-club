@@ -100,7 +100,6 @@ class BaseGrid(tk.Frame):
 
         self.size = R*C
         self.iids = np.zeros(self.size, dtype = int)
-        self.values = np.zeros(self.size, dtype = int)
         self.fills = np.full(self.size, self.empty, dtype = "S7")
         self.outlines = np.full(self.size, self.outline, dtype = "S7")
         self.widths = np.full(self.size, self.width)
@@ -223,6 +222,12 @@ class BaseGrid(tk.Frame):
         """
         self.outlinei(r*self.C + c, outline, width)
 
+    def seti(self, fill, outline, width):
+        """
+        Configure grid cell at index I.
+        """
+        self.filli(i, fill)
+        self.outlinei(i, outline, width)
 
     def seta(self, fill, outline, width):
         """
@@ -230,8 +235,7 @@ class BaseGrid(tk.Frame):
         OUTLINE and WIDTH pixels thick.
         """
         for i in range(self.size):
-            self.filli(i, fill)
-            self.outlinei(i, outline, width)
+            self.seti(i, fill, outline, width)
 
     def setLeftClick(self, f):
         self.callbacks[_LEFT_CLICK] = f

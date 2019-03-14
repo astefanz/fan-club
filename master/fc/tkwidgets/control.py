@@ -559,7 +559,7 @@ class GridWidget(gd.BaseGrid):
 
     def __init__(self, master, R, C, colors = DEFAULT_COLORS,
         off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
-        low = DEFAULT_LOW, printr = lambda s:None, printx = lambda e:None):
+        printr = lambda s:None, printx = lambda e:None):
 
         gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
             empty = off_color)
@@ -571,9 +571,11 @@ class GridWidget(gd.BaseGrid):
         self.numColors = len(colors)
         self.maxColor = self.numColors - 1
         self.high = high
-        self.low = low
+        self.low = 0
         self.off_color = off_color
+        self.range = tuple(range(self.size))
 
+        self.values = np.zeros(self.size, dtype = int)
         self.selected = np.zeros(self.size, dtype = bool)
         self.active = np.zeros(self.size, dtype = bool)
         # FIXME
@@ -584,13 +586,41 @@ class GridWidget(gd.BaseGrid):
         # - get selections
         # - [...]
 
+    # Activity .................................................................
+    def activatei(self, i):
+        self.active[i] = True
+        self.updatei(i, self.low)
+
+    def deactivatei(self, i):
+        self.deselecti(i)
+        self.active[i] = False
+        self.filli(i, self.off_color)
+
+    def activate(self):
+        for i in self.range:
+            self.activatei(i)
+
+    def deactivate(self):
+        for i in self.range:
+            self.deactivatei(i)
+
+    # Values ...................................................................
+    def updatei(self, i, value):
+        """
+        Set index I to VALUE.
+        """
+        if self.active[i]:
+            self.values[i] = value
+            self.filli(i, self.colors[min(self.maxColor,
+                ((value*self.maxColor)//self.numColors))])
+
     def update(self, values):
         i = 0
         for value in values:
-            self.setLinear(i, fill = self.colors[min(self.maxColor,
-                (value*self.maxColor//self.numColors))])
+            self.updatei(i, value)
             i += 1
 
+    # Selection ................................................................
     def selecti(self, i):
         if self.active[i]:
             self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
@@ -614,15 +644,24 @@ class GridWidget(gd.BaseGrid):
         for i in range(self.size):
             self.deselecti(i)
 
+    # Meta .....................................................................
     def redraw(self, *E):
         self.draw(margin = 10)
-        self.canvas.bind("<Button-1>", self.__testbind) # FIXME
+        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
-    def __testbind(self, *E):
+    def __testbind1(self, *E):
         print("[DEV] __testbind")
         #self.update([i for i in range(self.R*self.C)])
+        self.activate()
         for i in range(self.R*self.C):
             self.selecti(i)
+        self.canvas.bind("<Button-1>", self.__testbind2) # FIXME
+
+    def __testbind2(self, *E):
+        print("[DEV] __testbind")
+        #self.update([i for i in range(self.R*self.C)])
+        self.deactivate()
+        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
     # FIXME
 
@@ -631,7 +670,7 @@ class ColorBarWidget(tk.Frame):
     """
     Draw a vertical color gradient for color-coding reference.
     """
-    def __init__(self, master, colors, high = 100, low = 0, unit = "[?]",
+    def __init__(self, master, colors, high = 100, unit = "[?]",
         printr = lambda s:None, printx = lambda e:None):
 
 
@@ -642,6 +681,8 @@ class ColorBarWidget(tk.Frame):
         self.grid_rowconfigure(1, weight = 1)
         self.colors = colors
         self.steps = len(colors)
+        self.high, self.low = high, 0
+
 
         # Widgets ..............................................................
         self.highLabel = tk.Label(self, text = "{} {}".format(high, unit),
@@ -652,7 +693,7 @@ class ColorBarWidget(tk.Frame):
             width = self.highLabel.winfo_width())
         self.canvas.grid(row = 1, sticky = 'NEWS')
 
-        self.lowLabel = tk.Label(self, text = "{} {}".format(low, unit),
+        self.lowLabel = tk.Label(self, text = "{} {}".format(self.low, unit),
             font = "Courier 5", bg = "black", fg = "white")
         self.lowLabel.grid(row = 2, sticky = "EW")
 
