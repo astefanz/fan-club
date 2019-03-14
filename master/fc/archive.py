@@ -66,6 +66,10 @@ UPDATE = 5004   #  | dict. to use for update
 
 # PARAMETER NAMES ==============================================================
 
+# TODO: General profile encoding with recursive structure. Include precedence
+# and way in which to modify, as well as "range."
+
+
 # Core -------------------------------------------------------------------------
 name = 1
 description = 2
@@ -140,6 +144,72 @@ MD_fans = 305
 MD_fanAssignment = 306
 # . . . . . . . . . . . .
 # ........................
+NAMES = {
+    name : "name",
+    description : "description",
+    platform : "platform",
+    version : "version",
+
+    broadcastPort  : "broadcastPort",
+    broadcastPeriodMS : "broadcastPeriodMS",
+    broadcastPeriodS : "broadcastPeriodS",
+    periodMS : "periodMS",
+    periodS : "periodS",
+    maxLength : "maxLength",
+    maxTimeouts : "maxTimeouts",
+
+    mainQueueSize : "mainQueueSize",
+    slaveQueueSize : "slaveQueueSize",
+    broadcastQueueSize : "broadcastQueueSize",
+    listenerQueueSize : "listenerQueueSize",
+    misoQueueSize : "misoQueueSize",
+    printerQueueSize : "printerQueueSize",
+    passcode : "passcode",
+
+    defaultSlave : "defaultSlave",
+    SV_name : "SV_name",
+    SV_mac : "SV_mac",
+    SV_index : "SV_index",
+    SV_fanModel : "SV_fanModel",
+    SV_fanMode : "SV_fanMode",
+    SV_targetRelation : "SV_targetRelation",
+    SV_chaserTolerance : "SV_chaserTolerance",
+    SV_fanFrequencyHZ : "SV_fanFrequencyHZ",
+    SV_counterCounts : "SV_counterCounts",
+    SV_counterTimeoutMS : "SV_counterTimeoutMS",
+    SV_pulsesPerRotation : "SV_pulsesPerRotation",
+    SV_maxRPMs : "SV_maxRPMs",
+    SV_minRPMs : "SV_minRPMs",
+    SV_minDCs : "SV_minDCs",
+    SV_maxFans : "SV_maxFans",
+    SV_pinout : "SV_pinout",
+
+    savedSlaves : "savedSlaves",
+
+    pinouts : "pinouts",
+
+    defaultModule : "defaultModule",
+
+    MD_slaveIndex : "MD_slaveIndex",
+    MD_row : "MD_row",
+    MD_column : "MD_column",
+    MD_rows : "MD_rows",
+    MD_columns : "MD_columns",
+    MD_fans : "MD_fans",
+    MD_fanAssignment : "MD_fanAssignment",
+
+    defaultFanArray : "defaultFanArray",
+
+    FA_name : "FA_name",
+    FA_description : "FA_description",
+    FA_rows : "FA_rows",
+    FA_columns : "FA_columns",
+    FA_layers : "FA_layers",
+    FA_modules : "FA_modules",
+
+    fanArrays : "fanArrays"
+}
+
 
 ## MAIN ########################################################################
 
@@ -151,6 +221,7 @@ class FCArchive(us.PrintClient):
     """
 
     symbol = "[AC]"
+    names = NAMES
 
     """ Default profile. """
     DEFAULT = {
@@ -318,6 +389,12 @@ class FCArchive(us.PrintClient):
         """
         for key in update:
             self.set(key, update[key])
+
+    def keys(self):
+        """
+        Return an iterable containing the keys of the loaded profile.
+        """
+        return self.P.keys()
 
     def __getitem__(self, key):
         """

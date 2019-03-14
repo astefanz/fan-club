@@ -30,18 +30,25 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
+from . import loader as ldr
+from .. import archive as ac
 ## AUXILIARY GLOBALS ###########################################################
 
 ## MAIN ########################################################################
 class ProfileDisplay(tk.Frame):
 
-    def __init__(self, master):
+    def __init__(self, master, archive):
         """
         Build an empty FC profile display in container MASTER.
         """
         tk.Frame.__init__(self, master = master)
 
+        # TODO:
+        # - means by which to automatically update values here if the archive
+        #   is modified elsewhere (should this be allowed?)
+
         # Core setup ...........................................................
+        self.archive = archive
 
         # Grid:
         self.grid_rowconfigure(0, weight = 0)
@@ -51,14 +58,15 @@ class ProfileDisplay(tk.Frame):
         self.grid_columnconfigure(1, weight = 1)
 
         # Callbacks:
-        self.defaultCallback = self._nothing
-        self.loadCallback = self._nothing
-        self.saveCallback = self._nothing
+        # FIXME
         self.applyCallback = self._nothing
 
         self.addCallback = self._nothing
         self.editCallback = self._nothing
         self.deleteCallback = self._nothing
+
+        # File I/O:
+        self.loader = ldr.Loader(self, (("Fan Club Profile",".fcp"),))
 
         # Build top bar ........................................................
         self.topBar = tk.Frame(self)
@@ -69,15 +77,15 @@ class ProfileDisplay(tk.Frame):
         self.topLabel.pack(side = tk.LEFT)
 
         self.defaultButton = tk.Button(self.topBar, text = "Default",
-            command = self.defaultCallback)
+            command = self._default)
         self.defaultButton.pack(side = tk.LEFT)
 
         self.loadButton = tk.Button(self.topBar, text = "Load",
-            command = self.loadCallback)
+            command = self._load)
         self.loadButton.pack(side = tk.LEFT)
 
         self.saveButton = tk.Button(self.topBar, text = "Save",
-            command = self.saveCallback)
+            command = self._save)
         self.saveButton.pack(side = tk.LEFT)
 
         self.applyButton = tk.Button(self.topBar, text = "Apply",
@@ -118,13 +126,37 @@ class ProfileDisplay(tk.Frame):
         self.display.heading("Value", text = "Value")
         self.display.pack(fill = tk.BOTH, expand = True)
 
+    # API ----------------------------------------------------------------------
+    def update(self):
+        """
+        Rebuild the displayed values based on the current profile attributes in
+        the loaded archive.
+        """
+        for key in self.archive.keys():
+            iid = self.display.insert('', 0,
+                values = (self.archive.names[key], self.archive[key])
+            )
 
-    def setProfile(self, profile):
+
+    # Callbacks ----------------------------------------------------------------
+    def _default(self, event = None):
         """
-        Change the stored and displayed profile to PROFILE.
+        Switch to the default profile and display it.
         """
-        # FIXME
-        pass
+        self.archive.default()
+        self.update()
+
+    def _save(self, event = None):
+        """
+        Save the current profile.
+        """
+        self.archive.save(self.loader.saveDialog("fan_array_profile"))
+
+    def _load(self, event = None):
+        """
+        Load a new profile.
+        """
+        self.archive.load(self.loader.loadDialog())
 
     def _nothing(*args):
         """

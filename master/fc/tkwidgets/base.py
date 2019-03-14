@@ -50,7 +50,7 @@ class Base(tk.Frame):
     ERROR_MESSAGE = \
         "[NOTE: There are error messages in the console. Click here.]"
 
-    def __init__(self, master, network, title, version):
+    def __init__(self, master, network, archive, title, version):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
         showing the version VERSION.
@@ -59,6 +59,7 @@ class Base(tk.Frame):
 
         # Core setup -----------------------------------------------------------
         self.network = network
+        self.archive = archive
 
         self.screenWidth = self.master.winfo_screenwidth()
         self.screenHeight = self.master.winfo_screenheight()
@@ -106,17 +107,19 @@ class Base(tk.Frame):
         self.consoleTab = tk.Frame(self.notebook)
 
         # Profile tab:
-        self.profileWidget = pro.ProfileDisplay(self.profileTab)
+        self.profileWidget = pro.ProfileDisplay(self.profileTab, archive)
         self.profileWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
         # Network tab:
-        self.networkWidget = ntw.NetworkWidget(self.networkTab, network)
+        self.networkWidget = ntw.NetworkWidget(self.networkTab, network,
+            archive)
         self.networkWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
         # Control tab:
-        self.controlWidget = ctr.ControlWidget(self.controlTab, network)
+        self.controlWidget = ctr.ControlWidget(self.controlTab, network,
+            archive)
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 

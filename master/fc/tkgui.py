@@ -78,7 +78,8 @@ class FCGUI(it.FCInterface):
         # GUI:
         self.root = tk.Tk()
         title = TITLE + " " + self.version
-        base = bas.Base(self.root, self.network, title, self.version)
+        base = bas.Base(self.root, self.network, self.archive, title,
+            self.version)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)
         base.focusControl()

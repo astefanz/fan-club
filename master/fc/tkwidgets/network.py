@@ -83,7 +83,7 @@ class NetworkWidget(tk.Frame):
     DEMO_MESSAGES = {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}
     DEMO_TARGETS = {"All":1, "Selected":2}
 
-    def __init__(self, master, network,
+    def __init__(self, master, network, archive,
         printd = lambda s:None, printx = lambda e:None):
         """
         Create a new NetworkWidget inside MASTER, interfaced with the network

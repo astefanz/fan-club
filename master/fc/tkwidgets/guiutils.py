@@ -45,6 +45,18 @@ lfconf = {**fontc, **padc}
 lfpack = {"side":tk.TOP, "anchor":tk.N, "fill":tk.X, "expand":True}
 rbconf = {"indicatoron":False, **fontc, **padc}
 
+def default_printr(message):
+    """
+    Provisional replacement for inter-process printr. (See fc.utils)
+    """
+    print("[GP]", message)
+
+def default_printx(e, message):
+    """
+    Provisional replacement for inter-process printx. (See fc.utils)
+    """
+    print("[GP]", message, e)
+
 def resource_path(relative_path):
     """
     Get absolute path to resource, works for dev and for PyInstaller.

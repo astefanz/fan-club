@@ -736,8 +736,8 @@ class ControlWidget(tk.Frame):
 
     RESIZE_MS = 400
 
-    def __init__(self, master, network,
-        printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, network, archive,
+        printr = gus.default_printr, printx = gus.default_printx):
         tk.Frame.__init__(self, master)
 
         # Core setup -----------------------------------------------------------
@@ -764,7 +764,13 @@ class ControlWidget(tk.Frame):
         # Wrap-up --------------------------------------------------------------
         # FIXME
 
-    # FIXME: API
+    def rebuild(self):
+        """
+        Rebuild all widgets that are parameterized by profile attributes.
+        """
+        # TODO Rebuild grid
+        # TODO Rebuild color bar
+
     def blockAdjust(self):
         """
         Deactivate automatic adjustment of widgets upon window resizes.
