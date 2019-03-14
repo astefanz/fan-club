@@ -35,7 +35,7 @@ from . import names
 # SPECIAL VALUES ===============================================================
 
 # Basement:
-SPEC_BASEMENT_MODULE_DIMENSIONS = (3,3) # (rows, columns) 
+SPEC_BASEMENT_MODULE_DIMENSIONS = (3,3) # (rows, columns)
 SPEC_BASEMENT_PINOUT = "FGHMALXWKJUVNISOBQTDC qsrnabdtfhvuepckmljoi"
 SPEC_BASEMENT_DIMENSIONS = (10, 10)
 SPEC_BASEMENT_MAX_FANS = 21
@@ -73,7 +73,7 @@ SPEC_CAST_MODULE_ASSIGNMENT_FRONT = \
 """
 SPEC_CAST_MODULE_ASSIGNMENT_CH = SPEC_CAST_MODULE_ASSIGNMENT_NEW
 
-SPEC_CAST_MODULE_DIMENSIONS = (3,3) # (rows, columns) 
+SPEC_CAST_MODULE_DIMENSIONS = (3,3) # (rows, columns)
 SPEC_CAST_PINOUT = "ETRGMLWXPQJKUVBADC edcb_^ng`w\\]porqfs"
 SPEC_CAST_DIMENSIONS = (36, 36)
 SPEC_CAST_MAX_FANS = 18
@@ -81,9 +81,9 @@ SPEC_CAST_DEF_ACTIVE_FANS = 18
 
 SPEC_CAST_DIMS_12 = (36,36) # (9, 12)
 
-# .............................................................................. 
+# ..............................................................................
 
-# Values to be used in provisional FCArchiver: 
+# Values to be used in provisional FCArchiver:
 DEF_MODULE_DIMENSIONS = SPEC_CAST_MODULE_DIMENSIONS
 DEF_MODULE_ASSIGNMENT = SPEC_CAST_MODULE_ASSIGNMENT_NEW
 DEF_PINOUT =  SPEC_CAST_PINOUT #SPEC_CAST_PINOUT
@@ -1252,7 +1252,7 @@ SLAVELIST_CAST_ALL = [\
 SLAVELIST_BASEMENT = [\
               [
                 random.choice(names.coolNames),     # Name
-                "00:80:e1:4b:00:36",   # MAC 
+                "00:80:e1:4b:00:36",   # MAC
                 20,        # Active fans
                             (7,5),
                 (4,6),# Module dimensions
@@ -1260,7 +1260,7 @@ SLAVELIST_BASEMENT = [\
             ],
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:2f:00:1d",                # MAC 
+                "00:80:e1:2f:00:1d",                # MAC
                  20,                                    # Active fans
                                 (7,0),
                 (4,6),                                # Module dimensions
@@ -1268,7 +1268,7 @@ SLAVELIST_BASEMENT = [\
             ],
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:29:00:2e",                # MAC 
+                "00:80:e1:29:00:2e",                # MAC
                  20,                                    # Active fans
                                 (3,0),
                 (5,6),                                # Module dimensions
@@ -1276,7 +1276,7 @@ SLAVELIST_BASEMENT = [\
             ],
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:27:00:3e",                # MAC 
+                "00:80:e1:27:00:3e",                # MAC
                  20,                                    # Active fans
                                 (0,0),
                 (4,6),                                # Module dimensions
@@ -1284,7 +1284,7 @@ SLAVELIST_BASEMENT = [\
             ],
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:4b:00:42",                # MAC 
+                "00:80:e1:4b:00:42",                # MAC
                  20,                                    # Active fans
                                 (0,5),
                 (4,6),                                # Module dimensions
@@ -1292,14 +1292,14 @@ SLAVELIST_BASEMENT = [\
             ],
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:47:00:3d",                # MAC 
+                "00:80:e1:47:00:3d",                # MAC
                  21,                                    # Active fans
                                 (3,5),
                 (5,6),                                # Module dimensions
                 ',,,,10,5,21,19,16,13,9,4,,18,15,12,8,3,20,17,14,11,7,2,,,,,6,1'                                    # Module assignment
             ]
-] # END SLAVELIST_BASEMENT    
-        
+] # END SLAVELIST_BASEMENT
+
 SLAVELIST_ALEX = [\
             [
                 random.choice(names.coolNames),        # Name
@@ -1309,7 +1309,7 @@ SLAVELIST_ALEX = [\
                 (0,0),                                # Module dimensions
                 "1,2,3,4,5,6,7,8,9"                    # Module assignment
             ],
-            
+
             [
                 "Ghost1",                            # Name
                 "00000000000000:XX",                # MAC
@@ -1318,10 +1318,10 @@ SLAVELIST_ALEX = [\
                 (3,3),                                # Module dimensions
                 "1,2,3,4,5,6,7,8,9"                    # Module assignment
             ],
-        
+
             [
                 random.choice(names.coolNames),        # Name
-                "00:80:e1:45:00:46",                # MAC 
+                "00:80:e1:45:00:46",                # MAC
                 21,                                    # Active fans
                 None,                                # Grid placement
                 (1,1),                                # Module dimensions
@@ -1330,12 +1330,12 @@ SLAVELIST_ALEX = [\
 ] # End SLAVELIST_ALEX
 
 # Slavelist to be used:
-DEF_SLAVELIST = SLAVELIST_BASEMENT
+DEF_SLAVELIST = SLAVELIST_CAST_ALL
 
 # DEFAULT VALUES ===============================================================
 
 DEF_PROFILE_NAME = "[ALPHA]"
-    
+
 # COMMUNICATIONS:
 DEF_BROADCAST_PORT  = 65000
 DEF_PERIOD_MS = 100 # (millisecond(s))
@@ -1364,8 +1364,8 @@ DEF_FAN_FREQUENCY_HZ = 25000 # 25 KHz PWM signal
 
 # Relevant for RPM reads:
 
-""" No. of measurements to make. Smaller -> faster, more responsive; 
-    Larger -> slower, but more accurate, less fluctuations 
+""" No. of measurements to make. Smaller -> faster, more responsive;
+    Larger -> slower, but more accurate, less fluctuations
 """
 DEF_COUNTER_COUNTS = 2
 
@@ -2765,10 +2765,10 @@ BASEMENT_MODULES = \
     ),
 
 )
-DEF_GRID_ROWS = BASEMENT_ROWS
-DEF_GRID_COLUMNS = BASEMENT_COLUMNS
-DEF_GRID_MODULES = BASEMENT_MODULES
-DEF_GRID_LAYERS = BASEMENT_LAYERS
+DEF_GRID_ROWS = CAST_ROWS
+DEF_GRID_COLUMNS = CAST_COLUMNS
+DEF_GRID_MODULES = CAST_MODULES
+DEF_GRID_LAYERS = CAST_LAYERS
 
 """ ----------------------------------------------------------------------------
 (PUT ALL IN MAPPING LIST)

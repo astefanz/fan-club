@@ -29,6 +29,8 @@
 ## IMPORTS #####################################################################
 import tkinter as tk
 
+import numpy as np
+
 ## AUXILIARY GLOBALS ###########################################################
 # Callback names (for internal use only)
 _LEFT_CLICK = 0
@@ -44,9 +46,8 @@ class BaseGrid(tk.Frame):
     """ Interactive 2D grid widget that supports clicking, dragging, and live
         cell color changes. """
 
-
     def __init__(self, master, R, C, cursor = 'crosshair', empty = "white",
-        minCell = 10):
+        border = 1, outline = "black", minCell = 10):
         """
         Initialize an R row and C column 2D grid as a TKinter widget with parent
         MASTER.
@@ -54,6 +55,26 @@ class BaseGrid(tk.Frame):
         MARGIN adds padding (in pixels) between the grid's outer borders and the
         TKinter frame's border.
         """
+
+        """
+        -- NOTE ON REPRESENTATION ----------------------------------------------
+        Here, we will use NumPy arrays to store the Grid's data. In particular,
+        the RxC grid will be represented as an array of length R*C, where each
+        cell with row r and column c is represented at index r*C + c. Notice the
+        top-left item is at index 0*C + 0 = 0, and the bottom-right item is at
+        index (R-1)*C + C - 1 = R*C - 1.
+
+        For each cell, the following data needs to be stored:
+        - The cell's "Item ID" (IID) for Tkinter Canvas operations
+        - The cell's current "value" (duty cyle in this implementation)
+        - Whether the cell is selected or not
+        - Whether the cell is active
+        - The cell's index in these arrays, given its IID's
+        - The cell's stored color, border width, and border color
+
+        """
+        # TODO: Implement everything above
+
         tk.Frame.__init__(self, master)
         self.config(cursor = cursor)
 
@@ -64,6 +85,8 @@ class BaseGrid(tk.Frame):
 
         self.canvas = None
         self.empty = empty
+        self.width = border
+        self.outline = outline
 
         self.callbacks = {
             _LEFT_CLICK : self._nothing,
@@ -75,13 +98,21 @@ class BaseGrid(tk.Frame):
             _DRAG : self._nothing
         }
 
-        self.cellColors = {}
-        for r in range(R):
-            self.cellColors[r] = {}
-            for c in range(C):
-                self.cellColors[r][c] = empty
+        self.size = R*C
+        self.iids = np.zeros(self.size, dtype = int)
+        self.values = np.zeros(self.size, dtype = int)
+        self.fills = np.full(self.size, self.empty, dtype = "S7")
+        self.outlines = np.full(self.size, self.outline, dtype = "S7")
+        self.widths = np.full(self.size, self.width)
+        self.indices = {}
 
     # Widget operations --------------------------------------------------------
+    def i(self, r, c):
+        """
+        Return the index that corresponds to row R and column C.
+        """
+        return r*self.C + c
+
     def draw(self, cellLength = None, margin = 1):
         """
         Build the grid. CELLLENGTH forces a cell size to use.
@@ -120,9 +151,6 @@ class BaseGrid(tk.Frame):
             else:
                 raise ValueError("Illegal cellLength {}".format(cellLength))
 
-        self.cellToIID = {}
-        self.IIDToCell = {}
-
         # To get xmargin:
         #   get extra space and divide it by two
         # To get total space get max space and subtract cell length times cells
@@ -133,12 +161,13 @@ class BaseGrid(tk.Frame):
         x, y = xmargin, ymargin
         l = self.cellLength
         for row in range(self.R):
-            self.cellToIID[row] = {}
             for col in range(self.C):
+                index = row*self.C + col
                 iid = self.canvas.create_rectangle(
-                    x, y, x + l, y + l, fill = self.cellColors[row][col])
-                self.cellToIID[row][col] = iid
-                self.IIDToCell[iid] = (row, col)
+                    x, y, x + l, y + l, fill = self.fills[index],
+                    outline = self.outlines[index], width = self.widths[index])
+                self.indices[iid] = index
+                self.iids[index] = iid
 
                 self.canvas.tag_bind(iid, '<ButtonPress-1>',
                     self._wrapper(_LEFT_CLICK))
@@ -163,33 +192,46 @@ class BaseGrid(tk.Frame):
         self.xmargin = xmargin
         self.ymargin = margin
 
-    def setLinear(self, i, **kwargs):
+    def filli(self, i, fill):
         """
-        Configure the cell at 'index' I if grid cells are enumerated from
-        left to right and from top to bottom.
+        Set the cell at 'index' I to color FILL.
         """
-        # NOTE: Possible optimization here
-        self.setCell(i//self.R, i%self.R, **kwargs)
-
-    def setCell(self, r, c, **kwargs):
-        """
-        Configure the cell at row R and column C with the TKinter Canvas
-        keyword arguments KWARGS (see the TKinter Canvas itemconfig method)
-        """
-        # NOTE: Possible optimization here
-        if 'fill' in kwargs:
-            self.cellColors[r][c] = kwargs['fill']
+        self.fills[i] = fill
         self.canvas.itemconfig(
-            self.cellToIID[r][c], **kwargs)
+            self.iids[i], fill = fill)
 
-    def setAll(self, **kwargs):
+    def fillc(self, r, c, fill):
+        """
+        Set the cell at row R and column C to color FILL.
+        """
+        self.filli(r*self.C + c, fill)
+
+    def outlinei(self, i, outline, width):
+        """
+        Set the border of the cell at 'index' I to color OUTLINE and width
+        WIDTH.
+        """
+        self.outlines[i] = outline
+        self.widths[i] = width
+        self.canvas.itemconfig(
+            self.iids[i], outline = outline, width = width)
+
+    def outlinec(self, r, c, outline, width):
+        """
+        Set the border of the cell at row R and column Cto color OUTLINE and
+        width WIDTH.
+        """
+        self.outlinei(r*self.C + c, outline, width)
+
+
+    def seta(self, fill, outline, width):
         """
         Configure all grid cells to have fill FILL and an outline of color
         OUTLINE and WIDTH pixels thick.
         """
-        for row in range(self.R):
-            for col in range(self.C):
-                self.setCell(row, col, **kwargs)
+        for i in range(self.size):
+            self.filli(i, fill)
+            self.outlinei(i, outline, width)
 
     def setLeftClick(self, f):
         self.callbacks[_LEFT_CLICK] = f
@@ -225,8 +267,8 @@ class BaseGrid(tk.Frame):
             iid = self.canvas.find_closest(
                 self.canvas.canvasx(event.x),
                 self.canvas.canvasy(event.y))[0]
-            x, y = self.IIDToCell[iid]
-            self.callbacks[C](self, x, y)
+            index = self.indices[iid]
+            self.callbacks[C](self, index)
         return wrapper
 
     def _nothing(*args):

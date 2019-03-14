@@ -30,6 +30,8 @@
 import os
 import time as tm
 
+import numpy as np
+
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
@@ -550,12 +552,19 @@ class GridWidget(gd.BaseGrid):
     DEFAULT_LOW = 0
     CURSOR = "hand1"
 
+    OUTLINE_NORMAL = "black"
+    OUTLINE_SELECTED = "orange"
+    WIDTH_NORMAL = 1
+    WIDTH_SELECTED = 3
+
     def __init__(self, master, R, C, colors = DEFAULT_COLORS,
         off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
         low = DEFAULT_LOW, printr = lambda s:None, printx = lambda e:None):
-        # Setup ................................................................
+
         gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
             empty = off_color)
+
+        # Setup ................................................................
         self.adjusting = False
         self.last_width, self.last_height = 0, 0
         self.colors = colors
@@ -565,7 +574,15 @@ class GridWidget(gd.BaseGrid):
         self.low = low
         self.off_color = off_color
 
+        self.selected = np.zeros(self.size, dtype = bool)
+        self.active = np.zeros(self.size, dtype = bool)
         # FIXME
+
+        # TODO:
+        # - activity tracking (who is active and who isn't)
+        # - drag, drop, etc..
+        # - get selections
+        # - [...]
 
     def update(self, values):
         i = 0
@@ -574,29 +591,38 @@ class GridWidget(gd.BaseGrid):
                 (value*self.maxColor//self.numColors))])
             i += 1
 
+    def selecti(self, i):
+        if self.active[i]:
+            self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+            self.selected[i] = True
+
     def select(self, r, c):
-        # FIXME
-        pass
+        self.select(r*self.C + c)
+
+    def deselecti(self, i):
+        self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
+        self.selected[i] = False
 
     def deselect(self, r, c):
-        # FIXME
-        pass
+        self.select(r*self.C + c)
 
-    def selectAll(self, r, c):
-        # FIXME
-        pass
+    def selectAll(self):
+        for i in range(self.size):
+            self.selecti(i)
 
-    def deselectAll(self, r, c):
-        # FIXME
-        pass
+    def deselectAll(self):
+        for i in range(self.size):
+            self.deselecti(i)
 
     def redraw(self, *E):
         self.draw(margin = 10)
         self.canvas.bind("<Button-1>", self.__testbind) # FIXME
 
-    def __testbind(self, *E)
+    def __testbind(self, *E):
         print("[DEV] __testbind")
-        self.update([i for i in range(self.R*self.C)])
+        #self.update([i for i in range(self.R*self.C)])
+        for i in range(self.R*self.C):
+            self.selecti(i)
 
     # FIXME
 
