@@ -144,70 +144,73 @@ MD_fans = 305
 MD_fanAssignment = 306
 # . . . . . . . . . . . .
 # ........................
-NAMES = {
-    name : "name",
-    description : "description",
-    platform : "platform",
-    version : "version",
+# METADATA:
+NAME, PRECEDENCE, TYPE = 0, 1, 2
+TYPE_PRIMITIVE, TYPE_LIST, TYPE_SUB = 96000, 96001, 96002
 
-    broadcastPort  : "broadcastPort",
-    broadcastPeriodMS : "broadcastPeriodMS",
-    broadcastPeriodS : "broadcastPeriodS",
-    periodMS : "periodMS",
-    periodS : "periodS",
-    maxLength : "maxLength",
-    maxTimeouts : "maxTimeouts",
+META = {
+    name : ("name", 1, TYPE_PRIMITIVE),
+    description : ("description", 1, TYPE_PRIMITIVE),
+    platform : ("platform", 2, TYPE_PRIMITIVE),
+    version : ("version", 3, TYPE_PRIMITIVE),
 
-    mainQueueSize : "mainQueueSize",
-    slaveQueueSize : "slaveQueueSize",
-    broadcastQueueSize : "broadcastQueueSize",
-    listenerQueueSize : "listenerQueueSize",
-    misoQueueSize : "misoQueueSize",
-    printerQueueSize : "printerQueueSize",
-    passcode : "passcode",
+    broadcastPort  : ("broadcastPort", 4, TYPE_PRIMITIVE),
+    broadcastPeriodMS : ("broadcastPeriodMS", 4, TYPE_PRIMITIVE),
+    broadcastPeriodS : ("broadcastPeriodS", 4, TYPE_PRIMITIVE),
+    periodMS : ("periodMS", 4, TYPE_PRIMITIVE),
+    periodS : ("periodS", 4, TYPE_PRIMITIVE),
+    maxLength : ("maxLength", 4, TYPE_PRIMITIVE),
+    maxTimeouts : ("maxTimeouts", 4, TYPE_PRIMITIVE),
+    mainQueueSize : ("mainQueueSize", 4, TYPE_PRIMITIVE),
+    slaveQueueSize : ("slaveQueueSize", 4, TYPE_PRIMITIVE),
+    broadcastQueueSize : ("broadcastQueueSize", 4, TYPE_PRIMITIVE),
+    listenerQueueSize : ("listenerQueueSize", 4, TYPE_PRIMITIVE),
+    misoQueueSize : ("misoQueueSize", 4, TYPE_PRIMITIVE),
+    printerQueueSize : ("printerQueueSize", 4, TYPE_PRIMITIVE),
+    passcode : ("passcode", 4, TYPE_PRIMITIVE),
 
-    defaultSlave : "defaultSlave",
-    SV_name : "SV_name",
-    SV_mac : "SV_mac",
-    SV_index : "SV_index",
-    SV_fanModel : "SV_fanModel",
-    SV_fanMode : "SV_fanMode",
-    SV_targetRelation : "SV_targetRelation",
-    SV_chaserTolerance : "SV_chaserTolerance",
-    SV_fanFrequencyHZ : "SV_fanFrequencyHZ",
-    SV_counterCounts : "SV_counterCounts",
-    SV_counterTimeoutMS : "SV_counterTimeoutMS",
-    SV_pulsesPerRotation : "SV_pulsesPerRotation",
-    SV_maxRPMs : "SV_maxRPMs",
-    SV_minRPMs : "SV_minRPMs",
-    SV_minDCs : "SV_minDCs",
-    SV_maxFans : "SV_maxFans",
-    SV_pinout : "SV_pinout",
+    defaultSlave : ("defaultSlave", 5, TYPE_SUB),
+    SV_name : ("SV_name", 0, TYPE_PRIMITIVE),
+    SV_mac : ("SV_mac", 1, TYPE_PRIMITIVE),
+    SV_index : ("SV_index", 2, TYPE_PRIMITIVE),
+    SV_fanModel : ("SV_fanModel", 3, TYPE_PRIMITIVE),
+    SV_fanMode : ("SV_fanMode", 4, TYPE_PRIMITIVE),
+    SV_targetRelation : ("SV_targetRelation", 5, TYPE_PRIMITIVE),
+    SV_chaserTolerance : ("SV_chaserTolerance", 6, TYPE_PRIMITIVE),
+    SV_fanFrequencyHZ : ("SV_fanFrequencyHZ", 7, TYPE_PRIMITIVE),
+    SV_counterCounts : ("SV_counterCounts", 8, TYPE_PRIMITIVE),
+    SV_counterTimeoutMS : ("SV_counterTimeoutMS", 9, TYPE_PRIMITIVE),
+    SV_pulsesPerRotation : ("SV_pulsesPerRotation", 10, TYPE_PRIMITIVE),
+    SV_maxRPMs : ("SV_maxRPMs", 11, TYPE_PRIMITIVE),
+    SV_minRPMs : ("SV_minRPMs", 12, TYPE_PRIMITIVE),
+    SV_minDCs : ("SV_minDCs", 13, TYPE_PRIMITIVE),
+    SV_maxFans : ("SV_maxFans", 14, TYPE_PRIMITIVE),
+    SV_pinout : ("SV_pinout", 15, TYPE_PRIMITIVE),
 
-    savedSlaves : "savedSlaves",
+    savedSlaves : ("savedSlaves", 6, TYPE_LIST),
 
-    pinouts : "pinouts",
+    pinouts : ("pinouts", 7, TYPE_LIST),
 
-    defaultModule : "defaultModule",
+    defaultModule : ("defaultModule", 8, TYPE_SUB),
 
-    MD_slaveIndex : "MD_slaveIndex",
-    MD_row : "MD_row",
-    MD_column : "MD_column",
-    MD_rows : "MD_rows",
-    MD_columns : "MD_columns",
-    MD_fans : "MD_fans",
-    MD_fanAssignment : "MD_fanAssignment",
+    MD_slaveIndex : ("MD_slaveIndex", 0, TYPE_PRIMITIVE),
+    MD_row : ("MD_row", 1, TYPE_PRIMITIVE),
+    MD_column : ("MD_column", 2, TYPE_PRIMITIVE),
+    MD_rows : ("MD_rows", 3, TYPE_PRIMITIVE),
+    MD_columns : ("MD_columns", 4, TYPE_PRIMITIVE),
+    MD_fans : ("MD_fans", 5, TYPE_PRIMITIVE),
+    MD_fanAssignment : ("MD_fanAssignment", 6, TYPE_PRIMITIVE),
 
-    defaultFanArray : "defaultFanArray",
+    defaultFanArray : ("defaultFanArray", 9, TYPE_SUB),
 
-    FA_name : "FA_name",
-    FA_description : "FA_description",
-    FA_rows : "FA_rows",
-    FA_columns : "FA_columns",
-    FA_layers : "FA_layers",
-    FA_modules : "FA_modules",
+    FA_name : ("FA_name", 0, TYPE_PRIMITIVE),
+    FA_description : ("FA_description", 1, TYPE_PRIMITIVE),
+    FA_rows : ("FA_rows", 2, TYPE_PRIMITIVE),
+    FA_columns : ("FA_columns", 3, TYPE_PRIMITIVE),
+    FA_layers : ("FA_layers", 4, TYPE_PRIMITIVE),
+    FA_modules : ("FA_modules", 5, TYPE_PRIMITIVE),
 
-    fanArrays : "fanArrays"
+    fanArrays : ("fanArrays", 10, TYPE_LIST)
 }
 
 
@@ -221,7 +224,7 @@ class FCArchive(us.PrintClient):
     """
 
     symbol = "[AC]"
-    names = NAMES
+    meta = META
 
     """ Default profile. """
     DEFAULT = {

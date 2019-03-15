@@ -32,7 +32,11 @@ import tkinter.ttk as ttk
 
 from . import loader as ldr
 from .. import archive as ac
+
 ## AUXILIARY GLOBALS ###########################################################
+TAG_SUB = "M"
+TAG_PRIMITIVE = "P"
+TAG_LIST = "L"
 
 ## MAIN ########################################################################
 class ProfileDisplay(tk.Frame):
@@ -49,6 +53,9 @@ class ProfileDisplay(tk.Frame):
 
         # Core setup ...........................................................
         self.archive = archive
+        self.items = []
+        self.map = {}
+        self.root = ''
 
         # Grid:
         self.grid_rowconfigure(0, weight = 0)
@@ -117,26 +124,78 @@ class ProfileDisplay(tk.Frame):
         self.displayFrame.grid(row = 2, columnspan = 2, sticky = "NEWS",
             pady = 10)
 
+        self.font = tk.font.Font(font = "TkDefaultFont 16 bold")
+
         self.display = ttk.Treeview(self.displayFrame)
         self.display.configure(columns = ("Attribute", "Value"))
-        self.display.column("#0", width = 20, stretch = False)
-        self.display.column("Attribute", width = 20)
+        self.display.column("#0", width = 100, stretch = False)
+        self.display.column("Attribute", width = self.font.measure("Attribute"),
+            stretch = False)
         self.display.column("Value")
         self.display.heading("Attribute", text = "Attribute")
         self.display.heading("Value", text = "Value")
         self.display.pack(fill = tk.BOTH, expand = True)
 
+        self.display.tag_configure(TAG_SUB, font = "TkDefaultFont 7 bold")
+
     # API ----------------------------------------------------------------------
-    def update(self):
+    def build(self):
         """
         Rebuild the displayed values based on the current profile attributes in
         the loaded archive.
         """
-        for key in self.archive.keys():
-            iid = self.display.insert('', 0,
-                values = (self.archive.names[key], self.archive[key])
-            )
+        self.clear()
+        self.root = \
+            self._addModule(self.archive.profile(), self.archive[ac.name], 0)
 
+    def clear(self):
+        """
+        Remove all entries from the display.
+        """
+        if self.root:
+            self.display.delete(self.root)
+            self.items = []
+            self.map = {}
+
+    # Internal methods ---------------------------------------------------------
+    def _addModule(self, module, name, precedence, parent = ''):
+        """
+        Add MODULE to the display
+        """
+        iid = self.display.insert(parent, precedence, values = (name, ''),
+            tag = TAG_SUB)
+        for child in module:
+            meta = self.archive.meta[child]
+            if meta[ac.TYPE] is ac.TYPE_LIST:
+                self._addList(module[child], child, iid)
+            elif meta[ac.TYPE] is ac.TYPE_SUB:
+                self._addModule(module[child], meta[ac.NAME],
+                    meta[ac.PRECEDENCE], iid)
+            else:
+                self._addPrimitive(meta[ac.NAME], module[child],
+                    meta[ac.PRECEDENCE], iid)
+            self.items.append(iid)
+
+        return iid
+            # FIXME: map?
+
+
+    def _addPrimitive(self, name, value, precedence, parent = ''):
+        """
+        Add a primitive that resides in the profile module (or sub-module)
+        CONTEXT and is represented by KEY.
+        """
+        iid = self.display.insert(parent, precedence, values = (name, value))
+        self.items.append(iid)
+        return iid
+
+    def _addList(self, name, iterable, parent = ''):
+        """
+        Add a 'list' attribute that resides in the profile module or sub-module
+        CONTEXT and is represented by KEY.
+        """
+        # TODO
+        pass
 
     # Callbacks ----------------------------------------------------------------
     def _default(self, event = None):
@@ -144,7 +203,7 @@ class ProfileDisplay(tk.Frame):
         Switch to the default profile and display it.
         """
         self.archive.default()
-        self.update()
+        self.build()
 
     def _save(self, event = None):
         """
