@@ -138,6 +138,12 @@ class ProfileDisplay(tk.Frame):
 
         self.display.tag_configure(TAG_SUB, font = "TkDefaultFont 7 bold")
 
+        # Scrollbar:
+        self.scrollbar = tk.Scrollbar(self)
+        self.scrollbar.grid(row = 2, column = 2, pady = 10, sticky = "NS")
+        self.scrollbar.config(command = self.display.yview)
+        self.display.config(yscrollcommand = self.scrollbar.set)
+
     # API ----------------------------------------------------------------------
     def build(self):
         """
