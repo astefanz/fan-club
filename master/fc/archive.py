@@ -146,7 +146,7 @@ MD_fanAssignment = 306
 # ........................
 # METADATA:
 NAME, PRECEDENCE, TYPE = 0, 1, 2
-TYPE_PRIMITIVE, TYPE_LIST, TYPE_SUB = 96000, 96001, 96002
+TYPE_PRIMITIVE, TYPE_LIST, TYPE_SUB, TYPE_MAP = 96000, 96001, 96002, 96003
 
 META = {
     name : ("name", 1, TYPE_PRIMITIVE),
@@ -189,7 +189,7 @@ META = {
 
     savedSlaves : ("savedSlaves", 6, TYPE_LIST),
 
-    pinouts : ("pinouts", 7, TYPE_LIST),
+    pinouts : ("pinouts", 7, TYPE_MAP),
 
     defaultModule : ("defaultModule", 8, TYPE_SUB),
 

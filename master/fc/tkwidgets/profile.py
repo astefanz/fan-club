@@ -53,7 +53,6 @@ class ProfileDisplay(tk.Frame):
 
         # Core setup ...........................................................
         self.archive = archive
-        self.items = []
         self.map = {}
         self.root = ''
 
@@ -137,6 +136,7 @@ class ProfileDisplay(tk.Frame):
         self.display.pack(fill = tk.BOTH, expand = True)
 
         self.display.tag_configure(TAG_SUB, font = "TkDefaultFont 7 bold")
+        self.display.tag_configure(TAG_LIST, font = "TkDefaultFont 7 bold")
 
         # Scrollbar:
         self.scrollbar = tk.Scrollbar(self)
@@ -152,7 +152,7 @@ class ProfileDisplay(tk.Frame):
         """
         self.clear()
         self.root = \
-            self._addModule(self.archive.profile(), self.archive[ac.name], 0)
+            self._addModule(self.archive[ac.name], self.archive.profile(), 0)
 
     def clear(self):
         """
@@ -160,11 +160,10 @@ class ProfileDisplay(tk.Frame):
         """
         if self.root:
             self.display.delete(self.root)
-            self.items = []
             self.map = {}
 
     # Internal methods ---------------------------------------------------------
-    def _addModule(self, module, name, precedence, parent = ''):
+    def _addModule(self, name, module, precedence, parent = ''):
         """
         Add MODULE to the display
         """
@@ -173,35 +172,48 @@ class ProfileDisplay(tk.Frame):
         for child in module:
             meta = self.archive.meta[child]
             if meta[ac.TYPE] is ac.TYPE_LIST:
-                self._addList(module[child], child, iid)
+                self._addList(meta[ac.NAME], module[child], meta[ac.PRECEDENCE],
+                iid)
+            elif meta[ac.TYPE] is ac.TYPE_SUB:
+                self._addModule(meta[ac.NAME], module[child],
+                meta[ac.PRECEDENCE], iid)
+            elif meta[ac.TYPE] is ac.TYPE_MAP:
+                self._addMap(meta[ac.NAME], module[child], meta[ac.PRECEDENCE],
+                    iid)
+            else:
+                self._addPrimitive(meta[ac.NAME], module[child],
+                    meta[ac.PRECEDENCE], iid)
+        # FIXME: map?
+        return iid
+
+
+    def _addPrimitive(self, name, value, precedence, parent = ''):
+        iid = self.display.insert(parent, precedence, values = (name, value))
+        # FIXME: map?
+        return iid
+
+    def _addMap(self, name, M, precedence, parent = ''):
+        iid = self.display.insert(parent, precedence, values = (name, ''),
+            tag = TAG_SUB)
+        for key in M:
+            iid_c = self.display.insert(iid, 0, values = (key, M[key]))
+        return iid
+
+    def _addList(self, name, iterable, precedence, parent = ''):
+        iid = self.display.insert(parent, precedence, values = (name, ''),
+            tag = TAG_LIST)
+        for element in iterable:
+            meta = self.archive.meta[child]
+            if meta[ac.TYPE] is ac.TYPE_LIST:
+                self._addList(meta[ac.NAME], module[child], iid)
             elif meta[ac.TYPE] is ac.TYPE_SUB:
                 self._addModule(module[child], meta[ac.NAME],
                     meta[ac.PRECEDENCE], iid)
             else:
                 self._addPrimitive(meta[ac.NAME], module[child],
                     meta[ac.PRECEDENCE], iid)
-            self.items.append(iid)
-
+        # FIXME: map?
         return iid
-            # FIXME: map?
-
-
-    def _addPrimitive(self, name, value, precedence, parent = ''):
-        """
-        Add a primitive that resides in the profile module (or sub-module)
-        CONTEXT and is represented by KEY.
-        """
-        iid = self.display.insert(parent, precedence, values = (name, value))
-        self.items.append(iid)
-        return iid
-
-    def _addList(self, name, iterable, parent = ''):
-        """
-        Add a 'list' attribute that resides in the profile module or sub-module
-        CONTEXT and is represented by KEY.
-        """
-        # TODO
-        pass
 
     # Callbacks ----------------------------------------------------------------
     def _default(self, event = None):
@@ -215,13 +227,17 @@ class ProfileDisplay(tk.Frame):
         """
         Save the current profile.
         """
-        self.archive.save(self.loader.saveDialog("fan_array_profile"))
+        name = self.loader.saveDialog("fan_array_profile")
+        if name:
+            self.archive.save()
 
     def _load(self, event = None):
         """
         Load a new profile.
         """
-        self.archive.load(self.loader.loadDialog())
+        name = self.loader.loadDialog()
+        if name:
+            self.archive.load(name)
 
     def _nothing(*args):
         """
