@@ -128,9 +128,9 @@ class ProfileDisplay(tk.Frame):
 
         self.display = ttk.Treeview(self.displayFrame)
         self.display.configure(columns = ("Attribute", "Value"))
-        self.display.column("#0", width = 100, stretch = False)
-        self.display.column("Attribute", width = self.font.measure("Attribute"),
+        self.display.column("#0", width = self.font.measure("    "),
             stretch = False)
+        self.display.column("Attribute")
         self.display.column("Value")
         self.display.heading("Attribute", text = "Attribute")
         self.display.heading("Value", text = "Value")
