@@ -121,27 +121,20 @@ SV_pinout = 131
 pinouts = 132
 
 # Fan array --------------------------------------------------------------------
-defaultModule = 200
-defaultFanArray = 201
-
-fanArrays = 204
+fanArray = 201
 
 # For each fan array .....
-FA_name = 205
-FA_description = 206
 FA_rows = 208
 FA_columns = 209
 FA_layers = 210
 FA_modules = 211
 
 # For each module . . . .
-MD_slaveIndex = 300
 MD_row = 301
 MD_column = 302
 MD_rows = 303
 MD_columns = 304
-MD_fans = 305
-MD_fanAssignment = 306
+MD_mapping = 306
 # . . . . . . . . . . . .
 # ........................
 # METADATA:
@@ -186,31 +179,23 @@ META = {
     SV_minDCs : ("SV_minDCs", 13, TYPE_PRIMITIVE),
     SV_maxFans : ("SV_maxFans", 14, TYPE_PRIMITIVE),
     SV_pinout : ("SV_pinout", 15, TYPE_PRIMITIVE),
+    MD_row : ("MD_row", 16, TYPE_PRIMITIVE),
+    MD_column : ("MD_column", 17, TYPE_PRIMITIVE),
+    MD_rows : ("MD_rows", 18, TYPE_PRIMITIVE),
+    MD_columns : ("MD_columns", 19, TYPE_PRIMITIVE),
+    MD_mapping : ("MD_mapping", 20, TYPE_PRIMITIVE),
 
     savedSlaves : ("savedSlaves", 6, TYPE_LIST),
 
     pinouts : ("pinouts", 7, TYPE_MAP),
 
-    defaultModule : ("defaultModule", 8, TYPE_SUB),
 
-    MD_slaveIndex : ("MD_slaveIndex", 0, TYPE_PRIMITIVE),
-    MD_row : ("MD_row", 1, TYPE_PRIMITIVE),
-    MD_column : ("MD_column", 2, TYPE_PRIMITIVE),
-    MD_rows : ("MD_rows", 3, TYPE_PRIMITIVE),
-    MD_columns : ("MD_columns", 4, TYPE_PRIMITIVE),
-    MD_fans : ("MD_fans", 5, TYPE_PRIMITIVE),
-    MD_fanAssignment : ("MD_fanAssignment", 6, TYPE_PRIMITIVE),
+    fanArray : ("fanArray", 9, TYPE_SUB),
 
-    defaultFanArray : ("defaultFanArray", 9, TYPE_SUB),
-
-    FA_name : ("FA_name", 0, TYPE_PRIMITIVE),
-    FA_description : ("FA_description", 1, TYPE_PRIMITIVE),
     FA_rows : ("FA_rows", 2, TYPE_PRIMITIVE),
     FA_columns : ("FA_columns", 3, TYPE_PRIMITIVE),
     FA_layers : ("FA_layers", 4, TYPE_PRIMITIVE),
-    FA_modules : ("FA_modules", 5, TYPE_PRIMITIVE),
 
-    fanArrays : ("fanArrays", 10, TYPE_LIST)
 }
 
 
@@ -265,29 +250,20 @@ class FCArchive(us.PrintClient):
                 SV_minRPMs : 1200,
                 SV_minDCs : 0.5,
                 SV_maxFans : 21,
-                SV_pinout : "BASE"
+                SV_pinout : "BASE",
+                MD_row : -1,
+                MD_column : -1,
+                MD_rows : 0,
+                MD_columns : 0,
+                MD_mapping : ()
             },
         savedSlaves : (),
         pinouts : PINOUTS.copy(),
-
-        defaultModule : {
-            MD_slaveIndex : -1,
-            MD_row : -1,
-            MD_column : -1,
-            MD_rows : 0,
-            MD_columns : 0,
-            MD_fans : 0,
-            MD_fanAssignment : ()
-        },
-        defaultFanArray : {
-            FA_name : "Fan Array",
-            FA_description : "",
+        fanArray : {
             FA_rows : 0,
             FA_columns : 0,
             FA_layers : 0,
-            FA_modules : ()
         },
-        fanArrays : ()
     }
 
     def __init__(self, pqueue, ver):
