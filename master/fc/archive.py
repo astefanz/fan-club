@@ -49,6 +49,7 @@ LINUX = 2
 # Fan modes:
 SINGLE = 1
 DOUBLE = 2
+FAN_MODES = (SINGLE, DOUBLE)
 
 # Built-in pinouts:
 PINOUTS = {
@@ -84,7 +85,6 @@ broadcastPort  = 100
 broadcastPeriodMS = 101
 broadcastPeriodS = 102
 periodMS = 103
-periodS = 104
 maxLength = 105
 maxTimeouts = 106
 
@@ -137,67 +137,232 @@ MD_columns = 304
 MD_mapping = 306
 # . . . . . . . . . . . .
 # ........................
-# METADATA:
-NAME, PRECEDENCE, TYPE = 0, 1, 2
+
+# VALIDATORS ===================================================================
+# ABOUT: Validators are functions that take in the value of some profile
+# attribute and return None if the value is valid for such attribute and raise
+# a ValueError otherwise.
+
+def make_lambda_validator(l):
+    """
+    Create a validator that checks whether, for a given value V, l(V) returns
+    a True value.
+    """
+    def validator(value):
+        if not l(value):
+            raise ValueError("Invalid attribute value ({})".format(value))
+    return validator
+
+def make_range_validator(low, high):
+    """
+    Create a validator that checks whether a given numerical or string value N
+    is in the range LOW <= N <= HIGH.
+
+    Notice inclusivity.
+    """
+    def validator(value):
+        if value < low or value > high:
+            raise ValueError("Value ({}) is outside the range [{}, {}]".format(
+                value, low, high))
+    return validator
+
+def make_geq_validator(low):
+    """
+    Create a validator that checks whether a given numerical or string value N
+    is N >= LOW.
+
+    Notice inclusivity.
+    """
+    def validator(value):
+        if value < low:
+            raise ValueError("Value ({}) is less than minimum ({})".format(
+                value, low))
+    return validator
+
+def make_gt_validator(low):
+    """
+    Create a validator that checks whether a given numerical or string value N
+    is N > LOW.
+
+    Notice inclusivity.
+    """
+    def validator(value):
+        if value <= low:
+            raise ValueError("Value ({}) is not above minimum ({})".format(
+                value, low))
+    return validator
+
+def make_leq_validator(high):
+    """
+    Create a validator that checks whether a given numerical or string value N
+    is N <= HIGH.
+
+    Notice inclusivity.
+    """
+    def validator(value):
+        if value > high:
+            raise ValueError("Value ({}) is larger than maximum ({})".format(
+                value, high))
+    return validator
+
+def make_in_validator(*values):
+    """
+    Create a validator that checks whether the given value is one of the given
+    VALUES.
+    """
+    def validator(value):
+        if value not in values:
+            raise ValueError(
+                "Value ({}) is not among valid values. (!= {})".format(value,
+                values))
+    return validator
+
+def make_neq_validator(*values):
+    """
+    Create a validator that checks whether the given value is different from all
+    the values in VALUES.
+    """
+    def validator(value):
+        if value in values:
+            raise ValueError("Value ({}) is not permitted. (!= {})".format(
+                value, values))
+    return validator
+
+def validate_true(value):
+    """
+    Validator that checks whether VALUE is a "True" value (i.e nonzero,
+    nonempty, etc.)
+    """
+    if not value:
+        raise ValueError("Value ({}) cannot be a null value.")
+
+def mix(*validators):
+    """
+    Return a validator function that runs the given value through all
+    VALIDATORS, in the order in which they're passed here.
+    """
+    def validator(value):
+        for V in validators:
+            V(value)
+    return validator
+
+def v_fail_all(value):
+    """
+    Validator that fails on all values.
+    """
+    raise ValueError("No values can be assigned to this attribute.")
+
+def make_type_validator(T):
+    """
+    Validator that checks whether for some value N, type(N) is T
+    """
+    def validator(value):
+        if type(value) is not T:
+            raise ValueError(
+                "Value ({}) is not of the right type (i.e {})".format(value, T))
+    return validator
+
+def make_length_validator(length):
+    """
+    Return a validator that checks whether the given value has exactly length
+    LENGTH.
+    """
+    def validator(value):
+        if len(value) is not length:
+            raise ValueError(
+                "Value ({}) does not have the required length {}".format(value,
+                    length))
+    return validator
+
+v_pass_all = lambda v: print("[WARNING] Pass-all validator called on:", v)
+v_int = make_type_validator(int)
+v_str = make_type_validator(str)
+v_port = make_range_validator(1, 65535)
+v_nonnegative = make_geq_validator(0)
+v_nonnegative_int = mix(v_int, v_nonnegative)
+v_nonzero = make_neq_validator(0)
+v_positive_int = mix(make_type_validator(int), make_gt_validator(0))
+v_normalized = make_range_validator(0.0, 1.0)
+v_nonempty = validate_true
+v_nonempty_str = mix(make_type_validator(str), v_nonempty)
+v_mac = mix(v_str, make_length_validator(17))
+v_dutycycle = make_range_validator(0, 100)
+
+# METADATA =====================================================================
+NAME, PRECEDENCE, TYPE, EDITABLE, VALIDATOR = 0, 1, 2, 3, 4
 TYPE_PRIMITIVE, TYPE_LIST, TYPE_SUB, TYPE_MAP = 96000, 96001, 96002, 96003
 
 META = {
-    name : ("name", 1, TYPE_PRIMITIVE),
-    description : ("description", 1, TYPE_PRIMITIVE),
-    platform : ("platform", 2, TYPE_PRIMITIVE),
-    version : ("version", 3, TYPE_PRIMITIVE),
+    name : ("name", 1, TYPE_PRIMITIVE, True, v_nonempty_str),
+    description : ("description", 1, TYPE_PRIMITIVE, True, v_str),
+    platform : ("platform", 2, TYPE_PRIMITIVE, False, v_fail_all),
+    version : ("version", 3, TYPE_PRIMITIVE, False, v_fail_all),
 
-    broadcastPort  : ("broadcastPort", 4, TYPE_PRIMITIVE),
-    broadcastPeriodMS : ("broadcastPeriodMS", 4, TYPE_PRIMITIVE),
-    broadcastPeriodS : ("broadcastPeriodS", 4, TYPE_PRIMITIVE),
-    periodMS : ("periodMS", 4, TYPE_PRIMITIVE),
-    periodS : ("periodS", 4, TYPE_PRIMITIVE),
-    maxLength : ("maxLength", 4, TYPE_PRIMITIVE),
-    maxTimeouts : ("maxTimeouts", 4, TYPE_PRIMITIVE),
-    mainQueueSize : ("mainQueueSize", 4, TYPE_PRIMITIVE),
-    slaveQueueSize : ("slaveQueueSize", 4, TYPE_PRIMITIVE),
-    broadcastQueueSize : ("broadcastQueueSize", 4, TYPE_PRIMITIVE),
-    listenerQueueSize : ("listenerQueueSize", 4, TYPE_PRIMITIVE),
-    misoQueueSize : ("misoQueueSize", 4, TYPE_PRIMITIVE),
-    printerQueueSize : ("printerQueueSize", 4, TYPE_PRIMITIVE),
-    passcode : ("passcode", 4, TYPE_PRIMITIVE),
+    broadcastPort  : ("broadcastPort", 4, TYPE_PRIMITIVE, True, v_port),
+    broadcastPeriodMS : ("broadcastPeriodMS", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    broadcastPeriodS : ("broadcastPeriodS", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    periodMS : ("periodMS", 4, TYPE_PRIMITIVE, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    maxLength : ("maxLength", 4, TYPE_PRIMITIVE, True, v_positive_int),
+    maxTimeouts : ("maxTimeouts", 4, TYPE_PRIMITIVE, True, v_positive_int),
+    mainQueueSize : ("mainQueueSize", 4, TYPE_PRIMITIVE, True, v_positive_int),
+    slaveQueueSize : ("slaveQueueSize", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    broadcastQueueSize : ("broadcastQueueSize", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    listenerQueueSize : ("listenerQueueSize", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    misoQueueSize : ("misoQueueSize", 4, TYPE_PRIMITIVE, True, v_positive_int),
+    printerQueueSize : ("printerQueueSize", 4, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    passcode : ("passcode", 4, TYPE_PRIMITIVE, True, v_nonempty_str),
 
-    defaultSlave : ("defaultSlave", 5, TYPE_SUB),
-    SV_name : ("SV_name", 0, TYPE_PRIMITIVE),
-    SV_mac : ("SV_mac", 1, TYPE_PRIMITIVE),
-    SV_index : ("SV_index", 2, TYPE_PRIMITIVE),
-    SV_fanModel : ("SV_fanModel", 3, TYPE_PRIMITIVE),
-    SV_fanMode : ("SV_fanMode", 4, TYPE_PRIMITIVE),
-    SV_targetRelation : ("SV_targetRelation", 5, TYPE_PRIMITIVE),
-    SV_chaserTolerance : ("SV_chaserTolerance", 6, TYPE_PRIMITIVE),
-    SV_fanFrequencyHZ : ("SV_fanFrequencyHZ", 7, TYPE_PRIMITIVE),
-    SV_counterCounts : ("SV_counterCounts", 8, TYPE_PRIMITIVE),
-    SV_counterTimeoutMS : ("SV_counterTimeoutMS", 9, TYPE_PRIMITIVE),
-    SV_pulsesPerRotation : ("SV_pulsesPerRotation", 10, TYPE_PRIMITIVE),
-    SV_maxRPMs : ("SV_maxRPMs", 11, TYPE_PRIMITIVE),
-    SV_minRPMs : ("SV_minRPMs", 12, TYPE_PRIMITIVE),
-    SV_minDCs : ("SV_minDCs", 13, TYPE_PRIMITIVE),
-    SV_maxFans : ("SV_maxFans", 14, TYPE_PRIMITIVE),
-    SV_pinout : ("SV_pinout", 15, TYPE_PRIMITIVE),
-    MD_row : ("MD_row", 16, TYPE_PRIMITIVE),
-    MD_column : ("MD_column", 17, TYPE_PRIMITIVE),
-    MD_rows : ("MD_rows", 18, TYPE_PRIMITIVE),
-    MD_columns : ("MD_columns", 19, TYPE_PRIMITIVE),
-    MD_mapping : ("MD_mapping", 20, TYPE_PRIMITIVE),
+    defaultSlave : ("defaultSlave", 5, TYPE_SUB, False, v_fail_all),
+    SV_name : ("SV_name", 0, TYPE_PRIMITIVE, True, v_str),
+    SV_mac : ("SV_mac", 1, TYPE_PRIMITIVE, True, v_mac),
+    SV_index : ("SV_index", 2, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    SV_fanModel : ("SV_fanModel", 3, TYPE_PRIMITIVE, True, v_str),
+    SV_fanMode : ("SV_fanMode", 4, TYPE_PRIMITIVE, True,
+        make_in_validator(FAN_MODES)),
+    SV_targetRelation : ("SV_targetRelation", 5, TYPE_PRIMITIVE, True,
+        make_lambda_validator(lambda v: len(v) == 2 and \
+            type(v[0] in (float, int)) and type(v[i] in (float, int)))),
+    SV_chaserTolerance : ("SV_chaserTolerance", 6, TYPE_PRIMITIVE, True,
+        v_normalized),
+    SV_fanFrequencyHZ : ("SV_fanFrequencyHZ", 7, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    SV_counterCounts : ("SV_counterCounts", 8, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    SV_counterTimeoutMS : ("SV_counterTimeoutMS", 9, TYPE_PRIMITIVE, True,
+        v_positive_int),
+    SV_pulsesPerRotation : ("SV_pulsesPerRotation", 10, TYPE_PRIMITIVE, True,
+        v_nonnegative),
+    SV_maxRPMs : ("SV_maxRPMs", 11, TYPE_PRIMITIVE, True, v_positive_int),
+    SV_minRPMs : ("SV_minRPMs", 12, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    SV_minDCs : ("SV_minDCs", 13, TYPE_PRIMITIVE, True, v_dutycycle),
+    SV_maxFans : ("SV_maxFans", 14, TYPE_PRIMITIVE, True, v_positive_int),
+    SV_pinout : ("SV_pinout", 15, TYPE_PRIMITIVE, True,
+        make_in_validator(PINOUTS.keys())),
+    MD_row : ("MD_row", 16, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    MD_column : ("MD_column", 17, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    MD_rows : ("MD_rows", 18, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    MD_columns : ("MD_columns", 19, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    MD_mapping : ("MD_mapping", 20, TYPE_PRIMITIVE, True, v_pass_all),
 
-    savedSlaves : ("savedSlaves", 6, TYPE_LIST),
+    savedSlaves : ("savedSlaves", 6, TYPE_LIST, True, v_pass_all),
 
-    pinouts : ("pinouts", 7, TYPE_MAP),
+    pinouts : ("pinouts", 7, TYPE_MAP, True, v_pass_all),
 
+    fanArray : ("fanArray", 9, TYPE_SUB, False, v_fail_all),
 
-    fanArray : ("fanArray", 9, TYPE_SUB),
-
-    FA_rows : ("FA_rows", 2, TYPE_PRIMITIVE),
-    FA_columns : ("FA_columns", 3, TYPE_PRIMITIVE),
-    FA_layers : ("FA_layers", 4, TYPE_PRIMITIVE),
-
+    FA_rows : ("FA_rows", 2, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    FA_columns : ("FA_columns", 3, TYPE_PRIMITIVE, True, v_nonnegative_int),
+    FA_layers : ("FA_layers", 4, TYPE_PRIMITIVE, True, v_nonnegative_int),
 }
 
+UNIQUES = {SV_index, SV_mac}
 
 ## MAIN ########################################################################
 
@@ -221,7 +386,6 @@ class FCArchive(us.PrintClient):
         broadcastPeriodMS : 1000,
         broadcastPeriodS : 1,
         periodMS : 100,
-        periodS : 0.1,
         maxLength : 512,
         maxTimeouts : 10,
 
