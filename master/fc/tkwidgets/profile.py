@@ -94,29 +94,6 @@ class ProfileDisplay(tk.Frame):
             command = self.applyCallback)
         self.applyButton.pack(side = tk.LEFT)
 
-        # Build editor bar .....................................................
-        self.editorBar = tk.Frame(self)
-        self.editorBar.grid(row = 0, column = 2, sticky = "EW")
-        self.editButtons = []
-
-        self.editorLabel = tk.Label(self.editorBar, text = "Attribute:   ",
-            justify = tk.LEFT)
-        self.editorLabel.pack(side = tk.LEFT)
-
-        self.addButton = tk.Button(self.editorBar, text = "Add to",
-            command = self._add)
-        self.addButton.pack(side = tk.LEFT)
-        self.editButtons.append(self.addButton)
-
-        self.editButton = tk.Button(self.editorBar, text = "Edit",
-            command = self._edit)
-        self.editButton.pack(side = tk.LEFT)
-        self.editButtons.append(self.editButton)
-
-        self.deleteButton = tk.Button(self.editorBar, text = "Delete",
-            command = self._remove)
-        self.deleteButton.pack(side = tk.LEFT)
-        self.editButtons.append(self.deleteButton)
 
         # Build display ........................................................
         self.displayFrame = tk.Frame(self)
@@ -148,8 +125,9 @@ class ProfileDisplay(tk.Frame):
         self.editorFrame = tk.Frame(self, relief = tk.RIDGE, bd = 1)
         self.editorFrame.grid(row = 2, column = 2, sticky = "NEWS", pady = 10)
 
-        self.editor = PythonEditor(self.editorFrame, callback = \
-            lambda v: print(v),
+        self.editor = PythonEditor(self.editorFrame,
+            add_callback = self._on_add, edit_callback = self._on_edit,
+            remove_callback = self._on_remove,
             printx = self._nothing, printr = self._nothing)
         self.editor.pack(fill = tk.BOTH, expand= True)
 
@@ -204,7 +182,8 @@ class ProfileDisplay(tk.Frame):
 
 
     def _addPrimitive(self, name, value, precedence, parent = ''):
-        iid = self.display.insert(parent, precedence, values = (name, value))
+        iid = self.display.insert(parent, precedence, values = (name,
+            repr(value)))
         # FIXME: map?
         return iid
 
@@ -218,16 +197,12 @@ class ProfileDisplay(tk.Frame):
     def _addList(self, name, iterable, precedence, parent = ''):
         iid = self.display.insert(parent, precedence, values = (name, ''),
             tag = TAG_LIST)
+
+        indexer = self.archive.defaults[ac.INVERSE[name]][ac.INDEXER]
         for element in iterable:
-            meta = self.archive.meta[child]
-            if meta[ac.TYPE] is ac.TYPE_LIST:
-                self._addList(meta[ac.NAME], module[child], iid)
-            elif meta[ac.TYPE] is ac.TYPE_SUB:
-                self._addModule(module[child], meta[ac.NAME],
-                    meta[ac.PRECEDENCE], iid)
-            else:
-                self._addPrimitive(meta[ac.NAME], module[child],
-                    meta[ac.PRECEDENCE], iid)
+            # FIXME
+            self._addModule(indexer(element), element, indexer(element), iid)
+            #self._addPrimitive(indexer(element), element, indexer(element),iid)
         # FIXME: map?
         return iid
 
@@ -245,7 +220,7 @@ class ProfileDisplay(tk.Frame):
         """
         name = self.loader.saveDialog("fan_array_profile")
         if name:
-            self.archive.save()
+            self.archive.save(name)
 
     def _load(self, event = None):
         """
@@ -254,6 +229,7 @@ class ProfileDisplay(tk.Frame):
         name = self.loader.loadDialog()
         if name:
             self.archive.load(name)
+            self.build()
 
     def _check_editability(self, event = None):
         """
@@ -270,7 +246,7 @@ class ProfileDisplay(tk.Frame):
 
         iid = self.display.focus()
         if iid == self.root:
-            self._untouchable()
+            self.editor._untouchable()
             return
 
         parent_iid = self.display.parent(iid)
@@ -280,68 +256,272 @@ class ProfileDisplay(tk.Frame):
             else None
 
         if T_parent is ac.TYPE_MAP:
-            self._map_item_editable()
+            self.editor._map_item_editable()
             return
 
-        key = ac.INVERSE[self.display.item(iid)['values'][0]]
+        name, value = self.display.item(iid)['values']
+        key = ac.INVERSE[name]
         meta = self.archive.meta[key]
         T = meta[ac.TYPE]
 
         if T is ac.TYPE_PRIMITIVE:
-            self._editable(meta[ac.EDITABLE])
-            self._addable(False)
-            self._removable(False)
+            self.editor._editable(meta[ac.EDITABLE], value)
+            self.editor._addable(False)
+            self.editor._removable(False)
             return
         elif T is ac.TYPE_LIST:
-            self._list_editable()
+            self.editor._list_editable()
             return
         elif T is ac.TYPE_MAP:
-            self._map_editable()
+            self.editor._map_editable()
             return
         if T_parent is ac.TYPE_LIST:
-            self._list_item_editable()
+            self.editor._list_item_editable()
             return
 
-        self._untouchable()
+        self.editor._untouchable()
 
     def _on_double(self, event = None):
         """
         To be called on double clicks. Checks whether an item is editable and,
         if so, edits it.
         """
+        self._nothing()
+
+
+    def _on_add(self, value, key = None):
+        """
+        Callback for when an "addition" to a list is evaluated. Adds the given
+        value to the currently selected list (or map) attribute.
+        """
         iid = self.display.focus()
         name = self.display.item(iid)['values'][0]
-        if iid != self.root and \
-            self.archive.meta[ac.INVERSE[name]][ac.EDITABLE]:
-            self._edit()
-
-    def _edit(self, event = None):
-        print("[WARNING] _edit not fully implemented")
-        iid = self.display.focus()
-        name, value = self.display.item(iid)['values']
         key = ac.INVERSE[name]
-        self._editor(key)(key, value)
 
-        pass
+        #self.archive.meta[key][ac.VALIDATOR](value) FIXME
 
-    def _add(self, event = None):
-        print("[WARNING] _add not implemented")
-        # TODO
-        pass
+        value = self.archive[self.archive.defaults[key][ac.KEY]]
+        self.archive.add(key, value)
 
-    def _remove(self, event = None):
-        print("[WARNING] _remove not implemented")
-        # TODO
-        pass
+        #iid = self.display.insert(iid, 0,
+        #    values = ('', value), tag = TAG_PRIMITIVE)
+        self.build()
 
-    def _editor(self, attribute):
+    def _on_edit(self, value):
         """
-        Return the editor function for the given ATTRIBUTE.
+        Callback for when an attribute's new value is evaluated. Validates the
+        given value and stores it within the currently selected attribute.
+        """
+        iid = self.display.focus()
+        name = self.display.item(iid)['values'][0]
+        key = ac.INVERSE[name]
+        self.archive.meta[key][ac.VALIDATOR](value)
+        self.archive.set(key, value)
+        self.display.item(iid, values = (name, value))
+
+    def _on_remove(self, event = None):
+        """
+        Callback for when the Remove button is pressed. Removes the currently
+        selected attribute.
         """
         # FIXME
-        return self._edit_generic
+        pass
+
 
     # Auxiliary ----------------------------------------------------------------
+
+    def _nothing(*args):
+        """
+        Placeholder for unnasigned callbacks.
+        """
+        pass
+
+    # Editors ------------------------------------------------------------------
+    def _edit_generic(self, attribute, current = None):
+        """
+        Return the result of evaluating a Python expression to get a value for
+        ATTRIBUTE, enforcing the corresponding validator. CURRENT is the current
+        value of said attribute, if any.
+        """
+        print("[WARNING] _edit_generic not yet implemented")
+        # TODO
+        print(attribute, current)
+        self.editor.preset(current)
+
+
+class PythonEditor(tk.Frame):
+
+    OUTPUT_ERROR_CONFIG = {'bg' : "#510000", 'fg' : "red"}
+    OUTPUT_NORMAL_CONFIG = {'bg' : "white", 'fg' : "black"}
+
+    def __init__(self, master, add_callback, edit_callback, remove_callback,
+        printr, printx):
+        tk.Frame.__init__(self, master)
+
+        self.add_callback = add_callback
+        self.edit_callback = edit_callback
+        self.remove_callback = remove_callback
+        self.printr = printr
+        self.printx = printx
+
+        self.grid_columnconfigure(1, weight = 1)
+        row = 0
+
+        self.topLabel = tk.Label(self, text = \
+            "Value editor (as Python 3.7 expression):", anchor = tk.W)
+        self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
+        row += 1
+
+        self.font = tk.font.Font(font = "Courier 12 bold")
+        self.tabstr = "  "
+        self.tabsize = self.font.measure(self.tabstr)
+        self.realtabs = "    "
+
+        # Input ................................................................
+        self.grid_rowconfigure(row, weight = 1)
+        self.input = tk.Text(self, font = self.font,
+            width = 30, height = 2, padx = 10, pady = 0, bg = 'black',
+            fg = 'lightgray', insertbackground = "#ff6e1f",
+            tabs = self.tabsize)
+        self.input.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
+
+        # For scrollbar, see:
+        # https://www.python-course.eu/tkinter_text_widget.php
+
+        self.input_scrollbar = tk.Scrollbar(self)
+        self.input_scrollbar.grid(row = row, column = 2, rowspan = 1,
+            sticky = "NS")
+        self.input_scrollbar.config(command = self.input.yview)
+        self.input.config(yscrollcommand = self.input_scrollbar.set)
+        row += 1
+
+        # Buttons ..............................................................
+        self.buttonFrame = tk.Frame(self)
+        self.buttonFrame.grid(row = row, column = 0, columnspan = 2,
+            sticky = "WE")
+        self.editButtons = []
+
+        self.addButton = tk.Button(self.buttonFrame, text = "Add to",
+            command = self._add)
+        self.addButton.pack(side = tk.LEFT)
+        self.editButtons.append(self.addButton)
+
+        self.editButton = tk.Button(self.buttonFrame, text = "Edit",
+            command = self._edit)
+        self.editButton.pack(side = tk.LEFT)
+        self.editButtons.append(self.editButton)
+
+        self.removeButton = tk.Button(self.buttonFrame, text = "Remove",
+            command = self._remove)
+        self.removeButton.pack(side = tk.LEFT)
+        self.editButtons.append(self.removeButton)
+
+        row += 1
+
+        # Output ...............................................................
+        self.grid_rowconfigure(row, weight = 1)
+        self.output = tk.Text(self, font = self.font,
+            width = 30, height = 2, padx = 10, pady = 0, tabs = self.tabsize,
+            state = tk.DISABLED, **self.OUTPUT_NORMAL_CONFIG)
+        self.output.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
+
+        # For scrollbar, see:
+        # https://www.python-course.eu/tkinter_text_widget.php
+
+        self.output_scrollbar = tk.Scrollbar(self)
+        self.output_scrollbar.grid(row = row, column = 2, rowspan = 1,
+            sticky = "NS")
+        self.output_scrollbar.config(command = self.output.yview)
+        self.output.config(yscrollcommand = self.output_scrollbar.set)
+        row += 1
+
+    def _eval_error(self, e):
+        """
+        Handle the case of an exception happening during evaluation.
+        """
+        # TODO finish (prov)
+        self._print("Evaluation error: " + str(e))
+        self.output.config(**self.OUTPUT_ERROR_CONFIG)
+
+    def clear(self):
+        """
+        Clear both text fields.
+        """
+        self.clear_input()
+        self.clear_output()
+
+    def clear_input(self):
+        """
+        Clear the input text field.
+        """
+        self.input.delete(1.0, tk.END)
+
+    def clear_output(self):
+        """
+        Clear the output text field.
+        """
+        self.output.config(state = tk.NORMAL, **self.OUTPUT_NORMAL_CONFIG)
+        self.output.delete(1.0, tk.END)
+        self.output.config(state = tk.DISABLED)
+
+    def preset(self, value):
+        """
+        Set the input to the expression that evaluates to VALUE.
+        """
+        self.clear()
+        self.input.insert(tk.END, str(value) + "\n")
+
+    def _eval(self, *E):
+        """
+        Evaluate the expression in the input field and return its value.
+        """
+        raw = self.input.get(1.0, tk.END)
+        result = eval(raw)
+        self._output(result)
+        return result
+
+    def _edit(self, *E):
+        """
+        To be called when the Edit button is clicked. Parse the expression and
+        pass it to the given callback.
+        """
+        try:
+            self.edit_callback(self._eval())
+        except Exception as e:
+            self._eval_error(e)
+
+    def _add(self, event = None):
+        try:
+            self.add_callback(None)
+        except Exception as e:
+            self._eval_error(e)
+
+    def _remove(self, event = None):
+        try:
+            self.clear()
+            self.remove_callback()
+        except Exception as e:
+            self._eval_error(e)
+
+    def _print(self, text):
+        """
+        Print TEXT to the output space.
+        """
+        try:
+            self.clear_output()
+            self.output.config(state = tk.NORMAL)
+            self.output.insert(tk.END, text + "\n")
+            self.output.config(state = tk.DISABLED)
+        except Exception as e:
+            self.printx("Exception when displaying Python output: ", e)
+
+    def _output(self, value):
+        """
+        Display the generic Python value VALUE in the output space.
+        """
+        self._print(str(value))
+
+    # Editability functions ----------------------------------------------------
     def _untouchable(self):
         """
         Disable all edit buttons.
@@ -377,11 +557,16 @@ class ProfileDisplay(tk.Frame):
         """
         self._list_item_editable()
 
-    def _editable(self, value):
+    def _editable(self, value, preset = None):
         """
         Set whether the currently selected value can be edited.
         """
+        self.clear_output()
         self.editButton.config(state = tk.NORMAL if value else tk.DISABLED)
+        if value and preset:
+            self.preset(preset)
+        else:
+            self.clear_input()
 
     def _addable(self, value):
         """
@@ -393,183 +578,7 @@ class ProfileDisplay(tk.Frame):
         """
         Set whether the currently selected value can be removed.
         """
-        self.deleteButton.config(state = tk.NORMAL if value else tk.DISABLED)
-
-    def _nothing(*args):
-        """
-        Placeholder for unnasigned callbacks.
-        """
-        pass
-
-    # Editors ------------------------------------------------------------------
-    def _edit_generic(self, attribute, current = None):
-        """
-        Return the result of evaluating a Python expression to get a value for
-        ATTRIBUTE, enforcing the corresponding validator. CURRENT is the current
-        value of said attribute, if any.
-        """
-        print("[WARNING] _edit_generic not yet implemented")
-        # TODO
-        print(attribute, current)
-        self.editor.preset(current)
-
-
-class PythonEditor(tk.Frame):
-    """
-    Base class for a widget for Python code input.
-    """
-
-    HEADER = "new_value = \\"
-
-    def __init__(self, master, callback, printr, printx): # FIXME params
-        """
-        Create a Python input widget in which the user may define a function
-        of the form
-            f(r, c, l, p, d, t)
-              |  |  |  |  |  |
-              |  |  |  |  |  time
-              |  |  |  |  duty cycle
-              |  |  |  RPM
-              |  |  layer
-              |  column
-              row
-
-        CALLBACK is a method to which to pass the resulting Python function
-        after being parsed and instantiated.
-        """
-        tk.Frame.__init__(self, master)
-
-        self.callback = callback
-        self.printr = printr
-        self.printx = printx
-
-        self.grid_columnconfigure(1, weight = 1)
-        row = 0
-
-        self.topLabel = tk.Label(self, font = "Courier 7 bold",
-            text = self.HEADER, anchor = tk.W)
-        self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
-        row += 1
-
-        self.font = tk.font.Font(font = "Courier 12 bold")
-        self.tabstr = "  "
-        self.tabsize = self.font.measure(self.tabstr)
-        self.realtabs = "    "
-
-        # Input ................................................................
-        self.grid_rowconfigure(row, weight = 1)
-        self.input = tk.Text(self, font = self.font,
-            width = 30, height = 2, padx = 10, pady = 0, bg = 'black',
-            fg = 'lightgray', insertbackground = "#ff6e1f",
-            tabs = self.tabsize)
-        self.input.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
-
-        # For scrollbar, see:
-        # https://www.python-course.eu/tkinter_text_widget.php
-
-        self.input_scrollbar = tk.Scrollbar(self)
-        self.input_scrollbar.grid(row = row, column = 2, rowspan = 1,
-            sticky = "NS")
-        self.input_scrollbar.config(command = self.input.yview)
-        self.input.config(yscrollcommand = self.input_scrollbar.set)
-        row += 1
-
-        # Buttons ..............................................................
-        self.buttonFrame = tk.Frame(self)
-        self.buttonFrame.grid(row = row, column = 0, columnspan = 2,
-            sticky = "WE")
-
-        # TODO
-        self.runButton = tk.Button(self.buttonFrame, text = "Evaluate",
-            command = self._evaluate, **gus.padc, **gus.fontc)
-        self.runButton.pack(side = tk.LEFT, **gus.padc)
-
-        # TODO
-        self.helpButton = tk.Button(self.buttonFrame, text = "Help",
-            **gus.padc, **gus.fontc, command = self._help)
-        self.helpButton.pack(side = tk.LEFT, **gus.padc)
-
-        row += 1
-
-        # Output ...............................................................
-        self.grid_rowconfigure(row, weight = 1)
-        self.output = tk.Text(self, font = self.font,
-            width = 30, height = 2, padx = 10, pady = 0, bg = 'white',
-            fg = 'black', insertbackground = "#ff6e1f",
-            tabs = self.tabsize, state = tk.DISABLED)
-        self.output.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
-
-        # For scrollbar, see:
-        # https://www.python-course.eu/tkinter_text_widget.php
-
-        self.output_scrollbar = tk.Scrollbar(self)
-        self.output_scrollbar.grid(row = row, column = 2, rowspan = 1,
-            sticky = "NS")
-        self.output_scrollbar.config(command = self.output.yview)
-        self.output.config(yscrollcommand = self.output_scrollbar.set)
-        row += 1
-
-
-    def disable(self):
-        # TODO
-        pass
-
-    def enable(self):
-        # TODO
-        pass
-
-    def _eval_error(self, e):
-        """
-        Handle the case of an exception happening during evaluation.
-        """
-        # TODO finish (prov)
-        self._print("Evaluation error: " + str(e))
-
-    def preset(self, value):
-        """
-        Set the input to the expression that evaluates to VALUE.
-        """
-        self.input.delete(1.0, tk.END)
-        self.input.insert(tk.END, repr(value) + "\n")
-
-    def _evaluate(self, *E):
-        """
-        To be called when the Run button is clicked. Parse the function and
-        pass it to the given callback.
-        """
-        try:
-            raw = self.input.get(1.0, tk.END)
-            result = eval(raw)
-            self._output(result)
-            self.callback(result)
-        except Exception as e:
-            self._eval_error(e)
-
-    def _print(self, text):
-        """
-        Print TEXT to the output space.
-        """
-        try:
-            self.output.config(state = tk.NORMAL)
-            self.output.delete(1.0, tk.END)
-            self.output.insert(tk.END, text + "\n")
-            self.output.config(state = tk.DISABLED)
-        except Exception as e:
-            self.printx("Exception when displaying Python output: ", e)
-
-    def _output(self, value):
-        """
-        Display the generic Python value VALUE in the output space.
-        """
-        self._print(str(value))
-
-
-
-    def _help(self, *E):
-        """
-        To be executed by Help button.
-        """
-        print("[WARNING] _help not implemented ")
+        self.removeButton.config(state = tk.NORMAL if value else tk.DISABLED)
 
 
 ## DEMO ########################################################################

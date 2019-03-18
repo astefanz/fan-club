@@ -234,7 +234,7 @@ def validate_true(value):
     nonempty, etc.)
     """
     if not value:
-        raise ValueError("Value ({}) cannot be a null value.")
+        raise ValueError("Value ({}) cannot be a null value.".format(value))
 
 def mix(*validators):
     """
@@ -539,6 +539,22 @@ INVERSE = {value[NAME] : key for key, value in META.items()}
 
 UNIQUES = {SV_index, SV_mac}
 
+# Default values ---------------------------------------------------------------
+def unpack_default_slave(slave):
+    result = '{\n\\'
+    for key, value in slave.items():
+        result += "\t {} : {},\n".format(META[key][NAME], value)
+    result += '}'
+    return result
+
+def index_slave(slave):
+    return slave[SV_index]
+
+KEY, UNPACKER, INDEXER = 0, 1, 2
+DEFAULTS = {
+    savedSlaves : (defaultSlave, unpack_default_slave, index_slave)
+}
+
 ## MAIN ########################################################################
 
 class FCArchive(us.PrintClient):
@@ -550,6 +566,7 @@ class FCArchive(us.PrintClient):
 
     symbol = "[AC]"
     meta = META
+    defaults = DEFAULTS
 
     """ Default profile. """
     DEFAULT = {
@@ -646,6 +663,23 @@ class FCArchive(us.PrintClient):
             return cp.deepcopy(self.P)
         else:
             raise AttributeError("No profile loaded")
+
+    def add(self, attribute, value):
+        """
+        Add VALUE to the TYPE_LIST attribute ATTRIBUTE.
+        """
+        if self.meta[attribute][TYPE] is not TYPE_LIST:
+            raise ValueError("Tried to add to non-list attribute {} ".format(
+                self.meta[attribute][NAME]))
+        try:
+            # TODO: Validate?
+            # Check if runtime is being modified (should we allow this?)
+            # Check if type is valid
+            # Check if value is valid
+            self.P[attribute] += (value,)
+            self.modified = True
+        except KeyError as e:
+            self.printe("Invalid FC Archive key \"{}\"".format(attribute))
 
     def set(self, attribute, value):
         """
