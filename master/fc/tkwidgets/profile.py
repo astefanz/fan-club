@@ -147,6 +147,7 @@ class ProfileDisplay(tk.Frame):
         self.clear()
         self.root = \
             self._addModule(self.archive[ac.name], self.archive.profile(), 0)
+        self.display.item(self.root, open = True)
 
     def clear(self):
         """
@@ -255,11 +256,16 @@ class ProfileDisplay(tk.Frame):
         T_parent = self.archive.meta[parent_key][ac.TYPE] if parent_key \
             else None
 
+        name, value = self.display.item(iid)['values']
+
         if T_parent is ac.TYPE_MAP:
-            self.editor._map_item_editable()
+            self.editor._map_item_editable(name, value)
             return
 
-        name, value = self.display.item(iid)['values']
+        if T_parent is ac.TYPE_LIST:
+            self.editor._list_item_editable(name, value)
+            return
+
         key = ac.INVERSE[name]
         meta = self.archive.meta[key]
         T = meta[ac.TYPE]
@@ -274,9 +280,6 @@ class ProfileDisplay(tk.Frame):
             return
         elif T is ac.TYPE_MAP:
             self.editor._map_editable()
-            return
-        if T_parent is ac.TYPE_LIST:
-            self.editor._list_item_editable()
             return
 
         self.editor._untouchable()
@@ -541,21 +544,25 @@ class PythonEditor(tk.Frame):
         """
         Enable buttons for a map attribute.
         """
-        self._list_editable()
+        self._editable(False)
+        self._addable(True)
+        self._removable(False)
 
-    def _list_item_editable(self):
+    def _list_item_editable(self, index, value):
         """
         Enable buttons for a list item attribute.
         """
-        self._editable(True)
+        self._editable(True, value)
         self._addable(False)
         self._removable(True)
 
-    def _map_item_editable(self):
+    def _map_item_editable(self, key, value):
         """
         Enable buttons for a map item attribute.
         """
-        self._list_item_editable()
+        self._editable(True,(key, value))
+        self._addable(False)
+        self._removable(True)
 
     def _editable(self, value, preset = None):
         """
