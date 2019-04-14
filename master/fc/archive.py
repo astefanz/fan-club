@@ -36,6 +36,8 @@ import copy as cp
 
 import fc.utils as us
 
+import hardcoded as hc # FIXME
+
 ## GLOBALS #####################################################################
 VERSION = "IV-1"
 CODE = 1
@@ -116,6 +118,12 @@ SV_minRPMs = 128
 SV_minDCs = 129
 SV_maxFans = 130
 SV_pinout = 131
+# For each module . . . .
+MD_row = 301
+MD_column = 302
+MD_rows = 303
+MD_columns = 304
+MD_mapping = 306
 # ........................
 
 pinouts = 132
@@ -127,14 +135,7 @@ fanArray = 201
 FA_rows = 208
 FA_columns = 209
 FA_layers = 210
-FA_modules = 211
 
-# For each module . . . .
-MD_row = 301
-MD_column = 302
-MD_rows = 303
-MD_columns = 304
-MD_mapping = 306
 # . . . . . . . . . . . .
 # ........................
 
@@ -649,6 +650,14 @@ class FCArchive(us.PrintClient):
         Load the default profile.
         """
         self.P = cp.deepcopy(FCArchive.DEFAULT)
+        self.P.update(self.runtime)
+        self.modified = False
+
+    def builtin(self, name):
+        """
+        Provisional method to switch to a "built-in" (hardcoded) profile.
+        """
+        self.P = cp.deepcopy(hc.PROFILES[name])
         self.P.update(self.runtime)
         self.modified = False
 
