@@ -129,7 +129,6 @@ class Base(tk.Frame):
         self.consoleWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
         self.consoleTab.bind("<Visibility>", self._consoleCalm)
-        # FIXME
 
         self.notebook.add(self.profileTab, text = "Profile")
         self.notebook.add(self.networkTab, text = "Network")
@@ -143,10 +142,6 @@ class Base(tk.Frame):
         self.bottomBar.grid(row = 2, sticky = 'EW')
         self.bottomWidget = ntw.StatusBarWidget(self.bottomBar, network)
         self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True)
-
-        # FIXME:
-        print("[WARNING] Missing Ext. Control")
-        print("[WARNING] Missing Console")
 
     def focusProfile(self, *_):
         self.notebook.select(0)
@@ -196,34 +191,6 @@ if __name__ == '__main__':
 
     print("FC GUI Base demo started")
 
-    # Splash screen:
-    S = spl.SplashHandler(spl.FCSplashWidget, 'Demo', width = 750, height = 500,
-        useFactor = False)
+    print("FC GUI Base demo not implemented")
 
-    S.start()
-    tm.sleep(.69)
-    S.stop()
-
-    # GUI:
-    root = tk.Tk()
-
-    base = Base(root, title = "FC MkIV Base GUI Demo", version = "Demo")
-
-    top = tk.Label(base.getTopBar(), text = "Top Bar")
-    base.addToTop(top)
-
-    profile = pro.ProfileDisplay(base.getProfileTab())
-    base.setProfileWidget(profile)
-
-    network = tk.Label(base.getNetworkTab(), text = "Network Tab")
-    base.setNetworkWidget(network)
-
-    control = tk.Label(base.getControlTab(), text = "Control Tab")
-    base.setControlWidget(control)
-
-    bot = tk.Label(base.getBottomBar(), text = "Bottom Bar")
-    base.addToBottom(bot)
-
-    base.pack(fill = tk.BOTH, expand = True)
-    root.mainloop()
     print("FC GUI Base demo finished")

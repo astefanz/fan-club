@@ -73,7 +73,7 @@ class NetworkAbstraction(us.PrintClient):
         vectors through INPUT_PIPE (both send-enabled Connection instances
         returned by multiprocessing.Pipe).
 
-        START is a method (with no arguments) to be called when the
+        STARTMETHOD is a method (with no arguments) to be called when the
         Communicator is to be started.
         """
         self.communicator = communicator
