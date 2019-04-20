@@ -24,6 +24,10 @@
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  + Graphical interface for the FC network.
+ + REMARKS:
+ + - For simplicity's sake, initial archive data is ignored, (e.g saved Slaves
+ +   are not initialized into the Slave list during construction). Instead,
+ +   such data is expected to be received from Communicator status updates.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
@@ -140,6 +144,8 @@ class NetworkControlWidget(tk.Frame):
     GUI front-end for the FC network control tools (such as adding and removing
     Slaves).
     """
+    NO_IP = "[NO IP]"
+    NO_PORT = "[NO PORT]"
 
     def __init__(self, master, network, slaveList):
         tk.Frame.__init__(self, master)
@@ -150,6 +156,13 @@ class NetworkControlWidget(tk.Frame):
             "padx" : 10, "pady" : 5}
 
         # Connection ...........................................................
+
+        # Information to display:
+        # - IP Address
+        # - Broadcast port
+        # - Broadcast IP
+        # - Listener port
+
         self.isConnected = False
         self._connectCallback = network.connect
         self._disconnectCallback = network.disconnect
@@ -157,15 +170,44 @@ class NetworkControlWidget(tk.Frame):
         self.connectionFrame = tk.Frame(self, relief = tk.RIDGE, bd = 1)
         self.connectionFrame.pack(**frameconfig)
 
+        # Connect button:
         self.connectButton = tk.Button(self.connectionFrame, text = "Connect",
             command = self._onConnect, padx = 10, pady = 5, width = 12)
         self.connectButton.pack(side = tk.LEFT, padx = 0, fill = tk.Y)
 
+        self.ips = []
+        self.ports = []
+
+        # IP Address:
+        self.ipVar = tk.StringVar()
+        self.ipVar.set(self.NO_IP)
+        self.ips.append(self.ipVar)
+        self.__addDisplay("IP Address", self.ipVar)
+
+        # Broadcast IP:
+        self.bcipVar = tk.StringVar()
+        self.bcipVar.set(self.NO_IP)
+        self.ips.append(self.bcipVar)
+        self.__addDisplay("Broadcast IP", self.bcipVar)
+
+        # Broadcast port:
+        self.bcVar = tk.StringVar()
+        self.bcVar.set(self.NO_PORT)
+        self.ports.append(self.bcVar)
+        self.__addDisplay("Broadcast Port", self.bcVar)
+
+        # Listener port:
+        self.ltVar = tk.StringVar()
+        self.ltVar.set(self.NO_PORT)
+        self.ports.append(self.ltVar)
+        self.__addDisplay("Listener Port", self.ltVar)
+
+        # Connection display:
         self.connectionVar = tk.StringVar()
-        self.connectionVar.set("TEST")
+        self.connectionVar.set("[NO CONNECTION]")
         self.connectionLabel = tk.Label(self.connectionFrame,
             textvariable = self.connectionVar, width = 15,
-            relief = tk.SUNKEN, font = "Courier 10 bold", padx = 10, pady = 5)
+            relief = tk.SUNKEN, font = "Courier 7 bold", padx = 10, pady = 5)
         self.connectionLabel.pack(side = tk.RIGHT, fill = tk.Y, pady = 5,
             padx = 10)
 
@@ -245,6 +287,11 @@ class NetworkControlWidget(tk.Frame):
         self.connectButton.config(state = tk.NORMAL, text = "Connect",
             command = self._onConnect)
         self.connectionVar.set("Disconnected")
+        for ip in self.ips:
+            ip.set(self.NO_IP)
+        for port in self.ports:
+            port.set(self.NO_PORT)
+        self.slaveList.clear()
         self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED])
         self._setWidgetState(tk.DISABLED)
         self.isConnected = False
@@ -252,12 +299,12 @@ class NetworkControlWidget(tk.Frame):
     # Internal methods .........................................................
     def _onConnect(self, *event):
         self._connectCallback()
-        self.connected() # FIXME
+        self.connected() # FIXME Should be set by status update
         print("[WARNING] Widget connecting behavior not implemented")
 
     def _onDisconnect(self, *event):
         self._disconnectCallback()
-        self.disconnected() # FIXME
+        self.disconnected() # FIXME Should be set by status update
         print("[WARNING] Widget disconnecting behavior not implemented")
 
     def _send(self, *E):
@@ -307,6 +354,22 @@ class NetworkControlWidget(tk.Frame):
 
         if len(self.messageButtons) is 1:
             self.message.set(code)
+
+    def __addDisplay(self, name, variable):
+        """
+        Private method to add labels to display connection status variables.
+        """
+
+        frame = tk.Frame(self.connectionFrame, relief = tk.RIDGE, bd = 1)
+        frame.pack(side = tk.RIGHT, fill = tk.Y, pady = 5, padx = 10)
+
+        label = tk.Label(frame, text = name + ":", font = "TkDefaultFont 7")
+        label.pack(side = tk.TOP, fill = tk.X, padx = 10)
+
+        display = tk.Label(frame, textvariable = variable, width = 15,
+            relief = tk.SUNKEN, font = "Courier 7", padx = 10, pady = 5)
+        display.pack(side = tk.TOP, fill = tk.X, pady = 5, padx = 10)
+
 
 # Firmware update ==============================================================
 class FirmwareUpdateWidget(tk.Frame):
