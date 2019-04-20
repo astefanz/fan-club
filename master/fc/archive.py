@@ -637,7 +637,9 @@ class FCArchive(us.PrintClient):
         self.P.update(self.runtime)
         self.modified = False
 
+        # TODO: Startup "auto-load" routine
         self.builtin("DEV") # FIXME temporary
+        self.printw("Provisional profile set")
 
     def modified(self):
         """

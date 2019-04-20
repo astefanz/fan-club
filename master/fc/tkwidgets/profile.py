@@ -138,6 +138,8 @@ class ProfileDisplay(tk.Frame):
         self.scrollbar.config(command = self.display.yview)
         self.display.config(yscrollcommand = self.scrollbar.set)
 
+        self.build()
+
     # API ----------------------------------------------------------------------
     def build(self):
         """

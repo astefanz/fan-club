@@ -82,6 +82,7 @@ class FCGUI(it.FCInterface):
             self.version)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)
+        self.network.connect()
         base.focusControl()
 
         # Main loop ------------------------------------------------------------
