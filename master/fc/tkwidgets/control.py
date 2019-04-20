@@ -30,8 +30,6 @@
 import os
 import time as tm
 
-import numpy as np
-
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
@@ -653,9 +651,9 @@ class GridWidget(gd.BaseGrid):
         self.off_color = off_color
         self.range = tuple(range(self.size))
 
-        self.values = np.zeros(self.size, dtype = int)
-        self.selected = np.zeros(self.size, dtype = bool)
-        self.active = np.zeros(self.size, dtype = bool)
+        self.values = [0]*self.size
+        self.selected = [False]*self.size
+        self.active = [False]*self.size
         # FIXME
 
         # TODO:

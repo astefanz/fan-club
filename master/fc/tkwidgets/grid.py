@@ -29,8 +29,6 @@
 ## IMPORTS #####################################################################
 import tkinter as tk
 
-import numpy as np
-
 ## AUXILIARY GLOBALS ###########################################################
 # Callback names (for internal use only)
 _LEFT_CLICK = 0
@@ -99,10 +97,10 @@ class BaseGrid(tk.Frame):
         }
 
         self.size = R*C
-        self.iids = np.zeros(self.size, dtype = int)
-        self.fills = np.full(self.size, self.empty, dtype = "S7")
-        self.outlines = np.full(self.size, self.outline, dtype = "S7")
-        self.widths = np.full(self.size, self.width)
+        self.iids = [0]*self.size
+        self.fills = [self.empty]*self.size
+        self.outlines = [self.outline]*self.size
+        self.widths = [self.width]*self.size
         self.indices = {}
 
     # Widget operations --------------------------------------------------------
