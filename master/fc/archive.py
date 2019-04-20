@@ -111,8 +111,8 @@ SV_fanFrequencyHZ = 123
 SV_counterCounts = 124
 SV_counterTimeoutMS = 125
 SV_pulsesPerRotation = 126
-SV_maxRPMs = 127
-SV_minRPMs = 128
+SV_maxRPM = 127
+SV_minRPM = 128
 SV_minDCs = 129
 SV_maxFans = 130
 SV_pinout = 131
@@ -127,6 +127,7 @@ MD_mapping = 306
 pinouts = 132
 
 # Fan array --------------------------------------------------------------------
+maxRPM = 200
 fanArray = 201
 
 # For each fan array .....
@@ -448,12 +449,12 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         v_nonnegative),
-    SV_maxRPMs : ("SV_maxRPMs",
+    SV_maxRPM : ("SV_maxRPM",
 		11,
 		TYPE_PRIMITIVE,
 		True,
 		v_positive_int),
-    SV_minRPMs : ("SV_minRPMs",
+    SV_minRPM : ("SV_minRPM",
 		12,
 		TYPE_PRIMITIVE,
 		True,
@@ -510,6 +511,12 @@ META = {
 		TYPE_MAP,
 		False,
 		v_pass_all),
+
+    maxRPM : ("maxRPM",
+		8,
+		TYPE_PRIMITIVE,
+		True,
+		v_positive_int),
 
     fanArray : ("fanArray",
 		9,
@@ -601,8 +608,8 @@ class FCArchive(us.PrintClient):
                 SV_counterCounts : 2,
                 SV_counterTimeoutMS : 30,
                 SV_pulsesPerRotation : 2,
-                SV_maxRPMs : 16000,
-                SV_minRPMs : 1200,
+                SV_maxRPM : 16000,
+                SV_minRPM : 1200,
                 SV_minDCs : 0.5,
                 SV_maxFans : 21,
                 SV_pinout : "BASE",
@@ -614,6 +621,7 @@ class FCArchive(us.PrintClient):
             },
         savedSlaves : (),
         pinouts : PINOUTS.copy(),
+        maxRPM : 16000,
         fanArray : {
             FA_rows : 0,
             FA_columns : 0,
@@ -801,8 +809,8 @@ DEV = {
             SV_counterCounts : 2,
             SV_counterTimeoutMS : 30,
             SV_pulsesPerRotation : 2,
-            SV_maxRPMs : 16000,
-            SV_minRPMs : 1200,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
@@ -812,7 +820,7 @@ DEV = {
             MD_columns : 0,
             MD_mapping : ()
         },
-savedSlaves : (
+    savedSlaves : (
         {
             SV_name : "A1",
             SV_mac : "00:80:e1:38:00:2a",
@@ -825,8 +833,8 @@ savedSlaves : (
             SV_counterCounts : 2,
             SV_counterTimeoutMS : 30,
             SV_pulsesPerRotation : 2,
-            SV_maxRPMs : 16000,
-            SV_minRPMs : 1200,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
@@ -849,8 +857,8 @@ savedSlaves : (
             SV_counterCounts : 2,
             SV_counterTimeoutMS : 30,
             SV_pulsesPerRotation : 2,
-            SV_maxRPMs : 16000,
-            SV_minRPMs : 1200,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
@@ -862,9 +870,10 @@ savedSlaves : (
                 ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
         }),
     pinouts : PINOUTS.copy(),
+    maxRPM : 16000,
     fanArray : {
-        FA_rows : 21,
-        FA_columns : 2,
+        FA_rows : 2,
+        FA_columns : 21,
         FA_layers : 1,
     },
 }

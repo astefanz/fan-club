@@ -39,8 +39,82 @@ import tkinter.font as fnt
 
 from . import guiutils as gus, grid as gd, loader as ldr
 from .embedded import colormaps as cms
+from .. import archive as ac
 
 ## GLOBALS #####################################################################
+
+## MAIN WIDGET #################################################################
+class ControlWidget(tk.Frame):
+    """
+    Container for all the FC control GUI front-end widgets.
+    """
+
+    RESIZE_MS = 400
+
+    def __init__(self, master, network, archive,
+        printr = gus.default_printr, printx = gus.default_printx):
+        tk.Frame.__init__(self, master)
+
+        self.archive = archive
+
+        # Core setup -----------------------------------------------------------
+        self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
+        self.main.pack(fill = tk.BOTH, expand = True)
+        self.bind("<Configure>", self._scheduleAdjust)
+
+        # Control panel --------------------------------------------------------
+        # FIXME
+        self.control = ControlPanelWidget(self.main, network, printr, printx)
+        self.main.add(self.control, weight = 2)
+        # Grid -----------------------------------------------------------------
+        # FIXME
+
+        self.grid = GridWidget(self.main, self.archive , printr = printr,
+            printx = printx)
+        self.main.add(self.grid, weight = 16)
+
+        # Color Bar ------------------------------------------------------------
+        # FIXME
+        self.bar = ColorBarWidget(self.main,
+            colors = cms.COLORMAP_GALCIT, high = self.archive[ac.maxRPM],
+            unit = "RPM", printr = printr, printx = printx)
+        self.main.add(self.bar, weight = 0)
+        # Wrap-up --------------------------------------------------------------
+        # FIXME
+
+    def rebuild(self):
+        """
+        Rebuild all widgets that are parameterized by profile attributes.
+        """
+        # TODO Rebuild grid
+        # TODO Rebuild color bar
+
+    def blockAdjust(self):
+        """
+        Deactivate automatic adjustment of widgets upon window resizes.
+        """
+        self.unbind("<Configure>")
+
+    def unblockAdjust(self):
+        """
+        Activate automatic adjustment of widgets upon window resizes.
+        """
+        self.bind("<Configure>", self._scheduleAdjust)
+
+    def redrawGrid(self):
+        """
+        Rebuild the grid widget.
+        """
+        self.grid.redraw()
+
+    def _scheduleAdjust(self, *E):
+        self.after(self.RESIZE_MS, self._adjust)
+        self.unbind("<Configure>")
+
+    def _adjust(self, *E):
+        self.grid.redraw()
+        self.bar.redraw()
+        self.bind("<Configure>", self._scheduleAdjust)
 
 ## WIDGETS #####################################################################
 class PythonInputWidget(tk.Frame):
@@ -557,9 +631,13 @@ class GridWidget(gd.BaseGrid):
     WIDTH_NORMAL = 1
     WIDTH_SELECTED = 3
 
-    def __init__(self, master, R, C, colors = DEFAULT_COLORS,
+    def __init__(self, master, archive, colors = DEFAULT_COLORS,
         off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
         printr = lambda s:None, printx = lambda e:None):
+
+        self.archive = archive
+        fanArray = self.archive[ac.fanArray]
+        R, C = fanArray[ac.FA_rows], fanArray[ac.FA_columns]
 
         gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
             empty = off_color)
@@ -728,75 +806,6 @@ class ColorBarWidget(tk.Frame):
         self.canvas.create_line(left, y, right, y, width = 4)
         self.canvas.create_line(left, y, right, y, width = 2, fill = 'white')
 
-## BASE ########################################################################
-class ControlWidget(tk.Frame):
-    """
-    Container for all the FC control GUI front-end widgets.
-    """
-
-    RESIZE_MS = 400
-
-    def __init__(self, master, network, archive,
-        printr = gus.default_printr, printx = gus.default_printx):
-        tk.Frame.__init__(self, master)
-
-        # Core setup -----------------------------------------------------------
-        self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
-        self.main.pack(fill = tk.BOTH, expand = True)
-        self.bind("<Configure>", self._scheduleAdjust)
-
-        # Control panel --------------------------------------------------------
-        # FIXME
-        self.control = ControlPanelWidget(self.main, network, printr, printx)
-        self.main.add(self.control, weight = 2)
-        # Grid -----------------------------------------------------------------
-        # FIXME
-        self.grid = GridWidget(self.main, 32, 32, printr = printr,
-            printx = printx)
-        self.main.add(self.grid, weight = 16)
-
-        # Color Bar ------------------------------------------------------------
-        # FIXME
-        self.bar = ColorBarWidget(self.main,
-            colors = cms.COLORMAP_GALCIT, printr = printr, printx = printx,
-            unit = "RPM")
-        self.main.add(self.bar, weight = 0)
-        # Wrap-up --------------------------------------------------------------
-        # FIXME
-
-    def rebuild(self):
-        """
-        Rebuild all widgets that are parameterized by profile attributes.
-        """
-        # TODO Rebuild grid
-        # TODO Rebuild color bar
-
-    def blockAdjust(self):
-        """
-        Deactivate automatic adjustment of widgets upon window resizes.
-        """
-        self.unbind("<Configure>")
-
-    def unblockAdjust(self):
-        """
-        Activate automatic adjustment of widgets upon window resizes.
-        """
-        self.bind("<Configure>", self._scheduleAdjust)
-
-    def redrawGrid(self):
-        """
-        Rebuild the grid widget.
-        """
-        self.grid.redraw()
-
-    def _scheduleAdjust(self, *E):
-        self.after(self.RESIZE_MS, self._adjust)
-        self.unbind("<Configure>")
-
-    def _adjust(self, *E):
-        self.grid.redraw()
-        self.bar.redraw()
-        self.bind("<Configure>", self._scheduleAdjust)
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
