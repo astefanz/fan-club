@@ -670,7 +670,8 @@ class GridWidget(gd.BaseGrid):
         # NOTE: cannot assume set size for feedback matrix. Will have to use
         # half to determine limit of RPM and DC data (since number can change
         # as slaves are added to the network)
-        print("REMINDER: Are Slaves always sorted by index?")
+        print("[NOTE] Are Slaves always sorted by index?")
+        print("[NOTE] What about a non-grid display?")
         for slave in self.slaves:
             # Skip unassigned Slaves:
             if not slave[ac.MD_assigned]:
@@ -754,7 +755,6 @@ class GridWidget(gd.BaseGrid):
                 ((value*self.maxColor)//self.maxRPM))])
         elif self.active[i]:
             self.deactivatei(i)
-
 
     def update(self, vector):
         """
