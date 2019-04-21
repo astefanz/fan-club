@@ -61,12 +61,10 @@ class ControlWidget(tk.Frame):
         self.bind("<Configure>", self._scheduleAdjust)
 
         # Control panel --------------------------------------------------------
-        # FIXME
         self.control = ControlPanelWidget(self.main, network, printr, printx)
         self.main.add(self.control, weight = 2)
-        # Grid -----------------------------------------------------------------
-        # FIXME
 
+        # Grid -----------------------------------------------------------------
         self.grid = GridWidget(self.main, self.archive , printr = printr,
             printx = printx)
         self.main.add(self.grid, weight = 16)
@@ -78,7 +76,14 @@ class ControlWidget(tk.Frame):
             unit = "RPM", printr = printr, printx = printx)
         self.main.add(self.bar, weight = 0)
         # Wrap-up --------------------------------------------------------------
-        # FIXME
+        print("[NOTE] Printer feedback forwarding?")
+
+
+    def feedbackIn(self, F):
+        """
+        Process a new feedback vector.
+        """
+        self.grid.update(F)
 
     def rebuild(self):
         """
@@ -86,6 +91,7 @@ class ControlWidget(tk.Frame):
         """
         # TODO Rebuild grid
         # TODO Rebuild color bar
+        print("[WARNING] ControlWidget rebuild method unimplemented")
 
     def blockAdjust(self):
         """
@@ -761,15 +767,19 @@ class GridWidget(gd.BaseGrid):
         Assign the values contained in VECTOR to the grid according to the
         profile mapping.
         """
-        grid_i = 0
-        for feedback_i in self.layers[self.l]:
-            if feedback_i is not None:
-                # FIXME debug
-                """
-                print("Assigning grid ", grid_i, "To feedback", feedback_i,
-                    "Value", vector[feedback_i])
-                """
-                self.updatei(grid_i, vector[feedback_i])
+        if not vector:
+            # An empty vector implies the entire network is down.
+            self.deactivate()
+        else:
+            grid_i = 0
+            for feedback_i in self.layers[self.l]:
+                if feedback_i is not None:
+                    # FIXME debug
+                    """
+                    print("Assigning grid ", grid_i, "To feedback", feedback_i,
+                        "Value", vector[feedback_i])
+                    """
+                    self.updatei(grid_i, vector[feedback_i])
                 grid_i += 1
 
     # Selection ................................................................

@@ -35,6 +35,8 @@ import os
 import time as tm
 import shutil as sh
 
+from . import guiutils as gus
+
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
@@ -42,12 +44,18 @@ import tkinter.font as fnt
 
 ## GLOBALS #####################################################################
 
+""" Slave data. """
+SLAVE_DATA_N = 6
+
+SD_INDEX = 0
+SD_STATUS = 3
+
 """ Status codes. """
-CONNECTED = 'C'
-KNOWN = 'K'
-DISCONNECTED = 'D'
-AVAILABLE = 'A'
-UPDATING = 'U'
+CONNECTED = 0
+KNOWN = 1
+DISCONNECTED = 2
+AVAILABLE = 3
+UPDATING = 4
 TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
 
 """ Status 'long' names. """
@@ -103,12 +111,16 @@ class NetworkWidget(tk.Frame):
     DEMO_MESSAGES = {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}
     DEMO_TARGETS = {"All":1, "Selected":2}
 
-    def __init__(self, master, network, archive,
-        printd = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, network, archive, networkAdd, slavesAdd,
+        printr = gus.silent, printw = gus.silent, printd = gus.silent,
+        printe = gus.silent, printx = gus.silent):
         """
         Create a new NetworkWidget inside MASTER, interfaced with the network
         backend using the NETWORK abstraction.
         (See fc.communicator.NetworkAbstraction.)
+
+        NETWORKADD and SLAVESADD are methods to be called on widgets that
+        expect to receive incoming network and slaves vectors, respectively.
 
         Optionally, methods PRINTD and PRINTX as defined in fc.utils may
         be passed on to be used for print feedback.
@@ -121,10 +133,14 @@ class NetworkWidget(tk.Frame):
         self.main.grid_columnconfigure(0, weight = 1)
         self.main.grid_rowconfigure(2, weight = 1)
 
+        self.networkAdd, self.slavesAdd = networkAdd, slavesAdd
         self.network = network
 
-        self.printd, self.printx = printd, printx
-
+        self.printr = printr
+        self.printw = printw
+        self.printd = printd
+        self.printe = printe
+        self.printx = printx
 
         # ----------------------------------------------------------------------
         self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
@@ -141,16 +157,10 @@ class NetworkWidget(tk.Frame):
         self.networkControl = NetworkControlWidget(self.networkFrame, network,
             self.slaveList)
         self.networkControl.pack(fill = tk.BOTH, expand = True)
+        self.networkControl.addClient(self.firmwareFrame)
 
-
-    def getNetworkControlWidget(self):
-        return self.networkControl
-
-    def getFirmwareUpdateWidget(self):
-        return self.firmwareUpdate
-
-    def getSlaveList(self):
-        return self.slaveList
+        self.networkAdd(self.networkControl)
+        self.slavesAdd(self.slaveList)
 
 ## WIDGETS #####################################################################
 
@@ -171,6 +181,7 @@ class NetworkControlWidget(tk.Frame):
         frameconfig = {"side" : tk.TOP, "fill" : tk.BOTH, "expand" : True,
             "padx" : 10, "pady" : 5}
 
+        self.clients = [slaveList]
         # Connection ...........................................................
 
         # Information to display:
@@ -191,6 +202,7 @@ class NetworkControlWidget(tk.Frame):
             command = self._onConnect, padx = 10, pady = 5, width = 12)
         self.connectButton.pack(side = tk.LEFT, padx = 0, fill = tk.Y)
 
+        # Displays:
         self.ips = []
         self.ports = []
 
@@ -306,9 +318,12 @@ class NetworkControlWidget(tk.Frame):
         self.connectButton.config(state = tk.NORMAL, text = "Disconnect",
             command = self._onDisconnect)
         self.connectionVar.set("Connected")
-        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED])
+        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED],
+            bg = BACKGROUNDS[CONNECTED])
         self._setWidgetState(tk.NORMAL)
         self.isConnected = True
+        for client in self.clients:
+            client.connected()
 
     def disconnecting(self):
         """
@@ -329,10 +344,20 @@ class NetworkControlWidget(tk.Frame):
             ip.set(self.NO_IP)
         for port in self.ports:
             port.set(self.NO_PORT)
-        self.slaveList.clear()
-        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED])
+        for client in self.clients:
+            client.disconnected()
+        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED],
+            bg = BACKGROUNDS[DISCONNECTED])
         self._setWidgetState(tk.DISABLED)
         self.isConnected = False
+
+    def addClient(self, client):
+        """
+        Add CLIENT to the list of widgets to update by calling
+        client.connected or client.disconnected upon the corresponding changes
+        of status.
+        """
+        self.clients.append(client)
 
     # Internal methods .........................................................
     def _onConnect(self, *event):
@@ -413,6 +438,8 @@ class FirmwareUpdateWidget(tk.Frame):
     GUI front-end for the FC firmware update tools, i.e the Mark III
     "Bootloader."
     """
+    READY, LIVE, INACTIVE = range(3)
+
     def __init__(self, master, network,
         printd = lambda s:None, printx = lambda e:None):
 
@@ -482,24 +509,44 @@ class FirmwareUpdateWidget(tk.Frame):
 
         self.fileVar.trace('w', self._checkReady)
         self.version.trace('w', self._checkReady)
+        self.status = self.INACTIVE
         self._inactive()
 
+        print("[NOTE] Confirm firmware update status consistency?")
+
+    # API ......................................................................
+    def connected(self):
+        """
+        Called when the network switches from disconnected to connected.
+        """
+        pass
+
+    def disconnected(self):
+        """
+        Called when the network switches from connected to disconnected.
+        """
+        self.stop()
+
+
+    # Internal methods .........................................................
     def _start(self, *args):
         """
         Start a firmware update.
         """
-        self.startButton.config(text = "Starting", state = tk.DISABLED)
-        self._setWidgetState(tk.DISABLED)
-        self.start(self.filename, self.version.get(), self.fileSize)
-        self._live()
+        if self.status is self.READY:
+            self.startButton.config(text = "Starting", state = tk.DISABLED)
+            self._setWidgetState(tk.DISABLED)
+            self.start(self.filename, self.version.get(), self.fileSize)
+            self._live()
 
     def _stop(self, *args):
         """
-        Stop a firmware update.
+        Stop an ongoing firmware update if there is one.
         """
-        self.startButton.config(text = "Stopping", state = tk.DISABLED)
-        self.stop()
-        self._ready()
+        if self.status is self.LIVE:
+            self.startButton.config(text = "Stopping", state = tk.DISABLED)
+            self.stop()
+            self._ready()
 
     def _chooseFile(self, *args):
         try:
@@ -560,6 +607,7 @@ class FirmwareUpdateWidget(tk.Frame):
             state = tk.DISABLED)
         self.statusLabel.config(**self.inactiveLabelConfig)
         self._setWidgetState(tk.NORMAL)
+        self.status = self.INACTIVE
 
     def _ready(self):
         """
@@ -569,6 +617,7 @@ class FirmwareUpdateWidget(tk.Frame):
             state = tk.NORMAL)
         self.statusLabel.config(**self.readyLabelConfig)
         self._setWidgetState(tk.NORMAL)
+        self.status = self.READY
 
     def _live(self):
         """
@@ -578,6 +627,7 @@ class FirmwareUpdateWidget(tk.Frame):
             state = tk.NORMAL)
         self.statusLabel.config(**self.liveLabelConfig)
         self._setWidgetState(tk.DISABLED)
+        self.status = self.LIVE
 
     def _checkReady(self, *args):
         """
@@ -600,7 +650,7 @@ class SlaveListWidget(tk.Frame):
     """
 
     """ Parameters per slave in each Slave vector """
-    PER_SLAVE = 6
+    PER_SLAVE = SLAVE_DATA_N
 
     """ Slave tuple indices. """
     I_INDEX, I_NAME, I_MAC, I_STATUS, I_FANS, I_VERSION = range(PER_SLAVE)
@@ -751,7 +801,7 @@ class SlaveListWidget(tk.Frame):
         for i in range(0, size, self.PER_SLAVE):
             index, name, mac, status, fans, version = S[i:i+self.PER_SLAVE]
             slave = (index, name, mac, status, fans, version)
-            if index not in self.indices:
+            if index not in self.slaves:
                 self.addSlave(slave)
                 print("New slave: ", index, name)
             else:
@@ -767,7 +817,7 @@ class SlaveListWidget(tk.Frame):
         MAC and VERSION are strings, STATUS is one of the status codes
         defined as class attributes of this class, FANS is an integer.
         """
-        if slave[self.I_INDEX] in self.indices:
+        if slave[self.I_INDEX] in self.slaves:
             raise ValueError("Repeated Slave index {}".format(slave[self.I_INDEX]))
         elif slave[self.I_STATUS] not in TAGS:
             raise ValueError("Invalid status tag \"{}\"".format(
@@ -833,6 +883,18 @@ class SlaveListWidget(tk.Frame):
         if self.autoVar.get():
             self.slaveList.move(self.slaves[index][-1], '', 0)
 
+    def connected(self):
+        """
+        To be called when the network changes from disconnected to connected.
+        """
+        pass
+
+    def disconnected(self):
+        """
+        To be called when the network changes from connected to disconnected.
+        """
+        self.clear()
+
     def clear(self):
         """
         Empty the list.
@@ -872,6 +934,7 @@ class SlaveListWidget(tk.Frame):
             if len(selected) > 0:
                 self.callback(selected[0])
 
+
     def _selectAll(self, *A):
         for index, slave in self.slaves.items():
             self.slaveList.selection_add(slave[-1])
@@ -891,12 +954,20 @@ class StatusBarWidget(tk.Frame):
     """
 
     TOTAL = 'T'
+    CONNECTED_STR = "Connected"
+    DISCONNECTED_STR = "Disconnected"
 
-    def __init__(self, master, network):
+    def __init__(self, master, shutdown):
+        """
+        Horizontal bar that contains a breakdown of all slave statuses in
+        the network, plus a connect/disconnect button.
+
+        MASTER := Tkinter parent widget
+        SHUTDOWN := Method to call when the shutdown button is pressed
+        """
         tk.Frame.__init__(self, master)
 
         # Setup ................................................................
-        self.network = network
         self.config(relief = tk.RIDGE, borderwidth = 2)
 
         # Status counters ......................................................
@@ -925,8 +996,17 @@ class StatusBarWidget(tk.Frame):
                 fg = FOREGROUNDS[code] if code in FOREGROUNDS else 'black')
             self.statusDisplays[code].pack(side = tk.LEFT)
 
+        self.connectionVar = tk.StringVar()
+        self.connectionVar.set("[NO CONNECTION]")
+        self.connectionLabel = tk.Label(self.statusFrame,
+            textvariable = self.connectionVar, width = 15,
+            relief = tk.SUNKEN, font = "Courier 7 bold", padx = 10, pady = 5)
+        self.connectionLabel.pack(side = tk.RIGHT, fill = tk.Y, pady = 3,
+            padx = 10)
+        self.status = DISCONNECTED
+
         # Buttons ..............................................................
-        self._shutdownCallback = network.shutdown
+        self._shutdownCallback = shutdown
 
         self.buttonFrame = tk.Frame(self)
         self.buttonFrame.pack(side = tk.RIGHT, fill = tk.Y)
@@ -939,8 +1019,60 @@ class StatusBarWidget(tk.Frame):
             foreground ='#560e0e')
         self.shutdownButton.pack(side = tk.RIGHT, fill = tk.Y)
 
+        # Slave data:
+        self.slaves = {}
+
+        # Initialize:
+        self.disconnected()
 
     # API ......................................................................
+    def networkIn(self, N):
+        """
+        Process a new network status vector.
+        """
+        status = N[0]
+        if status == DISCONNECTED and self.status == CONNECTED:
+            self.disconnected()
+        if status == CONNECTED and self.status == DISCONNECTED:
+            self.connected()
+
+    def slavesIn(self, S):
+        """
+        Process a new slaves status vector.
+        """
+        size = len(S)
+        for offset in range(0, S, SLAVE_DATA_N):
+            index = S[offset + SD_INDEX]
+            status = S[offset + SD_STATUS]
+        if index in self.slaves:
+            if self.slaves[index] != status:
+                self.addCount(self.slaves[index], -1)
+                self.addCount(status, 1)
+                self.slaves[index] = status
+        else:
+            self.addTotal(1)
+            self.addCount(status, 1)
+            self.slaves[index] = status
+
+    def connected(self):
+        """
+        Handle network switching to connected.
+        """
+        self.connectionVar.set(self.CONNECTED_STR)
+        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED],
+            bg = BACKGROUNDS[CONNECTED])
+        self.status = CONNECTED
+
+    def disconnected(self):
+        """
+        Handle network switching to disconnected.
+        """
+        self.clear()
+        self.connectionVar.set(self.DISCONNECTED_STR)
+        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED],
+            bg = BACKGROUNDS[DISCONNECTED])
+        self.status = DISCONNECTED
+
     def setCount(self, status, count):
         """
         Set the status counter that corresponds to status code STATUS to COUNT.
@@ -980,7 +1112,7 @@ class StatusBarWidget(tk.Frame):
 
     def clear(self):
         """
-        Set all counters to 0
+        Reset data
         """
         for count in self.statusVars.values():
             count.set(0)

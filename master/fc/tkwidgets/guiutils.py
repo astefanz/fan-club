@@ -45,6 +45,12 @@ lfconf = {**fontc, **padc}
 lfpack = {"side":tk.TOP, "anchor":tk.N, "fill":tk.X, "expand":True}
 rbconf = {"indicatoron":False, **fontc, **padc}
 
+def silent(message):
+    """
+    Provisional replacement for inter-process prints.
+    """
+    print("[SILENCED]", message)
+
 def default_printr(message):
     """
     Provisional replacement for inter-process printr. (See fc.utils)

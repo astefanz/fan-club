@@ -111,6 +111,27 @@ class FCInterface(us.PrintServer):
         # Clean up:
         self.stop()
 
+    def feedbackClient(self, client):
+        """
+        Add CLIENT to the list of objects who's feedbackIn method is to be
+        called to distribute incoming feedback vectors.
+        """
+        self.feedbackClients.append(client.feedbackIn)
+
+    def networkClient(self, client):
+        """
+        Add CLIENT to the list of objects who's networkIn method is to be
+        called to distribute incoming network vectors.
+        """
+        self.networkClients.append(client.networkIn)
+
+    def slavesClient(self, client):
+        """
+        Add CLIENT to the list of objects who's slavesIn method is to be
+        called to distribute incoming slaves vectors.
+        """
+        self.slavesClients.append(client.slavesIn)
+
     # FOR INHERITANCE ----------------------------------------------------------
     def _mainloop():
         """
@@ -119,19 +140,6 @@ class FCInterface(us.PrintServer):
         method returns, the interface terminates.
         """
         raise AttributeError("Interface missing _mainloop implementation.")
-
-    def _addClient(self, client):
-        """
-        To be passed to any 'widgets' in order to
-        streamline the addition of widgets to the lists of "clients" of the
-        Communicator's data. For an use-case, see the FCWidget class defition.
-        """
-        if client.usesMatrix():
-            self.matrixClients.append(client.matrixIn)
-        if client.usesNetwork():
-            self.networkClients.append(client.networkIn)
-        if client.usesSlaves():
-            self.slavesClients.append(client.slavesIn)
 
     def _cycle(self):
         """
@@ -142,9 +150,9 @@ class FCInterface(us.PrintServer):
         """
         us.PrintServer._cycle(self)
         if self.feedbackPipeRecv.poll():
-            matrix = self.feedbackPipeRecv.recv()
-            for client in self.matrixClients:
-                client.matrixIn(matrix)
+            feedback = self.feedbackPipeRecv.recv()
+            for client in self.feedbackClients:
+                client.feedbackIn(feedback)
         if self.networkPipeRecv.poll():
             network = self.networkPipeRecv.recv()
             for client in self.networkClients:
@@ -171,6 +179,6 @@ class FCInterface(us.PrintServer):
         Create the containers to hold the clients of each inter-process message
         type.
         """
-        self.matrixClients = []
+        self.feedbackClients = []
         self.networkClients = []
         self.slavesClients = []

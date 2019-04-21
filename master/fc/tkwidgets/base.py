@@ -31,7 +31,8 @@ import time as tm
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from . import network as ntw, control as ctr, profile as pro, console as csl
+from . import network as ntw, control as ctr, profile as pro, console as csl,\
+    guiutils as gus
 
 
 if __name__ == '__main__':
@@ -44,22 +45,42 @@ BG_CT = "#ff6e1f"
 BG_ERROR = "#510000"
 FG_ERROR = "red"
 
+NOPE = lambda m: print("[SILENCED]: ", m)
+
 ## MAIN ########################################################################
 class Base(tk.Frame):
 
     ERROR_MESSAGE = \
         "[NOTE: There are error messages in the console. Click here.]"
 
-    def __init__(self, master, network, archive, title, version):
+    def __init__(self, master, network, archive, title, version,
+        feedbackAdd, networkAdd, slavesAdd,
+        printr = gus.silent, printd = gus.silent, printx = gus.silent,
+        printe = gus.silent, printw = gus.silent):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
         showing the version VERSION.
+
+        FEEDBACKADD, NETWORKADD and SLAVESADD are methods to which widgets that
+        are "clients" of the feedback, network and slaves vectors should be
+        passed to assign them as such to the inter-process communications
+        framework.
         """
         tk.Frame.__init__(self, master = master)
+        self.printr = printr
+        self.printw = printw
+        self.printd = printd
+        self.printe = printe
+        self.printx = printx
+
+        print("[NOTE] Streamline GUI printing?") # TODO
 
         # Core setup -----------------------------------------------------------
         self.network = network
         self.archive = archive
+        self.feedbackAdd = feedbackAdd
+        self.networkAdd = networkAdd
+        self.slavesAdd = slavesAdd
 
         self.screenWidth = self.master.winfo_screenwidth()
         self.screenHeight = self.master.winfo_screenheight()
@@ -112,8 +133,11 @@ class Base(tk.Frame):
             pady = 20)
 
         # Network tab:
-        self.networkWidget = ntw.NetworkWidget(self.networkTab, network,
-            archive)
+        self.networkWidget = ntw.NetworkWidget(self.networkTab,
+            network = network, archive = archive, networkAdd = self.networkAdd,
+            slavesAdd = self.slavesAdd,
+            printr = self.printr, printw = self.printw, printe = self.printe,
+            printd = self.printd, printx = self.printx)
         self.networkWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
@@ -122,6 +146,7 @@ class Base(tk.Frame):
             archive)
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
+        self.feedbackAdd(self.controlWidget)
 
         # Console tab:
         self.consoleWidget = csl.ConsoleWidget(self.consoleTab,
@@ -140,8 +165,11 @@ class Base(tk.Frame):
         # Bottom bar ...........................................................
         self.bottomBar = tk.Frame(self)
         self.bottomBar.grid(row = 2, sticky = 'EW')
-        self.bottomWidget = ntw.StatusBarWidget(self.bottomBar, network)
+        self.bottomWidget = ntw.StatusBarWidget(self.bottomBar,
+            network.shutdown)
         self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.networkAdd(self.bottomWidget)
+        self.slavesAdd(self.bottomWidget)
 
     def focusProfile(self, *_):
         self.notebook.select(0)
