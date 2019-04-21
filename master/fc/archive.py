@@ -117,6 +117,7 @@ SV_minDCs = 129
 SV_maxFans = 130
 SV_pinout = 131
 # For each module . . . .
+MD_assigned = 300
 MD_row = 301
 MD_column = 302
 MD_rows = 303
@@ -128,6 +129,7 @@ pinouts = 132
 
 # Fan array --------------------------------------------------------------------
 maxRPM = 200
+maxFans = 202
 fanArray = 201
 
 # For each fan array .....
@@ -287,6 +289,7 @@ v_nonempty = validate_true
 v_nonempty_str = mix(make_type_validator(str), v_nonempty)
 v_mac = mix(v_str, make_length_validator(17))
 v_dutycycle = make_range_validator(0, 100)
+v_bool = make_type_validator(bool)
 
 # METADATA =====================================================================
 NAME, PRECEDENCE, TYPE, EDITABLE, VALIDATOR = tuple(range(5))
@@ -474,6 +477,11 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         make_in_validator(PINOUTS.keys())),
+    MD_assigned: ("MD_assigned",
+        16,
+        TYPE_PRIMITIVE,
+        True,
+        v_bool),
     MD_row : ("MD_row",
 		16,
 		TYPE_PRIMITIVE,
@@ -513,6 +521,12 @@ META = {
 		v_pass_all),
 
     maxRPM : ("maxRPM",
+		8,
+		TYPE_PRIMITIVE,
+		True,
+		v_positive_int),
+
+    maxFans : ("maxFans",
 		8,
 		TYPE_PRIMITIVE,
 		True,
@@ -613,6 +627,7 @@ class FCArchive(us.PrintClient):
                 SV_minDCs : 0.5,
                 SV_maxFans : 21,
                 SV_pinout : "BASE",
+                MD_assigned : False,
                 MD_row : -1,
                 MD_column : -1,
                 MD_rows : 0,
@@ -622,6 +637,7 @@ class FCArchive(us.PrintClient):
         savedSlaves : (),
         pinouts : PINOUTS.copy(),
         maxRPM : 16000,
+        maxFans : 21,
         fanArray : {
             FA_rows : 0,
             FA_columns : 0,
@@ -814,6 +830,7 @@ DEV = {
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
+            MD_assigned : False,
             MD_row : -1,
             MD_column : -1,
             MD_rows : 0,
@@ -838,17 +855,18 @@ DEV = {
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
+            MD_assigned : True,
             MD_row : 0,
             MD_column : 0,
-            MD_rows : 21,
-            MD_columns : 1,
+            MD_rows : 1,
+            MD_columns : 21,
             MD_mapping : \
                 ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
         },
         {
-            SV_name : "A1",
+            SV_name : "A2",
             SV_mac : "00:80:e1:45:00:46",
-            SV_index : 0,
+            SV_index : 1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -862,15 +880,17 @@ DEV = {
             SV_minDCs : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
-            MD_row : 0,
-            MD_column : 1,
-            MD_rows : 21,
-            MD_columns : 1,
+            MD_assigned : True,
+            MD_row : 1,
+            MD_column : 0,
+            MD_rows : 1,
+            MD_columns : 21,
             MD_mapping : \
                 ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
         }),
     pinouts : PINOUTS.copy(),
     maxRPM : 16000,
+    maxFans : 21,
     fanArray : {
         FA_rows : 2,
         FA_columns : 21,

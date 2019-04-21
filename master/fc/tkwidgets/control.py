@@ -641,6 +641,12 @@ class GridWidget(gd.BaseGrid):
             empty = off_color)
 
         # Setup ................................................................
+        # NOTE: use this block of code for "re-build" method, or perhaps try
+        # calling the constructor again...
+        self.fanArray = fanArray
+        self.maxFans = self.archive[ac.maxFans]
+        self.maxRPM = self.archive[ac.maxRPM]
+        self.slaves = self.archive[ac.savedSlaves]
         self.adjusting = False
         self.last_width, self.last_height = 0, 0
         self.colors = colors
@@ -650,17 +656,72 @@ class GridWidget(gd.BaseGrid):
         self.low = 0
         self.off_color = off_color
         self.range = tuple(range(self.size))
+        self.L = fanArray[ac.FA_layers]
+        self.l = 0
+        self.dc = 0 # Whether to use duty cycles
 
+        self.layers = [[None]*self.size]*self.L
         self.values = [0]*self.size
         self.selected = [False]*self.size
         self.active = [False]*self.size
-        # FIXME
 
-        # TODO:
+        # Build mapping based on current profile:
+        # FIXME: Are slaves sorted by index?
+        # NOTE: cannot assume set size for feedback matrix. Will have to use
+        # half to determine limit of RPM and DC data (since number can change
+        # as slaves are added to the network)
+        print("REMINDER: Are Slaves always sorted by index?")
+        for slave in self.slaves:
+            # Skip unassigned Slaves:
+            if not slave[ac.MD_assigned]:
+                continue
+            s_i = slave[ac.SV_index]
+            s_r, s_c = slave[ac.MD_row], slave[ac.MD_column]
+            s_R, s_C = slave[ac.MD_rows], slave[ac.MD_columns]
+            for cell_i, cell_data in enumerate(slave[ac.MD_mapping].split(',')):
+                # Skip empty cells:
+                if not cell_data:
+                    continue
+                for layer, fan in enumerate(cell_data.split('-')):
+                    # Skip empty fans:
+                    if not fan:
+                        continue
+                    # Fan index:
+                    fan_i = int(fan)
+                    # Corresponding grid row, column, and index:
+                    grid_r = s_r + (cell_i//s_C)
+                    grid_c = s_c + (cell_i%s_C)
+                    grid_i = grid_r*self.C + grid_c
+                    # Corresponding index in the feedback vector:
+                    feedback_i = self.maxFans*s_i + fan_i
+                    # FIXME debug
+                    """
+                    print("Slave {}, fan {:2}: ({},{}) i.e {} (feedback {})".\
+                        format(s_i, fan_i, grid_r, grid_c, grid_i, feedback_i))
+                    """
+
+                    if grid_r < self.R and grid_c < self.C \
+                        and grid_i < self.size:
+                        try:
+                            self.layers[layer][grid_i] = feedback_i
+                        except IndexError as e:
+                            self.printe(
+                                "Invalid coordinates or dimensions for "\
+                                + "Slave {} at ({},{}) of {}x{} "
+                                + "(\"{}\")".format(
+                                    s_i, s_r, s_c, s_R, s_C, slave[ac.SV_name]))
+
+        # TODO: (redundant "TODO's" indicate priority)
+        # - handle resets on profile changing TODO
+        # - handle control vector construction TODO
+        # - handle multilayer assignment (how to deal with unselected layers?)
+        #   (TODO)
         # - activity tracking (who is active and who isn't)
         # - drag, drop, etc..
         # - get selections
         # - [...]
+        self.testi = 0 # FIXME
+        self.tests = [self.__testF1, self.__testF2, self.__testF3]
 
     # Activity .................................................................
     def activatei(self, i):
@@ -683,18 +744,33 @@ class GridWidget(gd.BaseGrid):
     # Values ...................................................................
     def updatei(self, i, value):
         """
-        Set index I to VALUE.
+        Set grid index I to VALUE if the given fan is active.
         """
-        if self.active[i]:
+        if value is not None:
+            if not self.active[i]:
+                self.activatei(i)
             self.values[i] = value
             self.filli(i, self.colors[min(self.maxColor,
-                ((value*self.maxColor)//self.numColors))])
+                ((value*self.maxColor)//self.maxRPM))])
+        elif self.active[i]:
+            self.deactivatei(i)
 
-    def update(self, values):
-        i = 0
-        for value in values:
-            self.updatei(i, value)
-            i += 1
+
+    def update(self, vector):
+        """
+        Assign the values contained in VECTOR to the grid according to the
+        profile mapping.
+        """
+        grid_i = 0
+        for feedback_i in self.layers[self.l]:
+            if feedback_i is not None:
+                # FIXME debug
+                """
+                print("Assigning grid ", grid_i, "To feedback", feedback_i,
+                    "Value", vector[feedback_i])
+                """
+                self.updatei(grid_i, vector[feedback_i])
+                grid_i += 1
 
     # Selection ................................................................
     def selecti(self, i):
@@ -721,23 +797,71 @@ class GridWidget(gd.BaseGrid):
             self.deselecti(i)
 
     # Meta .....................................................................
+    def layer(self, l):
+        """
+        Set L in [0, #layers - 1] to be the layer displayed.
+        """
+        if l > self.L or l < 0:
+            raise IndexError(
+                "Invalid layer index {} ([0, {}])".format(l, self.L - 1))
+        self.l = l
+
     def redraw(self, *E):
         self.draw(margin = 10)
         self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
+    def __testF1(self):
+        """
+        Generate feedback vectors for testing.
+        """
+        N = len(self.slaves)*self.maxFans
+        V = list(int(((i + 1)/N)*self.archive[ac.maxRPM]) for i in range(N))
+        for i in range(self.R*self.C):
+            self.selecti(i)
+        self.update(V)
+
+    def __testF2(self):
+        """
+        Generate feedback vectors for testing.
+        """
+        N = len(self.slaves)*self.maxFans
+        S = len(self.slaves)
+        R = self.archive[ac.maxRPM]
+        V = []
+        for i in range(self.R*self.C):
+            self.deselecti(i)
+        for slave in self.slaves:
+            s = slave[ac.SV_index]
+            v = int(((s + 1)/S)*R)
+            V = V + [v]*self.maxFans
+        self.update(V)
+
+    def __testF3(self):
+        """
+        Generate feedback vectors for testing. Tests inactive fans.
+        """
+        N = len(self.slaves)*self.maxFans
+        V = list(int(((i + 1)/N)*self.archive[ac.maxRPM]) for i in range(N))
+        for i, v in enumerate(V):
+            if i%2:
+                V[i] = None
+        self.update(V)
+
+
     def __testbind1(self, *E):
         print("[DEV] __testbind")
         #self.update([i for i in range(self.R*self.C)])
-        self.activate()
-        for i in range(self.R*self.C):
-            self.selecti(i)
-        self.canvas.bind("<Button-1>", self.__testbind2) # FIXME
+        self.canvas.bind("<Button-1>", self.__testbind3) # FIXME
 
     def __testbind2(self, *E):
         print("[DEV] __testbind")
         #self.update([i for i in range(self.R*self.C)])
         self.deactivate()
         self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
+
+    def __testbind3(self, *E):
+        self.tests[self.testi%len(self.tests)]()
+        self.testi += 1
 
     # FIXME
 
