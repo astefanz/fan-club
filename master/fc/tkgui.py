@@ -28,7 +28,6 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import multiprocessing as mp
 import tkinter as tk
 
 import fc.utils as us
@@ -41,23 +40,22 @@ from fc.tkwidgets.embedded import icon as icn
 TITLE = "FC MkIV"
 SPLASH_SECONDS = 5
 
-SENTINEL_PERIOD = .01
-
 ################################################################################
 class FCGUI(it.FCInterface):
     SYMBOL = "[GI]"
 
-    def __init__(self, pqueue, archive, communicator, period = SENTINEL_PERIOD):
+    def __init__(self, archive, pqueue, period = it.SENTINEL_PERIOD):
         """
-        Build a new FCGUI using PQUEUE for printing, ARCHIVE (FCArchive) and
-        COMMUNNICATOR (FCCommunicator). NOTE: The Tkinter root will be
-        created here, and hence visible without assembly.
+        Build a new FCGUI using PQUEUE for printing and ARCHIVE (FCArchive) to
+        manage profile data.
+        NOTE: The Tkinter root will be created here, and hence visible without
+        assembly.
 
         Optional argument PERIOD sets the seconds between sentinel cycles (i.e
         periodic checks to distribute inter-process data and print messages.)
         defaults to fc.interface.SENTINEL_PERIOD.
         """
-        it.FCInterface.__init__(self, pqueue, archive, communicator, period)
+        it.FCInterface.__init__(self, archive, pqueue, period)
 
     def _mainloop(self):
         """

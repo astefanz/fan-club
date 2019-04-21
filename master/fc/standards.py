@@ -46,7 +46,7 @@ MESSAGE_CODES = (
     MSG_DISCONNECT,
     MSG_REBOOT,
     MSG_REMOVE,
-    MSG_SHUTDOWN
+    MSG_SHUTDOWN,
 )
 
 # Control codes:
@@ -66,6 +66,9 @@ BOOTLOADER_CODES = (
     BTL_START,
     BTL_STOP
 )
+
+# Special codes:
+SPEC_STOP = 7071
 
 # Aggregates:
 

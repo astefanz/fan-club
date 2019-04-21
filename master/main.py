@@ -44,8 +44,7 @@ print(us.HEADER)
 print("[--] FC MkIV GUI demo started") # FIXME
 pqueue = mp.Queue()
 archive = ac.FCArchive(pqueue, VERSION)
-communicator = cm.FCCommunicator(pqueue)
-interface = tkg.FCGUI(pqueue, archive, communicator)
+interface = tkg.FCGUI(archive, pqueue)
 interface.run()
 
 print("[--] FC MkIV GUI demo finished") # FIXME

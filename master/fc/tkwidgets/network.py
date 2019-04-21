@@ -107,7 +107,7 @@ class NetworkWidget(tk.Frame, us.PrintClient):
         self.networkControl = NetworkControlWidget(self.networkFrame, network,
             self.slaveList, pqueue)
         self.networkControl.pack(fill = tk.BOTH, expand = True)
-        self.networkControl.addClient(self.firmwareFrame)
+        self.networkControl.addClient(self.firmwareUpdate)
 
         self.networkAdd(self.networkControl)
         self.slavesAdd(self.slaveList)
@@ -231,12 +231,12 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         self.sendButton = tk.Button(self.sendFrame, text = "Send",
             command = self._send, padx = 10, pady = 5)
         self.sendButton.pack(side = tk.LEFT)
-        self._sendCallback = network.sendMessage
+        self._sendCallback = network.messageIn
         self.activeWidgets.append(self.sendButton)
 
-        for message, code in self.network.messages():
+        for message, code in s.MESSAGES.items():
             self._addMessage(message, code)
-        for target, code in self.network.targets():
+        for target, code in s.TARGETS.items():
             self._addTarget(target, code)
 
         # Wrap-up ..............................................................
@@ -986,10 +986,10 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         """
         Process a new network status vector.
         """
-        status = N[0]
-        if status == s.DISCONNECTED and self.status == s.CONNECTED:
+        connected = N[0]
+        if not connected and self.status == s.CONNECTED:
             self.disconnected()
-        if status == s.CONNECTED and self.status == s.DISCONNECTED:
+        if connected and self.status == s.DISCONNECTED:
             self.connected()
 
     def slavesIn(self, S):

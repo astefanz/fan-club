@@ -27,36 +27,94 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 ## IMPORTS #####################################################################
-import fc.utils as us
-from . import standards as s
+import multiprocessing as mp
+import threading as mt
+
+from . import standards as s, utils as us
 
 ## CONSTANT DEFINITIONS ########################################################
 MP_STOP_TIMEOUT_S = 0.5
 
 
 ## HELPER CLASSES ##############################################################
-class NetworkAbstraction(us.PrintClient):
+class FCNetwork(us.PrintClient):
     """
-    Abstractions to be used by the FC front-end to interface with
-    communications.
+    Abstractions to be used by the FC front-end to interface with the
+    communications back-end.
     """
+    SYMBOL = "[NA]"
 
-    def __init__(self, communicator, messagePipe, inputPipe, startMethod):
+    def __init__(self, feedbackPipe, networkPipe, slavesPipe, archive, pqueue):
         """
-        Create a new NetworkAbstraction that sends messages to the given
-        Communicator instance (COMMUNICATOR) through MESSAGE_PIPE and input
-        vectors through INPUT_PIPE (both send-enabled Connection instances
-        returned by multiprocessing.Pipe).
-
-        STARTMETHOD is a method (with no arguments) to be called when the
-        Communicator is to be started.
+        Create a new NetworkAbstraction that operates a Communicator back-end.
         """
-        self.communicator = communicator
-        self.messagePipe = messagePipe
-        self.inputPipe = inputPipe
-        self.startMethod = startMethod
+        us.PrintClient.__init__(self, pqueue)
 
-    def send(self, command, value = ()):
+        self.feedbackPipe = feedbackPipe
+        self.networkPipe = networkPipe
+        self.slavesPipe = slavesPipe
+        self.archive = archive
+        self.process = None
+        self.watchdog = None
+
+        self.messagePipeRecv, self.messagePipeSend = mp.Pipe(False)
+        self.controlPipeRecv, self.controlPipeSend = mp.Pipe(False)
+
+    # API ......................................................................
+    def start(self):
+        """
+        Start the communications back-end process. Does nothing if it already
+        active.
+
+        PROFILE := Currently loaded profile. See FCArchive.
+        """
+        try:
+            if not self.active():
+                self.printr("Starting CM back-end")
+                self.process = mp.Process(
+                    name = "FC Backend",
+                    target = self._b_routine,
+                    args = (self.archive.profile(), self.feedbackPipe,
+                        self.controlPipeRecv, self.networkPipe, self.slavesPipe,
+                        self.messagePipeRecv, self.pqueue),
+                    daemon = True)
+                self.process.start()
+
+                self.watchdog = mt.Thread(
+                    name = "FC BE Watchdog",
+                    target = self._w_routine,
+                    daemon = True)
+                self.watchdog.start()
+            else:
+                self.printw("Tried to start already active back-end")
+        except Exception as e:
+            self.printx(e, "Exception when starting back-end")
+
+    def stop(self, timeout = MP_STOP_TIMEOUT_S):
+        """
+        Stop this Communicator (shut down the communication daemon). Does
+        nothing if this instance is not active.
+        """
+        try:
+            if self.active():
+                self.printw("Stopping communications back-end...")
+                self.commandIn(s.SPEC_STOP)
+                self.process.join(timeout)
+                if self.process.is_alive():
+                    self.process.terminate()
+                self.process = None
+            else:
+                self.printw("Tried to stop already inactive back-end")
+        except Exception as e:
+            self.printx(e, "Exception when stopping back-end")
+
+    def active(self):
+        """
+        Return whether this instance is running its communications daemon.
+        """
+        return self.process is not None and self.process.is_alive()
+
+    def commandIn(self, command, value = ()):
         """
         Send a general command with command code COMMAND and value tuple VALUE
         (when applicable, its particular value depends on the command). In
@@ -65,46 +123,42 @@ class NetworkAbstraction(us.PrintClient):
         Raises a RuntimeError if this method is called while the Communicator
         is inactive.
         """
-        if self.communicator.active():
+        if self.active():
             self.messagePipe.send((command) + value)
         else:
-            raise RuntimeError("Tried to send command offline ({})".format(
-                command))
+            self.printe("Tried to send command offline ({})".format(command))
 
     def connect(self):
         """
         Send a message to activate the Communicator backend.
         """
-        self.startMethod()
+        self.start()
 
     def disconnect(self):
         """
         Send a message to stop the Communicator backend.
         """
-        self.communicator.stop()
+        self.stop()
 
     def shutdown(self):
         """
         Send a shutdown message to the Communicator backend.
         """
-        self.send(s.MSG_SHUTDOWN, s.TGT_ALL)
+        self.commandIn(s.MSG_SHUTDOWN, s.TGT_ALL)
 
-    def sendMessage(self, message, target, selection = ()):
+    def messageIn(self, message, target, selection = ()):
         """
         Send a message with message code MESSAGE, target code TARGET and, if
         applicable, SELECTION (may be omitted otherwise).
         """
-        self.send(message, (target, selection))
+        self.commandIn(message, (target, selection))
 
-    def sendControl(self, C):
+    def controlIn(self, C):
         """
-        Send the control vector C.
-
-        For performance, this method does not check if the communicator is
-        inactive.
+        Send the control vector C if the back-end is active.
         """
-        # FIXME implement
-        raise RuntimeError("Control vector behavior not yet implemented")
+        if self.active():
+            self.controlPipeSend(C)
 
     def startBootloader(self, filename, version, size):
         """
@@ -119,87 +173,44 @@ class NetworkAbstraction(us.PrintClient):
         """
         seld.send(s.BTL_STOP)
 
-    def messages(self):
+    # Internal methods .........................................................
+    @staticmethod
+    def _b_routine(profile, feedbackPipe, controlPipe, networkPipe,
+        slavesPipe, messagePipe, pqueue):
         """
-        Return an iterable of (NAME, CODE) pairs representing the messages that
-        can be sent to the Communicator backend.
-        """
-        return s.MESSAGES.items()
-
-    def targets(self):
-        """
-        Return an iterable of (NAME, CODE) pairs representing the target options
-        that can be sent to the Communicator backend (in reference to messages).
-        """
-        return s.TARGETS.items()
-
-## CLASS DEFINITION ############################################################
-class FCCommunicator(us.PrintClient):
-    """
-    Handles the "master" side of the fan array control network. In summary, an
-    instance of this class outputs arrays indicating the state of the tunnel
-    and the network and receives as input arrays representing commands to be
-    executed by the tunnel.
-
-    This version receives input and output from a series of multiprocessing
-    pipe ends (See Python's multiprocessing) which are passed when the
-    communications daemon is started (See start method).
-    """
-    SYMBOL = "[CM]"
-
-    def __init__(self, pqueue):
-        """
-        Initialize a new FC Communicator (inactive). PQUEUE is the multiprocess
-        Queue to be used for printing.
-
-        NOTE: At most one FCCommunicator instance is meant to exist at a given
-        time.
-        """
-        us.PrintClient.__init__(self, pqueue)
-        self.pqueue = pqueue
-
-        self.printw("Initialized FCCommunicator skeleton") # FIXME
-
-    def start(self, profile, feedbackPipe, inputPipe, networkPipe, slavesPipe,
-        messagePipe, timeout = MP_STOP_TIMEOUT_S):
-        """
-        Start this Communicator (launch the communication daemon). Stops and
-        restarts this instance if it is already active.
-
-        Arguments:
-        - PROFILE: See FC Archive.
-        - PIPES (multiprocessing Pipe Connections):
-            - FEEDBACK will be use to send array state vectors to
-              the front end.
-            - INPUT pipe will be used to receive input vectors from the front
-              end.
-            - NETWORK and SLAVES will be used to send network and slave list
-              state vectors.
-            - MESSAGE is a bidirectional pipe used to RECEIVE commands
-              (such as a command to launch ethernet flashing) and may be used
-              to SEND special messages if necessary, though this functionality
-              remains undefined.
-        - TIMEOUT: Optional, seconds to wait when stopping the current daemon if
-          this method is used while it is already alive.
+        Back-end routine. To be executed by the B.E. process.
         """
 
-        if self.active():
-            self.stop(timeout)
+        P = us.printers(pqueue, "[CR]")
+        P[us.R]("Comms. backend process started")
+        try:
+            # FIXME
+            #C = be.FCBackend(profile, feedbackPipe, controlPipe, slavesPipe,
+            #    messagePipe, pqueue)
+            #C.join() # FIXME implement
+            pass
+        except Exception as e:
+            P[us.X](e, "Fatal error in comms. backend process")
 
-        self.printw("Started FCCommunicator skeleton") # FIXME
+        P[us.W]("Comms. backend process terminated")
+
+    def _w_routine(self):
+        """
+        Watchdog routine. Tracks whether the back-end process is active.
+        """
+        self.printd("Back-end watchdog routine started")
+        self.process.join()
+        self._stopped()
+        self.printd("Back-end watchdog routine ended")
+
+    def _stopped(self):
+        """
+        To be executed when the network switches to disconnected.
+        """
+        # Send deactivated feedback vector
+        self.feedbackPipe.send([])
+
+        # Send disconnected status vector
+        self.networkPipe.send([False, None, None, None, None])
 
 
-    def stop(self, timeout = MP_STOP_TIMEOUT_S):
-        """
-        Stop this Communicator (shut down the communication daemon). Does
-        nothing if this instance is not active.
-        """
-        self.printw("Stopped FCCommunicator skeleton") # FIXME
-        pass
-
-    def active(self):
-        """
-        Return whether this instance is running its communications daemon.
-        """
-        self.printw("Checked activity of FCCommunicator skeleton") # FIXME
-        return False

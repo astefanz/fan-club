@@ -46,6 +46,7 @@ import platform as plt
 
 ## GLOBAL CONSTANTS ############################################################
 DEBUGP = False
+DEFAULT_PERIOD = 1 # second
 
 DPREFIX = "[DBG]"
 EPREFIX = "[ERR]"
@@ -248,9 +249,8 @@ class PrintServer(PrintClient):
     --------------------+-------------------------------------------------------
     """
     SYMBOL = "[PS]"
-    default_period = 1
 
-    def __init__(self, pqueue, period = default_period):
+    def __init__(self, pqueue, period = DEFAULT_PERIOD):
         """
         Build and start a PrintServer that tracks PQUEUE. A daemonic "print
         thread" will be started. The print thread will check for messages to
