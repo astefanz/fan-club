@@ -28,30 +28,11 @@
 
 ## IMPORTS #####################################################################
 import fc.utils as us
+from . import standards as s
 
 ## CONSTANT DEFINITIONS ########################################################
 MP_STOP_TIMEOUT_S = 0.5
 
-# Message codes:
-MSG_ADD = 3031
-MSG_DISCONNECT = 3032
-MSG_REBOOT = 3033
-MSG_REMOVE = 3034
-MSG_SHUTDOWN = 3035
-
-# Target codes:
-TGT_ALL = 4041
-TGT_SELECTED = 4042
-
-# Control codes:
-CTL_DC = 5051
-# NOTE: From the old communicator, commands have been simplified by using only
-# "SET_DC_MULTI" Also, SET_RPM has been omitted until feedback control is to be
-# implemented.
-
-# Bootloader codes:
-BTL_START = 6061
-BTL_STOP = 6062
 
 ## HELPER CLASSES ##############################################################
 class NetworkAbstraction(us.PrintClient):
@@ -59,12 +40,6 @@ class NetworkAbstraction(us.PrintClient):
     Abstractions to be used by the FC front-end to interface with
     communications.
     """
-
-    MESSAGES = {"Add":MSG_ADD, "Disconnect":MSG_DISCONNECT, "Reboot":MSG_REBOOT,
-        "Remove": MSG_REMOVE, "Shutdown":MSG_SHUTDOWN}
-    TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
-
-    CONTROLS = {"DC":CTL_DC}
 
     def __init__(self, communicator, messagePipe, inputPipe, startMethod):
         """
@@ -112,7 +87,7 @@ class NetworkAbstraction(us.PrintClient):
         """
         Send a shutdown message to the Communicator backend.
         """
-        self.send(MSG_SHUTDOWN, TGT_ALL)
+        self.send(s.MSG_SHUTDOWN, s.TGT_ALL)
 
     def sendMessage(self, message, target, selection = ()):
         """
@@ -121,42 +96,42 @@ class NetworkAbstraction(us.PrintClient):
         """
         self.send(message, (target, selection))
 
-    def sendMatrix(self, matrix):
+    def sendControl(self, C):
         """
-        Send the control matrix MATRIX.
+        Send the control vector C.
 
         For performance, this method does not check if the communicator is
         inactive.
         """
-        # FIXME implement matrix behavior
-        raise RuntimeError("Control matrix behavior not yet implemented")
+        # FIXME implement
+        raise RuntimeError("Control vector behavior not yet implemented")
 
     def startBootloader(self, filename, version, size):
         """
         Send a command to start the bootloader using the binary file at
         FILENAME with version code VERSION and byte size SIZE.
         """
-        self.send(BTL_START, (filename, version, size))
+        self.send(s.BTL_START, (filename, version, size))
 
     def stopBootloader(self):
         """
         Send a command to stop the flashing process.
         """
-        seld.send(BTL_STOP)
+        seld.send(s.BTL_STOP)
 
     def messages(self):
         """
         Return an iterable of (NAME, CODE) pairs representing the messages that
         can be sent to the Communicator backend.
         """
-        return self.MESSAGES.items()
+        return s.MESSAGES.items()
 
     def targets(self):
         """
         Return an iterable of (NAME, CODE) pairs representing the target options
         that can be sent to the Communicator backend (in reference to messages).
         """
-        return self.TARGETS.items()
+        return s.TARGETS.items()
 
 ## CLASS DEFINITION ############################################################
 class FCCommunicator(us.PrintClient):

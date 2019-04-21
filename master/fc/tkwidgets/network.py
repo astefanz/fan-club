@@ -36,6 +36,7 @@ import time as tm
 import shutil as sh
 
 from . import guiutils as gus
+from .. import standards as s
 
 import tkinter as tk
 import tkinter.filedialog as fdg
@@ -43,61 +44,19 @@ import tkinter.ttk as ttk
 import tkinter.font as fnt
 
 ## GLOBALS #####################################################################
-
-""" Slave data. """
-SLAVE_DATA_N = 6
-
-SD_INDEX = 0
-SD_STATUS = 3
-
-""" Status codes. """
-CONNECTED = 0
-KNOWN = 1
-DISCONNECTED = 2
-AVAILABLE = 3
-UPDATING = 4
-TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
-
-""" Status 'long' names. """
-STATUSES = {
-    CONNECTED : 'Connected',
-    KNOWN : 'Known',
-    DISCONNECTED : 'Disconnected',
-    AVAILABLE : 'Available',
-    UPDATING : 'Updating'
-}
-
-""" Status foreground colors. """
-FOREGROUNDS = {
-    CONNECTED : '#0e4707',
-    KNOWN : '#44370b',
-    DISCONNECTED : '#560e0e',
-    AVAILABLE : '#666666',
-    UPDATING : '#192560'
-}
-
-""" Status background colors. """
-BACKGROUNDS = {
-    CONNECTED : '#d1ffcc',
-    KNOWN : '#fffaba',
-    DISCONNECTED : '#ffd3d3',
-    AVAILABLE : '#ededed',
-    UPDATING : '#a6c1fc'
-}
-
 TEST_VECTORS = [
     [],
     [
-        0, "T1", "MAC_ADDR", CONNECTED, 21, "vx.x.x"
+        0, "T1", "MAC_ADDR", s.CONNECTED, 21, "vx.x.x"
     ],
     [
-        0, "T1", "MAC_ADDR", CONNECTED, 21, "vx.x.x",
-        1, "T2", "MAC_ADDR", DISCONNECTED, 21, "vx.x.x",
-        2, "T3", "MAC_ADDR", AVAILABLE, 21, "vx.x.x"
+        0, "T1", "MAC_ADDR", s.CONNECTED, 21, "vx.x.x",
+        1, "T2", "MAC_ADDR", s.DISCONNECTED, 21, "vx.x.x",
+        2, "T3", "MAC_ADDR", s.AVAILABLE, 21, "vx.x.x"
     ],
     [
-        1, "T2", "MAC_ADDR", CONNECTED, 21, "vx.x.x",
-        2, "T3", "MAC_ADDR", CONNECTED, 21, "vx.x.x"
+        1, "T2", "MAC_ADDR", s.CONNECTED, 21, "vx.x.x",
+        2, "T3", "MAC_ADDR", s.CONNECTED, 21, "vx.x.x"
     ]
 ]
 
@@ -107,9 +66,6 @@ class NetworkWidget(tk.Frame):
     Container for all the FC network GUI front-end widgets, except the FC
     status bar.
     """
-
-    DEMO_MESSAGES = {"Add":1,"Disconnect":2,"Reboot":3, "Remove": 4}
-    DEMO_TARGETS = {"All":1, "Selected":2}
 
     def __init__(self, master, network, archive, networkAdd, slavesAdd,
         printr = gus.silent, printw = gus.silent, printd = gus.silent,
@@ -283,14 +239,7 @@ class NetworkControlWidget(tk.Frame):
     # API ......................................................................
     def networkIn(self, N):
         """
-        Process a new network state vector N of the following form:
-            [ CONN, IP, BIP, BPORT, LPORT ]
-              |     |   |    |       |
-              |     |   |    |       Listener port (int)
-              |     |   |    Broadcast port (int)
-              |     |   Broadcast IP (String)
-              |     Communications IP (String)
-              Connection status (Bool -- connected or not)
+        Process a new network state vector N. See standards.py for form.
         """
         connected = N[0]
         if connected:
@@ -318,8 +267,8 @@ class NetworkControlWidget(tk.Frame):
         self.connectButton.config(state = tk.NORMAL, text = "Disconnect",
             command = self._onDisconnect)
         self.connectionVar.set("Connected")
-        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED],
-            bg = BACKGROUNDS[CONNECTED])
+        self.connectionLabel.config(fg = s.FOREGROUNDS[s.CONNECTED],
+            bg = s.BACKGROUNDS[s.CONNECTED])
         self._setWidgetState(tk.NORMAL)
         self.isConnected = True
         for client in self.clients:
@@ -346,8 +295,8 @@ class NetworkControlWidget(tk.Frame):
             port.set(self.NO_PORT)
         for client in self.clients:
             client.disconnected()
-        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED],
-            bg = BACKGROUNDS[DISCONNECTED])
+        self.connectionLabel.config(fg = s.FOREGROUNDS[s.DISCONNECTED],
+            bg = s.BACKGROUNDS[s.DISCONNECTED])
         self._setWidgetState(tk.DISABLED)
         self.isConnected = False
 
@@ -527,7 +476,6 @@ class FirmwareUpdateWidget(tk.Frame):
         """
         self.stop()
 
-
     # Internal methods .........................................................
     def _start(self, *args):
         """
@@ -649,11 +597,6 @@ class SlaveListWidget(tk.Frame):
     GUI front-end for the FC Slave List display.
     """
 
-    """ Parameters per slave in each Slave vector """
-    PER_SLAVE = SLAVE_DATA_N
-
-    """ Slave tuple indices. """
-    I_INDEX, I_NAME, I_MAC, I_STATUS, I_FANS, I_VERSION = range(PER_SLAVE)
 
     def __init__(self, master, network):
         tk.Frame.__init__(self, master)
@@ -727,33 +670,33 @@ class SlaveListWidget(tk.Frame):
 
         # Configure tags:
         self.slaveList.tag_configure(
-            CONNECTED,
-            background = BACKGROUNDS[CONNECTED],
-            foreground = FOREGROUNDS[CONNECTED],
+            s.CONNECTED,
+            background = s.BACKGROUNDS[s.CONNECTED],
+            foreground = s.FOREGROUNDS[s.CONNECTED],
             font = 'Courier 12 ')
 
         self.slaveList.tag_configure(
-            UPDATING,
-            background = BACKGROUNDS[UPDATING],
-            foreground = FOREGROUNDS[UPDATING],
+            s.UPDATING,
+            background = s.BACKGROUNDS[s.UPDATING],
+            foreground = s.FOREGROUNDS[s.UPDATING],
             font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-            DISCONNECTED,
-            background = BACKGROUNDS[DISCONNECTED],
-            foreground = FOREGROUNDS[DISCONNECTED],
+            s.DISCONNECTED,
+            background = s.BACKGROUNDS[s.DISCONNECTED],
+            foreground = s.FOREGROUNDS[s.DISCONNECTED],
             font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-            KNOWN,
-            background = BACKGROUNDS[KNOWN],
-            foreground = FOREGROUNDS[KNOWN],
+            s.KNOWN,
+            background = s.BACKGROUNDS[s.KNOWN],
+            foreground = s.FOREGROUNDS[s.KNOWN],
             font = 'Courier 12 bold')
 
         self.slaveList.tag_configure(
-            AVAILABLE,
-            background = BACKGROUNDS[AVAILABLE],
-            foreground = FOREGROUNDS[AVAILABLE],
+            s.AVAILABLE,
+            background = s.BACKGROUNDS[s.AVAILABLE],
+            foreground = s.FOREGROUNDS[s.AVAILABLE],
             font = 'Courier 12 ')
 
         # Save previous selection:
@@ -781,25 +724,15 @@ class SlaveListWidget(tk.Frame):
     # API ......................................................................
     def slavesIn(self, S):
         """
-        Process new slave vector S of the following form:
-
-            S = [INDEX_0, NAME_0, MAC_0, STATUS_0, FANS_0, VERSION_0...]
-            |    |        |       |      |         |       |
-            |    |        |       |      |         |       Slave 0's version
-            |    |        |       |      |         Slave 0's active fans
-            |    |        |       |      Slave 0's status
-            |    |        |       Slave 0's MAC
-            |    |        Slave 0's name
-            |    Slave 0's index (should be 0)
-            This slave vector
+        Process new slave vector S. See standards.py for form.
         """
         size = len(S)
-        if size%self.PER_SLAVE != 0:
+        if size%s.SD_SIZE != 0:
             raise ValueError("Slave vector size is not a multiple of {}".format(
-                self.PER_SLAVE))
+                s.SD_SIZE))
 
-        for i in range(0, size, self.PER_SLAVE):
-            index, name, mac, status, fans, version = S[i:i+self.PER_SLAVE]
+        for i in range(0, size, s.SD_SIZE):
+            index, name, mac, status, fans, version = S[i:i+s.SD_SIZE]
             slave = (index, name, mac, status, fans, version)
             if index not in self.slaves:
                 self.addSlave(slave)
@@ -817,18 +750,18 @@ class SlaveListWidget(tk.Frame):
         MAC and VERSION are strings, STATUS is one of the status codes
         defined as class attributes of this class, FANS is an integer.
         """
-        if slave[self.I_INDEX] in self.slaves:
-            raise ValueError("Repeated Slave index {}".format(slave[self.I_INDEX]))
-        elif slave[self.I_STATUS] not in TAGS:
+        if slave[s.SD_INDEX] in self.slaves:
+            raise ValueError("Repeated Slave index {}".format(slave[s.SD_INDEX]))
+        elif slave[s.SD_STATUS] not in TAGS:
             raise ValueError("Invalid status tag \"{}\"".format(
-                slave[self.I_STATUS]))
+                slave[s.SD_STATUS]))
         else:
-            index = slave[self.I_INDEX]
+            index = slave[s.SD_INDEX]
             iid = self.slaveList.insert('', 0,
-                values = (index + 1, slave[self.I_NAME], slave[self.I_MAC],
-                    STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
-                    slave[self.I_VERSION]),
-                tag = slave[self.I_STATUS])
+                values = (index + 1, slave[s.SD_NAME], slave[s.SD_MAC],
+                    s.STATUSES[slave[s.SD_STATUS]], slave[s.SD_FANS],
+                    slave[s.SD_VERSION]),
+                tag = slave[s.SD_STATUS])
             self.slaves[index] = slave + (iid,)
             self.indices.append(index)
 
@@ -845,14 +778,14 @@ class SlaveListWidget(tk.Frame):
         Modify the entry on SLAVE. KeyError is raised if there is no slave
         with SLAVE's index.
         """
-        index = slave[self.I_INDEX]
+        index = slave[s.SD_INDEX]
         iid = self.slaves[index][-1]
 
         self.slaveList.item(
-            iid, values = (index + 1, slave[self.I_NAME], slave[self.I_MAC],
-                STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
-                slave[self.I_VERSION]),
-            tag = slave[self.I_STATUS])
+            iid, values = (index + 1, slave[s.SD_NAME], slave[s.SD_MAC],
+                s.STATUSES[slave[s.SD_STATUS]], slave[s.SD_FANS],
+                slave[s.SD_VERSION]),
+            tag = slave[s.SD_STATUS])
 
         self.slaves[index] = slave + (iid,)
 
@@ -872,12 +805,12 @@ class SlaveListWidget(tk.Frame):
         Modify only the status of the Slave at index INDEX to STATUS.
         """
         slave = self.slaves[index]
-        self.slaves[index] = slave[:self.I_STATUS] + (status,) \
-            + slave[self.I_STATUS + 1:]
+        self.slaves[index] = slave[:s.SD_STATUS] + (status,) \
+            + slave[s.SD_STATUS + 1:]
 
         self.slaveList.item(slave[-1],
-            values = (index + 1, slave[self.I_MAC], STATUSES[status],
-                slave[self.I_FANS], slave[self.I_VERSION]),
+            values = (index + 1, slave[s.SD_MAC], s.STATUSES[status],
+                slave[s.SD_FANS], slave[s.SD_VERSION]),
             tag = status)
 
         if self.autoVar.get():
@@ -913,9 +846,9 @@ class SlaveListWidget(tk.Frame):
         selected = []
         for iid in self.slaveList.selection():
             if status is None \
-                or self.slaveList.item(iid)['values'][self.I_STATUS] == status:
+                or self.slaveList.item(iid)['values'][s.SD_STATUS] == status:
                 selected.append(
-                    self.slaveList.item(iid)['values'][self.I_INDEX] - 1)
+                    self.slaveList.item(iid)['values'][s.SD_INDEX] - 1)
         return selected
 
     def sort(self):
@@ -977,7 +910,7 @@ class StatusBarWidget(tk.Frame):
         self.statusFrames = {}
         self.statusVars, self.statusLabels, self.statusDisplays  = {}, {}, {}
 
-        for code, name in ((self.TOTAL, "Total"),) + tuple(STATUSES.items()):
+        for code, name in ((self.TOTAL, "Total"),) + tuple(s.STATUSES.items()):
             self.statusFrames[code] = tk.Frame(self.statusFrame,
                 relief = tk.SUNKEN, bd = 1)
             self.statusFrames[code].pack(side = tk.LEFT, padx = 5, pady = 3)
@@ -987,13 +920,13 @@ class StatusBarWidget(tk.Frame):
 
             self.statusLabels[code] = tk.Label(self.statusFrames[code],
                 text = name + ": ", font = "Courier 7", padx = 10, pady = 5,
-                fg = FOREGROUNDS[code] if code in FOREGROUNDS else 'black')
+                fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
             self.statusLabels[code].pack(side = tk.LEFT, pady = 5)
 
             self.statusDisplays[code] = tk.Label(self.statusFrames[code],
                 textvariable = self.statusVars[code], font = "Courier 7",
                 padx = 10, pady = 5,
-                fg = FOREGROUNDS[code] if code in FOREGROUNDS else 'black')
+                fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
             self.statusDisplays[code].pack(side = tk.LEFT)
 
         self.connectionVar = tk.StringVar()
@@ -1003,7 +936,7 @@ class StatusBarWidget(tk.Frame):
             relief = tk.SUNKEN, font = "Courier 7 bold", padx = 10, pady = 5)
         self.connectionLabel.pack(side = tk.RIGHT, fill = tk.Y, pady = 3,
             padx = 10)
-        self.status = DISCONNECTED
+        self.status = s.DISCONNECTED
 
         # Buttons ..............................................................
         self._shutdownCallback = shutdown
@@ -1031,9 +964,9 @@ class StatusBarWidget(tk.Frame):
         Process a new network status vector.
         """
         status = N[0]
-        if status == DISCONNECTED and self.status == CONNECTED:
+        if status == s.DISCONNECTED and self.status == s.CONNECTED:
             self.disconnected()
-        if status == CONNECTED and self.status == DISCONNECTED:
+        if status == s.CONNECTED and self.status == s.DISCONNECTED:
             self.connected()
 
     def slavesIn(self, S):
@@ -1059,9 +992,9 @@ class StatusBarWidget(tk.Frame):
         Handle network switching to connected.
         """
         self.connectionVar.set(self.CONNECTED_STR)
-        self.connectionLabel.config(fg = FOREGROUNDS[CONNECTED],
-            bg = BACKGROUNDS[CONNECTED])
-        self.status = CONNECTED
+        self.connectionLabel.config(fg = s.FOREGROUNDS[s.CONNECTED],
+            bg = s.BACKGROUNDS[s.CONNECTED])
+        self.status = s.CONNECTED
 
     def disconnected(self):
         """
@@ -1069,9 +1002,9 @@ class StatusBarWidget(tk.Frame):
         """
         self.clear()
         self.connectionVar.set(self.DISCONNECTED_STR)
-        self.connectionLabel.config(fg = FOREGROUNDS[DISCONNECTED],
-            bg = BACKGROUNDS[DISCONNECTED])
-        self.status = DISCONNECTED
+        self.connectionLabel.config(fg = s.FOREGROUNDS[s.DISCONNECTED],
+            bg = s.BACKGROUNDS[s.DISCONNECTED])
+        self.status = s.DISCONNECTED
 
     def setCount(self, status, count):
         """
