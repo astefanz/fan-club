@@ -77,6 +77,22 @@ BACKGROUNDS = {
     UPDATING : '#a6c1fc'
 }
 
+TEST_VECTORS = [
+    [],
+    [
+        0, "T1", "MAC_ADDR", CONNECTED, 21, "vx.x.x"
+    ],
+    [
+        0, "T1", "MAC_ADDR", CONNECTED, 21, "vx.x.x",
+        1, "T2", "MAC_ADDR", DISCONNECTED, 21, "vx.x.x",
+        2, "T3", "MAC_ADDR", AVAILABLE, 21, "vx.x.x"
+    ],
+    [
+        1, "T2", "MAC_ADDR", CONNECTED, 21, "vx.x.x",
+        2, "T3", "MAC_ADDR", CONNECTED, 21, "vx.x.x"
+    ]
+]
+
 ## BASE ########################################################################
 class NetworkWidget(tk.Frame):
     """
@@ -253,6 +269,28 @@ class NetworkControlWidget(tk.Frame):
         self.disconnected()
 
     # API ......................................................................
+    def networkIn(self, N):
+        """
+        Process a new network state vector N of the following form:
+            [ CONN, IP, BIP, BPORT, LPORT ]
+              |     |   |    |       |
+              |     |   |    |       Listener port (int)
+              |     |   |    Broadcast port (int)
+              |     |   Broadcast IP (String)
+              |     Communications IP (String)
+              Connection status (Bool -- connected or not)
+        """
+        connected = N[0]
+        if connected:
+            if not self.isConnected:
+                self.connected()
+            self.ipVar.set(N[1])
+            self.bcipVar.set(N[2])
+            self.bcVar.set(N[3])
+            self.ltVar.set(N[4])
+        elif self.isConnected:
+            self.disconnected()
+
     def connecting(self):
         """
         Indicate that a connection is being activated.
@@ -299,12 +337,10 @@ class NetworkControlWidget(tk.Frame):
     # Internal methods .........................................................
     def _onConnect(self, *event):
         self._connectCallback()
-        self.connected() # FIXME Should be set by status update
         print("[WARNING] Widget connecting behavior not implemented")
 
     def _onDisconnect(self, *event):
         self._disconnectCallback()
-        self.disconnected() # FIXME Should be set by status update
         print("[WARNING] Widget disconnecting behavior not implemented")
 
     def _send(self, *E):
@@ -563,14 +599,11 @@ class SlaveListWidget(tk.Frame):
     GUI front-end for the FC Slave List display.
     """
 
+    """ Parameters per slave in each Slave vector """
+    PER_SLAVE = 6
 
     """ Slave tuple indices. """
-    I_INDEX = 0
-    I_MAC = 1
-    I_STATUS = 2
-    I_FANS = 3
-    I_VERSION = 4
-
+    I_INDEX, I_NAME, I_MAC, I_STATUS, I_FANS, I_VERSION = range(PER_SLAVE)
 
     def __init__(self, master, network):
         tk.Frame.__init__(self, master)
@@ -613,7 +646,8 @@ class SlaveListWidget(tk.Frame):
 
         # Slave list ...........................................................
         self.slaveList = ttk.Treeview(self.main, selectmode = "extended")
-        self.slaveList["columns"] = ("Index","MAC","Status","Fans", "Version")
+        self.slaveList["columns"] = \
+            ("Index","Name","MAC","Status","Fans", "Version")
 
         # Configure row height dynamically
         # See: https://stackoverflow.com/questions/26957845/
@@ -626,15 +660,16 @@ class SlaveListWidget(tk.Frame):
         # Create columns:
         self.slaveList.column('#0', width = 20, stretch = False)
         self.slaveList.column("Index", width = 20, anchor = "center")
+        self.slaveList.column("Name", width = 20, anchor = "center")
         self.slaveList.column("MAC", width = 70, anchor = "center")
         self.slaveList.column("Status", width = 70, anchor = "center")
         self.slaveList.column("Fans", width = 50, stretch = True,
             anchor = "center")
-        self.slaveList.column("Version", width = 50,
-            anchor = "center")
+        self.slaveList.column("Version", width = 50, anchor = "center")
 
         # Configure column headings:
         self.slaveList.heading("Index", text = "Index")
+        self.slaveList.heading("Name", text = "Name")
         self.slaveList.heading("MAC", text = "MAC")
         self.slaveList.heading("Status", text = "Status")
         self.slaveList.heading("Fans", text = "Fans")
@@ -689,20 +724,50 @@ class SlaveListWidget(tk.Frame):
         self.numSlaves = 0
 
         self.callback = lambda i: None
+        self.testi = 0
 
         print("[NOTE] No callback implemented for SlaveList double click")
 
     # API ......................................................................
+    def slavesIn(self, S):
+        """
+        Process new slave vector S of the following form:
+
+            S = [INDEX_0, NAME_0, MAC_0, STATUS_0, FANS_0, VERSION_0...]
+            |    |        |       |      |         |       |
+            |    |        |       |      |         |       Slave 0's version
+            |    |        |       |      |         Slave 0's active fans
+            |    |        |       |      Slave 0's status
+            |    |        |       Slave 0's MAC
+            |    |        Slave 0's name
+            |    Slave 0's index (should be 0)
+            This slave vector
+        """
+        size = len(S)
+        if size%self.PER_SLAVE != 0:
+            raise ValueError("Slave vector size is not a multiple of {}".format(
+                self.PER_SLAVE))
+
+        for i in range(0, size, self.PER_SLAVE):
+            index, name, mac, status, fans, version = S[i:i+self.PER_SLAVE]
+            slave = (index, name, mac, status, fans, version)
+            if index not in self.indices:
+                self.addSlave(slave)
+                print("New slave: ", index, name)
+            else:
+                print("Updating: ", index, name)
+                self.updateSlave(slave)
+
     def addSlave(self, slave):
         """
         Add SLAVE to the list. ValueError is raised if a slave with that index
         already exists. SLAVE is expected to be a tuple (or list) of the form
-            (INDEX, MAC, STATUS, FANS, VERSION)
+            (INDEX, NAME, MAC, STATUS, FANS, VERSION)
         Where INDEX is an integer that is expected to be unique among slaves,
         MAC and VERSION are strings, STATUS is one of the status codes
         defined as class attributes of this class, FANS is an integer.
         """
-        if slave[self.I_INDEX] in self.slaves:
+        if slave[self.I_INDEX] in self.indices:
             raise ValueError("Repeated Slave index {}".format(slave[self.I_INDEX]))
         elif slave[self.I_STATUS] not in TAGS:
             raise ValueError("Invalid status tag \"{}\"".format(
@@ -710,7 +775,7 @@ class SlaveListWidget(tk.Frame):
         else:
             index = slave[self.I_INDEX]
             iid = self.slaveList.insert('', 0,
-                values = (index + 1, slave[self.I_MAC],
+                values = (index + 1, slave[self.I_NAME], slave[self.I_MAC],
                     STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
                     slave[self.I_VERSION]),
                 tag = slave[self.I_STATUS])
@@ -734,12 +799,12 @@ class SlaveListWidget(tk.Frame):
         iid = self.slaves[index][-1]
 
         self.slaveList.item(
-            iid, values = (index + 1, slave[self.I_MAC],
+            iid, values = (index + 1, slave[self.I_NAME], slave[self.I_MAC],
                 STATUSES[slave[self.I_STATUS]], slave[self.I_FANS],
                 slave[self.I_VERSION]),
             tag = slave[self.I_STATUS])
 
-        self.slaves[self.I_INDEX] = slave + (iid,)
+        self.slaves[index] = slave + (iid,)
 
         if self.autoVar.get():
             self.slaveList.move(iid, '', 0)
@@ -813,6 +878,11 @@ class SlaveListWidget(tk.Frame):
 
     def _deselectAll(self, *A):
         self.slaveList.selection_set(())
+
+    def __testF1(self):
+        """ Provisional testing method for development """
+        self.slavesIn(TEST_VECTORS[self.testi%len(TEST_VECTORS)])
+        self.testi += 1
 
 # Network status bar ===========================================================
 class StatusBarWidget(tk.Frame):
@@ -921,49 +991,6 @@ class StatusBarWidget(tk.Frame):
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
-    # NOTE: outdated (since NetworkAbstraction implementation)
     print("FCMkIV Network GUI demo started")
-
-    # Base
-    mw = tk.Tk()
-    NW = NetworkWidget(mw, printd = print, printx = print)
-    N = NW.getNetworkControlWidget()
-
-    for i in range(1, 4):
-        N.addTarget("Target {}".format(i), i)
-        N.addMessage("Message {}".format(i), i)
-
-    def callback(t, m):
-        print("Sending message [{}] to target [{}]".format(m, t))
-
-    N.setCallback(callback)
-
-    S = NW.getSlaveList()
-
-    S.addSlaves((
-        (0, "XX:XX", 'D', 69, 'FAKE'),
-        (1, "XX:XX", 'D', 69, 'FAKE'),
-        (2, "XX:XX", 'D', 69, 'FAKE'),
-        (3, "XX:XX", 'D', 69, 'FAKE'),
-    ))
-
-    S.updateSlave((0, "XX:XX", 'C', 69, 'FAKE'))
-    S.setStatus(1, 'A')
-
-    mw.grid_columnconfigure(0, weight = 1)
-    mw.grid_rowconfigure(0, weight = 1)
-    NW.grid(row = 0, sticky = "NEWS")
-
-    SB = StatusBarWidget(mw)
-    SB.grid(row = 1, sticky = "EW")
-
-    SB.setCount(CONNECTED, 10)
-    for i in range(3):
-        SB.addCount(DISCONNECTED)
-
-    SB.addCount(CONNECTED, -1)
-    SB.setTotal(SB.getCount(CONNECTED))
-
-    mw.mainloop()
-
+    print("[No Network GUI demo implemented]")
     print("FCMkIV Network GUI demo finished")
