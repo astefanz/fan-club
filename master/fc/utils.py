@@ -176,6 +176,7 @@ class PrintClient:
     facilities given by printers. Serves as a shortcut for common member
     function creation.
     """
+    SYMBOL = "[--]"
 
     def __init__(self, pqueue, symbol = "[--]"):
         """
@@ -190,7 +191,7 @@ class PrintClient:
         - printx: exception print
 
         """
-        P = printers(pqueue, symbol)
+        P = printers(pqueue, self.SYMBOL)
         self.printr = P[R]
         self.printe = P[E]
         self.printw = P[W]
@@ -246,16 +247,16 @@ class PrintServer(PrintClient):
       P.started         | boolean; whether this instance has been started
     --------------------+-------------------------------------------------------
     """
-    symbol = "[PS]"
+    SYMBOL = "[PS]"
     default_period = 1
 
-    def __init__(self, pqueue, symbol = symbol, period = default_period):
+    def __init__(self, pqueue, period = default_period):
         """
         Build and start a PrintServer that tracks PQUEUE. A daemonic "print
         thread" will be started. The print thread will check for messages to
         print every PERIOD seconds (defaults to PrintServer.default_period).
         """
-        PrintClient.__init__(self, pqueue, symbol)
+        PrintClient.__init__(self, pqueue)
         self.period_s = period
         self.period_ms = int(period*1000)
         if self.period_ms <= 0:

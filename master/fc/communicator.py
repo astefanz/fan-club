@@ -145,7 +145,7 @@ class FCCommunicator(us.PrintClient):
     pipe ends (See Python's multiprocessing) which are passed when the
     communications daemon is started (See start method).
     """
-    symbol = "[CM]"
+    SYMBOL = "[CM]"
 
     def __init__(self, pqueue):
         """
@@ -155,7 +155,7 @@ class FCCommunicator(us.PrintClient):
         NOTE: At most one FCCommunicator instance is meant to exist at a given
         time.
         """
-        us.PrintClient.__init__(self, pqueue, self.symbol)
+        us.PrintClient.__init__(self, pqueue)
         self.pqueue = pqueue
 
         self.printw("Initialized FCCommunicator skeleton") # FIXME

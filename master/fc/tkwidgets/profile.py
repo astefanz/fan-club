@@ -31,7 +31,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 from . import loader as ldr, guiutils as gus
-from .. import archive as ac
+from .. import archive as ac, utils as us
 
 ## AUXILIARY GLOBALS ###########################################################
 TAG_SUB = "M"
@@ -39,13 +39,15 @@ TAG_PRIMITIVE = "P"
 TAG_LIST = "L"
 
 ## MAIN ########################################################################
-class ProfileDisplay(tk.Frame):
+class ProfileDisplay(tk.Frame, us.PrintClient):
+    SYMBOL = "[PD]"
 
-    def __init__(self, master, archive):
+    def __init__(self, master, archive, pqueue):
         """
         Build an empty FC profile display in container MASTER.
         """
         tk.Frame.__init__(self, master = master)
+        us.PrintClient.__init__(self, pqueue, self.SYMBOL)
 
         # TODO:
         # - means by which to automatically update values here if the archive

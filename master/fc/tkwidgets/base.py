@@ -33,6 +33,7 @@ import tkinter.ttk as ttk
 
 from . import network as ntw, control as ctr, profile as pro, console as csl,\
     guiutils as gus
+from .. import utils as us
 
 
 if __name__ == '__main__':
@@ -48,15 +49,15 @@ FG_ERROR = "red"
 NOPE = lambda m: print("[SILENCED]: ", m)
 
 ## MAIN ########################################################################
-class Base(tk.Frame):
+class Base(tk.Frame, us.PrintClient):
 
     ERROR_MESSAGE = \
         "[NOTE: There are error messages in the console. Click here.]"
 
+    SYMBOL = "[BS]"
+
     def __init__(self, master, network, archive, title, version,
-        feedbackAdd, networkAdd, slavesAdd,
-        printr = gus.silent, printd = gus.silent, printx = gus.silent,
-        printe = gus.silent, printw = gus.silent):
+        feedbackAdd, networkAdd, slavesAdd, pqueue):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
         showing the version VERSION.
@@ -65,13 +66,11 @@ class Base(tk.Frame):
         are "clients" of the feedback, network and slaves vectors should be
         passed to assign them as such to the inter-process communications
         framework.
+
+        PQUEUE is the Queue object to be used for inter-process printing.
         """
         tk.Frame.__init__(self, master = master)
-        self.printr = printr
-        self.printw = printw
-        self.printd = printd
-        self.printe = printe
-        self.printx = printx
+        us.PrintClient.__init__(self, pqueue, self.SYMBOL)
 
         print("[NOTE] Streamline GUI printing?") # TODO
 
@@ -128,22 +127,21 @@ class Base(tk.Frame):
         self.consoleTab = tk.Frame(self.notebook)
 
         # Profile tab:
-        self.profileWidget = pro.ProfileDisplay(self.profileTab, archive)
+        self.profileWidget = pro.ProfileDisplay(self.profileTab, archive,
+            pqueue)
         self.profileWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
         # Network tab:
         self.networkWidget = ntw.NetworkWidget(self.networkTab,
             network = network, archive = archive, networkAdd = self.networkAdd,
-            slavesAdd = self.slavesAdd,
-            printr = self.printr, printw = self.printw, printe = self.printe,
-            printd = self.printd, printx = self.printx)
+            slavesAdd = self.slavesAdd, pqueue = pqueue)
         self.networkWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
         # Control tab:
         self.controlWidget = ctr.ControlWidget(self.controlTab, network,
-            archive)
+            archive, pqueue = pqueue)
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
         self.feedbackAdd(self.controlWidget)
@@ -166,7 +164,7 @@ class Base(tk.Frame):
         self.bottomBar = tk.Frame(self)
         self.bottomBar.grid(row = 2, sticky = 'EW')
         self.bottomWidget = ntw.StatusBarWidget(self.bottomBar,
-            network.shutdown)
+            network.shutdown, pqueue)
         self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True)
         self.networkAdd(self.bottomWidget)
         self.slavesAdd(self.bottomWidget)

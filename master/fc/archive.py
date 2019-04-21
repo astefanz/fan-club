@@ -584,7 +584,7 @@ class FCArchive(us.PrintClient):
     retrieval to and from files.
     """
 
-    symbol = "[AC]"
+    SYMBOL = "[AC]"
     meta = META
     defaults = DEFAULTS
 
@@ -655,7 +655,7 @@ class FCArchive(us.PrintClient):
         Note that a profile must be loaded (may be the default) before this
         instance is used.
         """
-        us.PrintClient.__init__(self, pqueue, self.symbol)
+        us.PrintClient.__init__(self, pqueue)
         self.runtime = {platform : us.platform(), version : ver}
         self.P = {}
         self.P.update(self.runtime)

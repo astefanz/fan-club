@@ -37,21 +37,23 @@ import tkinter.font as fnt
 
 from . import guiutils as gus, grid as gd, loader as ldr
 from .embedded import colormaps as cms
-from .. import archive as ac
+from .. import archive as ac, utils as us
 
 ## GLOBALS #####################################################################
 
 ## MAIN WIDGET #################################################################
-class ControlWidget(tk.Frame):
+class ControlWidget(tk.Frame, us.PrintClient):
     """
     Container for all the FC control GUI front-end widgets.
     """
+    SYMBOL = "[CW]"
 
     RESIZE_MS = 400
 
-    def __init__(self, master, network, archive,
-        printr = gus.default_printr, printx = gus.default_printx):
+    def __init__(self, master, network, archive, pqueue):
+
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
 
@@ -61,19 +63,18 @@ class ControlWidget(tk.Frame):
         self.bind("<Configure>", self._scheduleAdjust)
 
         # Control panel --------------------------------------------------------
-        self.control = ControlPanelWidget(self.main, network, printr, printx)
+        self.control = ControlPanelWidget(self.main, network, pqueue)
         self.main.add(self.control, weight = 2)
 
         # Grid -----------------------------------------------------------------
-        self.grid = GridWidget(self.main, self.archive , printr = printr,
-            printx = printx)
+        self.grid = GridWidget(self.main, self.archive, pqueue = pqueue)
         self.main.add(self.grid, weight = 16)
 
         # Color Bar ------------------------------------------------------------
         # FIXME
         self.bar = ColorBarWidget(self.main,
             colors = cms.COLORMAP_GALCIT, high = self.archive[ac.maxRPM],
-            unit = "RPM", printr = printr, printx = printx)
+            unit = "RPM", pqueue = pqueue)
         self.main.add(self.bar, weight = 0)
         # Wrap-up --------------------------------------------------------------
         print("[NOTE] Printer feedback forwarding?")
@@ -125,11 +126,12 @@ class PythonInputWidget(tk.Frame):
     """
     Base class for a widget for Python code input.
     """
+    SYMBOL = "[PI]"
 
     HEADER = "def duty_cycle(r, c, l, p, d, t):"
     FOOTER = "self.func = duty_cycle"
 
-    def __init__(self, master, callback, printr, printx): # FIXME params
+    def __init__(self, master, callback, pqueue):
         """
         Create a Python input widget in which the user may define a function
         of the form
@@ -146,10 +148,9 @@ class PythonInputWidget(tk.Frame):
         after being parsed and instantiated.
         """
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         self.callback = callback
-        self.printr = printr
-        self.printx = printx
 
         self.grid_rowconfigure(1, weight = 1)
         self.grid_columnconfigure(1, weight = 1)
@@ -255,18 +256,19 @@ class PythonInputWidget(tk.Frame):
 
     # FIXME API
 
-class SteadyControlWidget(tk.Frame):
+class SteadyControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the steady flow control tools.
     """
+    SYMBOL = "[SC]"
 
     """ Codes for direct input modes. """
     DI_SELECT = 55
     DI_DRAW = 65
 
-    def __init__(self, master, network,
-        printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, network, pqueue):
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -337,7 +339,7 @@ class SteadyControlWidget(tk.Frame):
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
-            lambda m: print(m), lambda x, m: print(x, m)) # FIXME
+            pqueue)
         self.python.pack(fill = tk.BOTH, expand = True)
         # FIXME configure python
 
@@ -411,13 +413,15 @@ class SteadyControlWidget(tk.Frame):
 
     # FIXME
 
-class DynamicControlWidget(tk.Frame):
+class DynamicControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the steady flow control tools.
     """
+    SYMBOL = "[DC]"
 
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, pqueue):
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         self.grid_columnconfigure(0, weight = 1)
         row = 0
@@ -429,7 +433,7 @@ class DynamicControlWidget(tk.Frame):
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
-            lambda m: print(m), lambda x, m: print(x, m)) # FIXME
+            pqueue)
         self.python.pack(fill = tk.BOTH, expand = True)
         # FIXME configure python
 
@@ -464,30 +468,32 @@ class DynamicControlWidget(tk.Frame):
         # FIXME
         print("[WARNING] _onLoad not implemented")
 
-class ExternalControlWidget(tk.Frame):
+class ExternalControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the "external" control tools.
     """
 
-    def __init__(self, master, printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, pqueue):
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
         l = tk.Label(self, text = "[External control goes here]")
         l.pack(fill = tk.BOTH, expand = True)
         # FIXME
     # FIXME
 
-class ControlPanelWidget(tk.Frame):
+class ControlPanelWidget(tk.Frame, us.PrintClient):
     """
     Container for the control GUI tools and peripherals.
     """
+    SYMBOL = "[CP]"
 
     """ Codes for view modes. """
     VM_LIVE = 690
     VM_BUILDER = 691
 
-    def __init__(self, master, network,
-        printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, network, pqueue):
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -534,16 +540,16 @@ class ControlPanelWidget(tk.Frame):
         row += 1
 
         # Steady ...............................................................
-        self.steady = SteadyControlWidget(self.notebook, printr, printx)
+        self.steady = SteadyControlWidget(self.notebook, network, pqueue)
         self.notebook.add(self.steady, text = "Steady Flow")
 
         # Dynamic ..............................................................
-        self.dynamic = DynamicControlWidget(self.notebook, printr, printx)
+        self.dynamic = DynamicControlWidget(self.notebook, pqueue)
         self.notebook.add(self.dynamic, text = "Dynamic Flow",
             state = tk.NORMAL)
 
         # External .............................................................
-        self.external = ExternalControlWidget(self.notebook, printr, printx)
+        self.external = ExternalControlWidget(self.notebook, pqueue)
         self.notebook.add(self.external, text = "External Control",
             state = tk.NORMAL)
 
@@ -619,10 +625,11 @@ class ControlPanelWidget(tk.Frame):
         # TODO
         pass
 
-class GridWidget(gd.BaseGrid):
+class GridWidget(gd.BaseGrid, us.PrintClient):
     """
     Front end for the 2D interactive Grid.
     """
+    SYMBOL = "[GD]"
 
     DEFAULT_COLORS = cms.COLORMAP_GALCIT_REVERSED
     DEFAULT_OFF_COLOR = "#303030"
@@ -635,9 +642,8 @@ class GridWidget(gd.BaseGrid):
     WIDTH_NORMAL = 1
     WIDTH_SELECTED = 3
 
-    def __init__(self, master, archive, colors = DEFAULT_COLORS,
-        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
-        printr = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, archive, pqueue, colors = DEFAULT_COLORS,
+        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH):
 
         self.archive = archive
         fanArray = self.archive[ac.fanArray]
@@ -645,6 +651,7 @@ class GridWidget(gd.BaseGrid):
 
         gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
             empty = off_color)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         # NOTE: use this block of code for "re-build" method, or perhaps try
@@ -880,13 +887,14 @@ class ColorBarWidget(tk.Frame):
     """
     Draw a vertical color gradient for color-coding reference.
     """
-    def __init__(self, master, colors, high = 100, unit = "[?]",
-        printr = lambda s:None, printx = lambda e:None):
+    SYMBOL = "[CB]"
 
+    def __init__(self, master, colors, pqueue, high = 100, unit = "[?]"):
+
+        tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
-        tk.Frame.__init__(self, master)
-        self.printr, self.printx = printr, printx
         self.grid_columnconfigure(0, weight = 1)
         self.grid_rowconfigure(1, weight = 1)
         self.colors = colors

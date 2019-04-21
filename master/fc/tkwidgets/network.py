@@ -36,7 +36,7 @@ import time as tm
 import shutil as sh
 
 from . import guiutils as gus
-from .. import standards as s
+from .. import standards as s, utils as us
 
 import tkinter as tk
 import tkinter.filedialog as fdg
@@ -61,15 +61,14 @@ TEST_VECTORS = [
 ]
 
 ## BASE ########################################################################
-class NetworkWidget(tk.Frame):
+class NetworkWidget(tk.Frame, us.PrintClient):
     """
     Container for all the FC network GUI front-end widgets, except the FC
     status bar.
     """
+    SYMBOL = "[NW]"
 
-    def __init__(self, master, network, archive, networkAdd, slavesAdd,
-        printr = gus.silent, printw = gus.silent, printd = gus.silent,
-        printe = gus.silent, printx = gus.silent):
+    def __init__(self, master, network, archive, networkAdd, slavesAdd, pqueue):
         """
         Create a new NetworkWidget inside MASTER, interfaced with the network
         backend using the NETWORK abstraction.
@@ -78,11 +77,12 @@ class NetworkWidget(tk.Frame):
         NETWORKADD and SLAVESADD are methods to be called on widgets that
         expect to receive incoming network and slaves vectors, respectively.
 
-        Optionally, methods PRINTD and PRINTX as defined in fc.utils may
-        be passed on to be used for print feedback.
+        PQUEUE is the Queue object to be used for I-P printing.
         """
         # Core setup -----------------------------------------------------------
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
+
         self.main = tk.Frame(self)
         self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
 
@@ -92,26 +92,20 @@ class NetworkWidget(tk.Frame):
         self.networkAdd, self.slavesAdd = networkAdd, slavesAdd
         self.network = network
 
-        self.printr = printr
-        self.printw = printw
-        self.printd = printd
-        self.printe = printe
-        self.printx = printx
-
         # ----------------------------------------------------------------------
         self.firmwareFrame = tk.LabelFrame(self.main, text = "Firmware Update")
         self.firmwareFrame.grid(row = 1, sticky = "EW")
         self.firmwareUpdate = FirmwareUpdateWidget(self.firmwareFrame, network,
-            printd = printd, printx = printx)
+            pqueue)
         self.firmwareUpdate.pack(fill = tk.BOTH, expand = True)
 
-        self.slaveList = SlaveListWidget(self.main, network)
+        self.slaveList = SlaveListWidget(self.main, network, pqueue)
         self.slaveList.grid(row = 2, sticky = "NEWS")
 
         self.networkFrame = tk.LabelFrame(self.main, text = "Network Control")
         self.networkFrame.grid(row = 0, sticky = "EW")
         self.networkControl = NetworkControlWidget(self.networkFrame, network,
-            self.slaveList)
+            self.slaveList, pqueue)
         self.networkControl.pack(fill = tk.BOTH, expand = True)
         self.networkControl.addClient(self.firmwareFrame)
 
@@ -121,7 +115,7 @@ class NetworkWidget(tk.Frame):
 ## WIDGETS #####################################################################
 
 # Network control ==============================================================
-class NetworkControlWidget(tk.Frame):
+class NetworkControlWidget(tk.Frame, us.PrintClient):
     """
     GUI front-end for the FC network control tools (such as adding and removing
     Slaves).
@@ -129,8 +123,20 @@ class NetworkControlWidget(tk.Frame):
     NO_IP = "[NO IP]"
     NO_PORT = "[NO PORT]"
 
-    def __init__(self, master, network, slaveList):
+    def __init__(self, master, network, slaveList, pqueue):
+        """
+        Create a new NetworkControlWidget.
+
+        MASTER := Tkinter parent widget
+        NETWORK := NetworkAbstraction for this system
+        SLAVELIST := SlaveList instance from which to fetch selections for
+            control messages
+        PQUEUE := Queue instance to use for I-P printing
+        """
+
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
+
         self.network = network
         self.slaveList = slaveList
 
@@ -382,26 +388,31 @@ class NetworkControlWidget(tk.Frame):
 
 
 # Firmware update ==============================================================
-class FirmwareUpdateWidget(tk.Frame):
+class FirmwareUpdateWidget(tk.Frame, us.PrintClient):
     """
     GUI front-end for the FC firmware update tools, i.e the Mark III
     "Bootloader."
     """
+    SYMBOL = "[FU]"
     READY, LIVE, INACTIVE = range(3)
 
-    def __init__(self, master, network,
-        printd = lambda s:None, printx = lambda e:None):
+    def __init__(self, master, network, pqueue):
+        """
+        Create a new FirmwareUpdateWidget.
 
+        MASTER := Tkinter parent widget
+        NETWORK := NetworkAbstraction being used
+        PQUEUE := Queue instance for I-P printing
+        """
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
+
         # Setup ................................................................
         self.network = network
 
         self.main = tk.Frame(self)
         self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
         self.setupWidgets = []
-
-        self.printx = printx
-        self.printd = printd
 
         # File .................................................................
         self.fileFrame = tk.Frame(self.main)
@@ -592,14 +603,23 @@ class FirmwareUpdateWidget(tk.Frame):
             self._inactive()
 
 # Slave list ===================================================================
-class SlaveListWidget(tk.Frame):
+class SlaveListWidget(tk.Frame, us.PrintClient):
     """
     GUI front-end for the FC Slave List display.
     """
+    SYMBOL = "[SL]"
 
+    def __init__(self, master, network, pqueue):
+        """
+        Create a new SlaveList widget.
 
-    def __init__(self, master, network):
+        MASTER := Tkinter parent widget
+        NETWORK := NetworkAbstraction being used
+        PQUEUE := Queue object for I-P printing
+        """
+
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -881,24 +901,27 @@ class SlaveListWidget(tk.Frame):
         self.testi += 1
 
 # Network status bar ===========================================================
-class StatusBarWidget(tk.Frame):
+class StatusBarWidget(tk.Frame, us.PrintClient):
     """
     GUI front-end for the FC "status bar."
     """
+    SYMBOL = "[SB]"
 
-    TOTAL = 'T'
+    TOTAL = 100
     CONNECTED_STR = "Connected"
     DISCONNECTED_STR = "Disconnected"
 
-    def __init__(self, master, shutdown):
+    def __init__(self, master, shutdown, pqueue):
         """
         Horizontal bar that contains a breakdown of all slave statuses in
         the network, plus a connect/disconnect button.
 
         MASTER := Tkinter parent widget
         SHUTDOWN := Method to call when the shutdown button is pressed
+        PQUEUE := Queue object to be used for I-P printing
         """
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.config(relief = tk.RIDGE, borderwidth = 2)

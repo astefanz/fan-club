@@ -60,7 +60,7 @@ class FCInterface(us.PrintServer):
     as PrintServer --that is, they now refer to both inter-process
     communications and terminal output. See fc.utils.PrintServer.
     """
-    symbol = "[FE]"
+    SYMBOL = "[FE]"
 
     def __init__(self, pqueue, archive, communicator,
         period = us.PrintServer.default_period):
@@ -74,7 +74,7 @@ class FCInterface(us.PrintServer):
         Note that an FCInstance instance is meant to be used once per execution.
         Calling run twice will result in a RuntimeError.
         """
-        us.PrintServer.__init__(self, pqueue, self.symbol, period)
+        us.PrintServer.__init__(self, pqueue, period)
         self.archive = archive
         self.communicator = communicator
         self.version = self.archive[ac.version]
