@@ -692,6 +692,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             s_i = slave[ac.SV_index]
             s_r, s_c = slave[ac.MD_row], slave[ac.MD_column]
             s_R, s_C = slave[ac.MD_rows], slave[ac.MD_columns]
+
             for cell_i, cell_data in enumerate(slave[ac.MD_mapping].split(',')):
                 # Skip empty cells:
                 if not cell_data:
@@ -701,7 +702,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                     if not fan:
                         continue
                     # Fan index:
-                    fan_i = int(fan) - 1
+                    fan_i = int(fan)
+
                     # Corresponding grid row, column, and index:
                     grid_r = s_r + (cell_i//s_C)
                     grid_c = s_c + (cell_i%s_C)
