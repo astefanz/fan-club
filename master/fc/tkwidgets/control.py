@@ -701,7 +701,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                     if not fan:
                         continue
                     # Fan index:
-                    fan_i = int(fan)
+                    fan_i = int(fan) - 1
                     # Corresponding grid row, column, and index:
                     grid_r = s_r + (cell_i//s_C)
                     grid_c = s_c + (cell_i%s_C)

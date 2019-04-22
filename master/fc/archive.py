@@ -83,7 +83,6 @@ version = 5
 # Network ----------------------------------------------------------------------
 broadcastPort  = 100
 broadcastPeriodMS = 101
-broadcastPeriodS = 102
 periodMS = 103
 maxLength = 105
 maxTimeouts = 106
@@ -113,7 +112,7 @@ SV_counterTimeoutMS = 125
 SV_pulsesPerRotation = 126
 SV_maxRPM = 127
 SV_minRPM = 128
-SV_minDCs = 129
+SV_minDC = 129
 SV_maxFans = 130
 SV_pinout = 131
 # For each module . . . .
@@ -332,11 +331,6 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         v_positive_int),
-    broadcastPeriodS : ("broadcastPeriodS",
-		4,
-		TYPE_PRIMITIVE,
-		True,
-        v_positive_int),
     periodMS : ("periodMS",
 		4,
 		TYPE_PRIMITIVE,
@@ -462,7 +456,7 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
 		v_nonnegative_int),
-    SV_minDCs : ("SV_minDCs",
+    SV_minDC : ("SV_minDC",
 		13,
 		TYPE_PRIMITIVE,
 		True,
@@ -596,7 +590,6 @@ class FCArchive(us.PrintClient):
 
         broadcastPort  : 65000,
         broadcastPeriodMS : 1000,
-        broadcastPeriodS : 1,
         periodMS : 100,
         maxLength : 512,
         maxTimeouts : 10,
@@ -624,7 +617,7 @@ class FCArchive(us.PrintClient):
                 SV_pulsesPerRotation : 2,
                 SV_maxRPM : 16000,
                 SV_minRPM : 1200,
-                SV_minDCs : 0.5,
+                SV_minDC : 0.5,
                 SV_maxFans : 21,
                 SV_pinout : "BASE",
                 MD_assigned : False,
@@ -662,7 +655,7 @@ class FCArchive(us.PrintClient):
         self.modified = False
 
         # TODO: Startup "auto-load" routine
-        self.builtin("DEV") # FIXME temporary
+        self.builtin("BASE") # FIXME temporary
         self.printw("Provisional profile set")
 
     def modified(self):
@@ -799,7 +792,6 @@ DEV = {
 
     broadcastPort  : 65000,
     broadcastPeriodMS : 1000,
-    broadcastPeriodS : 1,
     periodMS : 100,
     maxLength : 512,
     maxTimeouts : 10,
@@ -827,7 +819,7 @@ DEV = {
             SV_pulsesPerRotation : 2,
             SV_maxRPM : 16000,
             SV_minRPM : 1200,
-            SV_minDCs : 0.5,
+            SV_minDC : 0.5,
             SV_maxFans : 21,
             SV_pinout : "BASE",
             MD_assigned : False,
@@ -852,7 +844,7 @@ DEV = {
             SV_pulsesPerRotation : 2,
             SV_maxRPM : 16000,
             SV_minRPM : 1200,
-            SV_minDCs : 0.5,
+            SV_minDC : 0.1,
             SV_maxFans : 21,
             SV_pinout : "BASE",
             MD_assigned : True,
@@ -877,7 +869,7 @@ DEV = {
             SV_pulsesPerRotation : 2,
             SV_maxRPM : 16000,
             SV_minRPM : 1200,
-            SV_minDCs : 0.5,
+            SV_minDC : 0.1,
             SV_maxFans : 21,
             SV_pinout : "BASE",
             MD_assigned : True,
@@ -898,7 +890,215 @@ DEV = {
     },
 }
 
+BASE = {
+    name : "Prov. Basement Tunnel",
+    description : "Not the wind tunnel GALCIT wants, but the one it needs.",
+    platform : UNKNOWN,
+
+    broadcastPort  : 65000,
+    broadcastPeriodMS : 1000,
+    periodMS : 100,
+    maxLength : 512,
+    maxTimeouts : 10,
+
+    mainQueueSize : 10,
+    slaveQueueSize: 10,
+    broadcastQueueSize : 2,
+    listenerQueueSize : 3,
+    misoQueueSize : 2,
+    printerQueueSize : 3,
+    passcode : "CT",
+
+    defaultSlave :
+        {
+            SV_name : "FAWT Module",
+            SV_mac : "None",
+            SV_index : -1,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 21,
+            SV_pinout : "BASE",
+            MD_assigned : False,
+            MD_row : -1,
+            MD_column : -1,
+            MD_rows : 0,
+            MD_columns : 0,
+            MD_mapping : ()
+        },
+    savedSlaves : (
+
+        {
+            SV_name : "B1",
+            SV_mac : "00:80:e1:4b:00:36",
+            SV_index : 0,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 20,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 7,
+            MD_column : 5,
+            MD_rows : 4,
+            MD_columns : 6,
+            MD_mapping : \
+                '20,18,14,10,,,19,17,13,9,6,3,,16,12,8,5,2,,15,11,7,4,1'
+        },
+        {
+            SV_name : "B2",
+            SV_mac : "00:80:e1:2f:00:1d",
+            SV_index : 1,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 20,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 7,
+            MD_column : 0,
+            MD_rows : 4,
+            MD_columns : 6,
+            MD_mapping : \
+                ',,14,10,6,,20,17,13,9,5,,19,16,12,8,4,2,18,15,11,7,3,1'
+        },
+        {
+            SV_name : "B3",
+            SV_mac : "00:80:e1:29:00:2e",
+            SV_index : 2,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 20,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 3,
+            MD_column : 0,
+            MD_rows : 5,
+            MD_columns : 6,
+            MD_mapping : \
+                '19,20,,,,,14,15,16,17,18,,8,9,10,11,12,13,3,4,5,6,7,,1,2,,,,'
+        },
+        {
+            SV_name : "B4",
+            SV_mac : "00:80:e1:27:00:3e",
+            SV_index : 3,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 20,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 0,
+            MD_column : 0,
+            MD_rows : 4,
+            MD_columns : 6,
+            MD_mapping : \
+                '1,2,3,4,5,,6,7,8,9,10,,11,12,13,14,15,16,,,17,18,19,20'
+        },
+        {
+            SV_name : "B5",
+            SV_mac : "00:80:e1:4b:00:42",
+            SV_index : 4,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 20,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 0,
+            MD_column : 5,
+            MD_rows : 4,
+            MD_columns : 6,
+            MD_mapping : \
+                '20,18,14,10,6,3,19,17,13,9,5,2,,16,12,8,4,1,,15,11,7,,,'
+        },
+        {
+            SV_name : "B6",
+            SV_mac : "00:80:e1:47:00:3d",
+            SV_index : 5,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 21,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 3,
+            MD_column : 5,
+            MD_rows : 5,
+            MD_columns : 6,
+            MD_mapping : \
+                ',,,,10,5,21,19,16,13,9,4,,18,15,12,8,3,20,17,14,11,7,2,,,,,6,1'
+        }
+    ),
+    pinouts : PINOUTS.copy(),
+    maxRPM : 16000,
+    maxFans : 21,
+    fanArray : {
+        FA_rows : 11,
+        FA_columns : 11,
+        FA_layers : 1,
+    },
+}
+
 
 PROFILES = {
-    "DEV" : DEV
+    "DEV" : DEV,
+    "BASE": BASE
 }
