@@ -148,7 +148,8 @@ class ConsoleWidget(tk.Frame):
         self._print(TAG_SUCCESS, message)
 
     def printd(self, message):
-        self._print(TAG_DEBUG, message)
+        if self.debugVar.get():
+            self._print(TAG_DEBUG, message)
 
     def printx(self, message):
         self._print(TAG_ERROR, message)
@@ -190,9 +191,8 @@ class ConsoleWidget(tk.Frame):
                 title = "Choose file",
                 filetypes = (("Text files","*.txt"),
                     ("All files","*.*")))
-            if filename == '':
-                self.printr(self.symbol + \
-                    " Terminal print-to-file canceled (no filename)", 'W')
+            if not filename:
+                self.printd("[Terminal print-to-file canceled (no filename)]")
             else:
                 with open(filename, 'w') as f:
                     f.write("Fan Club MkIV Terminal log printed on {}\n\n".\

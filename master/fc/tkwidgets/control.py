@@ -26,6 +26,9 @@
  + Graphical interface for the FC array control tools.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
+# TODO:
+# - Display table? (give to control panel as another display)
+
 ## IMPORTS #####################################################################
 import os
 import time as tm
@@ -62,23 +65,20 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.main.pack(fill = tk.BOTH, expand = True)
         self.bind("<Configure>", self._scheduleAdjust)
 
-        # Control panel --------------------------------------------------------
-        self.control = ControlPanelWidget(self.main, network, pqueue)
-        self.main.add(self.control, weight = 2)
-
         # Grid -----------------------------------------------------------------
         self.grid = GridWidget(self.main, self.archive, pqueue = pqueue)
-        self.main.add(self.grid, weight = 16)
+
+        # Control panel --------------------------------------------------------
+        self.control = ControlPanelWidget(self.main, network, self.grid, pqueue)
 
         # Color Bar ------------------------------------------------------------
-        # FIXME
-        self.bar = ColorBarWidget(self.main,
-            colors = cms.COLORMAP_GALCIT, high = self.archive[ac.maxRPM],
-            unit = "RPM", pqueue = pqueue)
-        self.main.add(self.bar, weight = 0)
-        # Wrap-up --------------------------------------------------------------
-        print("[NOTE] Printer feedback forwarding?")
+        self.bar = ColorBarWidget(self.main, colors = cms.COLORMAP_GALCIT,
+            high = self.archive[ac.maxRPM], unit = "RPM", pqueue = pqueue)
 
+        # Assemble .............................................................
+        self.main.add(self.control, weight = 2)
+        self.main.add(self.grid, weight = 16)
+        self.main.add(self.bar, weight = 0)
 
     def feedbackIn(self, F):
         """
@@ -120,6 +120,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.grid.redraw()
         self.bar.redraw()
         self.bind("<Configure>", self._scheduleAdjust)
+
 
 ## WIDGETS #####################################################################
 class PythonInputWidget(tk.Frame):
@@ -227,7 +228,7 @@ class PythonInputWidget(tk.Frame):
             self.callback(self.func)
 
         except Exception as e:
-            self.printx("Exception when parsing Python input:", e)
+            self.printx(e, "Exception when parsing Python input:")
 
     def _onLoad(self, contents):
         """
@@ -491,12 +492,13 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     VM_LIVE = 690
     VM_BUILDER = 691
 
-    def __init__(self, master, network, pqueue):
+    def __init__(self, master, network, display, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
+        self.display = display
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
@@ -605,7 +607,12 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.layerVar.set(1)
 
     # API ......................................................................
-    # FIXME
+    def isLive(self):
+        """
+        Return whether the currently selected view mode is "Live Control" (the
+        alternative is "Flow Builder").
+        """
+        return self.viewVar.get() == self.VM_LIVE
 
     # TODO: Set layers?
 
@@ -884,7 +891,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     # FIXME
 
-
 class ColorBarWidget(tk.Frame):
     """
     Draw a vertical color gradient for color-coding reference.
@@ -922,7 +928,6 @@ class ColorBarWidget(tk.Frame):
         self._draw()
 
     # API ......................................................................
-
     def redraw(self, *E):
         """
         Rebuild the color bar to adjust to a new size.
