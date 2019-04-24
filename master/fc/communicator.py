@@ -41,7 +41,7 @@ class FCNetwork(us.PrintClient):
     Abstractions to be used by the FC front-end to interface with the
     communications back-end.
     """
-    SYMBOL = "[NA]"
+    SYMBOL = "[NW]"
 
     def __init__(self, feedbackPipe, networkPipe, slavesPipe, archive, pqueue):
         """

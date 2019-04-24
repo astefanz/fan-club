@@ -27,60 +27,177 @@
  + processes and objects.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
-## COMMUNICATIONS ##############################################################
+""" INTER PROCESS COMMUNICATIONS STANDARD ++++++++++++++++++++++++++++++++++++++
 
-# Communicator commands --------------------------------------------------------
-# Message codes:
-MSG_ADD = 3031
-MSG_DISCONNECT = 3032
-MSG_REBOOT = 3033
-MSG_REMOVE = 3034
-MSG_SHUTDOWN = 3035
+                 ------ CONTROL PIPE ------------------------
+            +----> [control vector (DC assignments) ] ----------->+
+            ^    --------------------------------------------     |
+            |                                                     |
+            |    ------ COMMAND PIPE ------------------------     |
+            | +--> [command vector (ADD, REBOOT, FIRMW...)] --->+ |
+            ^ ^  --------------------------------------------   V V
+        -----------                                         ------------
+       |           |                                       |            |
+       | FRONT-END |                                       |  BACK-END  |
+       |           |                                       |            |
+        -----------                                         ------------
+         ^ ^ ^ ^                                               V V V V
+         | | | |  ---- FEEDBACK PIPE ------------------------  | | | |
+         | | | +<- [feedback vector F (DC's and RPM's)] <------+ | | |
+         | | |    -------------------------------------------    | | |
+         | | |                                                   | | |
+         | | |    ---- NETWORK PIPE -------------------------    | | |
+         | | +<--- [network vector N (global IP's and ports)] <--+ | |
+         | |      -------------------------------------------      | |
+         | |                                                       | |
+         | |      ---- SLAVE PIPE ---------------------------      | |
+         | +<----- [slave vector S (slave i's, statuses...)] <-----+ |
+         |        -------------------------------------------        |
+         |                                                           |
+         |        ==== PRINT QUEUE ==========================        |
+         +<------- [print messages] <--------------------------------+
+                  ===========================================
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
+
+# TODO: Network diagnostics data, such as MISO and MOSI indices and packet
+# loss counts, etc.
+
+# Number of decimals to have for duty cyle. Indicates by which power of 10 to
+# normalize
+DC_DECIMALS = 4
+DC_NORMALIZER = 10.0**(-(DC_DECIMALS + 2)) # .... Multiply by this to normalize
 
 # Target codes:
 TGT_ALL = 4041
 TGT_SELECTED = 4042
 
-MESSAGE_CODES = (
-    MSG_ADD,
-    MSG_DISCONNECT,
-    MSG_REBOOT,
-    MSG_REMOVE,
-    MSG_SHUTDOWN,
-)
+# NOTE: The purpose of these dictionaries is twofold --first, they allow for
+# near constant-time lookup to check whether an integer is a valid code of a
+# certain category; second, they allow translation of codes to strings for
+# auxiliary printing.
+TARGET_CODES = {
+    TGT_ALL : "TGT_ALL",
+    TGT_SELECTED : "TGR_SELECTED"
+}
+
+# Command vectors ##############################################################
+# NOTE: Sent through the same channel as control vectors.
+# Form:
+#
+#            [ CODE, TARGET_CODE, TARGET_0, TARGET_1,... ]
+#              |     |            |---------------------/
+#              |     |            |
+#              |     |            |
+#              |     |            Indices of selected slaves, if applicable
+#              |     Whether to apply to all or to a subset of the slaves
+#              Command code: ADD, DISCONNECT, REBOOT, REMOVE, etc. (below)
+#
+#                        either broadcast or targetted "heart beat"
+#                        |
+#            [ CMD_BMODE, VAL ]
+#              |         |
+#              |         New broadcast mode
+#              Set new broadcast mode
+#
+
+# Command codes:
+CMD_ADD = 3031
+CMD_DISCONNECT = 3032
+CMD_REBOOT = 3033
+CMD_SHUTDOWN = 3035
+CMD_FUPDATE_START = 3036 # .............................. Start firmware update
+CMD_FUPDATE_STOP = 3037
+CMD_STOP = 3038 # ............................................... Stop back-end
+CMD_BMODE = 3039  # .............................................. Set broadcast
+
+# Broadcast modes:
+BMODE_BROADCAST = 8391
+BMODE_TARGETTED = 8392
+
+# INDICES:
+CMD_I_CODE = 0
+CMD_I_TGT_CODE = 1
+CMD_I_TGT_OFFSET = 2
+
+COMMAND_CODES = {
+    CMD_ADD : "CMD_ADD",
+    CMD_DISCONNECT : "CMD_DISCONNECT",
+    CMD_REBOOT : "CMD_REBOOT",
+    CMD_REMOVE : "CMD_REMOVE",
+    CMD_SHUTDOWN : "CMD_SHUTDOWN",
+    CMD_FUPDATE_START : "CMD_FUPDATE_START",
+    CMD_FUPDATE_STOP : "CMD_FUPDATE_STOP",
+    CMD_STOP : "CMD_STOP",
+    CMD_BMODE : "CMD_BMODE",
+}
+
+# Control vectors ##############################################################
+# NOTE: Sent through the same channel as command vectors
+# Form:
+#                                                           1st fan selected
+#                                                           |2nd fan selected
+#                                                           ||
+#                                       String of the form "01001..."
+#                                       |
+# [CTL_DC_SINGLE, TGT_SELECTED, DC, TARGET_0, SEL_0, TARGET_1, SEL_1...]
+#  |              |             |   |-------------/ |----------------/
+#  |              |             |   |               |
+#  |              |             |   |               Data for second target...
+#  |              |             |   Index of first target slave, then selection
+#  |              |             Target duty cycle (int) (must be normalized)
+#  |              Apply command to selected Slaves
+#  Control code
+#                                                  1st fan selected
+#                                                  |2nd fan selected
+#                                                  ||
+#                              String of the form "01001..."
+#                              |
+# [CTL_DC_SINGLE, TGT_ALL, DC, SELECTION]
+#  |              |        |   |
+#  |              |        |   Selected fans
+#  |              |        Target duty cycle, as integer (must be normalized)
+#  |              Apply to all Slaves
+#  Control code
+#
+#                              Here there are as many duty cycles as the
+#                              correspondign slave has fans
+# [CTL_DC_MULTI, TGT_SELECTED, TARGET_0, DC_0_0, DC_0_1,... TARGET_1, ...]
+#  |                 |         |----------------------/ |----------------/
+#  |                 |         |                        |
+#  |                 |         |                        Data for slave 1
+#  |                 |         Index of first target slave, then its DC's
+#  |                 Whether to apply to all or to a subset of the slaves
+#  Control code
+#  NOTE: TGT_SELECTED is ignored, as CTL_DC_MULTI is meant to only use this
+#  format.
 
 # Control codes:
-CTL_DC = 5051
-# NOTE: From the old communicator, commands have been simplified by using only
-# "SET_DC_MULTI" Also, SET_RPM has been omitted until feedback control is to be
-# implemented.
-CONTROL_CODES = (
-    CTL_DC
-)
+CTL_DC_SINGLE = 5051
+CTL_DC_MULTI = 5051
 
-# Bootloader codes:
-BTL_START = 6061
-BTL_STOP = 6062
+# Control indices:
+CTL_I_CODE = 0
+CTL_I_TGT = 1
 
-BOOTLOADER_CODES = (
-    BTL_START,
-    BTL_STOP
-)
+CTL_I_SINGLE_DC = 2
+CTL_I_SINGLE_ALL_SELECTION = 3
 
-# Special codes:
-SPEC_STOP = 7071
+CONTROL_CODES = {
+CTL_DC_SINGLE : "CTL_DC_SINGLE",
+CTL_DC_MULTI : "CTL_DC_MULTI"
+}
+
 
 # Aggregates:
-
-MESSAGES = {"Add":MSG_ADD, "Disconnect":MSG_DISCONNECT, "Reboot":MSG_REBOOT,
-    "Remove": MSG_REMOVE, "Shutdown":MSG_SHUTDOWN}
+MESSAGES = {"Add":CMD_ADD, "Disconnect":CMD_DISCONNECT, "Reboot":CMD_REBOOT,
+    "Shutdown":CMD_SHUTDOWN}
 TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
 
 CONTROLS = {"DC":CTL_DC}
 
-# Network status vectors -------------------------------------------------------
+# Network status vectors #######################################################
 # Form:
-#        Process a new network state vector N of the following form:
 #            [ CONN, IP, BIP, BPORT, LPORT ]
 #              |     |   |    |       |
 #              |     |   |    |       Listener port (int)
@@ -89,31 +206,53 @@ CONTROLS = {"DC":CTL_DC}
 #              |     Communications IP (String)
 #              Connection status (Bool -- connected or not)
 
-# Status codes:
-CONNECTED = 0
-KNOWN = 1
-DISCONNECTED = 2
-AVAILABLE = 3
-UPDATING = 4
-TAGS = (CONNECTED, KNOWN, DISCONNECTED, AVAILABLE, UPDATING)
+# Indices:
+NS_LEN = 5
+NS_I_CONN, NS_I_IP, NS_I_BIP, NS_I_BPORT, NS_I_LPORT = range(NS_LEN)
 
-# Status 'long' names:
-STATUSES = {
-    CONNECTED : 'Connected',
-    KNOWN : 'Known',
-    DISCONNECTED : 'Disconnected',
-    AVAILABLE : 'Available',
-    UPDATING : 'Updating'
+# Network Status codes:
+NS_CONNECTED = 20001
+NS_CONNECTING = 20002
+NS_DISCONNECTED = 20003
+NS_DISCONNECTING = 20004
+
+NETWORK_STATUSES = {
+    NS_CONNECTED : "Connected",
+    NS_CONNECTING : "Connecting",
+    NS_DISCONNECTED : "Disconnected",
+    NS_DISCONNECTING : "Disconnecting",
 }
+
+# Slave status codes:
+SS_CONNECTED = 30001
+SS_KNOWN = 30002
+SS_DISCONNECTED = 30003
+SS_AVAILABLE = 30004
+SS_UPDATING = 30005
+
+SLAVE_STATUSES = {
+    SS_CONNECTED : 'Connected',
+    SV_KNOWN : 'Known',
+    SV_DISCONNECTED : 'Disconnected',
+    SV_AVAILABLE : 'Available',
+    SV_UPDATING : 'Updating'
+}
+
 
 # Status foreground colors:
 FOREGROUNDS = {
-    CONNECTED : '#0e4707',
-    KNOWN : '#44370b',
-    DISCONNECTED : '#560e0e',
-    AVAILABLE : '#666666',
-    UPDATING : '#192560'
+    SV_CONNECTED : '#0e4707',
+    SV_KNOWN : '#44370b',
+    SV_DISCONNECTED : '#560e0e',
+    SV_AVAILABLE : '#666666',
+    SV_UPDATING : '#192560'
 }
+FOREGROUNDS.update({
+    NS_CONNECTED : FOREGROUNDS[SS_CONNECTED],
+    NS_CONNECTING : FOREGROUNDS[SS_DISCONNECTING],
+    NS_DISCONNECTED : FOREGROUNDS[SS_DISCONNECTED],
+    NS_DISCONNECTING : FOREGROUNDS[SS_CONNECTED],
+})
 
 # Status background colors:
 BACKGROUNDS = {
@@ -123,10 +262,15 @@ BACKGROUNDS = {
     AVAILABLE : '#ededed',
     UPDATING : '#a6c1fc'
 }
+BACKGROUNDS.update({
+    NS_CONNECTED : BACKGROUNDS[SS_CONNECTED],
+    NS_CONNECTING : BACKGROUNDS[SS_DISCONNECTING],
+    NS_DISCONNECTED : BACKGROUNDS[SS_DISCONNECTED],
+    NS_DISCONNECTING : BACKGROUNDS[SS_CONNECTED],
+})
 
-# Slave data vectors -----------------------------------------------------------
+# Slave data vectors ###########################################################
 # Form:
-#        Process new slave vector S of the following form:
 #
 #            S = [INDEX_0, NAME_0, MAC_0, STATUS_0, FANS_0, VERSION_0...]
 #            |    |        |       |      |         |       |
@@ -139,8 +283,30 @@ BACKGROUNDS = {
 #            This slave vector
 
 # Slave data:
-SD_SIZE = 6
+SD_LEN = 6
 
 # Offsets of data per slave in the slave data vector:
-SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_SIZE)
+SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_LEN)
+
+# Feedback vectors #############################################################
+# Form:
+#
+#     F = [RPM_0_1, RPM_0_1, RPM_0_F0, RPM_1_1,... RPM_N-1_FN-1,  DC_0_1,...]
+#          |-------------------------/ |------..   |              |-----...
+#          |                           |           |     Same pattern, for DC's
+#          |                           |           /
+#          |                           |   RPM of fan FN-1 of slave N-1
+#          |                           RPM's of slave 1
+#          RPM's of slave 0
+#
+# NOTE: The total size of the matrix will be 2*FT where FT is the total number
+# of active fans in the network.
+# NOTE: For controllers to check if their mapping still applies, check if the
+# size of the vector is consistent with its currently known number of total
+# fans.
+# NOTE: Values corresponding to non-connected slaves will be set to a negative
+# code.
+#
+# TODO: Need means by to handle disconnected slaves and different fan sizes...
+RIP = -69
 

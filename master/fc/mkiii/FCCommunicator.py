@@ -56,17 +56,12 @@ from . import hardcoded as hc
 
 # FCMkIV:
 from .. import archive as ac
+from .. import standards as s
 
 ## CONSTANT DEFINITIONS ########################################################
 
-DEBUG = False
-VERSION = "Independent 0"
-FORCE_IP_ADDRESS = "0.0.0.0"
-	#"0.0.0.0"
-	#= "192.168.1.129" # (Basement lab)
-FORCE_BROADCAST_IP = "<broadcast>"
-
-
+# TODO: Erase all these obsolete codes
+""" OBSOLETE XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # Communicator status codes:
 CONNECTED = 31
 CONNECTING = 32
@@ -134,9 +129,12 @@ NO_CHANGE = 0
 CHANGE = 1
 
 # MISO Matrix special columns:
+# FIXME: function undocumented; need to define new MISO standard
 MISO_COLUMN_STATUS = 0
 MISO_COLUMN_TYPE = 1
 MISO_SPECIALCOLUMNS = 2
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX """
 
 ## CLASS DEFINITION ############################################################
 
@@ -147,21 +145,37 @@ MISO_SPECIALCOLUMNS = 2
 # - change output formatting
 # - change input parsing
 # - change printing
+# - broadcast modes (both here and in interface)
 
-class FCCommunicator:
+class FCCommunicator(us.PrintClient):
+    VERSION = "Adapted 1"
+    SYMBOL = "[CM]"
+
+    # TODO: parameterize these
+    DEFAULT_IP_ADDRESS = "0.0.0.0"
+        #"0.0.0.0"
+    DEFAULT_BROADCAST_IP = "<broadcast>"
 
 	def __init__(self,
-			profile,
+            # TODO finish adapting
+			profile, # MkIV
 			# Multiprocessing:
 			commandQueue,
 			mosiMatrixQueue,
 			printQueue,
 			updatePipeOut,
 			networkPipeSend,
-			newMISOMatrixPipeIn
+			newMISOMatrixPipeIn,
+            pqueue # MkIV
 		): # ===================================================================
-		# ABOUT: Constructor for class FCPRCommunicator.
-
+        """
+        Constructor for FCCommunicator. This class encompasses the back-end
+        network handling and number-crunching half of the software. It is
+        expected to be executed in an independent process. (See Python's
+        multiprocessing module.)
+        """
+        # TODO: Define parameters
+        us.PrintClient.__init__(self, pqueue)
 		try:
 
 
@@ -280,7 +294,7 @@ class FCCommunicator:
 
 			# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 			# assign port number):
-			self.broadcastSocket.bind((FORCE_IP_ADDRESS, 0))
+			self.broadcastSocket.bind((self.DEFAULT_IP_ADDRESS, 0))
 
 			self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
@@ -303,7 +317,7 @@ class FCCommunicator:
 
 			# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 			# assign port number):
-			self.rebootSocket.bind((FORCE_IP_ADDRESS, 0))
+			self.rebootSocket.bind((self.DEFAULT_IP_ADDRESS, 0))
 
 			self.rebootSocketPort = self.rebootSocket.getsockname()[1]
 
@@ -326,7 +340,7 @@ class FCCommunicator:
 
 			# Bind socket to "nothing" (Broadcast on all interfaces and let OS
 			# assign port number):
-			self.disconnectSocket.bind((FORCE_IP_ADDRESS, 0))
+			self.disconnectSocket.bind((self.DEFAULT_IP_ADDRESS, 0))
 
 			self.disconnectSocketPort = self.disconnectSocket.getsockname()[1]
 
@@ -728,10 +742,10 @@ class FCCommunicator:
 					"""
 					for i in (1,2):
 						self.broadcastSocket.sendto(broadcastMessage,
-							(FORCE_BROADCAST_IP, self.broadcastPort))
+							(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 					"""
 					self.broadcastSocket.sendto(broadcastMessage,
-						(FORCE_BROADCAST_IP, self.broadcastPort))
+						(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
 				#self.broadcastSwitchLock.release()
 				#self.broadcastLock.release()
@@ -1615,7 +1629,7 @@ class FCCommunicator:
 				self.passcode, slave.getMAC(), message)
 			for i in range(repeat):
 				slave._mosiSocket().sendto(bytearray(outgoing,'ascii'),
-				(FORCE_BROADCAST_IP, self.broadcastPort))
+				(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
 		# End _sendToListener # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -1763,7 +1777,7 @@ class FCCommunicator:
 		# will block until it is possible.
 
 		# Place item in corresponding output Queue:
-		if DEBUG:
+		if us.DEBUGP:
 			print(("[DEBUG][COMMS] " + output))
 
 		try:
@@ -1875,7 +1889,7 @@ class FCCommunicator:
 				# General broadcast
 				self.rebootSocket.sendto(
 					bytearray("R|{}".format(self.passcode),'ascii'),
-					(FORCE_BROADCAST_IP, self.broadcastPort))
+					(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
 			elif target.getIP() is not None:
 				# Targetted broadcast w/ valid IP:
@@ -1889,7 +1903,7 @@ class FCCommunicator:
 					bytearray("r|{}|{}".format(self.passcode, target.getMAC()),
 						'ascii'
 					),
-					(FORCE_BROADCAST_IP, self.broadcastPort)
+					(self.DEFAULT_BROADCAST_IP, self.broadcastPort)
 				)
 
 
@@ -1910,7 +1924,7 @@ class FCCommunicator:
 			#self.broadcastLock.acquire()
 			self.disconnectSocket.sendto(
 				bytearray("X|{}".format(self.passcode),'ascii'),
-				(FORCE_BROADCAST_IP, self.broadcastPort))
+				(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
 		except Exception as e:
 			self.printM("[sD] UNCAUGHT EXCEPTION: \"{}\"".
@@ -1978,7 +1992,6 @@ class FCCommunicator:
 if __name__ == "__main__":
 
 	print("FANCLUB MARK II COMMUNICATOR MODULE TEST SUITE INITIATED.")
-	print(("VERSION = " + VERSION))
 
 
 	print("NO TEST SUITE IMPLEMENTED IN THIS VERSION. TERMINATING.")

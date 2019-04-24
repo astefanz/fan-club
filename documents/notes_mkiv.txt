@@ -76,6 +76,19 @@ See:
 (Should not be a problem once interface is built... still may want to build a
 print queue)
 
+
+- Pipes vs Queues:
+    Fundamentally the same, except...
+    - Pipes can only have "two endpoints."
+    - Queues can have multiple producers and consumers.
+    That is,
+    - "If you need more than two points to communicate, use a Queue."
+    - "If you need absolute performance, use a Pipe... Queue is built on top
+    of Pipe."
+
+    See:
+    https://stackoverflow.com/questions/8463008/multiprocessing-pipe-vs-queue
+
 ## ON STREAMLINED TKINTER GUI ##################################################
 
 - To use PAGE (a drag and drop Tkinter GUI builder) you need to install Tcl and
@@ -129,5 +142,4 @@ attempting-to-resolve-blurred-tkinter-text-scaling-on-windows-10-high-dpi-disp
 Note that only a few lines of code are required:
 from ctypes import windll
 windll.shcore.SetProcessDpiAwareness(1)
-
 
