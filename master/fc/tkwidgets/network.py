@@ -752,6 +752,7 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
                 s.SD_SIZE))
 
         for i in range(0, size, s.SD_SIZE):
+            # FIXME too redundant (getting two copies. What the hell, m8)
             index, name, mac, status, fans, version = S[i:i+s.SD_SIZE]
             slave = (index, name, mac, status, fans, version)
             if index not in self.slaves:

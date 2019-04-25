@@ -99,7 +99,7 @@ class FCSlave:
 	# ABOUT: Representation of connected Slave model, primarily a container with
 	# no behavior besides that of its components, such as Locks.
 
-	def __init__(self, mac, status, routine,
+	def __init__(self, name, mac, fans, maxFans, status, routine,
 		routineArgs, misoQueueSize, index, version = "MkII(?)",
 		ip = None, misoP = None, mosiP = None, misoS = None, mosiS = None):
 		# ABOUT: Constructor for class Slave.
@@ -112,8 +112,10 @@ class FCSlave:
 		#
 		#	ATTRIBUTE			KIND		MODIFIER		THREADING
 		#	--------------------------------------------------------------------
+        #   Name                constant    None            Free (R.O)
 		#	MAC Address			constant	None (R.O)		Free (R.O)
 		#	Status				variable	LT & ST			Full lock on set
+        #   Fans                constant    None            Free (R.O)
 		#	....................................................................
 		#	MOSI index			volatile	ST				Locked get/set
 		#	MISO index			volatile	ST (_receive)	Locked get/set
@@ -134,9 +136,18 @@ class FCSlave:
 		# Validate parameters ..................................................
 			# Because Lord knows something will go wrong.
 
+		if type(name) is not str:
+			raise TypeError(
+				"Attribute 'name' must be str, not {}".format(type(name)))
 		if type(mac) is not str:
 			raise TypeError(
 				"Attribute 'mac' must be str, not {}".format(type(mac)))
+		elif type(fans) is not int:
+			raise TypeError(
+				"Attribute 'fans' must be int, not {}".format(type(fans)))
+		elif type(maxFans) is not int:
+			raise TypeError(
+				"Attribute 'maxFans' must be int, not {}".format(type(maxFans)))
 		elif type(status) is not int:
 			raise TypeError(
 				"Attribute 'status' must be int, not {}".format(type(status)))
@@ -184,8 +195,17 @@ class FCSlave:
 
 		# Initialize constant attributes .......................................
 
+        # Name:
+        self.name = name
+
 		# MAC:
 		self.mac = mac
+
+        # Fans:
+        self.fans = fans
+        self.maxFans = maxFans
+        self.padding_connected = [0]*maxFans
+        self.padding_disconnected = [s.RIP]*maxFans
 
 		# Index:
 		self.index = index
@@ -255,11 +275,14 @@ class FCSlave:
 		# End start ============================================================
 
 	# GETTERS FOR CONSTANT ATTRIBUTES ##########################################
+    def getName(self): #========================================================
+        # ABOUT: Getter for this Slave's name.
+        # NOTE: read-only. No need for locks.
+        return self.name
 
 	def getMAC(self): # ========================================================
 		# ABOUT: Getter for this Slave's MAC address.
 		# NOTE: Since this attribute is "read only," lock usage is neglected.
-
 		return self.mac
 
 		# End getMAC ===========================================================
@@ -270,6 +293,13 @@ class FCSlave:
 		return self.index
 
 		# End getIndex =========================================================
+
+    def getFans(self): # =======================================================
+		# ABOUT: Get this Slave's fans.
+
+		return self.fans
+
+		# End getFans ==========================================================
 
 	def getStatus(self): # =====================================================
 		# ABOUT: Getter for status. (Uses locks for thread-safety.)
@@ -888,12 +918,12 @@ class FCSlave:
 		# - block: bool, whether to block until an update is received.
 		# RETURNS:
 		# - tuple containing update upon success, None upon failure.
-
 		try:
 			return self.misoQueue.get(block)
-
 		except queue.Empty:
-			return (self.getStatus(), MISO_NO_UPDATE)
+			return (self.padding_connected, self.padding_connected) if \
+                self.status is CONNECTED else \
+                    (self.padding_disconnected, self.padding_disconnected)
 
 		# End getUpdate ========================================================
 
