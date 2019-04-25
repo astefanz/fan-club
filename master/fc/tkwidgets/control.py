@@ -950,15 +950,31 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Process the feedback vector F according to the grid mapping.
         """
+        """
+        print("Clicked on slave {}'s fan {}".format(
+            grid.layers[grid.layer][i]//grid.maxFans,
+            grid.layers[grid.layer][i]%grid.maxFans))
+        """
+        # FIXME performance
         L = len(F)//2
         self.totalSlaves = L//self.maxFans
 
+        offset = self.offset*L
+
+        for l in self.layers:
+            for i in self.range:
+                f = self.layers[l][i]
+                if f is not None:
+                    self.updatei(i, l, F[self.layers[l][i] + offset])
+
+        """
         grid_i = 0
         offset = self.offset*len(F)//2
         for feedback_i in self.layers[self.layer]:
             if feedback_i is not None:
                 self.updatei(grid_i, self.layer, F[feedback_i + offset])
             grid_i += 1
+        """
 
     def networkIn(self, N):
         if N[0]:
@@ -986,17 +1002,19 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         return self.PARAMETERS
 
     def map(self, f, t):
-        # TODO: account for selection and mapping mode
+        # FIXME performance
         control = [0]*(self.totalSlaves*self.maxFans)
-        grid_i = 0
         for l in self.layers:
-            for control_i in self.layers[l]:
-                if control_i is not None:
-                    r = grid_i//self.C
-                    c = grid_i%self.C
+            for i in self.range:
+                control_i = self.layers[l][i]
+                if control_i is not None and \
+                    (self.mapVar.get() or self.selected[l][i]):
+                    r = i//self.C
+                    c = i%self.C
                     control[control_i] = f(r, c, l, self.R, self.C, self.L, t)
-                grid_i += 1
         self._send(control)
+        if not self.holdVar.get():
+            self.deselectAll()
 
     def set(self, dc):
         # FIXME
@@ -1023,12 +1041,10 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         pass
 
     def blockAdjust(self):
-        # FIXME
         self.unbind("<Configure>")
         pass
 
     def unblockAdjust(self):
-        # FIXME
         self.bind("<Configure>", self._scheduleAdjust)
         pass
 
@@ -1065,8 +1081,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             if not self.active[l][i]:
                 self.activatei(i, l)
             self.values[l][i] = value
-            self.filli(i, self.colors[min(self.maxColor,
-                int(((value*self.maxColor)/self.maxValue)))])
+            if l == self.layer:
+                self.filli(i, self.colors[min(self.maxColor,
+                    int(((value*self.maxColor)/self.maxValue)))])
         if value == s.RIP and self.active[l][i]:
             self.deactivatei(i, l)
 
@@ -1206,6 +1223,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 grid.deselecti(i, grid.layer)
             else:
                 grid.selecti(i, grid.layer)
+                """
+                print("Clicked on slave {}'s fan {}".format(
+                    grid.layers[grid.layer][i]//grid.maxFans,
+                    grid.layers[grid.layer][i]%grid.maxFans))
+                """
 
 
 class ColorBarWidget(tk.Frame):
