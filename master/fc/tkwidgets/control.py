@@ -57,8 +57,6 @@ class ControlWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[CW]"
 
-    RESIZE_MS = 400
-
     def __init__(self, master, network, archive, pqueue):
 
         tk.Frame.__init__(self, master)
@@ -69,7 +67,6 @@ class ControlWidget(tk.Frame, us.PrintClient):
         # Core setup -----------------------------------------------------------
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
-        self.bind("<Configure>", self._scheduleAdjust)
 
         # Grid -----------------------------------------------------------------
         self.grid = GridWidget(self.main, self.archive, pqueue = pqueue)
@@ -77,14 +74,10 @@ class ControlWidget(tk.Frame, us.PrintClient):
         # Control panel --------------------------------------------------------
         self.control = ControlPanelWidget(self.main, network, self.grid, pqueue)
 
-        # Color Bar ------------------------------------------------------------
-        self.bar = ColorBarWidget(self.main, colors = cms.COLORMAP_GALCIT,
-            high = self.archive[ac.maxRPM], unit = "RPM", pqueue = pqueue)
 
         # Assemble .............................................................
         self.main.add(self.control, weight = 2)
         self.main.add(self.grid, weight = 16)
-        self.main.add(self.bar, weight = 0)
 
     def feedbackIn(self, F):
         """
@@ -118,14 +111,6 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         self.grid.redraw()
 
-    def _scheduleAdjust(self, *E):
-        self.after(self.RESIZE_MS, self._adjust)
-        self.unbind("<Configure>")
-
-    def _adjust(self, *E):
-        self.grid.redraw()
-        self.bar.redraw()
-        self.bind("<Configure>", self._scheduleAdjust)
 
 
 ## WIDGETS #####################################################################
@@ -530,17 +515,6 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             text = "Flow Builder", **gus.rbconf)
         self.builderButton.pack(side = tk.LEFT, pady = 5)
 
-        self.layerFrame = tk.Frame(self.viewFrame)
-        self.layerFrame.pack(side = tk.LEFT, **gus.padc)
-        self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
-            **gus.fontc, **gus.padc)
-        self.layerLabel.pack(side = tk.LEFT, **gus.padc)
-        self.layerVar = tk.IntVar()
-        self.layerVar.trace('w', self._onLayerChange)
-        self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar, 1)
-        self.layerMenu.config(**gus.fontc)
-        self.layerMenu.pack(side = tk.LEFT, **gus.padc)
-
         # Flow control .........................................................
         self.grid_rowconfigure(row, weight = 1) # FIXME
         self.notebook = ttk.Notebook(self)
@@ -593,24 +567,23 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             text = "Pause", **gus.fontc, **gus.padc, state = tk.DISABLED)
         self.recordPauseButton.pack(side = tk.LEFT, padx = 10)
 
-        # Matrix count .........................................................
-        self.matrixCountFrame = tk.LabelFrame(self, **gus.lfconf,
+        # Vector count .........................................................
+        self.vectorCountFrame = tk.LabelFrame(self, **gus.lfconf,
             text = "Diagnostics")
-        self.matrixCountFrame.grid(row = row, sticky = "EW")
+        self.vectorCountFrame.grid(row = row, sticky = "EW")
         row += 1
-        self.matrixCountLabel = tk.Label(self.matrixCountFrame,
-            text = "Matrix: ", **gus.fontc, **gus.padc)
-        self.matrixCountLabel.pack(side = tk.LEFT, **gus.padc)
-        self.matrixCountVar = tk.IntVar()
-        self.matrixCountVar.set(0)
-        self.matrixDisplay = tk.Label(self.matrixCountFrame,
-            textvariable = self.matrixCountVar, font = "Courier 7",
+        self.vectorCountLabel = tk.Label(self.vectorCountFrame,
+            text = "Vector: ", **gus.fontc, **gus.padc)
+        self.vectorCountLabel.pack(side = tk.LEFT, **gus.padc)
+        self.vectorCountVar = tk.IntVar()
+        self.vectorCountVar.set(0)
+        self.vectorDisplay = tk.Label(self.vectorCountFrame,
+            textvariable = self.vectorCountVar, font = "Courier 7",
             bg = "lightgray", relief = tk.SUNKEN, bd = 1)
-        self.matrixDisplay.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.vectorDisplay.pack(side = tk.LEFT, fill = tk.X, expand = True)
 
         # Wrap-up ..............................................................
         self.viewVar.set(self.VM_LIVE)
-        self.layerVar.set(1)
 
     # API ......................................................................
     def isLive(self):
@@ -631,18 +604,12 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         # TODO
         pass
 
-    def _onLayerChange(self, *A):
-        """
-        To be called when the view layer is changed.
-        """
-        # TODO
-        pass
-
 class GridWidget(gd.BaseGrid, us.PrintClient):
     """
     Front end for the 2D interactive Grid.
     """
     SYMBOL = "[GD]"
+    RESIZE_MS = 400
 
     DEFAULT_COLORS = cms.COLORMAP_GALCIT_REVERSED
     DEFAULT_OFF_COLOR = "#303030"
@@ -666,8 +633,30 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             empty = off_color)
         us.PrintClient.__init__(self, pqueue)
 
+        # Layer control ........................................................
+        self.layerFrame = tk.Frame(self)
+        self.layerFrame.grid(row = self.GRID_ROW + 1, sticky = "WE")
+        self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
+            **gus.fontc, **gus.padc)
+        self.layerLabel.pack(side = tk.LEFT, **gus.padc)
+        self.layerVar = tk.IntVar()
+        self.layerVar.trace('w', self._onLayerChange)
+        self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar, 1)
+        self.layerMenu.config(**gus.fontc)
+        self.layerMenu.pack(side = tk.LEFT, **gus.padc)
+
+        # Color Bar ............................................................
+        self.colorBar = ColorBarWidget(self, colors = cms.COLORMAP_GALCIT,
+            high = self.archive[ac.maxRPM], unit = "RPM", pqueue = pqueue)
+        self.colorBar.grid(row = self.GRID_ROW, column = self.GRID_COLUMN + 1,
+            sticky = "NS")
+
         # Setup ................................................................
-        # NOTE: use this block of code for "re-build" method, or perhaps try
+
+        # Automatic resizing:
+        self.bind("<Configure>", self._scheduleAdjust)
+
+        # NOTE: use this block of code for "rebuild" method, or perhaps try
         # calling the constructor again...
         self.fanArray = fanArray
         self.maxFans = self.archive[ac.maxFans]
@@ -693,7 +682,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
         # Build mapping based on current profile:
         # FIXME: Are slaves sorted by index?
-        # NOTE: cannot assume set size for feedback matrix. Will have to use
+        # NOTE: cannot assume set size for feedback vector. Will have to use
         # half to determine limit of RPM and DC data (since number can change
         # as slaves are added to the network)
         print("[NOTE] Are Slaves always sorted by index?")
@@ -751,6 +740,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # - [...]
         self.testi = 0 # FIXME
         self.tests = [self.__testF1, self.__testF2, self.__testF3]
+        self.layerVar.set(1)
 
     # Activity .................................................................
     def activatei(self, i):
@@ -831,7 +821,23 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         for i in range(self.size):
             self.deselecti(i)
 
-    # Meta .....................................................................
+    # Internal methods .........................................................
+    def _onLayerChange(self, *A):
+        """
+        To be called when the view layer is changed.
+        """
+        # TODO
+        pass
+
+    def _scheduleAdjust(self, *E):
+        self.after(self.RESIZE_MS, self._adjust)
+        self.unbind("<Configure>")
+
+    def _adjust(self, *E):
+        self.redraw()
+        self.colorBar.redraw()
+        self.bind("<Configure>", self._scheduleAdjust)
+
     def layer(self, l):
         """
         Set L in [0, #layers - 1] to be the layer displayed.
@@ -954,6 +960,7 @@ class ColorBarWidget(tk.Frame):
         step = max(height/self.steps, 3)
         left, right = 0, width
         y = 0
+        self.bind("<Button-1>", self.redraw)
         for i in range(self.steps):
             iid = self.canvas.create_rectangle(
                 left, y, right, y + step, fill = self.colors[i], width = 0)

@@ -44,6 +44,11 @@ class BaseGrid(tk.Frame):
     """ Interactive 2D grid widget that supports clicking, dragging, and live
         cell color changes. """
 
+    GRID_ROW = 0
+    GRID_COLUMN = 0
+
+    GRID_WEIGHT = 1
+
     def __init__(self, master, R, C, cursor = 'crosshair', empty = "white",
         border = 1, outline = "black", minCell = 10):
         """
@@ -52,6 +57,12 @@ class BaseGrid(tk.Frame):
 
         MARGIN adds padding (in pixels) between the grid's outer borders and the
         TKinter frame's border.
+
+        NOTE: This widget uses, appropriately, the grid layout. The grid itself
+        is built on class attributes GRID_ROW and GRID_COLUMN. To add other
+        widgets using the grid layout, you may modify these attributes through
+        inheritance, or you may increment them when you call the grid layout
+        manager if the grid can be kept on the top-left corner.
         """
 
         """
@@ -75,6 +86,13 @@ class BaseGrid(tk.Frame):
 
         tk.Frame.__init__(self, master)
         self.config(cursor = cursor)
+
+        self.grid_rowconfigure(self.GRID_ROW, weight = self.GRID_WEIGHT)
+        self.grid_columnconfigure(self.GRID_COLUMN, weight = self.GRID_WEIGHT)
+
+        self.canvasFrame = tk.Frame(self)
+        self.canvasFrame.grid(row = self.GRID_ROW, column = self.GRID_COLUMN,
+            sticky = "NEWS")
 
         self.master = master
         self.R = R
@@ -117,13 +135,13 @@ class BaseGrid(tk.Frame):
         if self.canvas != None:
             self.canvas.destroy()
 
-        self.canvas = tk.Canvas(self)
+        self.canvas = tk.Canvas(self.canvasFrame)
         self.canvas.pack(fill = tk.BOTH, expand = True)
 
         self.winfo_toplevel().update_idletasks()
         self.margin = margin
-        self.maxWidth = self.winfo_width() - self.margin
-        self.maxHeight = self.winfo_height() - self.margin
+        self.maxWidth = self.canvasFrame.winfo_width() - self.margin
+        self.maxHeight = self.canvasFrame.winfo_height() - self.margin
 
         if self.maxWidth <= 0 or self.maxHeight <= 0:
 
