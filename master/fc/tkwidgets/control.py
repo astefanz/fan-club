@@ -82,7 +82,8 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.display.add(self.table, text = "Live Table")
 
         # Control panel --------------------------------------------------------
-        self.control = ControlPanelWidget(self.main, network, self.grid, pqueue)
+        self.control = ControlPanelWidget(self.main, network, self.display,
+            pqueue)
 
         # Assemble .............................................................
         self.main.add(self.control, weight = 2)
@@ -493,7 +494,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         # TODO: Callbacks and validations
 
         # Mode and layer .......................................................
-        self.viewFrame = tk.LabelFrame(self, text = "View", **gus.fontc)
+        self.viewFrame = tk.LabelFrame(self, text = "View", **gus.fontc,
+            padx = 10)
         self.viewFrame.grid(row = row, sticky = "EW")
         row += 1
 
@@ -507,6 +509,24 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             variable = self.viewVar, value = self.VM_BUILDER,
             text = "Flow Builder", **gus.rbconf)
         self.builderButton.pack(side = tk.LEFT, pady = 5)
+
+        # Selection ............................................................
+        self.selectFrame = tk.LabelFrame(self, text = "Select", **gus.fontc,
+            padx = 10)
+        self.selectFrame.grid(row = row, sticky = "EW")
+        row += 1
+
+        self.selectAllButton = tk.Button(self.selectFrame, text = "Select All",
+            command = self.selectAll, **gus.fontc)
+        self.selectAllButton.pack(side = tk.LEFT, pady = 5)
+        self.deselectAllButton = tk.Button(self.selectFrame,
+            text = "Deselect All", command = self.deselectAll, **gus.fontc)
+        self.deselectAllButton.pack(side = tk.LEFT, pady = 5)
+
+        self.bind('<Control-a>', self.selectAll)
+        self.bind('<Control-A>', self.selectAll)
+        self.bind('<Control-d>', self.deselectAll)
+        self.bind('<Control-D>', self.deselectAll)
 
         # Flow control .........................................................
         self.grid_rowconfigure(row, weight = 1) # FIXME
@@ -571,6 +591,12 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         # TODO
         pass
 
+    def selectAll(self, event = None):
+        self.display.selectAll()
+
+    def deselectAll(self, event = None):
+        self.display.deselectAll()
+
     def isLive(self):
         """
         Return whether the currently selected view mode is "Live Control" (the
@@ -609,6 +635,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         - slavesIn(S) : takes a standard slave state vector
 
         - selectAll()
+        - deselectAll()
         - parameters() : returns a list of parameters for function mapping that
                 contains at least 't' (for time)
         - map(f) : takes a function that accepts the parameters returned by
@@ -669,6 +696,9 @@ class DisplayMaster(tk.Frame, us.PrintClient):
 
     def selectAll(self):
         self.displays[self.current].selectAll()
+
+    def deselectAll(self):
+        self.displays[self.current].deselectAll()
 
     def parameters(self):
         self.displays[self.current].parameters()
@@ -890,8 +920,14 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 S_i += s.SD_LEN
 
     def selectAll(self):
+        # TODO: track selection accross layers
+        print("NOTE: No selection tracking when switching layers")
         for i in range(self.size):
             self.selecti(i)
+
+    def deselectAll(self):
+        for i in range(self.size):
+            self.deselecti(i)
 
     def parameters(self):
         # FIXME
@@ -936,7 +972,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         pass
 
     def redraw(self, event = None):
-        self.draw(margin = 10)
+        self.draw(margin = 20)
         self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
     # Activity .................................................................
@@ -1555,8 +1591,11 @@ class LiveTable(us.PrintClient, tk.Frame):
         pass
 
     def selectAll(self):
-        # FIXME
-        pass
+        for index, iid in self.slaves.items():
+            self.table.selection_add(iid)
+
+    def deselectAll(self):
+        self.table.selection_set(())
 
     def parameters(self):
         # FIXME

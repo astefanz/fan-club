@@ -140,16 +140,16 @@ class BaseGrid(tk.Frame):
 
         self.winfo_toplevel().update_idletasks()
         self.margin = margin
-        self.maxWidth = self.canvasFrame.winfo_width() - self.margin
-        self.maxHeight = self.canvasFrame.winfo_height() - self.margin
+        self.maxWidth = self.canvas.winfo_width() - self.margin*2
+        self.maxHeight = self.canvas.winfo_height() - self.margin*2
 
         if self.maxWidth <= 0 or self.maxHeight <= 0:
 
             self.config(width = self.minCell*self.C,
                 height = self.minCell*self.R)
 
-            self.maxWidth = self.winfo_reqwidth() - self.margin
-            self.maxHeight = self.winfo_reqheight() - self.margin
+            self.maxWidth = self.winfo_reqwidth() - self.margin*2
+            self.maxHeight = self.winfo_reqheight() - self.margin*2
 
         self.cellLength = cellLength if cellLength is not None else int(
             min(self.maxHeight/self.R, self.maxWidth/self.C))
