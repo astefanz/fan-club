@@ -46,7 +46,7 @@ import tkinter.font as fnt
 
 from . import guiutils as gus, grid as gd, loader as ldr
 from .embedded import colormaps as cms
-from .. import archive as ac, utils as us
+from .. import archive as ac, utils as us, standards as s
 
 ## GLOBALS #####################################################################
 
@@ -78,7 +78,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
 
         # Live table
         self.table = LiveTable(self.display, self.archive, network.controlIn,
-            pqueue = pqueue)
+            network, pqueue = pqueue)
         self.display.add(self.table, text = "Live Table")
 
         # Control panel --------------------------------------------------------
@@ -1206,7 +1206,15 @@ class LiveTable(us.PrintClient, tk.Frame):
     """
     SYMBOL = "[LT]"
 
-    def __init__(self, master, archive, send, pqueue):
+    MENU_ROW, MENU_COLUMN = 0, 0
+    TABLE_ROW, TABLE_COLUMN = 2, 0
+    HSCROLL_ROW, HSCROLL_COLUMN = MENU_ROW + 1, TABLE_COLUMN
+    VSCROLL_ROW, VSCROLL_COLUMN = TABLE_ROW, TABLE_COLUMN + 1
+
+    INF = float('inf')
+    NINF = -INF
+
+    def __init__(self, master, archive, send, network, pqueue):
         """
         Create a new LiveTable in MASTER.
 
@@ -1214,19 +1222,347 @@ class LiveTable(us.PrintClient, tk.Frame):
             archive := FCArchive instance
             send := method to which to pass generated control vectors
             pqueue := Queue instance for I-P printing
+
         """
-        us.PrintClient.__init__(self, pqueue)
         tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
         self.archive = archive
         self._send = send
-        # FIXME implement
+        self.maxFans = archive[ac.maxFans]
 
-        self.config(bg = 'red')
+        self.grid_rowconfigure(self.TABLE_ROW, weight = 1)
+        self.grid_columnconfigure(self.TABLE_COLUMN, weight = 1)
+
+        # Build menu ...........................................................
+
+        # Set background:
+        self.bg = "#e2e2e2"
+        self.fg = "black"
+        self.config(bg = self.bg)
+
+        self.topBar = tk.Frame(self, bg = self.bg)
+        self.topBar.grid(row = self.MENU_ROW, column = self.MENU_COLUMN,
+            sticky = "EW")
+
+        self.offset = 0
+        self.startDisplacement = 2
+        self.endDisplacement = self.startDisplacement + self.archive[ac.maxFans]
+        self.showMenuVar = tk.StringVar()
+        self.showMenuVar.trace('w', self._showMenuCallback)
+        self.showMenuVar.set("RPM")
+        self.showMenu = tk.OptionMenu(self.topBar, self.showMenuVar,"RPM","DC")
+        self.showMenu.config(width = 3, background = self.bg,
+            highlightbackground = self.bg, foreground = self.fg, **gus.fontc)
+        self.showMenu.pack(side = tk.LEFT)
+
+        self.playPauseFlag = True
+        self.playPauseButton = tk.Button(
+            self.topBar,
+            bg = self.bg,
+            highlightbackground = self.bg,
+            fg = self.fg,
+            text = "Pause",
+            command = self._playPause,
+            **gus.fontc,
+        )
+        self.bind("<space>", self._playPause)
+        self.master.bind("<space>",self._playPause)
+
+        self.playPauseButton.pack(side = tk.LEFT)
+
+        self.printThread = None
+        self.donePrinting = False
+        self.printMatrixButton = tk.Button(
+            self.topBar,
+            bg = self.bg,
+            highlightbackground = self.bg,
+            fg = self.fg,
+            text = "Print",
+            command = self._printMatrix,
+            **gus.fontc,
+        )
+        self.master.bind("<Control-P>",self._printMatrix)
+        self.master.bind("<Control-p>",self._printMatrix)
+
+        self.wasPaused = False
+
+        self.timerSeconds = 0
+        self.timerMinutes = 0
+        self.timerHours = 0
+
+        self.timeStampSeconds = 0
+        self.timeStampMinutes = 0
+        self.timeStampHours = 0
+
+        self.timerVarLabel = tk.Label(
+            self.topBar,
+            text = "    Time stamp: ",
+            fg = self.fg,
+            **gus.fontc,
+            bg = self.bg
+        )
+        self.timerVarLabel.pack(side = tk.LEFT)
+
+        self.timerVar = tk.StringVar()
+        self.timerVar.set("00:00:00")
+        self.timerLabel = tk.Label(
+            self.topBar,
+            textvariable = self.timerVar,
+            relief = tk.SUNKEN,
+            bd = 1,
+            bg = self.bg,
+            fg = self.fg,
+            font = ('TkFixedFont', 7),
+        )
+        self.timerLabel.pack(side = tk.LEFT)
+
+        # Sentinel .............................................................
+        self.sentinelWidgets = []
+        self._sentinelCheck = lambda x: False
+
+        self.sentinelFrame = tk.Frame(
+            self.topBar,
+            bg = self.bg,
+        )
+
+        self.sentinelLabel = tk.Label(
+            self.sentinelFrame,
+            bg = self.bg,
+            fg = self.fg,
+            text = "    Watchdog: ",
+            **gus.fontc,
+        )
+        self.sentinelLabel.pack(side = tk.LEFT)
+
+        self.sentinelSecondaryLabel = tk.Label(
+            self.sentinelFrame,
+            bg = self.bg,
+            fg = self.fg,
+            **gus.fontc
+        )
+        self.sentinelSecondaryLabel.pack(side = tk.LEFT)
+
+        self.sentinelMenuVar = tk.StringVar()
+        self.sentinelMenuVar.set("Above")
+        self.sentinelMenu = tk.OptionMenu(
+            self.sentinelFrame,
+            self.sentinelMenuVar,
+            "Above",
+            "Below",
+            "Outside 10% of",
+            "Within 10% of",
+            "Not"
+        )
+        self.sentinelMenu.configure(
+            highlightbackground = self.bg,
+            bg = self.bg,
+            **gus.fontc,
+        )
+        self.sentinelMenu.pack(side = tk.LEFT)
+        self.sentinelWidgets.append(self.sentinelMenu)
+
+        validateC = self.register(self._validateN)
+        self.sentinelEntry = tk.Entry(self.sentinelFrame,
+            highlightbackground = self.bg,
+            bg = 'white', width  = 5,
+            fg = self.fg, **gus.fontc,
+            validate = 'key', validatecommand = \
+                (validateC, '%S', '%s', '%d'))
+        self.sentinelEntry.insert(0,'0')
+        self.sentinelEntry.pack(side = tk.LEFT)
+        self.sentinelWidgets.append(self.sentinelEntry)
+
+        self.sentinelTerciaryLabel = tk.Label(
+            self.sentinelFrame,
+            bg = self.bg,
+            fg = self.fg,
+            **gus.fontc,
+            text = " RPM   "
+        )
+        self.sentinelTerciaryLabel.pack(side = tk.LEFT)
+
+        self.sentinelActionMenuVar = tk.StringVar()
+        self.sentinelActionMenuVar.set("Highlight")
+        self.sentinelActionMenu = tk.OptionMenu(
+            self.sentinelFrame,
+            self.sentinelActionMenuVar,
+            "Warn me",
+            "Highlight",
+            "Shut down",
+        )
+        self.sentinelActionMenu.configure(
+            highlightbackground = self.bg,
+            bg = self.bg,
+            **gus.fontc,
+        )
+        self.sentinelActionMenu.pack(side = tk.LEFT)
+        self.sentinelWidgets.append(self.sentinelActionMenu)
+
+        self.sentinelPauseVar = tk.BooleanVar()
+        self.sentinelPauseVar.set(True)
+        self.sentinelPauseButton = tk.Checkbutton(
+            self.sentinelFrame,
+            text ="Freeze table",
+            variable = self.sentinelPauseVar,
+            bg = self.bg,
+            fg = self.fg,
+            **gus.fontc)
+        self.sentinelPauseButton.pack(side = tk.LEFT)
+        self.sentinelWidgets.append(self.sentinelPauseButton)
+
+        self.sentinelPrintVar = tk.IntVar()
+        self.sentinelPrintButton = tk.Checkbutton(
+            self.sentinelFrame,
+            text ="Print table",
+            variable = self.sentinelPrintVar,
+            bg = self.bg,
+            fg = self.fg,
+            **gus.fontc)
+        self.sentinelPrintButton.pack(side = tk.LEFT)
+        self.sentinelWidgets.append(self.sentinelPrintButton)
+
+        self.sentinelApplyButton = tk.Button(
+            self.sentinelFrame,
+            bg = self.bg,
+            highlightbackground = self.bg,
+            fg = self.fg,
+            text = "Apply",
+            command = self._applySentinel,
+            state = tk.NORMAL,
+            **gus.fontc
+        )
+        self.sentinelApplyButton.pack(side = tk.LEFT)
+
+        self.sentinelClearButton = tk.Button(
+            self.sentinelFrame,
+            bg = self.bg,
+            highlightbackground = self.bg,
+            fg = self.fg,
+            text = "Clear",
+            command = self._clearSentinel,
+            state = tk.DISABLED,
+            **gus.fontc,
+        )
+        self.sentinelClearButton.pack(side = tk.LEFT)
+
+        self.sentinelFrame.pack(side = tk.RIGHT)
+        self.sentinelFlag = False
+
+        # Build table ..........................................................
+        self.tableFrame = tk.Frame(self)
+        self.tableFrame.grid(row = self.TABLE_ROW, column = self.TABLE_COLUMN,
+            sticky = "NEWS")
+        self.table = ttk.Treeview(self.tableFrame, selectmode = 'browse',
+            height = 32)
+        self.table.pack(fill = tk.BOTH, expand = True)
+        # Add columns:
+        self.columns = ("Index", "Max", "Min")
+        self.specialColumns = len(self.columns)
+
+        self.style = ttk.Style(self.table)
+        self.style.configure('Treeview.Heading', font = ('TkFixedFont 7'))
+
+        self.zeroes = ()
+        for fanNumber in range(self.maxFans):
+            self.columns += ("{}".format(fanNumber+1),)
+            self.zeroes += (0,)
+
+        self.table['columns'] = self.columns
+
+        self.table.column("#0", width = 20, stretch = True)
+
+        self.boldFontSettings = "TkFixedFont 7 bold"
+        self.font = tk.font.Font(font = self.boldFontSettings)
+        self.rpmwidth = self.font.measure("12345")
+        self.specwidth = self.font.measure("  Index  ")
+        # Build columns:
+        for column in self.columns[:self.specialColumns]:
+            self.table.column(column,
+                anchor = "center", stretch = False, width = self.specwidth)
+            self.table.heading(column, text = column)
+
+        for column in self.columns[self.specialColumns:]:
+            self.table.column(column, width = self.rpmwidth,
+                anchor = "center", stretch = False)
+            self.table.heading(column, text = column)
+
+        # Configure tags:
+        self.table.tag_configure(
+            "H", # Highlight
+            background= '#fffaba',
+            foreground ='#44370b',
+            font = self.boldFontSettings
+        )
+
+        self.table.tag_configure(
+            "D", # Disconnected
+            background= '#262626',
+            foreground ='#808080',
+            font = self.boldFontSettings
+        )
+
+        self.table.tag_configure(
+            "N", # Normal
+            background= 'white',
+            foreground ='black',
+            font = 'TkFixedFont 7'
+        )
+
+        # Build scrollbars .....................................................
+        self.hscrollbar = ttk.Scrollbar(self, orient = tk.HORIZONTAL)
+        self.hscrollbar.config(command = self.table.xview)
+        self.hscrollbar.grid(row = self.HSCROLL_ROW,
+            column = self.HSCROLL_COLUMN, sticky = "EW")
+
+        self.vscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL)
+        self.vscrollbar.config(command = self.table.yview)
+        self.vscrollbar.grid(row = self.VSCROLL_ROW,
+            column = self.VSCROLL_COLUMN, sticky = "NS")
+
+
+        # FIXME verify consistency with new standard
+        # Add rows and build slave list:
+        self.slaves = {}
+        self.numSlaves = 0
+        self._timer()
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
-        # FIXME
-        pass
+        if self.playPauseFlag:
+            L = len(F)//2
+            N = L//self.maxFans
+
+            # TODO: handle disconnection
+            # FIXME: performance
+
+            if N > self.numSlaves:
+                for index in range(self.numSlaves, N):
+                    self.slaves[index] = self.table.insert('', 'end',
+                        values = (index + 1,) + self.zeroes, tag = 'N')
+                    self.numSlaves += 1
+
+            offset = L*self.offset
+            slave_i, vector_i = 0, 0
+            tag = "N"
+            while vector_i < L:
+                values = tuple(F[vector_i:vector_i + self.maxFans])
+
+                if s.RIP in values:
+                    # This slave is disconnected
+                    self.table.item(self.slaves[slave_i],
+                        values = (slave_i + 1,), tag = "D")
+                else:
+                    # This slave is active
+                    if self.sentinelFlag:
+                        for fan, value in enumerate(values):
+                            if self._sentinelCheck(values):
+                                tag = "H"
+                                self._executeSentinel(slave_i, fan, value)
+                    self.table.item(self.slaves[slave_i],
+                        values = (slave_i + 1, max(values), min(values)) \
+                            + values, tag = tag)
+                slave_i += 1
+                vector_i += self.maxFans
 
     def networkIn(self, N):
         # FIXME
@@ -1296,6 +1632,281 @@ class LiveTable(us.PrintClient, tk.Frame):
 
     # Selection ................................................................
     # TODO implement
+
+    # Internal methods .........................................................
+    def _applySentinel(self, event = False):
+        """
+        Activate a sentinel according to the user's configuration.
+        """
+        try:
+            if self.sentinelEntry.get() != '':
+                self.sentinelFlag = True
+                self.sentinelApplyButton.config(state = tk.DISABLED)
+
+                self._sentinelCheck = self._assembleSentinel()
+
+                for widget in self.sentinelWidgets:
+                    widget.config(state = tk.DISABLED)
+                self.sentinelClearButton.config(state = tk.NORMAL)
+        except Exception as e:
+            self.printx(e, "Exception in live table:")
+
+    def _executeSentinel(self, targetSlave, targetFan, RPM):
+        """
+        Trigger the sentinel due to the RPM detected in the target fan of the
+        target slave.
+        """
+
+        # Action:
+        action = self.sentinelActionMenuVar.get()
+
+        if action == "Highlight row(s)":
+            pass
+
+        elif action == "Warn me":
+            self._printe("WARNING: Module {}, Fan {} at {} RPM".format(
+                targetSlave + 1, targetFan, RPM))
+
+        elif action == "Shut down":
+            network.shutdown()
+            if self.playPauseFlag:
+                self._playPause()
+
+            self._printe("WARNING: Shutdown triggered by Module {}, Fan {} "\
+                "({} RPM)".format(targetSlave + 1, targetFan, RPM))
+
+        # Print (and avoid printing the same matrix twice):
+        if self.sentinelPrintVar.get() and \
+            self.lastPrintedMatrix < self.matrixCount:
+            self._printMatrix(sentinelValues = (targetFan,targetSlave,RPM))
+            self.lastPrintedMatrix = self.matrixCount
+
+        # Pause:
+        if self.sentinelPauseVar.get() and self.playPauseFlag:
+            self._playPause()
+
+    def _assembleSentinel(self):
+        """
+        Gather the user's configuration from the relevant input widgets and
+        build a new sentinel.
+        """
+        check = self.sentinelMenuVar.get()
+        value = int(self.sentinelEntry.get())
+
+        if check == "Above":
+            return lambda rpm : rpm > value
+
+        elif check == "Below":
+            return lambda rpm : rpm < value
+
+        elif check == "Outside 10% of":
+            return lambda rpm : rpm > value*1.1 or rpm < value*.9
+
+        elif check == "Within 10% of":
+            return lambda rpm : rpm < value*1.1 and rpm > value*.9
+
+        elif check == "Not":
+            return lambda rpm : rpm != value
+
+    def _clearSentinel(self, event = False):
+        """
+        Deactivate an active sentinel.
+        """
+        self.sentinelFlag = False
+        self.sentinelClearButton.config(state = tk.DISABLED)
+        for widget in self.sentinelWidgets:
+            widget.config(state = tk.NORMAL)
+        self.sentinelApplyButton.config(state = tk.NORMAL)
+
+    def _timer(self):
+        """
+        Each call represents a tick of the timer (meant to run each second).
+        """
+        try:
+            self.timerSeconds += 1
+
+            if self.timerSeconds >= 60:
+                self.timerSeconds = 0
+                self.timerMinutes += 1
+
+            if self.timerMinutes >= 60:
+                self.timerMinutes = 0
+                self.timerHours += 1
+
+            if self.playPauseFlag:
+                self.timeStampSeconds = self.timerSeconds
+                self.timeStampMinutes = self.timerMinutes
+                self.timeStampHours = self.timeStampHours
+
+            self.timerVar.set("{:02d}:{:02d}:{:02d}".format(
+                self.timeStampHours, self.timeStampMinutes,
+                self.timeStampSeconds))
+
+        except Exception as e:
+            self.printx(e, "Exception in live table timer:")
+        finally:
+            self.after(1000, self._timer)
+
+    def _validateN(self, newCharacter, textBeforeCall, action):
+        """
+        To be used by Tkinter to validate text in "Send" Entry.
+        """
+        if action == '0':
+            return True
+        elif newCharacter in '0123456789':
+            return True
+        else:
+            return False
+
+    def _printMatrix(self, event = None, sentinelValues = None):
+        # FIXME should this be here?
+
+        if self.playPauseFlag:
+            self.wasPaused = False
+            self._playPause()
+
+        else:
+            self.wasPaused = True
+
+        # Lock table ...........................................................
+        self.playPauseButton.config(state = tk.DISABLED)
+        self.printMatrixButton.config(state = tk.DISABLED)
+
+        if not self.sentinelFlag:
+            for widget in self.sentinelWidgets:
+                widget.config(state = tk.DISABLED)
+            self.sentinelApplyButton.config(state = tk.DISABLED)
+
+        else:
+            self.sentinelClearButton.config(state = tk.DISABLED)
+
+        # Print ................................................................
+        self.donePrinting = False
+
+        self.printThread = threading.Thread(
+            name = "FCMkII_LT_Printer",
+            target = self._printRoutine,
+            args = (sentinelValues,)
+        )
+        self.printThread.setDaemon(True)
+        self.printThread.start()
+
+        self._printChecker()
+
+    def _printChecker(self):
+        """
+        Each call checks if printing should be deactivated.
+        """
+        if not self.donePrinting:
+            self.after(100, self._printChecker)
+
+        else:
+            # Unlock table:
+            self.playPauseButton.config(state = tk.NORMAL)
+            self.printMatrixButton.config(state = tk.NORMAL)
+            if not self.sentinelFlag:
+                for widget in self.sentinelWidgets:
+                    widget.config(state = tk.NORMAL)
+                self.sentinelApplyButton.config(state = tk.NORMAL)
+                if not self.wasPaused:
+                    self._playPause()
+            else:
+                self.sentinelClearButton.config(state = tk.NORMAL)
+                if not self.sentinelPauseVar.get():
+                    self._playPause()
+
+    def _printRoutine(self, sentinel = None):
+        # FIXME incompatible
+        try:
+            fileName = "FCMkII_table_print_on_{}.csv".format(
+                time.strftime("%a_%d_%b_%Y_%H:%M:%S", time.localtime()))
+
+            self._printM("Printing to file")
+
+            with open(fileName, 'w') as f:
+                # File setup ...................................................
+
+                f.write("Fan Club MkII data launched on {}  using "\
+                    "profile \"{}\" with a maximum of {} fans.\n"\
+                    "Timestamp (since live table was launched): {}"\
+                    "Matrix number (since live table was launched): {}\n\n".\
+                    format(
+                        time.strftime(
+                            "%a %d %b %Y %H:%M:%S", time.localtime()),
+                        self.profile[ac.name],
+                        self.profile[ac.maxFans],
+                        self.timerVar.get(),
+                        self.matrixCount
+                        )
+                    )
+
+                if sentinel is not None:
+                    f.write("NOTE: This data log was activated by a watchdog "\
+                        "trigger caused by fan {} of module {} being "\
+                        "measured at {} RPM "\
+                        "(Condition: \"{}\" if \"{}\" {} RPM)\n".\
+                        format(
+                            sentinel[0]+1,  # Fan
+                            sentinel[1]+1,  # Slave
+                            sentinel[2],    # RPM value
+                            self.sentinelActionMenuVar.get(),
+                            self.sentinelMenuVar.get(),
+                            self.sentinelEntry.get()
+                            )
+                    )
+
+                # Headers (fifth line):
+
+                # Write headers:
+                f.write("Module,")
+
+                for column in self.columns[self.specialColumns:]:
+                    f.write("{} RPM,".format(column))
+
+                # Move to next line:
+                f.write('\n')
+
+                # Write matrix:
+                for index, row in enumerate(self.latestMatrix):
+                    f.write("{},".format(index+1))
+                    for value in row[1:]:
+                        f.write("{},".format(value))
+
+                    f.write('\n')
+
+            self.donePrinting = True
+            self._printM("Done printing",'G')
+
+        except:
+            self._printM("ERROR When printing matrix: {}".\
+                format(traceback.print_exc()),'E')
+            self.donePrinting = True
+
+        # End _printRoutine ====================================================
+
+    def _playPause(self, event = None, force = None):
+        """
+        Toggle the play and pause statuses.
+         """
+
+        if self.playPauseFlag or force is False:
+            self.playPauseFlag = False
+            self.playPauseButton.config(
+                text = "Play"
+            )
+        elif not self.playPauseFlag or force is True:
+            self.playPauseFlag = True
+            self.playPauseButton.config(
+                text = "Pause"
+            )
+            self.timerVar.set("{:02d}:{:02d}:{:02d}".format(self.timerHours,
+                self.timerMinutes, self.timerSeconds))
+
+    def _showMenuCallback(self, *event):
+        if self.showMenuVar.get() == "RPM":
+            self.offset = 0
+        elif self.showMenuVar.get() == "DC":
+            self.offset = 1
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
