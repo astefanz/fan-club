@@ -707,7 +707,7 @@ class FCCommunicator(us.PrintClient):
                         rpms, dcs = slave.getMISO()
                         F_r += rpms
                         F_d += dcs
-                    self.feedbackPipeSend.send(rpms + dcs)
+                    self.feedbackPipeSend.send(F_r + F_d)
 
                 except Exception as e: # Print uncaught exceptions
                     self.printx(e, SYM + "Exception in back-end output thread:")
