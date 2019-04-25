@@ -742,12 +742,31 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         R, C = fanArray[ac.FA_rows], fanArray[ac.FA_columns]
 
         gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
-            empty = off_color)
+            empty = 'darkgray')
         us.PrintClient.__init__(self, pqueue)
 
+        self.maxRPM = self.archive[ac.maxRPM]
         # Tools ................................................................
         self.toolBar = tk.Frame(self)
         self.toolBar.grid(row = self.GRID_ROW + 1, sticky = "WE")
+
+        # Data type control (RPM vs DC) ........................................
+        self.maxValue = self.maxRPM
+        self.maxValues = {"RPM" : self.maxRPM, "DC" : 1}
+        self.offset = 0
+        self.offsets = {"RPM" : 0, "DC" : 1}
+        self.typeFrame = tk.Frame(self.toolBar)
+        self.typeFrame.pack(side = tk.LEFT, fill = tk.Y)
+        self.typeLabel = tk.Label(self.typeFrame, text = "Data: ",
+            **gus.fontc, **gus.padc)
+        self.typeLabel.pack(side = tk.LEFT, **gus.padc)
+        self.typeMenuVar = tk.StringVar()
+        self.typeMenuVar.trace('w', self._onTypeMenuChange)
+        self.typeMenuVar.set("RPM")
+        self.typeMenu = tk.OptionMenu(self.toolBar, self.typeMenuVar,
+            *list(self.offsets.keys()))
+        self.typeMenu.config(width = 3, **gus.fontc)
+        self.typeMenu.pack(side = tk.LEFT)
 
         # Layer control ........................................................
         self.numLayers = self.archive[ac.fanArray][ac.FA_layers]
@@ -803,7 +822,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # calling the constructor again...
         self.fanArray = fanArray
         self.maxFans = self.archive[ac.maxFans]
-        self.maxRPM = self.archive[ac.maxRPM]
         self.adjusting = False
         self.last_width, self.last_height = 0, 0
         self.colors = colors
@@ -814,8 +832,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.off_color = off_color
         self.range = tuple(range(self.size))
         self.dc = 0 # Whether to use duty cycles
-
-        self.maxValue = self.maxRPM
 
         self.layers = []
         for layer in range(self.numLayers):
@@ -853,14 +869,17 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         Process the feedback vector F according to the grid mapping.
         """
         grid_i = 0
+        offset = self.offset*len(F)//2
         for feedback_i in self.layers[self.layer]:
             if feedback_i is not None:
-                self.updatei(grid_i, F[feedback_i])
+                self.updatei(grid_i, F[feedback_i + offset])
             grid_i += 1
 
     def networkIn(self, N):
-        # FIXME
-        pass
+        if N[0]:
+            self.activate()
+        else:
+            self.deactivate()
 
     def slavesIn(self, S):
         if self.unindexed:
@@ -920,22 +939,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.draw(margin = 10)
         self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
-    def freeze(self):
-        print("frozen")
-        self.blockAdjust()
-        # FIXME
-        pass
-
-    def unfreeze(self):
-        print("unfrozen")
-        # FIXME
-        self.unblockAdjust()
-        pass
-
     # Activity .................................................................
     def activatei(self, i):
         self.active[i] = True
-        self.updatei(i, self.low)
 
     def deactivatei(self, i):
         self.deselecti(i)
@@ -944,11 +950,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     def activate(self):
         for i in self.range:
-            self.activatei(i)
+            if not self.active[i]:
+                self.activatei(i)
 
     def deactivate(self):
         for i in self.range:
-            self.deactivatei(i)
+            if self.active[i]:
+                self.deactivatei(i)
 
     # Values ...................................................................
     def updatei(self, i, value):
@@ -1029,9 +1037,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 grid_i = grid_r*self.C + grid_c
                 # Corresponding index in the feedback vector:
                 feedback_i = self.maxFans*s_i + fan_i
-                # FIXME debug
-                #print("Slave {}, fan {:2}: ({},{},{}) i.e {} (feedback {})".\
-                 #   format(s_i, fan_i, grid_r, grid_c, layer, grid_i, feedback_i))
 
                 if grid_r < self.R and grid_c < self.C \
                     and grid_i < self.size:
@@ -1050,6 +1055,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         To be called when the view layer is changed.
         """
         self.layer = self.layerVar.get() - 1
+
+    def _onTypeMenuChange(self, *E):
+        """
+        TO be called when the data type (RPM or DC) is changed.
+        """
+        self.offset = self.offsets[self.typeMenuVar.get()]
+        self.maxValue = self.maxValues[self.typeMenuVar.get()]
 
     def _onSelectModeChange(self, *E):
         """
@@ -1419,7 +1431,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.tableFrame = tk.Frame(self)
         self.tableFrame.grid(row = self.TABLE_ROW, column = self.TABLE_COLUMN,
             sticky = "NEWS")
-        self.table = ttk.Treeview(self.tableFrame, selectmode = 'browse',
+        self.table = ttk.Treeview(self.tableFrame,
             height = 32)
         self.table.pack(fill = tk.BOTH, expand = True)
         # Add columns:
@@ -1481,6 +1493,8 @@ class LiveTable(us.PrintClient, tk.Frame):
         )
 
         # Build scrollbars .....................................................
+        # See: https://lucasg.github.io/2015/07/21/
+        #    How-to-make-a-proper-double-scrollbar-frame-in-Tkinter/
         self.hscrollbar = ttk.Scrollbar(self, orient = tk.HORIZONTAL)
         self.hscrollbar.config(command = self.table.xview)
         self.hscrollbar.grid(row = self.HSCROLL_ROW,
@@ -1500,9 +1514,9 @@ class LiveTable(us.PrintClient, tk.Frame):
     # Standard interface .......................................................
     def feedbackIn(self, F):
         if self.playPauseFlag:
+            # FIXME: performance
             L = len(F)//2
             N = L//self.maxFans
-            # FIXME: performance
 
             if N > self.numSlaves:
                 for index in range(self.numSlaves, N):
@@ -1510,10 +1524,10 @@ class LiveTable(us.PrintClient, tk.Frame):
                         values = (index + 1,) + self.zeroes, tag = 'N')
                     self.numSlaves += 1
 
-            offset = L*self.offset
-            slave_i, vector_i = 0, 0
+            slave_i, vector_i = 0, L*self.offset
+            end_i = L + vector_i
             tag = "N"
-            while vector_i < L:
+            while vector_i < end_i:
                 values = tuple(F[vector_i:vector_i + self.maxFans])
 
                 if s.RIP in values:
@@ -1534,11 +1548,10 @@ class LiveTable(us.PrintClient, tk.Frame):
                 vector_i += self.maxFans
 
     def networkIn(self, N):
-        # FIXME
-        pass
+        if not N[s.NS_I_CONN]:
+            self.deactivate()
 
     def slavesIn(self, S):
-        # FIXME
         pass
 
     def selectAll(self):
@@ -1589,20 +1602,25 @@ class LiveTable(us.PrintClient, tk.Frame):
         # FIXME
         pass
 
-    def freeze(self):
-        print("LT frozen")
-        # FIXME
-        pass
-
-    def unfreeze(self):
-        print("LT unfrozen")
-        # FIXME
-        pass
-
     # Selection ................................................................
     # TODO implement
 
     # Internal methods .........................................................
+    def deactivate(self):
+        """
+        Seemingly "turn off" all rows to indicate inactivity; meant to be used,
+        primarily, upon network shutdown.
+        """
+        for index in self.slaves:
+            self.deactivatei(index)
+
+    def deactivatei(self, i):
+        """
+        "Turn off" the row corresponding to the slave in index i.
+        """
+        self.table.item(self.slaves[i],
+            values = (i + 1,), tag = "D")
+
     def _applySentinel(self, event = False):
         """
         Activate a sentinel according to the user's configuration.

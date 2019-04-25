@@ -207,9 +207,6 @@ class FCNetwork(us.PrintClient):
         """
         To be executed when the network switches to disconnected.
         """
-        # Send deactivated feedback vector
-        self.feedbackPipeSend.send([])
-
         # Send disconnected status vector
         self.networkPipeSend.send([False, None, None, None, None])
 
