@@ -30,6 +30,7 @@ import multiprocessing as mp
 import threading as mt
 
 from . import standards as s, utils as us
+from fc.mkiii import FCCommunicator as fcc
 
 ## CONSTANT DEFINITIONS ########################################################
 MP_STOP_TIMEOUT_S = 0.5
@@ -43,20 +44,21 @@ class FCNetwork(us.PrintClient):
     """
     SYMBOL = "[NW]"
 
-    def __init__(self, feedbackPipe, networkPipe, slavesPipe, archive, pqueue):
+    def __init__(self, feedbackPipeSend, slavePipeSend, networkPipeSend,
+        archive, pqueue):
         """
         Create a new NetworkAbstraction that operates a Communicator back-end.
         """
         us.PrintClient.__init__(self, pqueue)
 
-        self.feedbackPipe = feedbackPipe
-        self.networkPipe = networkPipe
-        self.slavesPipe = slavesPipe
+        self.feedbackPipeSend = feedbackPipeSend
+        self.slavePipeSend = slavePipeSend
+        self.networkPipeSend = networkPipeSend
         self.archive = archive
         self.process = None
         self.watchdog = None
 
-        self.messagePipeRecv, self.messagePipeSend = mp.Pipe(False)
+        self.commandPipeRecv, self.commandPipeSend = mp.Pipe(False)
         self.controlPipeRecv, self.controlPipeSend = mp.Pipe(False)
 
     # API ......................................................................
@@ -73,9 +75,13 @@ class FCNetwork(us.PrintClient):
                 self.process = mp.Process(
                     name = "FC Backend",
                     target = self._b_routine,
-                    args = (self.archive.profile(), self.feedbackPipe,
-                        self.controlPipeRecv, self.networkPipe, self.slavesPipe,
-                        self.messagePipeRecv, self.pqueue),
+                    args = (self.archive.profile(),
+                            self.commandPipeRecv,
+                            self.controlPipeRecv,
+                            self.feedbackPipeSend,
+                            self.slavePipeSend,
+                            self.networkPipeSend,
+                            self.pqueue),
                     daemon = True)
                 self.process.start()
 
@@ -97,7 +103,7 @@ class FCNetwork(us.PrintClient):
         try:
             if self.active():
                 self.printw("Stopping communications back-end...")
-                self.commandIn(s.SPEC_STOP)
+                self.commandIn(s.CMD_STOP)
                 self.process.join(timeout)
                 if self.process.is_alive():
                     self.process.terminate()
@@ -123,7 +129,7 @@ class FCNetwork(us.PrintClient):
         is inactive.
         """
         if self.active():
-            self.messagePipe.send((command) + value)
+            self.commandPipeSend.send((command,) + value)
         else:
             self.printe("Tried to send command offline ({})".format(command))
 
@@ -143,7 +149,7 @@ class FCNetwork(us.PrintClient):
         """
         Send a shutdown message to the Communicator backend.
         """
-        self.commandIn(s.MSG_SHUTDOWN, s.TGT_ALL)
+        self.commandIn(s.CMD_SHUTDOWN, s.TGT_ALL)
 
     def messageIn(self, message, target, selection = ()):
         """
@@ -157,40 +163,37 @@ class FCNetwork(us.PrintClient):
         Send the control vector C if the back-end is active.
         """
         if self.active():
-            self.controlPipeSend(C)
+            self.controlPipeSend.send(C)
 
     def startBootloader(self, filename, version, size):
         """
         Send a command to start the bootloader using the binary file at
         FILENAME with version code VERSION and byte size SIZE.
         """
-        self.send(s.BTL_START, (filename, version, size))
+        self.commandIn(s.CMD_FUPDATE_START, (filename, version, size))
 
     def stopBootloader(self):
         """
         Send a command to stop the flashing process.
         """
-        seld.send(s.BTL_STOP)
+        self.commandIn(s.CMD_FUPDATE_STOP)
 
     # Internal methods .........................................................
     @staticmethod
-    def _b_routine(profile, feedbackPipe, controlPipe, networkPipe,
-        slavesPipe, messagePipe, pqueue):
+    def _b_routine(profile, commandPipeRecv, controlPipeRecv, feedbackPipeSend,
+        slavePipeSend, networkPipeSend, pqueue):
         """
         Back-end routine. To be executed by the B.E. process.
         """
-
         P = us.printers(pqueue, "[CR]")
         P[us.R]("Comms. backend process started")
         try:
-            # FIXME
-            #C = be.FCBackend(profile, feedbackPipe, controlPipe, slavesPipe,
-            #    messagePipe, pqueue)
-            #C.join() # FIXME implement
-            pass
+            comms = fcc.FCCommunicator(profile, commandPipeRecv,
+                controlPipeRecv, feedbackPipeSend, slavePipeSend,
+                networkPipeSend, pqueue)
+            comms.join()
         except Exception as e:
             P[us.X](e, "Fatal error in comms. backend process")
-
         P[us.W]("Comms. backend process terminated")
 
     def _w_routine(self):
@@ -207,9 +210,9 @@ class FCNetwork(us.PrintClient):
         To be executed when the network switches to disconnected.
         """
         # Send deactivated feedback vector
-        self.feedbackPipe.send([])
+        self.feedbackPipeSend.send([])
 
         # Send disconnected status vector
-        self.networkPipe.send([False, None, None, None, None])
+        self.networkPipeSend.send([False, None, None, None, None])
 
 

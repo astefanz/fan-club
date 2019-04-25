@@ -208,7 +208,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
             # FIXME
             self._addModule(indexer(element), element, indexer(element), iid)
             #self._addPrimitive(indexer(element), element, indexer(element),iid)
-        # FIXME: map?
+            # FIXME: map?
         return iid
 
     # Callbacks ----------------------------------------------------------------

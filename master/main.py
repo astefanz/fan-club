@@ -35,7 +35,7 @@ import fc.communicator as cm
 import fc.utils as us
 
 ## GLOBALS #####################################################################
-VERSION = "0.4"
+VERSION = "0.5"
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'

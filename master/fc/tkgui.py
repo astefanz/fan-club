@@ -78,7 +78,7 @@ class FCGUI(it.FCInterface):
         title = TITLE + " " + self.version
         base = bas.Base(self.root, self.network, self.archive, title,
             self.version, self.feedbackClient, self.networkClient,
-            self.slavesClient, self.pqueue)
+            self.slaveClient, self.pqueue)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)
         self.network.connect()

@@ -100,8 +100,8 @@ passcode = 113
 
 socketLimit = 114
 
-defaultSlave = 115
-savedSlaves = 116
+defaultSlave = 1105
+savedSlaves = 1106
 
 # For each Slave .........
 SV_name = 116
@@ -967,7 +967,6 @@ BASE = {
             MD_mapping : ()
         },
     savedSlaves : (
-
         {
             SV_name : "B1",
             SV_mac : "00:80:e1:4b:00:36",

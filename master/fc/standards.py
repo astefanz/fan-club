@@ -216,7 +216,7 @@ MESSAGES = {"Add":CMD_ADD, "Disconnect":CMD_DISCONNECT, "Reboot":CMD_REBOOT,
     "Shutdown":CMD_SHUTDOWN}
 TARGETS = {"All":TGT_ALL, "Selected":TGT_SELECTED}
 
-CONTROLS = {"DC":CTL_DC}
+CONTROLS = {"Ohno" : 1}#{"DC":CTL_DC}
 
 # Network status vectors #######################################################
 # Form:
@@ -254,39 +254,39 @@ SS_UPDATING = 30005
 
 SLAVE_STATUSES = {
     SS_CONNECTED : 'Connected',
-    SV_KNOWN : 'Known',
-    SV_DISCONNECTED : 'Disconnected',
-    SV_AVAILABLE : 'Available',
-    SV_UPDATING : 'Updating'
+    SS_KNOWN : 'Known',
+    SS_DISCONNECTED : 'Disconnected',
+    SS_AVAILABLE : 'Available',
+    SS_UPDATING : 'Updating'
 }
 
 
 # Status foreground colors:
 FOREGROUNDS = {
-    SV_CONNECTED : '#0e4707',
-    SV_KNOWN : '#44370b',
-    SV_DISCONNECTED : '#560e0e',
-    SV_AVAILABLE : '#666666',
-    SV_UPDATING : '#192560'
+    SS_CONNECTED : '#0e4707',
+    SS_KNOWN : '#44370b',
+    SS_DISCONNECTED : '#560e0e',
+    SS_AVAILABLE : '#666666',
+    SS_UPDATING : '#192560'
 }
 FOREGROUNDS.update({
     NS_CONNECTED : FOREGROUNDS[SS_CONNECTED],
-    NS_CONNECTING : FOREGROUNDS[SS_DISCONNECTING],
+    NS_CONNECTING : FOREGROUNDS[SS_DISCONNECTED],
     NS_DISCONNECTED : FOREGROUNDS[SS_DISCONNECTED],
     NS_DISCONNECTING : FOREGROUNDS[SS_CONNECTED],
 })
 
 # Status background colors:
 BACKGROUNDS = {
-    CONNECTED : '#d1ffcc',
-    KNOWN : '#fffaba',
-    DISCONNECTED : '#ffd3d3',
-    AVAILABLE : '#ededed',
-    UPDATING : '#a6c1fc'
+    SS_CONNECTED : '#d1ffcc',
+    SS_KNOWN : '#fffaba',
+    SS_DISCONNECTED : '#ffd3d3',
+    SS_AVAILABLE : '#ededed',
+    SS_UPDATING : '#a6c1fc'
 }
 BACKGROUNDS.update({
     NS_CONNECTED : BACKGROUNDS[SS_CONNECTED],
-    NS_CONNECTING : BACKGROUNDS[SS_DISCONNECTING],
+    NS_CONNECTING : BACKGROUNDS[SS_DISCONNECTED],
     NS_DISCONNECTED : BACKGROUNDS[SS_DISCONNECTED],
     NS_DISCONNECTING : BACKGROUNDS[SS_CONNECTED],
 })

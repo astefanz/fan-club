@@ -82,8 +82,8 @@ class FCInterface(us.PrintServer):
         self.__buildLists()
 
         # Build backend abstraction:
-        self.network = cm.FCNetwork(self.feedbackPipeSend, self.networkPipeSend,
-            self.slavesPipeSend, archive, pqueue)
+        self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
+            self.networkPipeSend, archive, pqueue)
 
     # "PUBLIC" INTERFACE -------------------------------------------------------
     def run(self):
@@ -118,12 +118,12 @@ class FCInterface(us.PrintServer):
         """
         self.networkClients.append(client.networkIn)
 
-    def slavesClient(self, client):
+    def slaveClient(self, client):
         """
         Add CLIENT to the list of objects who's slavesIn method is to be
         called to distribute incoming slaves vectors.
         """
-        self.slavesClients.append(client.slavesIn)
+        self.slaveClients.append(client.slavesIn)
 
     # FOR INHERITANCE ----------------------------------------------------------
     def _mainloop():
@@ -144,17 +144,17 @@ class FCInterface(us.PrintServer):
         try:
             us.PrintServer._cycle(self)
             if self.feedbackPipeRecv.poll():
-                feedback = self.feedbackPipeRecv.recv()
+                F = self.feedbackPipeRecv.recv()
                 for client in self.feedbackClients:
-                    client(feedback)
+                    client(F)
             if self.networkPipeRecv.poll():
-                network = self.networkPipeRecv.recv()
+                N = self.networkPipeRecv.recv()
                 for client in self.networkClients:
-                    client(network)
-            if self.slavesPipeRecv.poll():
-                slaves = self.slavesPipeRecv.recv()
-                for client in self.slavesClients:
-                    client(slaves)
+                    client(N)
+            if self.slavePipeRecv.poll():
+                S = self.slavePipeRecv.recv()
+                for client in self.slaveClients:
+                    client(S)
         except Exception as e:
             self.printx(e, "Exception in I-P watchdog")
 
@@ -166,7 +166,7 @@ class FCInterface(us.PrintServer):
         """
         self.feedbackPipeRecv, self.feedbackPipeSend = mp.Pipe(False)
         self.networkPipeRecv, self.networkPipeSend = mp.Pipe(False)
-        self.slavesPipeRecv, self.slavesPipeSend = mp.Pipe(False)
+        self.slavePipeRecv, self.slavePipeSend = mp.Pipe(False)
 
     def __buildLists(self):
         """
@@ -175,4 +175,4 @@ class FCInterface(us.PrintServer):
         """
         self.feedbackClients = []
         self.networkClients = []
-        self.slavesClients = []
+        self.slaveClients = []
