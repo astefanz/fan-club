@@ -668,12 +668,14 @@ class FCCommunicator(us.PrintClient):
         # TODO: Revise DC standard with maxFans padding
 
         index = 0
-        i = C[s.CTL_I_VECTOR_DC_OFFSET]
+        i = s.CTL_I_VECTOR_DC_OFFSET
         L = len(C)
 
         while i < L:
             if self.slaves[index].getStatus() is sv.CONNECTED:
-                (MOSI_DC_MULTI, self.dcTemplate.format(*C[i:i+self.maxFans]))
+                self.slaves[index].setMOSI((
+                    MOSI_DC_MULTI,
+                    self.dcTemplate.format(*(C[i:i+self.maxFans]))))
             index += 1
             i += self.maxFans
 

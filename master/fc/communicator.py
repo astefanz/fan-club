@@ -130,13 +130,14 @@ class FCNetwork(us.PrintClient):
         if self.active():
             self.commandPipeSend.send((command, target) + rest)
 
+
     def controlIn(self, C):
         """
         Process the control vector C.
         """
         # FIXME: performance
         if self.active():
-            self.sendCommand(s.CTL_DC_VECTOR, s.TGT_ALL, tuple(C))
+            self.controlPipeSend.send((s.CTL_DC_VECTOR, s.TGT_ALL) + tuple(C))
 
     def connect(self):
         """
@@ -155,13 +156,6 @@ class FCNetwork(us.PrintClient):
         Send a shutdown message to the Communicator backend.
         """
         self.commandIn(s.CMD_SHUTDOWN, s.TGT_ALL)
-
-    def controlIn(self, C):
-        """
-        Send the control vector C if the back-end is active.
-        """
-        if self.active():
-            self.controlPipeSend.send(C)
 
     def startBootloader(self, filename, version, size):
         """

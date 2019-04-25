@@ -192,7 +192,7 @@ COMMAND_CODES = {
 
 # Control codes:
 CTL_DC_SINGLE = 5051
-CTL_DC_VECTOR = 5051
+CTL_DC_VECTOR = 5052
 
 # Control indices:
 CTL_I_CODE = 0
