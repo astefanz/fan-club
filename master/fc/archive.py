@@ -50,8 +50,8 @@ MACOS = 1
 LINUX = 2
 
 # Fan modes:
-SINGLE = 1
-DOUBLE = 2
+SINGLE = -1 # NOTE: mat change to positive values when slave side is updated
+DOUBLE = -2
 FAN_MODES = (SINGLE, DOUBLE)
 
 # Built-in pinouts:

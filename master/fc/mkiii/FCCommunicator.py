@@ -160,7 +160,7 @@ class FCCommunicator(us.PrintClient):
     # TODO: parameterize these
     DEFAULT_IP_ADDRESS = "0.0.0.0"
         #"0.0.0.0"
-    DEFAULT_BROADCAST_IP = "<broadcast>"
+    DEFAULT_BROADCAST_IP = "10.42.0.255"#"<broadcast>"
 
     def __init__(self,
             profile,
@@ -194,9 +194,9 @@ class FCCommunicator(us.PrintClient):
             self.profile = profile
 
             # Network:
-            self.broadcastPeriodS = profile[ac.broadcastPeriodMS]*1000
+            self.broadcastPeriodS = profile[ac.broadcastPeriodMS]/1000
             self.periodMS = profile[ac.periodMS]
-            self.periodS = self.periodMS*1000
+            self.periodS = self.periodMS/1000
             self.broadcastPort = profile[ac.broadcastPort]
             self.passcode = profile[ac.passcode]
             self.misoQueueSize = profile[ac.misoQueueSize]
@@ -696,6 +696,7 @@ class FCCommunicator(us.PrintClient):
                     while not self.slaveUpdateQueue.empty():
                         updates += self.slaveUpdateQueue.get_nowait()
                     if updates:
+                        self.prints("Sending updates: {}".format(updates)) # FDG
                         self.slavePipeSend.send(updates)
 
                     # Feedback vector:
@@ -749,12 +750,6 @@ class FCCommunicator(us.PrintClient):
                     """
                     self.broadcastSocket.sendto(broadcastMessage,
                         (self.DEFAULT_BROADCAST_IP, self.broadcastPort))
-
-                #self.broadcastSwitchLock.release()
-                #self.broadcastLock.release()
-
-                # Guarantee lock release:
-
         except socket.error:
             self.printx(e, "[BT] Network Error in broadcast thread:")
             self.stop()
@@ -906,8 +901,8 @@ class FCCommunicator(us.PrintClient):
                                 # If the MAC address is not recorded, list it
                                 # AVAILABLE and move on. The user may choose
                                 # to add it later.
-                                name = random.choice(nm.coolNames)
-                                fans = self.defaultSlave[ac.SV_maxFans],
+                                name = rd.choice(nm.coolNames)
+                                fans = self.defaultSlave[ac.SV_maxFans]
 
                                 self.slaves.append(
                                     sv.FCSlave(
@@ -1302,8 +1297,10 @@ class FCCommunicator(us.PrintClient):
                                         # Set up data placeholder as a tuple:
                                         # FIXME performance
 
-                                        rpms =  map(int,reply[-2].split(','))
-                                        dcs = map(float,reply[-1].split(','))
+                                        rpms =  list(map(
+                                            int,reply[-2].split(',')))
+                                        dcs = list(map(
+                                            float,reply[-1].split(',')))
 
                                         rpms += [0]*(self.maxFans - len(rpms))
                                         dcs += [0]*(self.maxFans - len(dcs))
@@ -1687,7 +1684,7 @@ class FCCommunicator(us.PrintClient):
         status = self.slaves[targetIndex].getStatus()
 
         if status == sv.AVAILABLE:
-            self.setSlaveStatus(self.slaves[targetIndex],sv.KNOWN)
+            self.setSlaveStatus(self.slaves[targetIndex], sv.KNOWN)
         else:
             pass
 
@@ -1747,10 +1744,13 @@ class FCCommunicator(us.PrintClient):
         # FIXME: No locking?
         # FIXME: Upon simplification of SV data structure...
 
+        self.printw("\tAdding slave {}".format(slave.index))
         # Update status:
         if netargs is None:
+            self.printw("\tNo netargs")
             slave.setStatus(newStatus, lock = lock)
         else:
+            self.printw("\tNetargs")
             slave.setStatus(newStatus, netargs[0], netargs[1], netargs[2],
                 netargs[3], lock = lock)
 

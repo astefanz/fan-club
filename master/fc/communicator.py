@@ -119,19 +119,18 @@ class FCNetwork(us.PrintClient):
         """
         return self.process is not None and self.process.is_alive()
 
-    def commandIn(self, command, value = ()):
+    def commandIn(self, command, target = s.TGT_ALL, rest = ()):
         """
-        Send a general command with command code COMMAND and value tuple VALUE
-        (when applicable, its particular value depends on the command). In
+        Send a general command with command code COMMAND with target code
+        TARGET, followed by the values in VALUES (required only
+        when applicable; its particular value depends on the command). In
         general. this method should be superseded by the specific send methods.
 
         Raises a RuntimeError if this method is called while the Communicator
         is inactive.
         """
-        if self.active():
-            self.commandPipeSend.send((command,) + value)
-        else:
-            self.printe("Tried to send command offline ({})".format(command))
+        # FIXME: performance
+        self.commandPipeSend.send((command, target) + rest)
 
     def connect(self):
         """
@@ -150,13 +149,6 @@ class FCNetwork(us.PrintClient):
         Send a shutdown message to the Communicator backend.
         """
         self.commandIn(s.CMD_SHUTDOWN, s.TGT_ALL)
-
-    def messageIn(self, message, target, selection = ()):
-        """
-        Send a message with message code MESSAGE, target code TARGET and, if
-        applicable, SELECTION (may be omitted otherwise).
-        """
-        self.commandIn(message, (target, selection))
 
     def controlIn(self, C):
         """

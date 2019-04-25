@@ -231,7 +231,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         self.sendButton = tk.Button(self.sendFrame, text = "Send",
             command = self._send, padx = 10, pady = 5)
         self.sendButton.pack(side = tk.LEFT)
-        self._sendCallback = network.messageIn
+        self._sendCallback = network.commandIn
         self.activeWidgets.append(self.sendButton)
 
         for message, code in s.MESSAGES.items():
@@ -328,7 +328,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         Send the selected target and
         message codes, as well as the current slave list selection.
         """
-        self._sendCallback(self.target.get(), self.message.get(),
+        self._sendCallback(self.message.get(), self.target.get(),
             self.slaveList.selected())
 
     def _setWidgetState(self, state):
@@ -757,9 +757,7 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
             slave = (index, name, mac, status, fans, version)
             if index not in self.slaves:
                 self.addSlave(slave)
-                print("New slave: ", index, name)
             else:
-                print("Updating: ", index, name)
                 self.updateSlave(slave)
 
     def addSlave(self, slave):
@@ -860,16 +858,15 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
 
     def selected(self, status = None):
         """
-        Return a list of the indices of slaves selected. STATUS (optional)
+        Return a tuple of the indices of slaves selected. STATUS (optional)
         returns a list of only the indices of slaves with such status code, if
         any exist.
         """
-        selected = []
+        selected = ()
         for iid in self.slaveList.selection():
             if status is None \
                 or self.slaveList.item(iid)['values'][s.SD_STATUS] == status:
-                selected.append(
-                    self.slaveList.item(iid)['values'][s.SD_INDEX] - 1)
+                selected += (self.slaveList.item(iid)['values'][s.SD_INDEX]-1, )
         return selected
 
     def sort(self):
@@ -1002,15 +999,15 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         for offset in range(0, size, s.SD_LEN):
             index = S[offset + s.SD_INDEX]
             status = S[offset + s.SD_STATUS]
-        if index in self.slaves:
-            if self.slaves[index] != status:
-                self.addCount(self.slaves[index], -1)
+            if index in self.slaves:
+                if self.slaves[index] != status:
+                    self.addCount(self.slaves[index], -1)
+                    self.addCount(status, 1)
+                    self.slaves[index] = status
+            else:
+                self.addTotal(1)
                 self.addCount(status, 1)
                 self.slaves[index] = status
-        else:
-            self.addTotal(1)
-            self.addCount(status, 1)
-            self.slaves[index] = status
 
     def connected(self):
         """
@@ -1075,6 +1072,7 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         """
         for count in self.statusVars.values():
             count.set(0)
+            self.slaves = {}
 
     # Internal methods .........................................................
     def _onShutdown(self, *event):

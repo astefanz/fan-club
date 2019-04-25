@@ -775,6 +775,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Set grid index I to VALUE if the given fan is active.
         """
+        # FIXME: make compliant with new standard
+        """
         if value is not None:
             if not self.active[i]:
                 self.activatei(i)
@@ -783,6 +785,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 ((value*self.maxColor)//self.maxRPM))])
         elif self.active[i]:
             self.deactivatei(i)
+        """
 
     def update(self, vector):
         """

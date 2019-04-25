@@ -368,10 +368,6 @@ class FCSlave:
                 # When DISCONNECTED, remove connection-specific attributes.
                 #self._setPorts(None, None)
                 #self._setIP(None)
-
-                print(("DEBUG: SLAVE {} DISCONNECTED W/ MISO INDEX {}".format(
-                   self.mac, self.misoIndex)))
-
                 self.resetIndices()
                 self._emptyMISOBuffer()
 
