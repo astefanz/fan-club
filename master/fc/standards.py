@@ -46,12 +46,12 @@
          | | | +<- [feedback vector F (DC's and RPM's)] <------+ | | |
          | | |    -------------------------------------------    | | |
          | | |                                                   | | |
-         | | |    ---- NETWORK PIPE -------------------------    | | |
-         | | +<--- [network vector N (global IP's and ports)] <--+ | |
-         | |      -------------------------------------------      | |
-         | |                                                       | |
-         | |      ---- SLAVE PIPE ---------------------------      | |
-         | +<----- [slave vector S (slave i's, statuses...)] <-----+ |
+         | | |    ---- SLAVE PIPE ---------------------------      | |
+         | | +<--- [slave vector S (slave i's, statuses...)] <-----+ |
+         | |      -------------------------------------------        |
+         | |                                                         |
+         | |      ---- NETWORK PIPE -------------------------        |
+         | +<----- [network vector N (global IP's and ports)] <------+
          |        -------------------------------------------        |
          |                                                           |
          |        ==== PRINT QUEUE ==========================        |
@@ -299,11 +299,13 @@ SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_LEN)
 #          |                           RPM's of slave 1
 #          RPM's of slave 0
 #
-# NOTE: The total size of the matrix will be 2*FT where FT is the total number
-# of active fans in the network.
-# NOTE: For controllers to check if their mapping still applies, check if the
-# size of the vector is consistent with its currently known number of total
-# fans.
+# NOTE: Controllers with mappings (i.e grid) need not care about new slaves, for
+# they are always unmapped. To get the DC offset they need only get half of the
+# feedback vector, and mapped (i.e saved) slaves are guaranteed to be the first
+# by the communicator's index assignment.
+# Controllers who need to always show all Slaves (i.e live table) may track the
+# size of the feedback vector, the default slave values (applied to new slaves),
+# and the slave vectors.
 # NOTE: Values corresponding to non-connected slaves will be set to a negative
 # code.
 #

@@ -98,8 +98,10 @@ misoQueueSize = 111
 printerQueueSize = 112
 passcode = 113
 
-defaultSlave = 114
-savedSlaves = 115
+socketLimit = 114
+
+defaultSlave = 115
+savedSlaves = 116
 
 # For each Slave .........
 SV_name = 116
@@ -168,6 +170,16 @@ def make_range_validator(low, high):
         if value < low or value > high:
             raise ValueError("Value ({}) is outside the range [{}, {}]".format(
                 value, low, high))
+    return validator
+
+def make_eq_validator(required):
+    """
+    Create a validator that checks whether a given numerical or string value N
+    is N == REQUIRED.
+    """
+    def validator(given):
+        if given != required:
+            raise ValueError("Value ({}) must be ({})".format(given, required))
     return validator
 
 def make_geq_validator(low):
@@ -292,6 +304,7 @@ v_nonempty_str = mix(make_type_validator(str), v_nonempty)
 v_mac = mix(v_str, make_length_validator(17))
 v_dutycycle = make_range_validator(0, 100)
 v_bool = make_type_validator(bool)
+v_negative_one = make_eq_validator(-1)
 
 # METADATA =====================================================================
 NAME, PRECEDENCE, TYPE, EDITABLE, VALIDATOR = tuple(range(5))
@@ -385,7 +398,11 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
 		v_nonempty_str),
-
+    socketLimit : ("socketLimit",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+        v_positive_int),
     defaultSlave : ("defaultSlave",
 		5,
 		TYPE_SUB,
@@ -405,7 +422,7 @@ META = {
 		2,
 		TYPE_PRIMITIVE,
 		True,
-		v_nonnegative_int),
+		v_negative_one),
     SV_fanModel : ("SV_fanModel",
 		3,
 		TYPE_PRIMITIVE,
@@ -604,6 +621,7 @@ class FCArchive(us.PrintClient):
         misoQueueSize : 2,
         printerQueueSize : 3,
         passcode : "CT",
+        socketLimit : 1024,
 
         defaultSlave :
             {
@@ -806,6 +824,7 @@ DEV = {
     misoQueueSize : 2,
     printerQueueSize : 3,
     passcode : "CT",
+    socketLimit : 1024,
 
     defaultSlave :
         {
@@ -836,7 +855,7 @@ DEV = {
         {
             SV_name : "A1",
             SV_mac : "00:80:e1:38:00:2a",
-            SV_index : 0,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -861,7 +880,7 @@ DEV = {
         {
             SV_name : "A2",
             SV_mac : "00:80:e1:45:00:46",
-            SV_index : 1,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -911,6 +930,7 @@ BASE = {
     misoQueueSize : 2,
     printerQueueSize : 3,
     passcode : "CT",
+    socketLimit : 1024,
 
     defaultSlave :
         {
@@ -942,7 +962,7 @@ BASE = {
         {
             SV_name : "B1",
             SV_mac : "00:80:e1:4b:00:36",
-            SV_index : 0,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -967,7 +987,7 @@ BASE = {
         {
             SV_name : "B2",
             SV_mac : "00:80:e1:2f:00:1d",
-            SV_index : 1,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -992,7 +1012,7 @@ BASE = {
         {
             SV_name : "B3",
             SV_mac : "00:80:e1:29:00:2e",
-            SV_index : 2,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -1017,7 +1037,7 @@ BASE = {
         {
             SV_name : "B4",
             SV_mac : "00:80:e1:27:00:3e",
-            SV_index : 3,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -1042,7 +1062,7 @@ BASE = {
         {
             SV_name : "B5",
             SV_mac : "00:80:e1:4b:00:42",
-            SV_index : 4,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),
@@ -1067,7 +1087,7 @@ BASE = {
         {
             SV_name : "B6",
             SV_mac : "00:80:e1:47:00:3d",
-            SV_index : 5,
+            SV_index : -1,
             SV_fanModel : "Unknown",
             SV_fanMode : SINGLE,
             SV_targetRelation :(1.0, 0.0),

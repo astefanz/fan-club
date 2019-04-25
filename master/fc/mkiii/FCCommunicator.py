@@ -35,14 +35,11 @@ import socketserver	# For bootloader
 # System:
 import sys			# Exception handling
 import traceback	# More exception handling
-import threading	# Multitasking
+import threading as mt	# Multitasking
 import _thread		# thread.error
-import multiprocessing # The big guns
+import multiprocessing as mp # The big guns
 
 import platform # Check OS and Python version
-IN_WINDOWS = platform.system() == 'Windows'
-if not IN_WINDOWS:
-	import resource		# Socket limit
 
 # Data:
 import time			# Timing
@@ -146,10 +143,12 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX """
 # - change input parsing
 # - change printing
 # - broadcast modes (both here and in interface)
+# - stopped behavior
 
 class FCCommunicator(us.PrintClient):
     VERSION = "Adapted 1"
     SYMBOL = "[CM]"
+    SYMBOL_IR = "[IR]"
 
     # TODO: parameterize these
     DEFAULT_IP_ADDRESS = "0.0.0.0"
@@ -157,32 +156,34 @@ class FCCommunicator(us.PrintClient):
     DEFAULT_BROADCAST_IP = "<broadcast>"
 
 	def __init__(self,
-            # TODO finish adapting
-			profile, # MkIV
-			# Multiprocessing:
-			commandQueue,
-			mosiMatrixQueue,
-			printQueue,
-			updatePipeOut,
-			networkPipeSend,
-			newMISOMatrixPipeIn,
-            pqueue # MkIV
+			profile,
+			commandPipeRecv,
+			controlPipeRecv,
+            feedbackPipeSend,
+            slavePipeSend,
+            networkPipeSend,
+            pqueue
 		): # ===================================================================
         """
         Constructor for FCCommunicator. This class encompasses the back-end
         network handling and number-crunching half of the software. It is
         expected to be executed in an independent process. (See Python's
         multiprocessing module.)
+
+            profile := profile as loaded from FCArchive
+			commandPipeRecv := receive command vectors from FE (mp Pipe())
+			controlPipeRecv := receive control vectors from FE (mp Pipe())
+            feedbackPipeSend := send feedback vectors to FE (mp Pipe())
+            slavePipeSend := send slave vectors to FE (mp Pipe())
+            networkPipeSend := send network vectors to FE (mp Pipe())
+            pqueue := mp Queue() instance for I-P printing  (see fc.utils)
+
         """
-        # TODO: Define parameters
         us.PrintClient.__init__(self, pqueue)
 		try:
-
-
 			# INITIALIZE DATA MEMBERS ==========================================
 
 			# Store parameters -------------------------------------------------
-
 			self.profile = profile
 
 			# Network:
@@ -197,8 +198,10 @@ class FCCommunicator(us.PrintClient):
 			self.flashFlag = False
 			self.targetVersion = None
 			self.flashMessage = None
+            self.broadcastMode = s.BMODE_BROADCAST
 
 			# Fan array:
+            # FIXME usage of default slave data is a provisional choice
             dsv = profile[ac.defaultSlave]
 
 			self.maxFans = profile[ac.maxFans]
@@ -219,16 +222,14 @@ class FCCommunicator(us.PrintClient):
 				self.fullSelection += '1'
 
 			# Multiprocessing and printing:
-			self.commandQueue = commandQueue
-			self.newMISOMatrixPipeIn = newMISOMatrixPipeIn
-			self.updatePipeOut = updatePipeOut
-			self.networkPipeSend = networkPipeSend
-			self.mosiMatrixQueue = mosiMatrixQueue
-			self.stoppedFlag = False
+			self.commandPipeRecv = commandPipeRecv
+			self.controlPipeRecv = controlPipeRecv
+            self.feedbackPipeSend = feedbackPipeSend
+            self.slavePipeSend = slavePipeSend
+            self.networkPipeSend = networkPipeSend
+			self.stop = mt.Event()
 
 			# Output queues:
-			self.printQueue = printQueue
-			self.symbol = "[CM] "
 			self.newSlaveQueue = queue.Queue()
 			self.slaveUpdateQueue = queue.Queue()
 
@@ -244,15 +245,10 @@ class FCCommunicator(us.PrintClient):
 
 			self.printM("\tHost IP: {}".format(self.hostIP))
 			"""
-			self.printM("\tDetected platform: {}".format(platform.system()))
-
-			if not IN_WINDOWS:
-
-				self.printM(
-					"\tNOTE: Increasing socket limit w/ \"resource\"",'W')
-
-				# Use resource library to get OS to give extra sockets, for good
-				# measure:
+			if self.profile[ac.platform] == ac.WINDOWS:
+				self.printd("\tNOTE: Increasing socket limit w/ \"resource\"")
+				# Use resource library to get OS to give extra sockets:
+	            import resource
 				resource.setrlimit(resource.RLIMIT_NOFILE,
 					(1024, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
 
@@ -273,7 +269,7 @@ class FCCommunicator(us.PrintClient):
 			# assign port number):
 			self.listenerSocket.bind(("", 0))
 
-			self.printM("\tlistenerSocket initialized on " + \
+			self.printr("\tlistenerSocket initialized on " + \
 				str(self.listenerSocket.getsockname()))
 
 			self.listenerPort = self.listenerSocket.getsockname()[1]
@@ -300,7 +296,7 @@ class FCCommunicator(us.PrintClient):
 
 			self.broadcastLock = threading.Lock()
 
-			self.printM("\tbroadcastSocket initialized on " + \
+			self.printr("\tbroadcastSocket initialized on " + \
 				str(self.broadcastSocket.getsockname()))
 
 			# Create reboot socket:
@@ -323,7 +319,7 @@ class FCCommunicator(us.PrintClient):
 
 			self.rebootLock = threading.Lock()
 
-			self.printM("\trebootSocket initialized on " + \
+			self.printr("\trebootSocket initialized on " + \
 				str(self.rebootSocket.getsockname()))
 
 			# Create disconnect socket:
@@ -346,7 +342,7 @@ class FCCommunicator(us.PrintClient):
 
 			self.disconnectLock = threading.Lock()
 
-			self.printM("\tdisconnectSocket initialized on " + \
+			self.printr("\tdisconnectSocket initialized on " + \
 				str(self.disconnectSocket.getsockname()))
 
 			# Reset any existing phantom connections:
@@ -354,7 +350,7 @@ class FCCommunicator(us.PrintClient):
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
 			self.flashHTTPHandler = http.server.SimpleHTTPRequestHandler
-			if not IN_WINDOWS:
+			if self.profile[ac.platform] != ac.WINDOWS:
 				TCPServerType = socketserver.ForkingTCPServer
 			else:
 				TCPServerType = socketserver.ThreadingTCPServer
@@ -376,14 +372,12 @@ class FCCommunicator(us.PrintClient):
 			self.flashServerThread.setDaemon(True)
 			self.flashServerThread.start()
 			self.httpPort = self.httpd.socket.getsockname()[1]
-			self.printM("\tHTTP Server initialized on {}".\
-				format(self.httpd.socket.getsockname())
-			)
+			self.printr("\tHTTP Server initialized on {}".format(
+                self.httpd.socket.getsockname()))
 
 			# SET UP MASTER THREADS ============================================
 
 			# INITIALIZE BROADCAST THREAD --------------------------------------
-
 			# Configure sentinel value for broadcasts:
 			self.broadcastSwitch = True
 				# ABOUT: UDP broadcasts will be sent only when this is True
@@ -403,7 +397,6 @@ class FCCommunicator(us.PrintClient):
 			self.broadcastThread.setDaemon(True)
 
 			# INITIALIZE LISTENER THREAD ---------------------------------------
-
 			self.listenerThread =threading.Thread(
 				name = "FCMkII_listener",
 				target = self._listenerRoutine)
@@ -427,9 +420,8 @@ class FCCommunicator(us.PrintClient):
 			# instantiate any saved Slaves:
             saved = self.profile[ac.savedSlaves]
 			self.slaves = [None]*len(saved)
-			update = []
-			for slave in saved:
-                index = slave[ac.SV_index]
+            # TODO: get rid of FCSlaves
+			for index, slave in enumerate(saved):
 				self.slaves[index] = \
 					sv.FCSlave(
 					mac = slave[ac.SV_mac],
@@ -440,6 +432,8 @@ class FCCommunicator(us.PrintClient):
 					index = index,
 					)
 
+                # FIXME MARKER
+
 				# Add to list:
 				update +=[
                     index,
@@ -448,11 +442,7 @@ class FCCommunicator(us.PrintClient):
 					sv.DISCONNECTED,
 					slave[ac.SV_maxFans],
 					self.slaves[index].getVersion()]
-			"""
-			self.newSlaveQueue.put_nowait(newSlaves)
-			"""
 			self.networkPipeSend.send(update)
-
 
 			# START THREADS:
 
@@ -469,28 +459,20 @@ class FCCommunicator(us.PrintClient):
 				slave.start()
 
 			# DONE
-			self.printM("Communicator ready", "G")
+			self.prints("Communicator ready")
 
-			"""
-			self.file.write("Configured network by {}\n".format(
-				time.strftime(
-					"%H:%M:%S", time.localtime())))
-			"""
-
-
-		except Exception as e: # Print uncaught exceptions
-			self.printM("UNHANDLED EXCEPTION IN Communicator __init__: "\
-				"\"{}\"".\
-				format(traceback.format_exc()), "E")
+		except Exception as e:
+			self.printe("UNHANDLED EXCEPTION IN Communicator __init__: "\
+				"\"{}\""format(traceback.format_exc()))
 
 		# End __init__ =========================================================
 
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 	def _inputRoutine(self): # =================================================
-
+        SYM = self.SYMBOL_IR
 		try:
-			self.printM("[IR] Prototype input routine started","G")
+			self.prints(SYM + " Prototype input routine started")
 			while True:
 
 				try:

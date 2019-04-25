@@ -29,6 +29,12 @@
 # TODO:
 # - Display table? (give to control panel as another display)
 
+# TODO ON REVISED I-P STANDARD:
+# - for grid, use MAC addresses to create mapping as indices arrive from
+# network. After that, for new boards, only the total number of fans is needed.
+# NOTE: or... is it? after all, the DC offset will always be half the array,
+# and saved slaves are guaranteed to always keep the lower indices
+
 ## IMPORTS #####################################################################
 import os
 import time as tm
