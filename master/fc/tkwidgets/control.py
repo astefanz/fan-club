@@ -1433,6 +1433,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         for fanNumber in range(self.maxFans):
             self.columns += ("{}".format(fanNumber+1),)
             self.zeroes += (0,)
+        self.columns += ("Pad",)
 
         self.table['columns'] = self.columns
 
@@ -1448,10 +1449,14 @@ class LiveTable(us.PrintClient, tk.Frame):
                 anchor = "center", stretch = False, width = self.specwidth)
             self.table.heading(column, text = column)
 
-        for column in self.columns[self.specialColumns:]:
+        for column in self.columns[self.specialColumns:-1]:
             self.table.column(column, width = self.rpmwidth,
                 anchor = "center", stretch = False)
             self.table.heading(column, text = column)
+
+        self.table.column(self.columns[-1], width = self.rpmwidth,
+            anchor = "center", stretch = True)
+        self.table.heading(self.columns[-1], text = " ")
 
         # Configure tags:
         self.table.tag_configure(
@@ -1497,8 +1502,6 @@ class LiveTable(us.PrintClient, tk.Frame):
         if self.playPauseFlag:
             L = len(F)//2
             N = L//self.maxFans
-
-            # TODO: handle disconnection
             # FIXME: performance
 
             if N > self.numSlaves:
