@@ -204,8 +204,14 @@ class FCSlave:
         # Fans:
         self.fans = fans
         self.maxFans = maxFans
-        self.padding_connected = [0]*maxFans
-        self.padding_disconnected = [s.RIP]*maxFans
+        self.padding_rpm_connected = [s.PAD]*maxFans
+        self.padding_rpm_disconnected = [s.RIP]*maxFans
+        self.padding_dc_connected = [s.PAD]*maxFans
+        self.padding_dc_disconnected = [s.RIP]*maxFans
+
+        # FIXME debug
+        R = 8000 + 8000*index
+        self.testpad_rpm = [int((f/self.maxFans)*R) for f in range(self.maxFans)]
 
         # Index:
         self.index = index
@@ -915,11 +921,14 @@ class FCSlave:
         # RETURNS:
         # - tuple containing update upon success, None upon failure.
         try:
-            return self.misoQueue.get(block)
+            self.misoQueue.get(block)
+            return (self.testpad_rpm, self.padding_dc_connected)
+            #return self.misoQueue.get(block) FIXME debug
         except queue.Empty:
-            return (self.padding_connected, self.padding_connected) if \
+            return (self.padding_rpm_connected, self.padding_dc_connected) if \
                 self.status is CONNECTED else \
-                    (self.padding_disconnected, self.padding_disconnected)
+                    (self.padding_rpm_disconnected,
+                        self.padding_dc_disconnected)
 
         # End getUpdate ========================================================
 

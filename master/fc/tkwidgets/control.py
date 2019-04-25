@@ -801,7 +801,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.fanArray = fanArray
         self.maxFans = self.archive[ac.maxFans]
         self.maxRPM = self.archive[ac.maxRPM]
-        self.slaves = self.archive[ac.savedSlaves]
         self.adjusting = False
         self.last_width, self.last_height = 0, 0
         self.colors = colors
@@ -815,59 +814,21 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.l = 0
         self.dc = 0 # Whether to use duty cycles
 
+        self.maxValue = self.maxRPM
+
         self.layers = [[None]*self.size]*self.L
         self.values = [0]*self.size
         self.selected = [False]*self.size
         self.active = [False]*self.size
 
-        # Build mapping based on current profile:
-        # FIXME: Are slaves sorted by index?
-        # NOTE: cannot assume set size for feedback vector. Will have to use
-        # half to determine limit of RPM and DC data (since number can change
-        # as slaves are added to the network)
-        print("[NOTE] Are Slaves always sorted by index?")
-        print("[NOTE] What about a non-grid display?")
-        for slave in self.slaves:
-            # Skip unassigned Slaves:
-            if not slave[ac.MD_assigned]:
-                continue
-            s_i = slave[ac.SV_index]
-            s_r, s_c = slave[ac.MD_row], slave[ac.MD_column]
-            s_R, s_C = slave[ac.MD_rows], slave[ac.MD_columns]
+        # Save the slaves that are mapped to the grid and have not received an
+        # index from the back-end
+        self.unindexed = {}
+        self.indexed = {}
+        for slave in self.archive[ac.savedSlaves]:
+            if slave[ac.MD_assigned]:
+                self.unindexed[slave[ac.SV_mac]] = slave
 
-            for cell_i, cell_data in enumerate(slave[ac.MD_mapping].split(',')):
-                # Skip empty cells:
-                if not cell_data:
-                    continue
-                for layer, fan in enumerate(cell_data.split('-')):
-                    # Skip empty fans:
-                    if not fan:
-                        continue
-                    # Fan index:
-                    fan_i = int(fan)
-
-                    # Corresponding grid row, column, and index:
-                    grid_r = s_r + (cell_i//s_C)
-                    grid_c = s_c + (cell_i%s_C)
-                    grid_i = grid_r*self.C + grid_c
-                    # Corresponding index in the feedback vector:
-                    feedback_i = self.maxFans*s_i + fan_i
-                    # FIXME debug
-                    """
-                    print("Slave {}, fan {:2}: ({},{}) i.e {} (feedback {})".\
-                        format(s_i, fan_i, grid_r, grid_c, grid_i, feedback_i))
-                    """
-
-                    if grid_r < self.R and grid_c < self.C \
-                        and grid_i < self.size:
-                        try:
-                            self.layers[layer][grid_i] = feedback_i
-                        except IndexError as e:
-                            self.printe(
-                                "Invalid coordinates or dimensions for "\
-                                + "Slave {} at ({},{}) of {}x{} "
-                                + "(\"{}\")".format(
-                                    s_i, s_r, s_c, s_R, s_C, slave[ac.SV_name]))
 
         # TODO: (redundant "TODO's" indicate priority)
         # - handle resets on profile changing TODO
@@ -885,16 +846,26 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
-        # FIXME
-        pass
+        """
+        Process the feedback vector F according to the grid mapping.
+        """
+        grid_i = 0
+        for feedback_i in self.layers[self.l]:
+            if feedback_i is not None:
+                self.updatei(grid_i, F[feedback_i])
+            grid_i += 1
 
     def networkIn(self, N):
         # FIXME
         pass
 
     def slavesIn(self, S):
-        # FIXME
-        pass
+        if self.unindexed:
+            S_i = 0
+            for mac in S[s.SD_MAC::s.SD_LEN]:
+                if mac in self.unindexed:
+                    self._assign(S[S_i], mac)
+                S_i += s.SD_LEN
 
     def selectAll(self):
         for i in range(self.size):
@@ -981,37 +952,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Set grid index I to VALUE if the given fan is active.
         """
-        # FIXME: make compliant with new standard
-        """
-        if value is not None:
+        if value >= 0:
             if not self.active[i]:
                 self.activatei(i)
             self.values[i] = value
+            print(value)
             self.filli(i, self.colors[min(self.maxColor,
-                ((value*self.maxColor)//self.maxRPM))])
-        elif self.active[i]:
+                int(((value*self.maxColor)/self.maxValue)))])
+        if value == s.RIP and self.active[i]:
             self.deactivatei(i)
-        """
-
-    def update(self, vector):
-        """
-        Assign the values contained in VECTOR to the grid according to the
-        profile mapping.
-        """
-        if not vector:
-            # An empty vector implies the entire network is down.
-            self.deactivate()
-        else:
-            grid_i = 0
-            for feedback_i in self.layers[self.l]:
-                if feedback_i is not None:
-                    # FIXME debug
-                    """
-                    print("Assigning grid ", grid_i, "To feedback", feedback_i,
-                        "Value", vector[feedback_i])
-                    """
-                    self.updatei(grid_i, vector[feedback_i])
-                grid_i += 1
 
     # Selection ................................................................
     def selecti(self, i):
@@ -1047,6 +996,53 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.bind("<Configure>", self._scheduleAdjust)
 
     # Internal methods .........................................................
+    def _assign(self, index, mac):
+        """
+        Map the given slave (expected to be in the unindexed dictionary) to
+        the grid, store it in the indexed dictionary, and remove it from the
+        unindexed dictionary.
+        """
+        slave = self.unindexed.pop(mac)
+
+        # Build mapping based on current profile:
+        slave[ac.SV_index] = index
+        s_i = index
+        s_r, s_c = slave[ac.MD_row], slave[ac.MD_column]
+        s_R, s_C = slave[ac.MD_rows], slave[ac.MD_columns]
+
+        for cell_i, cell_data in enumerate(slave[ac.MD_mapping].split(',')):
+            # Skip empty cells:
+            if not cell_data:
+                continue
+            for layer, fan in enumerate(cell_data.split('-')):
+                # Skip empty fans:
+                if not fan:
+                    continue
+                # Fan index:
+                fan_i = int(fan)
+
+                # Corresponding grid row, column, and index:
+                grid_r = s_r + (cell_i//s_C)
+                grid_c = s_c + (cell_i%s_C)
+                grid_i = grid_r*self.C + grid_c
+                # Corresponding index in the feedback vector:
+                feedback_i = self.maxFans*s_i + fan_i
+                # FIXME debug
+                print("Slave {}, fan {:2}: ({},{}) i.e {} (feedback {})".\
+                    format(s_i, fan_i, grid_r, grid_c, grid_i, feedback_i))
+
+                if grid_r < self.R and grid_c < self.C \
+                    and grid_i < self.size:
+                    try:
+                        self.layers[layer][grid_i] = feedback_i
+                    except IndexError as e:
+                        self.printe(
+                            "Invalid coordinates or dimensions for "\
+                            + "Slave {} at ({},{}) of {}x{} "
+                            + "(\"{}\")".format(
+                                s_i, s_r, s_c, s_R, s_C, slave[ac.SV_name]))
+        self.indexed[index] = slave
+
     def _onLayerChange(self, *A):
         """
         To be called when the view layer is changed.

@@ -332,4 +332,5 @@ SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_LEN)
 #
 # TODO: Need means by to handle disconnected slaves and different fan sizes...
 RIP = -69
+PAD = -1
 
