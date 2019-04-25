@@ -764,7 +764,7 @@ class FCCommunicator(us.PrintClient):
             the listenerSocket and respond accordingly.
         """
 
-        self.prints("[LT] Listener thread started. Waiting.")
+        self.prints("[LR] Listener thread started. Waiting.")
 
         # Get standard replies:
         launchMessage = "L|{}".format(self.passcode)

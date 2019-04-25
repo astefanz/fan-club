@@ -277,6 +277,9 @@ class BaseGrid(tk.Frame):
     def setCursor(self, cursor):
         self.config(cursor = cursor)
 
+    def built(self):
+        return self.canvas is not None
+
     def _wrapper(self, C):
         """
         Generate a wrapper around the event callback with code C. The wrapper

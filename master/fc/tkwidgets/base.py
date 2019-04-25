@@ -145,6 +145,8 @@ class Base(tk.Frame, us.PrintClient):
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
         self.feedbackAdd(self.controlWidget)
+        self.slavesAdd(self.controlWidget)
+        self.networkAdd(self.controlWidget)
 
         # Console tab:
         self.consoleWidget = csl.ConsoleWidget(self.consoleTab,
@@ -178,7 +180,7 @@ class Base(tk.Frame, us.PrintClient):
     def focusControl(self, *_):
         self.controlWidget.blockAdjust()
         self.notebook.select(2)
-        self.controlWidget.redrawGrid()
+        self.controlWidget.redraw()
         self.after(50, self.controlWidget.unblockAdjust)
 
     def focusConsole(self, *_):

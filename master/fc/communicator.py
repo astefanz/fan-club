@@ -125,12 +125,18 @@ class FCNetwork(us.PrintClient):
         TARGET, followed by the values in VALUES (required only
         when applicable; its particular value depends on the command). In
         general. this method should be superseded by the specific send methods.
-
-        Raises a RuntimeError if this method is called while the Communicator
-        is inactive.
         """
         # FIXME: performance
-        self.commandPipeSend.send((command, target) + rest)
+        if self.active():
+            self.commandPipeSend.send((command, target) + rest)
+
+    def controlIn(self, C):
+        """
+        Process the control vector C.
+        """
+        # FIXME: performance
+        if self.active():
+            self.sendCommand(s.CTL_DC_VECTOR, s.TGT_ALL, tuple(C))
 
     def connect(self):
         """

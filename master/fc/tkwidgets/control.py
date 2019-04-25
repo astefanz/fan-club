@@ -68,48 +68,62 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
 
-        # Grid -----------------------------------------------------------------
-        self.grid = GridWidget(self.main, self.archive, pqueue = pqueue)
+        # Interactive control widgets ..........................................
+        self.display = DisplayMaster(self.main, pqueue)
+
+        # Grid:
+        self.grid = GridWidget(self.display, self.archive, network.controlIn,
+            pqueue = pqueue)
+        self.display.add(self.grid, text = "Control Grid")
+
+        # Live table
+        self.table = LiveTable(self.display, self.archive, network.controlIn,
+            pqueue = pqueue)
+        self.display.add(self.table, text = "Live Table")
 
         # Control panel --------------------------------------------------------
         self.control = ControlPanelWidget(self.main, network, self.grid, pqueue)
 
-
         # Assemble .............................................................
         self.main.add(self.control, weight = 2)
-        self.main.add(self.grid, weight = 16)
+        self.main.add(self.display, weight = 16)
+
+    def redraw(self):
+        """
+        Rebuild widgets.
+        """
+        self.display.redraw()
 
     def feedbackIn(self, F):
         """
         Process a new feedback vector.
         """
-        self.grid.update(F)
+        self.display.feedbackIn(F)
+        self.control.feedbackIn(F)
 
-    def rebuild(self):
+    def slavesIn(self, S):
         """
-        Rebuild all widgets that are parameterized by profile attributes.
+        Process a new slaves vector.
         """
-        # TODO Rebuild grid
-        # TODO Rebuild color bar
-        print("[WARNING] ControlWidget rebuild method unimplemented")
+        self.display.slavesIn(S)
+
+    def networkIn(self, N):
+        """
+        Process a new network vector.
+        """
+        self.display.networkIn(N)
 
     def blockAdjust(self):
         """
         Deactivate automatic adjustment of widgets upon window resizes.
         """
-        self.unbind("<Configure>")
+        self.display.blockAdjust()
 
     def unblockAdjust(self):
         """
         Activate automatic adjustment of widgets upon window resizes.
         """
-        self.bind("<Configure>", self._scheduleAdjust)
-
-    def redrawGrid(self):
-        """
-        Rebuild the grid widget.
-        """
-        self.grid.redraw()
+        self.display.unblockAdjust()
 
 
 
@@ -254,9 +268,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[SC]"
 
-    """ Codes for direct input modes. """
-    DI_SELECT = 55
-    DI_DRAW = 65
 
     def __init__(self, master, network, pqueue):
         tk.Frame.__init__(self, master)
@@ -277,16 +288,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
             **gus.lfconf)
         self.directFrame.grid(row = row, sticky = "EW")
         row += 1
-
-        self.directMode = tk.IntVar()
-        self.selectButton = tk.Radiobutton(self.directFrame,
-            variable = self.directMode, value = self.DI_SELECT, text = "Select",
-            **gus.rbconf)
-        self.selectButton.pack(side = tk.LEFT, **gus.padc)
-        self.drawButton = tk.Radiobutton(self.directFrame, text = "Draw",
-            variable = self.directMode, value = self.DI_DRAW, **gus.rbconf)
-        self.drawButton.pack(side = tk.LEFT, **gus.padc)
-        self.directMode.trace('w', self._onDirectModeChange)
 
         self.directValueEntry = tk.Entry(self.directFrame, **gus.efont, width = 6)
         self.directValueEntry.pack(side = tk.LEFT, **gus.padc)
@@ -345,8 +346,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
             self._onLoad)
         self.loader.pack(side = tk.LEFT)
 
-        # Wrap-up
-        self.directMode.set(self.DI_SELECT)
 
     # API ......................................................................
 
@@ -389,12 +388,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         """
         # FIXME
         print("[WARNING] _onLoad not implemented")
-
-    def _onDirectModeChange(self, *E):
-        """
-        To be called when the direct input mode is changed.
-        """
-        self.deselectAll()
 
     @staticmethod
     def _nothing(*A):
@@ -567,25 +560,17 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             text = "Pause", **gus.fontc, **gus.padc, state = tk.DISABLED)
         self.recordPauseButton.pack(side = tk.LEFT, padx = 10)
 
-        # Vector count .........................................................
-        self.vectorCountFrame = tk.LabelFrame(self, **gus.lfconf,
-            text = "Diagnostics")
-        self.vectorCountFrame.grid(row = row, sticky = "EW")
-        row += 1
-        self.vectorCountLabel = tk.Label(self.vectorCountFrame,
-            text = "Vector: ", **gus.fontc, **gus.padc)
-        self.vectorCountLabel.pack(side = tk.LEFT, **gus.padc)
-        self.vectorCountVar = tk.IntVar()
-        self.vectorCountVar.set(0)
-        self.vectorDisplay = tk.Label(self.vectorCountFrame,
-            textvariable = self.vectorCountVar, font = "Courier 7",
-            bg = "lightgray", relief = tk.SUNKEN, bd = 1)
-        self.vectorDisplay.pack(side = tk.LEFT, fill = tk.X, expand = True)
-
         # Wrap-up ..............................................................
         self.viewVar.set(self.VM_LIVE)
 
     # API ......................................................................
+    def feedbackIn(self, F):
+        """
+        Process a feedback vector F
+        """
+        # TODO
+        pass
+
     def isLive(self):
         """
         Return whether the currently selected view mode is "Live Control" (the
@@ -604,12 +589,138 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         # TODO
         pass
 
+class DisplayMaster(tk.Frame, us.PrintClient):
+    """
+    Wrapper around interactive control widgets such as the grid or the live
+    table. Allows the user to switch between them and abstracts their specifics
+    away from the rest of the control front-end.
+    """
+    SYMBOL = "[DM]"
+    MENU_ROW, MENU_COLUMN = 0, 0
+    CONTENT_ROW, CONTENT_COLUMN = 1, 0
+    GRID_KWARGS = {'row':CONTENT_ROW, 'column':CONTENT_COLUMN, 'sticky':"NEWS"}
+
+    def __init__(self, master, pqueue):
+        """
+        Create a new DisplayMaster.
+
+        - feedbackIn(F) : takes a standard feedback vector
+        - networkIn(N) : takes a standard network state vector
+        - slavesIn(S) : takes a standard slave state vector
+
+        - selectAll()
+        - parameters() : returns a list of parameters for function mapping that
+                contains at least 't' (for time)
+        - map(f) : takes a function that accepts the parameters returned by
+                    parameters() in the same order in which it returns them and
+                    returns a normalized duty cycle ([0, 1])
+        - set(dc) : takes a normalized duty cycle ([0, 1])
+        - apply()
+        - getC() : return a standard control vector
+        - live()
+        - fake()
+        - limit(dc) : takes a normalized duty cycle ([0, 1])
+        - redraw()
+
+        - blockAdjust()
+        - unblockAdjust()
+
+        See fc.standards.
+        """
+        tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
+        self.displays = {}
+        self.selected = tk.IntVar()
+        self.selected.trace('w', self._update)
+        self.current = None
+
+        self.grid_rowconfigure(self.CONTENT_ROW, weight = 1)
+        self.grid_columnconfigure(self.CONTENT_COLUMN, weight = 1)
+
+        self.menuFrame = tk.Frame(self)
+        self.menuFrame.grid(row = self.MENU_ROW, column = self.MENU_COLUMN)
+
+    # API ----------------------------------------------------------------------
+
+    def add(self, display, text, **pack_kwargs):
+        """
+        Add DISPLAY to this DisplayMaster. Behaves just like ttk.Notebook.add.
+        """
+        index = len(self.displays)
+        self.displays[index] = display
+
+        button = tk.Radiobutton(self.menuFrame, variable = self.selected,
+            value = index, text = text, **gus.rbconf)
+        button.pack(side = tk.LEFT, **gus.padc)
+
+        if self.current is None:
+            display.grid(**self.GRID_KWARGS)
+            self.current = index
+
+    # Wrapper methods ----------------------------------------------------------
+    def feedbackIn(self, F):
+        self.displays[self.current].feedbackIn(F)
+
+    def networkIn(self, N):
+        self.displays[self.current].networkIn(N)
+
+    def slavesIn(self, S):
+        self.displays[self.current].slavesIn(S)
+
+    def selectAll(self):
+        self.displays[self.current].selectAll()
+
+    def parameters(self):
+        self.displays[self.current].parameters()
+
+    def map(self, f):
+        self.displays[self.current].map(f)
+
+    def set(self, dc):
+        self.displays[self.current].set(dc)
+
+    def apply(self):
+        self.displays[self.current].apply()
+
+    def getC(self):
+        self.displays[self.current].getC()
+
+    def live(self):
+        self.displays[self.current].live()
+
+    def fake(self):
+        self.displays[self.current].fake()
+
+    def limit(self, dc):
+        self.displays[self.current].limit(dc)
+
+    def blockAdjust(self):
+        self.displays[self.current].blockAdjust()
+
+    def unblockAdjust(self):
+        self.displays[self.current].unblockAdjust()
+
+    def redraw(self):
+        self.displays[self.current].redraw()
+
+    # Internal methods ---------------------------------------------------------
+    def _update(self, *event):
+        new = self.selected.get()
+        if new != self.current:
+            self.displays[self.current].grid_forget()
+            self.displays[new].grid(**self.GRID_KWARGS)
+            self.current = new
+
 class GridWidget(gd.BaseGrid, us.PrintClient):
     """
     Front end for the 2D interactive Grid.
     """
+    # TODO: keep backup for live feedback
     SYMBOL = "[GD]"
     RESIZE_MS = 400
+
+    SM_SELECT = 55
+    SM_DRAW = 65
 
     DEFAULT_COLORS = cms.COLORMAP_GALCIT_REVERSED
     DEFAULT_OFF_COLOR = "#303030"
@@ -622,10 +733,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     WIDTH_NORMAL = 1
     WIDTH_SELECTED = 3
 
-    def __init__(self, master, archive, pqueue, colors = DEFAULT_COLORS,
+    def __init__(self, master, archive, send, pqueue, colors = DEFAULT_COLORS,
         off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH):
 
         self.archive = archive
+        self._send = send
         fanArray = self.archive[ac.fanArray]
         R, C = fanArray[ac.FA_rows], fanArray[ac.FA_columns]
 
@@ -633,9 +745,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             empty = off_color)
         us.PrintClient.__init__(self, pqueue)
 
+        # Tools ................................................................
+        self.toolBar = tk.Frame(self)
+        self.toolBar.grid(row = self.GRID_ROW + 1, sticky = "WE")
+
         # Layer control ........................................................
-        self.layerFrame = tk.Frame(self)
-        self.layerFrame.grid(row = self.GRID_ROW + 1, sticky = "WE")
+        self.layerFrame = tk.Frame(self.toolBar)
+        self.layerFrame.pack(side = tk.LEFT, fill = tk.Y)
         self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
             **gus.fontc, **gus.padc)
         self.layerLabel.pack(side = tk.LEFT, **gus.padc)
@@ -644,6 +760,30 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar, 1)
         self.layerMenu.config(**gus.fontc)
         self.layerMenu.pack(side = tk.LEFT, **gus.padc)
+
+        # Selection mode control ...............................................
+        # FIXME
+        self.selectMode = tk.IntVar()
+        self.selectButton = tk.Radiobutton(self.toolBar,
+            variable = self.selectMode, value = self.SM_SELECT, text = "Select",
+            **gus.rbconf)
+        self.selectButton.pack(side = tk.LEFT, **gus.padc)
+        self.drawButton = tk.Radiobutton(self.toolBar, text = "Draw",
+            variable = self.selectMode, value = self.SM_DRAW, **gus.rbconf)
+        self.drawButton.pack(side = tk.LEFT, **gus.padc)
+        self.selectMode.trace('w', self._onSelectModeChange)
+
+        # Color display .......................................................
+        self.colorDisplay = tk.Label(self.toolBar, relief = tk.RIDGE, bd = 1,
+            bg = 'darkgray', text = "          " ) # TODO
+        # TODO: implement color picker.
+        # give the color bar a callback that takes in a normalized DC and a
+        # color; bind it to each of the color bar's "rectangles" (find how to
+        # get the corresponding percentage) and then set the color as the
+        # background and the corresponding percentage as a text with the
+        # "inverse" color (or "opposite" color or whatever it is) as foreground.
+        # NOTE: IDEA -- have setDC do this automatically (the mapping is there)
+        self.colorDisplay.pack(side = tk.LEFT, **gus.padc)
 
         # Color Bar ............................................................
         self.colorBar = ColorBarWidget(self, colors = cms.COLORMAP_GALCIT,
@@ -741,6 +881,82 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.testi = 0 # FIXME
         self.tests = [self.__testF1, self.__testF2, self.__testF3]
         self.layerVar.set(1)
+        self.selectMode.set(self.SM_SELECT)
+
+    # Standard interface .......................................................
+    def feedbackIn(self, F):
+        # FIXME
+        pass
+
+    def networkIn(self, N):
+        # FIXME
+        pass
+
+    def slavesIn(self, S):
+        # FIXME
+        pass
+
+    def selectAll(self):
+        for i in range(self.size):
+            self.selecti(i)
+
+    def parameters(self):
+        # FIXME
+        pass
+
+    def map(self, f):
+        # FIXME
+        pass
+
+    def set(self, dc):
+        # FIXME
+        pass
+
+    def apply(self):
+        # FIXME
+        pass
+
+    def getC(self):
+        # FIXME
+        pass
+
+    def live(self):
+        # FIXME
+        pass
+
+    def fake(self):
+        # FIXME
+        pass
+
+    def limit(self, dc):
+        # FIXME
+        pass
+
+    def blockAdjust(self):
+        # FIXME
+        self.unbind("<Configure>")
+        pass
+
+    def unblockAdjust(self):
+        # FIXME
+        self.bind("<Configure>", self._scheduleAdjust)
+        pass
+
+    def redraw(self, event = None):
+        self.draw(margin = 10)
+        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
+
+    def freeze(self):
+        print("frozen")
+        self.blockAdjust()
+        # FIXME
+        pass
+
+    def unfreeze(self):
+        print("unfrozen")
+        # FIXME
+        self.unblockAdjust()
+        pass
 
     # Activity .................................................................
     def activatei(self, i):
@@ -813,13 +1029,22 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     def deselect(self, r, c):
         self.select(r*self.C + c)
 
-    def selectAll(self):
-        for i in range(self.size):
-            self.selecti(i)
-
     def deselectAll(self):
         for i in range(self.size):
             self.deselecti(i)
+
+    # Widget ...................................................................
+    def blockAdjust(self):
+        """
+        Deactivate automatic adjustment of widgets upon window resizes.
+        """
+        self.unbind("<Configure>")
+
+    def unblockAdjust(self):
+        """
+        Activate automatic adjustment of widgets upon window resizes.
+        """
+        self.bind("<Configure>", self._scheduleAdjust)
 
     # Internal methods .........................................................
     def _onLayerChange(self, *A):
@@ -828,6 +1053,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         # TODO
         pass
+
+    def _onSelectModeChange(self, *E):
+        """
+        To be called when the direct input mode is changed.
+        """
+        # TODO (?)
+        if self.built():
+            self.deselectAll()
+
 
     def _scheduleAdjust(self, *E):
         self.after(self.RESIZE_MS, self._adjust)
@@ -846,10 +1080,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             raise IndexError(
                 "Invalid layer index {} ([0, {}])".format(l, self.L - 1))
         self.l = l
-
-    def redraw(self, *E):
-        self.draw(margin = 10)
-        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
     def __testF1(self):
         """
@@ -969,6 +1199,103 @@ class ColorBarWidget(tk.Frame):
         self.canvas.create_line(left, y, right, y, width = 4)
         self.canvas.create_line(left, y, right, y, width = 2, fill = 'white')
 
+class LiveTable(us.PrintClient, tk.Frame):
+    """
+    Another interactive control widget. This one displays all slaves and fans
+    in a tabular fashion and hence needs no mapping.
+    """
+    SYMBOL = "[LT]"
+
+    def __init__(self, master, archive, send, pqueue):
+        """
+        Create a new LiveTable in MASTER.
+
+            master := Tkinter parent widget
+            archive := FCArchive instance
+            send := method to which to pass generated control vectors
+            pqueue := Queue instance for I-P printing
+        """
+        us.PrintClient.__init__(self, pqueue)
+        tk.Frame.__init__(self, master)
+        self.archive = archive
+        self._send = send
+        # FIXME implement
+
+        self.config(bg = 'red')
+
+    # Standard interface .......................................................
+    def feedbackIn(self, F):
+        # FIXME
+        pass
+
+    def networkIn(self, N):
+        # FIXME
+        pass
+
+    def slavesIn(self, S):
+        # FIXME
+        pass
+
+    def selectAll(self):
+        # FIXME
+        pass
+
+    def parameters(self):
+        # FIXME
+        pass
+
+    def map(self, f):
+        # FIXME
+        pass
+
+    def set(self, dc):
+        # FIXME
+        pass
+
+    def apply(self):
+        # FIXME
+        pass
+
+    def getC(self):
+        # FIXME
+        pass
+
+    def live(self):
+        # FIXME
+        pass
+
+    def fake(self):
+        # FIXME
+        pass
+
+    def limit(self, dc):
+        # FIXME
+        pass
+
+    def blockAdjust(self):
+        # FIXME
+        pass
+
+    def unblockAdjust(self):
+        # FIXME
+        pass
+
+    def redraw(self):
+        # FIXME
+        pass
+
+    def freeze(self):
+        print("LT frozen")
+        # FIXME
+        pass
+
+    def unfreeze(self):
+        print("LT unfrozen")
+        # FIXME
+        pass
+
+    # Selection ................................................................
+    # TODO implement
 
 ## DEMO ########################################################################
 if __name__ == "__main__":
