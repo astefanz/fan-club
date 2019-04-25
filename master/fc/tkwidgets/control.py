@@ -860,15 +860,25 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.high = high
         self.low = 0
         self.off_color = off_color
-        self.range = tuple(range(self.size))
+        self.range = range(self.size)
         self.dc = 0 # Whether to use duty cycles
 
-        self.layers = []
-        for layer in range(self.numLayers):
-            self.layers.append([None]*self.size)
-        self.values = [0]*self.size
-        self.selected = [False]*self.size
-        self.active = [False]*self.size
+        self.layers = {}
+        self.selected = {}
+        self.active = {}
+        self.values = {}
+        for l in range(self.numLayers):
+            self.layers[l] = {}
+            self.selected[l] = {}
+            self.active[l] = {}
+            self.values[l] = {}
+            for i in range(self.size):
+                self.layers[l][i] = None
+                self.selected[l][i] = False
+                self.active[l][i] = False
+                self.values[l][i] = 0
+
+        # FIXME: are we using self.values correctly, or at all?
 
         # Save the slaves that are mapped to the grid and have not received an
         # index from the back-end
@@ -888,10 +898,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # - drag, drop, etc..
         # - get selections
         # - [...]
-        self.testi = 0 # FIXME
-        self.tests = [self.__testF1, self.__testF2, self.__testF3]
         self.layerVar.set(1)
         self.selectMode.set(self.SM_SELECT)
+
+        # Configure callbacks:
+        self.setLeftClick(self._simpleSelectOnClick)
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
@@ -902,7 +913,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         offset = self.offset*len(F)//2
         for feedback_i in self.layers[self.layer]:
             if feedback_i is not None:
-                self.updatei(grid_i, F[feedback_i + offset])
+                self.updatei(grid_i, self.layer, F[feedback_i + offset])
             grid_i += 1
 
     def networkIn(self, N):
@@ -920,14 +931,12 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 S_i += s.SD_LEN
 
     def selectAll(self):
-        # TODO: track selection accross layers
-        print("NOTE: No selection tracking when switching layers")
-        for i in range(self.size):
-            self.selecti(i)
+        for i in self.range:
+            self.selectd(i)
 
     def deselectAll(self):
-        for i in range(self.size):
-            self.deselecti(i)
+        for i in self.range:
+            self.deselectd(i)
 
     def parameters(self):
         # FIXME
@@ -973,60 +982,67 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     def redraw(self, event = None):
         self.draw(margin = 20)
-        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
 
     # Activity .................................................................
-    def activatei(self, i):
-        self.active[i] = True
+    def activatei(self, i, l):
+        self.active[l][i] = True
 
-    def deactivatei(self, i):
-        self.deselecti(i)
-        self.active[i] = False
+    def deactivatei(self, i, l):
+        self.deselecti(i, l)
+        self.active[l][i] = False
         self.filli(i, self.off_color)
 
     def activate(self):
         for i in self.range:
-            if not self.active[i]:
-                self.activatei(i)
+            for l in self.layers:
+                if not self.active[l][i]:
+                    self.activatei(i, l)
 
     def deactivate(self):
         for i in self.range:
-            if self.active[i]:
-                self.deactivatei(i)
+            for l in self.layers:
+                if self.active[l][i]:
+                    self.deactivatei(i, l)
 
     # Values ...................................................................
-    def updatei(self, i, value):
+    def updatei(self, i, l, value):
         """
-        Set grid index I to VALUE if the given fan is active.
+        Set grid index I to VALUE on layer L if the given fan is active.
         """
         if value >= 0:
-            if not self.active[i]:
-                self.activatei(i)
-            self.values[i] = value
+            if not self.active[l][i]:
+                self.activatei(i, l)
+            self.values[l][i] = value
             self.filli(i, self.colors[min(self.maxColor,
                 int(((value*self.maxColor)/self.maxValue)))])
-        if value == s.RIP and self.active[i]:
-            self.deactivatei(i)
+        if value == s.RIP and self.active[l][i]:
+            self.deactivatei(i, l)
 
     # Selection ................................................................
-    def selecti(self, i):
-        if self.active[i]:
-            self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
-            self.selected[i] = True
+    def selecti(self, i, l):
+        if self.active[l][i]:
+            self.selected[l][i] = True
+            if l == self.layer:
+                self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
 
-    def select(self, r, c):
-        self.select(r*self.C + c)
+    def deselecti(self, i, l):
+        self.selected[l][i] = False
+        if l == self.layer:
+            self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
 
-    def deselecti(self, i):
-        self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
-        self.selected[i] = False
+    def selectd(self, i):
+        """
+        Select "deep": applies selection to all layers.
+        """
+        for l in self.layers:
+            self.selecti(i, l)
 
-    def deselect(self, r, c):
-        self.select(r*self.C + c)
-
-    def deselectAll(self):
-        for i in range(self.size):
-            self.deselecti(i)
+    def deselectd(self, i):
+        """
+        Select "deep": applies selection to all layers.
+        """
+        for l in self.layers:
+            self.deselecti(i, l)
 
     # Widget ...................................................................
     def blockAdjust(self):
@@ -1091,6 +1107,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         To be called when the view layer is changed.
         """
         self.layer = self.layerVar.get() - 1
+        if self.canvas:
+            self._updateStyle()
 
     def _onTypeMenuChange(self, *E):
         """
@@ -1107,79 +1125,36 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         if self.built():
             self.deselectAll()
 
-
     def _scheduleAdjust(self, *E):
         self.after(self.RESIZE_MS, self._adjust)
         self.unbind("<Configure>")
+
+    def _updateStyle(self, event = None):
+        """
+        Enforce style rules when switching layers.
+        """
+        l = self.layer
+        for i in self.layers[l]:
+            if not self.active[l][i]:
+                self.filli(i, self.off_color)
+            if self.selected[l][i] and self.active[l][i]:
+                self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+            else:
+                self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
 
     def _adjust(self, *E):
         self.redraw()
         self.colorBar.redraw()
         self.bind("<Configure>", self._scheduleAdjust)
 
-    def layer(self, l):
-        """
-        Set L in [0, #layers - 1] to be the layer displayed.
-        """
-        if l > self.L or l < 0:
-            raise IndexError(
-                "Invalid layer index {} ([0, {}])".format(l, self.L - 1))
-        self.l = l
+    @staticmethod
+    def _simpleSelectOnClick(grid, i):
+        if i:
+            if grid.selected[grid.layer][i]:
+                grid.deselecti(i, grid.layer)
+            else:
+                grid.selecti(i, grid.layer)
 
-    def __testF1(self):
-        """
-        Generate feedback vectors for testing.
-        """
-        N = len(self.assigned)*self.maxFans
-        V = list(int(((i + 1)/N)*self.archive[ac.maxRPM]) for i in range(N))
-        for i in range(self.R*self.C):
-            self.selecti(i)
-        self.update(V)
-
-    def __testF2(self):
-        """
-        Generate feedback vectors for testing.
-        """
-        N = len(self.slaves)*self.maxFans
-        S = len(self.slaves)
-        R = self.archive[ac.maxRPM]
-        V = []
-        for i in range(self.R*self.C):
-            self.deselecti(i)
-        for slave in self.slaves:
-            s = slave[ac.SV_index]
-            v = int(((s + 1)/S)*R)
-            V = V + [v]*self.maxFans
-        self.update(V)
-
-    def __testF3(self):
-        """
-        Generate feedback vectors for testing. Tests inactive fans.
-        """
-        N = len(self.slaves)*self.maxFans
-        V = list(int(((i + 1)/N)*self.archive[ac.maxRPM]) for i in range(N))
-        for i, v in enumerate(V):
-            if i%2:
-                V[i] = None
-        self.update(V)
-
-
-    def __testbind1(self, *E):
-        print("[DEV] __testbind")
-        #self.update([i for i in range(self.R*self.C)])
-        self.canvas.bind("<Button-1>", self.__testbind3) # FIXME
-
-    def __testbind2(self, *E):
-        print("[DEV] __testbind")
-        #self.update([i for i in range(self.R*self.C)])
-        self.deactivate()
-        self.canvas.bind("<Button-1>", self.__testbind1) # FIXME
-
-    def __testbind3(self, *E):
-        self.tests[self.testi%len(self.tests)]()
-        self.testi += 1
-
-    # FIXME
 
 class ColorBarWidget(tk.Frame):
     """

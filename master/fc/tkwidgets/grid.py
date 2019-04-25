@@ -284,13 +284,14 @@ class BaseGrid(tk.Frame):
         """
         Generate a wrapper around the event callback with code C. The wrapper
         will call the callback and pass this grid as an object, as well as the
-        row and column of the cell pointed to by the cursor.
+        index of the cell being clicked or None if the index could not be
+        found
         """
         def wrapper(event):
             iid = self.canvas.find_closest(
                 self.canvas.canvasx(event.x),
                 self.canvas.canvasy(event.y))[0]
-            index = self.indices[iid]
+            index = self.indices[iid] if iid in self.indices else None
             self.callbacks[C](self, index)
         return wrapper
 
