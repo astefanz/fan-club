@@ -133,8 +133,9 @@ pinouts = 132
 
 # Fan array --------------------------------------------------------------------
 maxRPM = 200
-maxFans = 202
-fanArray = 201
+maxFans = 201
+dcDecimals = 202
+fanArray = 203
 
 # For each fan array .....
 FA_rows = 208
@@ -546,6 +547,12 @@ META = {
 		True,
 		v_positive_int),
 
+    dcDecimals : ("dcDecimals",
+		8,
+		TYPE_PRIMITIVE,
+		True,
+		v_nonnegative_int),
+
     fanArray : ("fanArray",
 		9,
 		TYPE_SUB,
@@ -652,6 +659,7 @@ class FCArchive(us.PrintClient):
         pinouts : PINOUTS.copy(),
         maxRPM : 16000,
         maxFans : 21,
+        dcDecimals : 2,
         fanArray : {
             FA_rows : 0,
             FA_columns : 0,
@@ -905,6 +913,7 @@ DEV = {
     pinouts : PINOUTS.copy(),
     maxRPM : 16000,
     maxFans : 21,
+    dcDecimals : 2,
     fanArray : {
         FA_rows : 2,
         FA_columns : 21,
@@ -1114,6 +1123,7 @@ BASE = {
     pinouts : PINOUTS.copy(),
     maxRPM : 16000,
     maxFans : 21,
+    dcDecimals : 2,
     fanArray : {
         FA_rows : 11,
         FA_columns : 11,

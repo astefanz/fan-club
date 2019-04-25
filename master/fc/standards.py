@@ -63,10 +63,15 @@
 # TODO: Network diagnostics data, such as MISO and MOSI indices and packet
 # loss counts, etc.
 
+# TODO: Confirm DC normalization and formats
+
+# TODO: Check performance w/ DC fan selections being Strings
+
 # Number of decimals to have for duty cyle. Indicates by which power of 10 to
 # normalize
-DC_DECIMALS = 4
-DC_NORMALIZER = 10.0**(-(DC_DECIMALS + 2)) # .... Multiply by this to normalize
+DC_DECIMALS = 2 # FIXME make this part of the profile
+DC_NORMALIZER = 10.0**(DC_DECIMALS + 2) # .... Divide by this to normalize
+
 
 # Target codes:
 TGT_ALL = 4041
@@ -85,20 +90,28 @@ TARGET_CODES = {
 # NOTE: Sent through the same channel as control vectors.
 # Form:
 #
-#            [ CODE, TARGET_CODE, TARGET_0, TARGET_1,... ]
+#        D =  [CODE, TARGET_CODE, TARGET_0, TARGET_1,... ]
 #              |     |            |---------------------/
 #              |     |            |
 #              |     |            |
 #              |     |            Indices of selected slaves, if applicable
 #              |     Whether to apply to all or to a subset of the slaves
-#              Command code: ADD, DISCONNECT, REBOOT, REMOVE, etc. (below)
+#              Command code: ADD, DISCONNECT, REBOOT, etc. (below)
 #
-#                        either broadcast or targetted "heart beat"
-#                        |
-#            [ CMD_BMODE, VAL ]
-#              |         |
-#              |         New broadcast mode
+#                         either broadcast or targetted "heart beat"
+#                         |
+#        D =  [CMD_BMODE, BMODE]
+#              |          |
+#              |          New broadcast mode
 #              Set new broadcast mode
+#
+#        D =  [CMD_FUPDATE_START, VERSION_NAME, FILE_NAME, SIZE]
+#              |                  |             |          |
+#              |                  |             |          |
+#              |                  |             |          File size (bytes)
+#              |                  |             File name (String)
+#              |                  Version name (String)
+#              Start firmware update
 #
 
 # Command codes:
@@ -120,11 +133,16 @@ CMD_I_CODE = 0
 CMD_I_TGT_CODE = 1
 CMD_I_TGT_OFFSET = 2
 
+CMD_I_FU_VERSION = 1
+CMD_I_FU_FILENAME = 2
+CMD_I_FU_FILESIZE = 3
+
+CMD_I_BM_BMODE = 1
+
 COMMAND_CODES = {
     CMD_ADD : "CMD_ADD",
     CMD_DISCONNECT : "CMD_DISCONNECT",
     CMD_REBOOT : "CMD_REBOOT",
-    CMD_REMOVE : "CMD_REMOVE",
     CMD_SHUTDOWN : "CMD_SHUTDOWN",
     CMD_FUPDATE_START : "CMD_FUPDATE_START",
     CMD_FUPDATE_STOP : "CMD_FUPDATE_STOP",
@@ -134,6 +152,7 @@ COMMAND_CODES = {
 
 # Control vectors ##############################################################
 # NOTE: Sent through the same channel as command vectors
+# NOTE: Here each duty cycle is a float between 0.0 and 1.0, inclusive.
 # Form:
 #                                                           1st fan selected
 #                                                           |2nd fan selected
@@ -160,32 +179,35 @@ COMMAND_CODES = {
 #  |              Apply to all Slaves
 #  Control code
 #
-#                              Here there are as many duty cycles as the
-#                              correspondign slave has fans
-# [CTL_DC_MULTI, TGT_SELECTED, TARGET_0, DC_0_0, DC_0_1,... TARGET_1, ...]
+# [CTL_DC_VECTOR, TGT_SELECTED, DC_0_0, DC_0_1, DC_0_MF,...DC_N-1_0,...DC_N-1_MF]
 #  |                 |         |----------------------/ |----------------/
 #  |                 |         |                        |
-#  |                 |         |                        Data for slave 1
-#  |                 |         Index of first target slave, then its DC's
+#  |                 |         |                        DC's for last slave
+#  |                 |         Fans of slave 0
 #  |                 Whether to apply to all or to a subset of the slaves
 #  Control code
-#  NOTE: TGT_SELECTED is ignored, as CTL_DC_MULTI is meant to only use this
-#  format.
+#  NOTE: TGT_SELECTED is ignored, as CTL_DC_VECTOR is meant to only use this
+#  NOTE: Here all slaves are assumed to have maxFans fans. Inactive fans are
+#  expected to be padded with zeros.
 
 # Control codes:
 CTL_DC_SINGLE = 5051
-CTL_DC_MULTI = 5051
+CTL_DC_VECTOR = 5051
 
 # Control indices:
 CTL_I_CODE = 0
-CTL_I_TGT = 1
+CTL_I_TGT_CODE = 1
 
 CTL_I_SINGLE_DC = 2
 CTL_I_SINGLE_ALL_SELECTION = 3
 
+CTL_I_SINGLE_TGT_OFFSET = 3
+CTL_I_VECTOR_TGT_OFFSET = 1
+CTL_I_VECTOR_DC_OFFSET = 2
+
 CONTROL_CODES = {
-CTL_DC_SINGLE : "CTL_DC_SINGLE",
-CTL_DC_MULTI : "CTL_DC_MULTI"
+    CTL_DC_SINGLE : "CTL_DC_SINGLE",
+    CTL_DC_VECTOR : "CTL_DC_VECTOR"
 }
 
 
@@ -198,7 +220,7 @@ CONTROLS = {"DC":CTL_DC}
 
 # Network status vectors #######################################################
 # Form:
-#            [ CONN, IP, BIP, BPORT, LPORT ]
+#      N =    [CONN, IP, BIP, BPORT, LPORT]
 #              |     |   |    |       |
 #              |     |   |    |       Listener port (int)
 #              |     |   |    Broadcast port (int)
@@ -273,14 +295,13 @@ BACKGROUNDS.update({
 # Form:
 #
 #            S = [INDEX_0, NAME_0, MAC_0, STATUS_0, FANS_0, VERSION_0...]
-#            |    |        |       |      |         |       |
-#            |    |        |       |      |         |       Slave 0's version
-#            |    |        |       |      |         Slave 0's active fans
-#            |    |        |       |      Slave 0's status
-#            |    |        |       Slave 0's MAC
-#            |    |        Slave 0's name
-#            |    Slave 0's index (should be 0)
-#            This slave vector
+#                 |        |       |      |         |       |
+#                 |        |       |      |         |       Slave 0's version
+#                 |        |       |      |         Slave 0's active fans
+#                 |        |       |      Slave 0's status
+#                 |        |       Slave 0's MAC
+#                 |        Slave 0's name
+#                 Slave 0's index (should be 0)
 
 # Slave data:
 SD_LEN = 6

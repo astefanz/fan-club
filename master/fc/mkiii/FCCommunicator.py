@@ -111,15 +111,6 @@ FCPRCONSTS = (ADD, DISCONNECT, REBOOT)
 NEW = 11
 UPDATE = 12
 
-# MOSI commands:
-MOSI_NO_COMMAND = 20
-MOSI_DC = 21
-MOSI_DC_ALL = 22
-MOSI_RPM = 23
-MOSI_RPM_ALL = 24
-MOSI_DISCONNECT = 25
-MOSI_REBOOT = 26
-MOSI_DC_MULTI = 27
 
 # Change codes:
 NO_CHANGE = 0
@@ -133,10 +124,24 @@ MISO_SPECIALCOLUMNS = 2
 
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX """
 
+# MOSI commands:
+# TODO: Replace these
+MOSI_NO_COMMAND = 20
+MOSI_DC = 21
+MOSI_DC_ALL = 22
+MOSI_RPM = 23
+MOSI_RPM_ALL = 24
+MOSI_DISCONNECT = 25
+MOSI_REBOOT = 26
+MOSI_DC_MULTI = 27
+
 ## CLASS DEFINITION ############################################################
 
-# TODO:
+# DONE:
 # - change profile usage (DONE)
+
+# TODO:
+# - change FCSlave constants for s.standards constants
 # - change command queue for pipe
 # - change pipes
 # - change output formatting
@@ -205,6 +210,8 @@ class FCCommunicator(us.PrintClient):
             dsv = profile[ac.defaultSlave]
 
 			self.maxFans = profile[ac.maxFans]
+            self.fanRange = range(self.maxFans)
+            self.dcTemplate = "{},"*self.maxFans
 			self.fanMode = profile[ac.defaultSlave][ac.SV_fanMode]
 			self.targetRelation = dsv[ac.SV_targetRelation]
 			self.fanFrequencyHZ = dsv[ac.SV_fanFrequencyHZ]
@@ -216,6 +223,7 @@ class FCCommunicator(us.PrintClient):
 			self.chaserTolerance = dsv[ac.SV_chaserTolerance]
 			self.maxFanTimeouts = hc.DEF_MAX_FAN_TIMEOUTS
 			self.pinout = profile[ac.pinouts][dsv[ac.SV_pinout]]
+            self.decimals = profile[ac.dcDecimals]
 
 			self.fullSelection = ''
 			for fan in range(self.maxFans):
@@ -235,6 +243,23 @@ class FCCommunicator(us.PrintClient):
 
 			# Initialize Slave-list-related data:
 			self.slavesLock = threading.Lock()
+
+            # Command handling:
+            self.commandHandlers = {
+                s.CMD_ADD : self.__handle_input_CMD_ADD,
+                s.CMD_DISCONNECT : self.__handle_input_CMD_DISCONNECT,
+                s.CMD_REBOOT : self.__handle_input_CMD_REBOOT,
+                s.CMD_SHUTDOWN : self.__handle_input_CMD_SHUTDOWN,
+                s.CMD_FUPDATE_START : self.__handle_input_CMD_FUPDATE_START,
+                s.CMD_FUPDATE_STOP : self.__handle_input_CMD_FUPDATE_STOP,
+                s.CMD_STOP : self.__handle_input_CMD_STOP,
+                s.CMD_BMODE : self.__handle_input_CMD_BMODE,
+            }
+
+            self.controlHandlers = {
+                s.CTL_DC_SINGLE : self.__handle_input_CTL_DC_SINGLE,
+                s.CTL_DC_VECTOR : self.__handle_input_CTL_DC_VECTOR,
+            }
 
 			"""
 			# Create a temporary socket to obtain Master's IP address:
@@ -462,199 +487,189 @@ class FCCommunicator(us.PrintClient):
 			self.prints("Communicator ready")
 
 		except Exception as e:
-			self.printe("UNHANDLED EXCEPTION IN Communicator __init__: "\
-				"\"{}\""format(traceback.format_exc()))
+			self.printx(e, "Exception in Communicator __init__: ")
 
 		# End __init__ =========================================================
 
 	# # THREAD ROUTINES # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+    # Input handling ...........................................................
 	def _inputRoutine(self): # =================================================
         SYM = self.SYMBOL_IR
 		try:
 			self.prints(SYM + " Prototype input routine started")
 			while True:
-
 				try:
-					# Input --------------------------------------------------------
-
-					# Check commands:
-					if self.updatePipeOut.poll():
-						command = self.updatePipeOut.recv()
-
-						# Classify command:
-						if command[wg.COMMAND] == ADD:
-
-							if command[wg.VALUE] == ALL:
-								for index, slave in enumerate(self.slaves):
-									self.add(index)
-										# NOTE: Unapplicable Slaves will be
-										# automatically ignored
-							else:
-								self.add(command[wg.VALUE])
-
-
-						elif command[wg.COMMAND] == DISCONNECT:
-
-							if command[wg.VALUE] == ALL:
-								self.sendDisconnect()
-							else:
-								self.slaves[command[wg.VALUE]].\
-									setMOSI((MOSI_DISCONNECT,),False)
-
-						elif command[wg.COMMAND] == REBOOT:
-
-							if command[wg.VALUE] == ALL:
-								self.sendReboot()
-							else:
-								self.sendReboot(self.slaves[command[wg.VALUE]])
-
-						elif command[wg.COMMAND] == wg.STOP:
-							self.stop()
-
-						elif command[wg.COMMAND] == SET_DC:
-
-							if command[wg.VALUE + 2] == ALL:
-
-								for index, slave in enumerate(self.slaves):
-									if slave.getStatus() is sv.CONNECTED:
-										slave.setMOSI(
-											(	MOSI_DC,
-												command[wg.VALUE]) +\
-												command[wg.VALUE+1],
-											False
-										)
-							else:
-
-								for index in command[wg.VALUE+2:]:
-									if self.slaves[index].getStatus() is \
-										sv.CONNECTED:
-										self.slaves[index].setMOSI(
-											(	MOSI_DC,
-												command[wg.VALUE]) + \
-												command[wg.VALUE+1],
-
-											False
-										)
-
-						elif command[wg.COMMAND] is SET_DC_GROUP:
-
-							dc = command[wg.VALUE]
-
-
-							for pair in command[wg.VALUE+1]:
-								# NOTE: Here 'pair' is a tuple of the form
-								# (index, fans)
-								# Where 'index' is the index of the selected
-								# Slave and 'fans' is an n-tuple of 0's and 1's,
-								# (as long as the Slave's fan array) and
-								# denoting which fans are selected...
-
-								if self.slaves[pair[0]].getStatus()\
-									== sv.CONNECTED:
-
-									self.slaves[pair[0]].setMOSI(
-										(MOSI_DC,
-										dc) # Duty cycle
-										 + pair[1]# Fan selection tuple
-
-									)
-
-						elif command[wg.COMMAND] is SET_DC_MULTI:
-							# NOTE: Here wg.VALUE contains a list of tuples
-							# of the form (INDEX, DC1, DC2 ... DCN)
-
-							for slaveTuple in command[wg.VALUE]:
-								if self.slaves[slaveTuple[0]].getStatus()\
-									== sv.CONNECTED:
-
-									self.slaves[slaveTuple[0]].setMOSI(
-										(MOSI_DC_MULTI, ) + slaveTuple[1:]
-									)
-
-						elif command[wg.COMMAND] is SET_RPM:
-
-							if command[wg.VALUE + 2] is ALL:
-
-								for index, slave in enumerate(self.slaves):
-									if slave.getStatus() is sv.CONNECTED:
-										slave.setMOSI(
-											(	MOSI_RPM,
-												command[wg.VALUE],
-												command[wg.VALUE+1]
-											),
-											False
-										)
-							else:
-
-								for index in command[wg.VALUE+2:]:
-									if self.slaves[index].getStatus() is \
-										sv.CONNECTED:
-										self.slaves[index].setMOSI(
-											(	MOSI_RPM,
-												command[wg.VALUE],
-												command[wg.VALUE+1]
-											),
-											False
-										)
-
-						elif command[wg.COMMAND] is BOOTLOADER_START:
-
-							self.printM("Flash order received:"\
-								"\n\tVersion: {} "\
-								"\n\tFile: \"{}\""\
-								"\n\tSize: {} bytes)".\
-									format(
-										command[wg.VALUE],
-										command[wg.VALUE + 1],
-										command[wg.VALUE + 2]
-									)
-							)
-
-							self.flashFlag = True
-							self.targetVersion = command[wg.VALUE]
-
-							fileName = command[wg.VALUE+1]
-
-							self.flashMessage = \
-								"U|CT|{}|{}|{}|{}".\
-								format(
-								self.listenerPort,
-								self.httpPort,
-								fileName,
-								command[wg.VALUE+2]
-							)
-
-						elif command[wg.COMMAND] is BOOTLOADER_STOP:
-
-							self.printM("Received order to stop flashing")
-							self.flashFlag = False
-
-					# Check matrix:
-					matrix = self.mosiMatrixQueue.get_nowait()
-					index = 0
-					for row in matrix:
-						if row[0] is not NO_COMMAND:
-							self.slaves[index].setMOSI(row)
-
-						index += 1
-
-				except queue.Empty:
-					continue
-
-				except queue.Full:
-					continue
+					if self.commandPipeRecv.poll():
+						D = self.commandPipeRecv.recv()
+                        self.commandHandlers[D[s.CMD_I_CODE]](D)
+                    if self.controlPipeRecv.poll():
+                        C = self.controlPipeRecv.recv()
+                        self.controlHandlers[C[s.CTL_I_CODE]](C)
 
 				except Exception as e: # Print uncaught exceptions
-					self.printM("[IR] EXCEPTION: "\
-						"\"{}\"".\
-						format(traceback.format_exc()), "E")
+					self.printx(e, SYM + " Exception in back-end input thread:")
 
 		except Exception as e: # Print uncaught exceptions
-			self.printM("[IR] UNHANDLED EXCEPTION: "\
-				"\"{}\" (BROKE OUT OF LOOP)".\
-				format(traceback.format_exc()), "E")
+			self.printe(e, SYM + " Exception in back-end input thread "\
+                + "(BROKE OUT OF LOOP):")
 		# End _inputRoutine ====================================================
+
+    def __handle_input_CMD_ADD(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        target = D[s.CMD_I_TGT_CODE]
+        if target == s.TGT_ALL:
+            # REMARK: Unapplicable Slaves will be automatically ignored
+            for index in range(len(self.slaves)):
+                self.add(index)
+        elif target == s.TGT_SELECTED:
+            for index in D[s.CMD_I_TGT_OFFSET:]
+                self.add(index)
+        else:
+            raise ValueError("Invalid {} target code {}".format(
+                s.COMMAND_CODES[D[s.CMD_I_CODE]], target))
+
+    def __handle_input_CMD_DISCONNECT(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        target = D[s.CMD_I_TGT_CODE]
+        if target == s.TGT_ALL:
+            self.sendDisconnect()
+        elif target == s.TGT_SELECTED:
+            for index in D[s.CMD_I_TGT_OFFSET:]
+                self.slaves[index].setMOSI((MOSI_DISCONNECT,),False)
+        else:
+            raise ValueError("Invalid {} target code {}".format(
+                s.COMMAND_CODES[D[s.CMD_I_CODE]], target))
+
+    def __handle_input_CMD_REBOOT(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        target = D[s.CMD_I_TGT_CODE]
+        if target == s.TGT_ALL:
+			self.sendReboot()
+        elif target == s.TGT_SELECTED:
+            for index in D[s.CMD_I_TGT_OFFSET:]
+			    self.sendReboot(self.slaves[index])
+        else:
+            raise ValueError("Invalid {} target code {}".format(
+                s.COMMAND_CODES[D[s.CMD_I_CODE]], target))
+
+    def __handle_input_CMD_SHUTDOWN(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        self.printw("SHUTDOWN COMMAND BEHAVIOR NOT YET IMPLEMENTED") # FIXME
+
+    def __handle_input_CMD_FUPDATE_START(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        try:
+            self.targetVersion = D[s.CMD_I_FU_VERSION]
+            filename = D[s.CMD_I_FU_FILENAME]
+            filesize = D[s.CMD_I_FU_FILESIZE]
+            self.printr("Firmware update command received:"\
+                "\n\tVersion: {} \n\tFile: \"{}\"\n\tSize: {} bytes)".format(
+                self.targetVersion, filename, filesize))
+
+            self.flashFlag = True
+
+            self.flashMessage = "U|CT|{}|{}|{}|{}".format(
+                self.listenerPort, self.httpPort, filename, filesize)
+
+            self.prints("Firmware update setup complete.")
+
+        except Exception as e:
+            self.printe("Exception raised in setup. Firmware update canceled.")
+            self.commandHandlers[s.CMD_FUPDATE_STOP]([s.CMD_FUPDATE_STOP])
+            raise e
+
+    def __handle_input_CMD_FUPDATE_STOP(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        self.printr("Received command to stop firmware update.")
+        self.flashFlag = False
+
+    def __handle_input_CMD_STOP(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        self.printw("Received command to stop communications.")
+        self.stop()
+
+    def __handle_input_CMD_BMODE(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        self.broadcastMode = D[s.CMD_I_BM_BMODE]
+        self.printr("Broadcast mode changed to \"{}\"".format(
+            s.BROADCAST_MODES[self.broadcastMode]))
+        self.printw("BMODE BEHAVIOR NOT YET IMPLEMENTED") # FIXME
+
+    def __handle_input_CTL_DC_SINGLE(self, C):
+        """
+        Process the control vector C with the corresponding command.
+        See fc.standards for the expected form of C.
+        """
+        self.printw("Experimental DC SINGLE control routine running") # FIXME
+        target = C[s.CTL_I_TGT_CODE]
+        dc = C[s.CTL_I_SINGLE_DC]
+        # FIXME MkIV constants (RIP MOSI...)
+        # L--> NOTE Apply this to others, too
+        if target is s.TGT_ALL:
+            fans = C[s.CTL_I_SINGLE_ALL_SELECTION]
+            for slave in self.slaves: # FIXME performance w/ getIndex?
+                if slave.getStatus() is sv.CONNECTED:
+                    slave.setMOSI((MOSI_DC, dc,  fans), False)
+        elif target is s.TGT_SELECTED:
+            # FIXME performance
+            i = s.CTL_I_SINGLE_TGT_OFFSET
+            L = len(C)
+            while i < L:
+                slave = self.slaves[C[i]]
+                fans = C[i + 1]
+                if slave.getStatus() is sv.CONNECTED:
+                    slave.setMOSI((MOSI_DC, dc,  fans), False)
+                i += 2
+        else:
+            raise ValueError("Invalid {} target code {}".format(
+                s.CONTROL_CODES[C[s.CTL_I_CODE]], target))
+
+    def __handle_input_CTL_DC_VECTOR(self, C):
+        """
+        Process the control vector C with the corresponding command.
+        See fc.standards for the expected form of C.
+        """
+        self.printw("Experimental DC MULTI control routine running") # FIXME
+        # NOTE: Here wg.VALUE contains a list of tuples
+        # of the form (INDEX, DC1, DC2 ... DCN)
+
+        # FIXME: MARKED
+        # TODO: Revise DC standard with maxFans padding
+
+        index = 0
+        i = C[s.CTL_I_VECTOR_DC_OFFSET]
+        L = len(C)
+
+        while i < L:
+            if self.slaves[index].getStatus() is sv.CONNECTED:
+                (MOSI_DC_MULTI, self.dcTemplate.format(*C[i:i+self.maxFans]))
+            index += 1
+            i += self.maxFans
 
 	def _outputRoutine(self): # ================================================
 		# Summarize asynchronous output from each Slave thread into a matrix
@@ -1268,20 +1283,19 @@ class FCCommunicator(us.PrintClient):
 							self._send(message, slave, 2)
 
 						elif fetchedMessage[0] == MOSI_DC:
-							# Duty cycle assignment. format message to be sent
-							# Raw format: [MOSI_DC, DC, FAN1S,FAN2S...]
-
-							selection = ''
-							for fan in fetchedMessage[2:]:
-								if fan == 1:
-									selection += '1'
-								else:
-									selection += '0'
+                            # NOTE MkIV format:
+                            # (MOSI_DC, DC, SELECTION)
+                            # -> DC is already normalized
+                            # -> SELECTION is string of 1's and 0's
 
 							message = "S|D:{}:{}".format(
-								fetchedMessage[1]*0.01, selection)
+								fetchedMessage[1], fetchedMessage[2])
+                            #   \---------------/  \---------------/
+                            #      Duty cycle         Selection
 
 							self._send(message, slave, 2)
+
+                        """ OBSOLETE (MkIV)
 
 						elif fetchedMessage[0] == MOSI_DC_ALL:
 							# Chase RPM
@@ -1291,14 +1305,18 @@ class FCCommunicator(us.PrintClient):
 								fetchedMessage[1]*0.01, self.fullSelection)
 
 							self._send(message, slave, 2)
+                        """
 
 						elif fetchedMessage[0] == MOSI_DC_MULTI:
-							message = "S|F:"
-							for dc in fetchedMessage[1:]:
-								message += str(dc*0.01) + ','
-
+                            # NOTE MkIV format:
+                            # (MOSI_DC_MULTI, "dc_0,dc_1,dc_2...dc_maxFans")
+                            # Here each dc is already normalized
+                            # NOTE: Notice here maxFans is assumed (should be
+                            # ignored by slave)
+							message = "S|F:" + fetchedMessage[1]
 							self._send(message, slave, 2)
 
+                        """ OBSOLETE (MkIV)
 						elif fetchedMessage[0] == MOSI_RPM:
 							# Chase RPM
 							# Raw format: [MOSI_RPM, RPM, FAN1S,FAN2S...]
@@ -1323,6 +1341,7 @@ class FCCommunicator(us.PrintClient):
 								fetchedMessage[1], self.fullSelection)
 
 							self._send(message, slave, 2)
+                        """
 
 						elif fetchedMessage[0] == MOSI_DISCONNECT:
 							self._sendToListener("X", slave, 2)
@@ -1330,13 +1349,6 @@ class FCCommunicator(us.PrintClient):
 						elif fetchedMessage[0] == MOSI_REBOOT:
 							self._sendToListener("R", slave, 2)
 
-						"""
-						if not timestampedDCFirst:
-							self._saveTimeStamp(slave.getIndex(),
-							"First command out")
-
-							timestampedDCFirst = True
-						"""
 						# DEBUG:
 						# print "Sent: {}".format(message)
 
