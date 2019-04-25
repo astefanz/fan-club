@@ -750,6 +750,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.toolBar.grid(row = self.GRID_ROW + 1, sticky = "WE")
 
         # Layer control ........................................................
+        self.numLayers = self.archive[ac.fanArray][ac.FA_layers]
+        self.layer = 0
         self.layerFrame = tk.Frame(self.toolBar)
         self.layerFrame.pack(side = tk.LEFT, fill = tk.Y)
         self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
@@ -757,7 +759,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.layerLabel.pack(side = tk.LEFT, **gus.padc)
         self.layerVar = tk.IntVar()
         self.layerVar.trace('w', self._onLayerChange)
-        self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar, 1)
+        self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar,
+            *list(range(1, self.numLayers + 1)))
         self.layerMenu.config(**gus.fontc)
         self.layerMenu.pack(side = tk.LEFT, **gus.padc)
 
@@ -810,13 +813,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.low = 0
         self.off_color = off_color
         self.range = tuple(range(self.size))
-        self.L = fanArray[ac.FA_layers]
-        self.l = 0
         self.dc = 0 # Whether to use duty cycles
 
         self.maxValue = self.maxRPM
 
-        self.layers = [[None]*self.size]*self.L
+        self.layers = []
+        for layer in range(self.numLayers):
+            self.layers.append([None]*self.size)
         self.values = [0]*self.size
         self.selected = [False]*self.size
         self.active = [False]*self.size
@@ -850,7 +853,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         Process the feedback vector F according to the grid mapping.
         """
         grid_i = 0
-        for feedback_i in self.layers[self.l]:
+        for feedback_i in self.layers[self.layer]:
             if feedback_i is not None:
                 self.updatei(grid_i, F[feedback_i])
             grid_i += 1
@@ -956,7 +959,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             if not self.active[i]:
                 self.activatei(i)
             self.values[i] = value
-            print(value)
             self.filli(i, self.colors[min(self.maxColor,
                 int(((value*self.maxColor)/self.maxValue)))])
         if value == s.RIP and self.active[i]:
@@ -1028,8 +1030,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 # Corresponding index in the feedback vector:
                 feedback_i = self.maxFans*s_i + fan_i
                 # FIXME debug
-                print("Slave {}, fan {:2}: ({},{}) i.e {} (feedback {})".\
-                    format(s_i, fan_i, grid_r, grid_c, grid_i, feedback_i))
+                #print("Slave {}, fan {:2}: ({},{},{}) i.e {} (feedback {})".\
+                 #   format(s_i, fan_i, grid_r, grid_c, layer, grid_i, feedback_i))
 
                 if grid_r < self.R and grid_c < self.C \
                     and grid_i < self.size:
@@ -1047,8 +1049,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         To be called when the view layer is changed.
         """
-        # TODO
-        pass
+        self.layer = self.layerVar.get() - 1
 
     def _onSelectModeChange(self, *E):
         """
@@ -1081,7 +1082,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Generate feedback vectors for testing.
         """
-        N = len(self.slaves)*self.maxFans
+        N = len(self.assigned)*self.maxFans
         V = list(int(((i + 1)/N)*self.archive[ac.maxRPM]) for i in range(N))
         for i in range(self.R*self.C):
             self.selecti(i)
@@ -1516,7 +1517,7 @@ class LiveTable(us.PrintClient, tk.Frame):
                     # This slave is disconnected
                     self.table.item(self.slaves[slave_i],
                         values = (slave_i + 1,), tag = "D")
-                else:
+                elif s.PAD not in values:
                     # This slave is active
                     if self.sentinelFlag:
                         for fan, value in enumerate(values):

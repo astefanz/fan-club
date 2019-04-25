@@ -211,7 +211,11 @@ class FCSlave:
 
         # FIXME debug
         R = 8000 + 8000*index
-        self.testpad_rpm = [int((f/self.maxFans)*R) for f in range(self.maxFans)]
+        self.testpad_rpm = []
+        for f in range(self.maxFans):
+            r =  int((f/self.maxFans)*R) if f%2 == 1 else 0
+            self.testpad_rpm.append(r)
+        print(index, self.testpad_rpm)
 
         # Index:
         self.index = index
