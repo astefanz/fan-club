@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Project: Fanclub Mark II "Slave" // File: settings.h - Global settings     //
-//----------------------------------------------------------------------------// 
+//----------------------------------------------------------------------------//
 // CALIFORNIA INSTITUTE OF TECHNOLOGY // GRADUATE AEROSPACE LABORATORY //     //
 // CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                             //
 //----------------------------------------------------------------------------//
@@ -40,10 +40,10 @@
 
 //// GLOBAL CONSTANTS //////////////////////////////////////////////////////////
 
-#define BAUD 921600// Serial baud rate
+#define BAUD 460800// Serial baud rate
 #define STACK_SIZE 4 // KB
 #define NUMFANS 21  // Number of fans for pinout
-#define BLINK_SLOW 0.5  // Long period of LED blinking (seconds) 
+#define BLINK_SLOW 0.5  // Long period of LED blinking (seconds)
 #define BLINK_FAST 0.1 // Short period of LED blinking (seconds)
 
 // COMMUNICATIONS //////////////////////////////////////////////////////////////

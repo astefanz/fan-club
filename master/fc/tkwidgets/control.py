@@ -49,6 +49,9 @@ from .embedded import colormaps as cms
 from .. import archive as ac, utils as us, standards as s
 
 ## GLOBALS #####################################################################
+P_TIME = 't'
+P_ROW, P_COLUMN, P_LAYER = 'r', 'c', 'l'
+P_INDEX, P_FAN = 's', 'f'
 
 ## MAIN WIDGET #################################################################
 class ControlWidget(tk.Frame, us.PrintClient):
@@ -135,27 +138,24 @@ class PythonInputWidget(tk.Frame):
     """
     SYMBOL = "[PI]"
 
-    HEADER = "def duty_cycle(r, c, l, p, d, t):"
+    HEADER = "def duty_cycle({}):"
     FOOTER = "self.func = duty_cycle"
 
-    def __init__(self, master, callback, pqueue):
+    def __init__(self, master, callback, parameters, pqueue):
         """
         Create a Python input widget in which the user may define a function
-        of the form
-            f(r, c, l, p, d, t)
-              |  |  |  |  |  |
-              |  |  |  |  |  time
-              |  |  |  |  duty cycle
-              |  |  |  RPM
-              |  |  layer
-              |  column
-              row
+        to be mapped to parameters defined by the current interactive control
+        widget.
 
         CALLBACK is a method to which to pass the resulting Python function
-        after being parsed and instantiated.
+        after being parsed and instantiated, as well as the current time step.
         """
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
+
+
+        self.parameters = parameters
+        self._buildSignature()
 
         self.callback = callback
 
@@ -164,7 +164,7 @@ class PythonInputWidget(tk.Frame):
         row = 0
 
         self.topLabel = tk.Label(self, font = "Courier 7 bold",
-            text = self.HEADER, anchor = tk.W)
+            text = self.signature, anchor = tk.W)
         self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
         row += 1
 
@@ -216,6 +216,16 @@ class PythonInputWidget(tk.Frame):
             **gus.padc, **gus.fontc, command = self._help)
         self.helpButton.pack(side = tk.LEFT, **gus.padc)
 
+    # API ......................................................................
+    def setParameters(self, parameters):
+        """
+        Update the list of parameters to be used.
+        """
+        self.parameters = parameters
+        self._buildSignature()
+        self.topLabel.config(text = self.signature)
+
+    # Internal methods .........................................................
     def _run(self, *E):
         """
         To be called when the Run button is clicked. Parse the function and
@@ -231,10 +241,18 @@ class PythonInputWidget(tk.Frame):
             built += self.FOOTER + '\n'
 
             exec(built) # TODO: fix security hole in exec
-            self.callback(self.func)
+            self.callback(self.func, 0) # FIXME: time
 
         except Exception as e:
             self.printx(e, "Exception when parsing Python input:")
+
+    def _buildSignature(self):
+        """
+        Build the function signature to be consistent with the
+        current value of the stored parameter list.
+        """
+        self.signature = self.HEADER.format(
+            ("{}, "*len(self.parameters)).format(*self.parameters)[:-2])
 
     def _onLoad(self, contents):
         """
@@ -261,8 +279,6 @@ class PythonInputWidget(tk.Frame):
         """
         print("[WARNING] _help not implemented ")
 
-    # FIXME API
-
 class SteadyControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the steady flow control tools.
@@ -270,12 +286,14 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
     SYMBOL = "[SC]"
 
 
-    def __init__(self, master, network, pqueue):
+    def __init__(self, master, network, display, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
+        self.display = display
+
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
@@ -333,9 +351,9 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
-            pqueue)
+            self.display.parameters(), pqueue)
         self.python.pack(fill = tk.BOTH, expand = True)
-        # FIXME configure python
+        self.display.addParameterCallback(self.python.setParameters)
 
         # File
         self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
@@ -405,9 +423,11 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[DC]"
 
-    def __init__(self, master, pqueue):
+    def __init__(self, master, display, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
+
+        self.display = display
 
         self.grid_columnconfigure(0, weight = 1)
         row = 0
@@ -419,9 +439,9 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._sendPython,
-            pqueue)
+            self.display.parameters(), pqueue)
         self.python.pack(fill = tk.BOTH, expand = True)
-        # FIXME configure python
+        self.display.addParameterCallback(self.python.setParameters)
 
         # File
         self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
@@ -535,11 +555,12 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         row += 1
 
         # Steady ...............................................................
-        self.steady = SteadyControlWidget(self.notebook, network, pqueue)
+        self.steady = SteadyControlWidget(self.notebook, network, display,
+            pqueue)
         self.notebook.add(self.steady, text = "Steady Flow")
 
         # Dynamic ..............................................................
-        self.dynamic = DynamicControlWidget(self.notebook, pqueue)
+        self.dynamic = DynamicControlWidget(self.notebook, display, pqueue)
         self.notebook.add(self.dynamic, text = "Dynamic Flow",
             state = tk.NORMAL)
 
@@ -638,9 +659,10 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         - deselectAll()
         - parameters() : returns a list of parameters for function mapping that
                 contains at least 't' (for time)
-        - map(f) : takes a function that accepts the parameters returned by
+        - map(f, t) : takes a function that accepts the parameters returned by
                     parameters() in the same order in which it returns them and
-                    returns a normalized duty cycle ([0, 1])
+                    the current "time step" and returns a normalized duty cycle
+                    ([0, 1])
         - set(dc) : takes a normalized duty cycle ([0, 1])
         - apply()
         - getC() : return a standard control vector
@@ -660,6 +682,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         self.selected = tk.IntVar()
         self.selected.trace('w', self._update)
         self.current = None
+        self.parameterCallbacks = []
 
         self.grid_rowconfigure(self.CONTENT_ROW, weight = 1)
         self.grid_columnconfigure(self.CONTENT_COLUMN, weight = 1)
@@ -684,6 +707,13 @@ class DisplayMaster(tk.Frame, us.PrintClient):
             display.grid(**self.GRID_KWARGS)
             self.current = index
 
+    def addParameterCallback(self, callback):
+        """
+        Record the given callback and call it when the list of parameters
+        changes (passing in the new list of parameters).
+        """
+        self.parameterCallbacks.append(callback)
+
     # Wrapper methods ----------------------------------------------------------
     def feedbackIn(self, F):
         self.displays[self.current].feedbackIn(F)
@@ -701,7 +731,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         self.displays[self.current].deselectAll()
 
     def parameters(self):
-        self.displays[self.current].parameters()
+        return self.displays[self.current].parameters()
 
     def map(self, f):
         self.displays[self.current].map(f)
@@ -713,7 +743,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         self.displays[self.current].apply()
 
     def getC(self):
-        self.displays[self.current].getC()
+        return self.displays[self.current].getC()
 
     def live(self):
         self.displays[self.current].live()
@@ -741,6 +771,10 @@ class DisplayMaster(tk.Frame, us.PrintClient):
             self.displays[new].grid(**self.GRID_KWARGS)
             self.current = new
 
+            parameters = self.displays[new].parameters()
+            for callback in self.parameterCallbacks:
+                callback(parameters)
+
 class GridWidget(gd.BaseGrid, us.PrintClient):
     """
     Front end for the 2D interactive Grid.
@@ -762,6 +796,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     OUTLINE_SELECTED = "orange"
     WIDTH_NORMAL = 1
     WIDTH_SELECTED = 3
+
+    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_TIME)
 
     def __init__(self, master, archive, send, pqueue, colors = DEFAULT_COLORS,
         off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH):
@@ -837,6 +873,22 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # NOTE: IDEA -- have setDC do this automatically (the mapping is there)
         self.colorDisplay.pack(side = tk.LEFT, **gus.padc)
 
+        # Map mode .............................................................
+        self.mapVar = tk.BooleanVar()
+        self.mapVar.set(True)
+        self.mapButton = tk.Checkbutton(self.toolBar,
+            text = "Map All", variable = self.mapVar,
+            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
+        self.mapButton.pack(side = tk.RIGHT, **gus.padc)
+
+        # Selection hold .......................................................
+        self.holdVar = tk.BooleanVar()
+        self.holdVar.set(True)
+        self.holdButton = tk.Checkbutton(self.toolBar,
+            text = "Hold Selection", variable = self.holdVar,
+            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
+        self.holdButton.pack(side = tk.RIGHT, **gus.padc)
+
         # Color Bar ............................................................
         self.colorBar = ColorBarWidget(self, colors = cms.COLORMAP_GALCIT,
             high = self.archive[ac.maxRPM], unit = "RPM", pqueue = pqueue)
@@ -877,6 +929,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                 self.selected[l][i] = False
                 self.active[l][i] = False
                 self.values[l][i] = 0
+        self.totalSlaves = 0
 
         # FIXME: are we using self.values correctly, or at all?
 
@@ -909,6 +962,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Process the feedback vector F according to the grid mapping.
         """
+        L = len(F)//2
+        self.totalSlaves = L//self.maxFans
+
         grid_i = 0
         offset = self.offset*len(F)//2
         for feedback_i in self.layers[self.layer]:
@@ -939,8 +995,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             self.deselectd(i)
 
     def parameters(self):
-        # FIXME
-        pass
+        return self.PARAMETERS
 
     def map(self, f):
         # FIXME
@@ -1149,7 +1204,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     @staticmethod
     def _simpleSelectOnClick(grid, i):
-        if i:
+        if i is not None:
             if grid.selected[grid.layer][i]:
                 grid.deselecti(i, grid.layer)
             else:
@@ -1233,6 +1288,8 @@ class LiveTable(us.PrintClient, tk.Frame):
 
     INF = float('inf')
     NINF = -INF
+
+    PARAMETERS = (P_INDEX, P_FAN, P_TIME)
 
     def __init__(self, master, archive, send, network, pqueue):
         """
@@ -1573,8 +1630,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.table.selection_set(())
 
     def parameters(self):
-        # FIXME
-        pass
+        return self.PARAMETERS
 
     def map(self, f):
         # FIXME
