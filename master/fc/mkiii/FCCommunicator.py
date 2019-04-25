@@ -363,7 +363,7 @@ class FCCommunicator(us.PrintClient):
 			self.printr("\tdisconnectSocket initialized on " + \
 				str(self.disconnectSocket.getsockname()))
 
-			# Reset any existing phantom connections:
+			# Reset any lingering connections:
 			self.sendDisconnect()
 
 			# SET UP FLASHING HTTP SERVER --------------------------------------
@@ -453,8 +453,6 @@ class FCCommunicator(us.PrintClient):
 					index = index,
 					)
 
-                # FIXME MARKER
-
 				# Add to list:
 				update +=[
                     index,
@@ -481,7 +479,8 @@ class FCCommunicator(us.PrintClient):
 
             self.printw("NOTE: Reporting back-end listener IP as whole IP")
             self.networkPipeSend.send(
-                (s.NS_CONNECTED, self.listenerSocket.getsockname()[0],
+                (s.NS_CONNECTED,
+                self.listenerSocket.getsockname()[0], # FIXME (?)
                 self.DEFAULT_BROADCAST_IP, # FIXME
                 self.broadcastPort, self.listenerPort))
 
@@ -516,7 +515,7 @@ class FCCommunicator(us.PrintClient):
 					self.printx(e, SYM + " Exception in back-end input thread:")
 
 		except Exception as e: # Print uncaught exceptions
-			self.printe(e, SYM + " Exception in back-end input thread "\
+			self.printx(e, SYM + " Exception in back-end input thread "\
                 + "(LOOP BROKEN):")
 		# End _inputRoutine ====================================================
 
@@ -589,6 +588,8 @@ class FCCommunicator(us.PrintClient):
 
             self.flashFlag = True
 
+            # FIXME: Why is the passcode "CT" hard-coded? Is it because it is
+            # also hard-coded in the bootloader?
             self.flashMessage = "U|CT|{}|{}|{}|{}".format(
                 self.listenerPort, self.httpPort, filename, filesize)
 
@@ -660,10 +661,6 @@ class FCCommunicator(us.PrintClient):
         See fc.standards for the expected form of C.
         """
         self.printw("Experimental DC MULTI control routine running") # FIXME
-        # NOTE: Here wg.VALUE contains a list of tuples
-        # of the form (INDEX, DC1, DC2 ... DCN)
-
-        # FIXME: MARKED
         # TODO: Revise DC standard with maxFans padding
 
         index = 0
@@ -755,11 +752,11 @@ class FCCommunicator(us.PrintClient):
 				# Guarantee lock release:
 
 		except socket.error:
-			self.printe(e, "[BT] Network Error in broadcast thread:")
+			self.printx(e, "[BT] Network Error in broadcast thread:")
 			self.stop()
 
-		except:
-			self.printe("[BT] Exception in broadcast thread:")
+		except Exception as e:
+			self.printx(e, "[BT] Exception in broadcast thread:")
 		# End _broadcastRoutine ================================================
 
 	def _listenerRoutine(self): # ==============================================
@@ -1022,7 +1019,7 @@ class FCCommunicator(us.PrintClient):
                             senderAddress[0], messageSplitted[0]))
 
 			except Exception as e: # Print uncaught exceptions
-				self.printe(e, "Exception in listener thread")
+				self.printx(e, "Exception in listener thread")
 		# End _listenerRoutine =================================================
 
 	def _slaveRoutine(self, targetIndex, target): # # # # # # # # # # # # # # # #
@@ -1343,8 +1340,8 @@ class FCCommunicator(us.PrintClient):
                                         rpms =  map(int,reply[-2].split(','))
                                         dcs = map(float,reply[-1].split(','))
 
-                                        rpms += [0]*(len(rpms) - self.maxFans)
-                                        dcs += [0]*(len(dcs) - self.maxFans)
+                                        rpms += [0]*(self.maxFans - len(rpms))
+                                        dcs += [0]*(self.maxFans - len(dcs))
 
                                         # FIXME performance pls
                                         # FIXME rem. fix on slave.getMISO()
@@ -1494,7 +1491,7 @@ class FCCommunicator(us.PrintClient):
 								self._sendToListener("X", slave)
 						"""
 				except Exception as e: # Print uncaught exceptions
-					self.printe(e, "[{}] Exception: ".format(targetIndex + 1))
+					self.printx(e, "[{}] Exception: ".format(targetIndex + 1))
 
 				finally:
 					# DEBUG DEACTV
@@ -1510,7 +1507,7 @@ class FCCommunicator(us.PrintClient):
 
 
 		except Exception as e: # Print uncaught exceptions
-			self.printe(e, "[{}] Exception: (BROKEN LOOP)".format(
+			self.printx(e, "[{}] Exception: (BROKEN LOOP)".format(
                 targetIndex + 1))
 		# End _slaveRoutine  # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -1699,9 +1696,10 @@ class FCCommunicator(us.PrintClient):
 		# Get new Slaves, if any. Will return either a tuple of MAC addresses
 		# or None.
 
-		try:
-			return self.newSlaveQueue.get_nowait()
+        # FIXME: Obsolete? Delete?
 
+        try:
+			return self.newSlaveQueue.get_nowait()
 		except queue.Empty:
 			return None
 
@@ -1758,7 +1756,7 @@ class FCCommunicator(us.PrintClient):
 				)
 
 		except Exception as e:
-			self.printe(e, "[sR] Exception in reboot routine:")
+			self.printx(e, "[sR] Exception in reboot routine:")
 
 		#finally:
 			#self.broadcastLock.release()
@@ -1776,7 +1774,7 @@ class FCCommunicator(us.PrintClient):
 				(self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
 		except Exception as e:
-			self.printe(e, "[sD] Exception in disconnect routine")
+			self.printx(e, "[sD] Exception in disconnect routine")
 
 		# End sendDisconnect ===================================================
 
@@ -1792,7 +1790,6 @@ class FCCommunicator(us.PrintClient):
 				netargs[3], lock = lock)
 
 		# Send update to handlers:
-        # FIXME number of fans is not slave's
 		self.slaveUpdateQueue.put_nowait([slave.index, slave.name, slave.mac,
 		    newStatus, slave.fans, slave.version])
 		# End setSlaveStatus ===================================================
