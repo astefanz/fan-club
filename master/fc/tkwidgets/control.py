@@ -1286,36 +1286,6 @@ class LiveTable(us.PrintClient, tk.Frame):
 
         self.wasPaused = False
 
-        self.timerSeconds = 0
-        self.timerMinutes = 0
-        self.timerHours = 0
-
-        self.timeStampSeconds = 0
-        self.timeStampMinutes = 0
-        self.timeStampHours = 0
-
-        self.timerVarLabel = tk.Label(
-            self.topBar,
-            text = "    Time stamp: ",
-            fg = self.fg,
-            **gus.fontc,
-            bg = self.bg
-        )
-        self.timerVarLabel.pack(side = tk.LEFT)
-
-        self.timerVar = tk.StringVar()
-        self.timerVar.set("00:00:00")
-        self.timerLabel = tk.Label(
-            self.topBar,
-            textvariable = self.timerVar,
-            relief = tk.SUNKEN,
-            bd = 1,
-            bg = self.bg,
-            fg = self.fg,
-            font = ('TkFixedFont', 7),
-        )
-        self.timerLabel.pack(side = tk.LEFT)
-
         # Sentinel .............................................................
         self.sentinelWidgets = []
         self._sentinelCheck = lambda x: False
@@ -1329,7 +1299,7 @@ class LiveTable(us.PrintClient, tk.Frame):
             self.sentinelFrame,
             bg = self.bg,
             fg = self.fg,
-            text = "    Watchdog: ",
+            text = " Watchdog: ",
             **gus.fontc,
         )
         self.sentinelLabel.pack(side = tk.LEFT)
@@ -1402,7 +1372,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.sentinelPauseVar.set(True)
         self.sentinelPauseButton = tk.Checkbutton(
             self.sentinelFrame,
-            text ="Freeze table",
+            text ="Freeze",
             variable = self.sentinelPauseVar,
             bg = self.bg,
             fg = self.fg,
@@ -1413,7 +1383,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.sentinelPrintVar = tk.IntVar()
         self.sentinelPrintButton = tk.Checkbutton(
             self.sentinelFrame,
-            text ="Print table",
+            text ="Print",
             variable = self.sentinelPrintVar,
             bg = self.bg,
             fg = self.fg,
@@ -1524,7 +1494,6 @@ class LiveTable(us.PrintClient, tk.Frame):
         # Add rows and build slave list:
         self.slaves = {}
         self.numSlaves = 0
-        self._timer()
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
@@ -1718,35 +1687,6 @@ class LiveTable(us.PrintClient, tk.Frame):
             widget.config(state = tk.NORMAL)
         self.sentinelApplyButton.config(state = tk.NORMAL)
 
-    def _timer(self):
-        """
-        Each call represents a tick of the timer (meant to run each second).
-        """
-        try:
-            self.timerSeconds += 1
-
-            if self.timerSeconds >= 60:
-                self.timerSeconds = 0
-                self.timerMinutes += 1
-
-            if self.timerMinutes >= 60:
-                self.timerMinutes = 0
-                self.timerHours += 1
-
-            if self.playPauseFlag:
-                self.timeStampSeconds = self.timerSeconds
-                self.timeStampMinutes = self.timerMinutes
-                self.timeStampHours = self.timeStampHours
-
-            self.timerVar.set("{:02d}:{:02d}:{:02d}".format(
-                self.timeStampHours, self.timeStampMinutes,
-                self.timeStampSeconds))
-
-        except Exception as e:
-            self.printx(e, "Exception in live table timer:")
-        finally:
-            self.after(1000, self._timer)
-
     def _validateN(self, newCharacter, textBeforeCall, action):
         """
         To be used by Tkinter to validate text in "Send" Entry.
@@ -1828,14 +1768,12 @@ class LiveTable(us.PrintClient, tk.Frame):
 
                 f.write("Fan Club MkII data launched on {}  using "\
                     "profile \"{}\" with a maximum of {} fans.\n"\
-                    "Timestamp (since live table was launched): {}"\
                     "Matrix number (since live table was launched): {}\n\n".\
                     format(
                         time.strftime(
                             "%a %d %b %Y %H:%M:%S", time.localtime()),
                         self.profile[ac.name],
                         self.profile[ac.maxFans],
-                        self.timerVar.get(),
                         self.matrixCount
                         )
                     )
@@ -1891,16 +1829,12 @@ class LiveTable(us.PrintClient, tk.Frame):
 
         if self.playPauseFlag or force is False:
             self.playPauseFlag = False
-            self.playPauseButton.config(
-                text = "Play"
-            )
+            self.playPauseButton.config(text = "Play", bg = 'orange',
+                fg = 'white')
         elif not self.playPauseFlag or force is True:
             self.playPauseFlag = True
-            self.playPauseButton.config(
-                text = "Pause"
-            )
-            self.timerVar.set("{:02d}:{:02d}:{:02d}".format(self.timerHours,
-                self.timerMinutes, self.timerSeconds))
+            self.playPauseButton.config(text = "Pause", bg = self.bg,
+                fg = self.fg)
 
     def _showMenuCallback(self, *event):
         if self.showMenuVar.get() == "RPM":
