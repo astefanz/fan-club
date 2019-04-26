@@ -161,6 +161,8 @@ class PythonInputWidget(tk.Frame):
 
         self.callback = callback
 
+        self.interactive = []
+
         self.grid_rowconfigure(1, weight = 1)
         self.grid_columnconfigure(1, weight = 1)
         row = 0
@@ -183,6 +185,7 @@ class PythonInputWidget(tk.Frame):
             fg = 'lightgray', insertbackground = "#ff6e1f",
             tabs = self.tabsize)
         self.text.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
+        self.interactive.append(self.text)
 
         # For scrollbar, see:
         # https://www.python-course.eu/tkinter_text_widget.php
@@ -202,6 +205,7 @@ class PythonInputWidget(tk.Frame):
         self.runButton = tk.Button(self.buttonFrame, text = "Run",
             command = self._run, **gus.padc, **gus.fontc)
         self.runButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.runButton)
 
         self.loader = ldr.LoaderWidget(self.buttonFrame,
             filetypes = (("Fan Club Python Procedures", ".fcpy"),),
@@ -212,6 +216,7 @@ class PythonInputWidget(tk.Frame):
         self.builtinButton = tk.Button(self.buttonFrame, text = "Built-in",
             **gus.padc, **gus.fontc, command = self._builtin)
         self.builtinButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.builtinButton)
 
         # TODO
         self.helpButton = tk.Button(self.buttonFrame, text = "Help",
@@ -219,6 +224,22 @@ class PythonInputWidget(tk.Frame):
         self.helpButton.pack(side = tk.LEFT, **gus.padc)
 
     # API ......................................................................
+    def enable(self):
+        """
+        Enable buttons and fields.
+        """
+        self.loader.enable()
+        for widget in self.interactive:
+            widget.config(state = tk.NORMAL)
+
+    def disable(self):
+        """
+        Block all interactive components
+        """
+        self.loader.disable()
+        for widget in self.interactive:
+            widget.config(state = tk.DISABLED)
+
     def setParameters(self, parameters):
         """
         Update the list of parameters to be used.
@@ -238,6 +259,7 @@ class PythonInputWidget(tk.Frame):
             retabbed = raw.replace('\t', self.realtabs)
 
             built = self.signature + '\n'
+            built += self.realtabs + "import math\n"
             for line in retabbed.split('\n'):
                 built += self.realtabs + line + '\n'
             built += self.FOOTER + '\n'
@@ -415,6 +437,7 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
     Container for the steady flow control tools.
     """
     SYMBOL = "[DC]"
+    DEFAULT_STEP_MS = 1000
 
     def __init__(self, master, display, pqueue):
         tk.Frame.__init__(self, master)
@@ -425,18 +448,53 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
-        # Python interpreter
+        # Python interpreter ...................................................
         self.grid_rowconfigure(row, weight = 1)
         self.pythonFrame = tk.LabelFrame(self, text = "Python",
             **gus.lfconf)
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
-        self.python = PythonInputWidget(self.pythonFrame, self.display.map,
+        self.python = PythonInputWidget(self.pythonFrame, self._run,
             self.display.parameters(), pqueue)
         self.python.pack(fill = tk.BOTH, expand = True)
         self.display.addParameterCallback(self.python.setParameters)
 
-        # File
+        # Timing ...............................................................
+        self.timeFrame = tk.LabelFrame(self, text = "Timing",
+            **gus.lfconf)
+        self.timeFrame.grid(row = row, sticky = "EW")
+        row += 1
+
+        # Stop button:
+        self.stopButton = tk.Button(self.timeFrame, text = "Stop",
+            state = tk.DISABLED, command = self._stop, **gus.fontc)
+        self.stopButton.pack(side = tk.LEFT)
+
+        # Step label:
+        self.stepLabel = tk.Label(self.timeFrame, text = "   Step: ",
+            **gus.fontc)
+        self.stepLabel.pack(side = tk.LEFT)
+
+        # Step field:
+        validateC = self.register(self._validateN)
+        self.stepEntry = tk.Entry(self.timeFrame, bg = 'white', width  = 6,
+            **gus.efont, validate = 'key',
+            validatecommand = (validateC, '%S', '%s', '%d'))
+        self.stepEntry.insert(0, self.DEFAULT_STEP_MS)
+        self.stepEntry.pack(side = tk.LEFT)
+
+        # Unit label:
+        self.unitLabel = tk.Label(self.timeFrame, text = "(ms)",
+            **gus.fontc)
+        self.unitLabel.pack(side = tk.LEFT)
+
+        # Time display:
+        self.tVar = tk.IntVar()
+        self.timeDisplay = tk.Label(self.timeFrame, textvariable = self.tVar,
+            **gus.fontc)
+        self.tVar.set(0)
+
+        # File .................................................................
         self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
             **gus.lfconf)
         self.fileFrame.grid(row = row, sticky = "EW")
@@ -445,6 +503,40 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         self.loader = ldr.FlowLoaderWidget(self.fileFrame, self._onSave,
             self._onLoad)
         self.loader.pack(side = tk.LEFT)
+
+        self.f = None
+        self.running = False
+        self.period = self.DEFAULT_STEP_MS
+        self.widget = None
+
+    def _run(self, f, t):
+        if not self.running:
+            self.widget = self.display.currentWidget()
+            self.running = True
+            self.f = f
+            self.stopButton.config(state = tk.NORMAL)
+            self.python.disable()
+            self.period = int(self.stepEntry.get())
+            self._step()
+
+    def _stop(self, event = None):
+        self.running = False
+        self.widget = None
+        self.stopButton.config(state = tk.DISABLED)
+        self.python.enable()
+        self.f = None
+        self.tVar.set(0)
+
+    def _step(self):
+        """
+        Complete one timestep
+        """
+        if self.running:
+            t = self.tVar.get()
+            self.widget.map(self.f, t)
+            self.tVar.set(t + 1)
+
+            self.after(self.period, self._step)
 
     def _onSave(self):
         """
@@ -459,6 +551,17 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         """
         # FIXME
         print("[WARNING] _onLoad not implemented")
+
+    @staticmethod
+    def _validateN(newCharacter, textBeforeCall, action):
+        """
+        To be used by Tkinter to validate text in "Step" Entry.
+        """
+        try:
+            return action == '0' or  newCharacter in '0123456789' or \
+                int(newCharacter) > 0
+        except:
+            return False
 
 class ExternalControlWidget(tk.Frame, us.PrintClient):
     """
@@ -692,6 +795,12 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         if self.current is None:
             display.grid(**self.GRID_KWARGS)
             self.current = index
+
+    def currentWidget(self):
+        """
+        Get the currently active display widget.
+        """
+        return self.displays[self.current]
 
     def addParameterCallback(self, callback):
         """
@@ -1805,12 +1914,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         """
         To be used by Tkinter to validate text in "Send" Entry.
         """
-        if action == '0':
-            return True
-        elif newCharacter in '0123456789':
-            return True
-        else:
-            return False
+        return action == '0' or newCharacter in '0123456789'
 
     def _printMatrix(self, event = None, sentinelValues = None):
         # FIXME should this be here?

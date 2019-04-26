@@ -170,14 +170,31 @@ class LoaderWidget(Loader):
         self.default = default
         self.onSave = onSave
         self.onLoad = onLoad
+        self.interactive = []
 
         self.loadButton = tk.Button(self, text = "Load",
             **gus.padc, **gus.fontc, command = self._load)
         self.loadButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.loadButton)
 
         self.saveButton = tk.Button(self, text = "Save",
             **gus.padc, **gus.fontc, command = self._save)
         self.saveButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.saveButton)
+
+    def enable(self):
+        """
+        Enable interactive components.
+        """
+        for widget in self.interactive:
+            widget.config(state = tk.NORMAL)
+
+    def disable(self):
+        """
+        Disable interactive components.
+        """
+        for widget in self.interactive:
+            widget.config(state = tk.DISABLED)
 
     def _load(self, *E):
         """
