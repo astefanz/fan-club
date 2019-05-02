@@ -170,6 +170,14 @@ class FCNetwork(us.PrintClient):
         """
         self.commandIn(s.CMD_FUPDATE_STOP)
 
+    def broadcastIP(self, ip):
+        """
+        Set the broadcast IP.
+        - ip := String, new IP address to use, either a valid IPv4 or the String
+            "<broadcast>"
+        """
+        self.commandIn(s.CMD_BIP, ip)
+
     # Internal methods .........................................................
     @staticmethod
     def _b_routine(profile, commandPipeRecv, controlPipeRecv, feedbackPipeSend,

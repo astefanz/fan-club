@@ -178,7 +178,27 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         self.bcipVar = tk.StringVar()
         self.bcipVar.set(self.NO_IP)
         self.ips.append(self.bcipVar)
-        self.__addDisplay("Broadcast IP", self.bcipVar)
+        name = "Broadcast IP"
+        self.bcipFrame = tk.Frame(self.connectionFrame, relief = tk.RIDGE,
+            bd = 1)
+        self.bcipFrame.pack(side = tk.RIGHT, fill = tk.Y, pady = 5, padx = 10)
+
+        self.bcipLabel = tk.Label(self.bcipFrame, text = name + ":",
+            font = "TkDefaultFont 7")
+        self.bcipLabel.pack(side = tk.TOP, fill = tk.X, padx = 10)
+
+        self.bcipDisplay = gus.PromptLabel(self.bcipFrame,
+            title = "Edit broadcast IP",
+            prompt = "Enter a valid IP address (IPv4) to which to send "
+            "broadcast messages. \n"
+            "To send to all addresses on the default "\
+            "interface, leave the field empty.",
+            callback = self._setBroadcastIP,
+            starter = self.bcipVar.get,
+            background = "white",
+            textvariable = self.bcipVar, width = 15,
+            relief = tk.SUNKEN, font = "Courier 7", padx = 10, pady = 5)
+        self.bcipDisplay.pack(side = tk.TOP, fill = tk.X, pady = 5, padx = 10)
 
         # Broadcast port:
         self.bcVar = tk.StringVar()
@@ -276,9 +296,10 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         self.connectionLabel.config(fg = s.FOREGROUNDS[s.SS_CONNECTED],
             bg = s.BACKGROUNDS[s.SS_CONNECTED])
         self._setWidgetState(tk.NORMAL)
-        self.isConnected = True
         for client in self.clients:
             client.connected()
+        self.bcipDisplay.enable()
+        self.isConnected = True
 
     def disconnecting(self):
         """
@@ -304,6 +325,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         self.connectionLabel.config(fg = s.FOREGROUNDS[s.SS_DISCONNECTED],
             bg = s.BACKGROUNDS[s.SS_DISCONNECTED])
         self._setWidgetState(tk.DISABLED)
+        self.bcipDisplay.disable()
         self.isConnected = False
 
     def addClient(self, client):
@@ -386,6 +408,18 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
             relief = tk.SUNKEN, font = "Courier 7", padx = 10, pady = 5)
         display.pack(side = tk.TOP, fill = tk.X, pady = 5, padx = 10)
 
+    def _setBroadcastIP(self, ip):
+        """
+        Send a command to the Communicator to change the broadcast IP, if
+        connected.
+
+        - ip := String, the new IP address to set.
+        """
+        if ip == "":
+            ip = "<broadcast>"
+        if self.isConnected and ip is not None:
+            self.network.broadcastIP(ip)
+            self.printr("Sent broadcast IP change request (\"{}\")".format(ip))
 
 # Firmware update ==============================================================
 class FirmwareUpdateWidget(tk.Frame, us.PrintClient):

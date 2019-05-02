@@ -84,6 +84,7 @@ printQueue = 4
 version = 5
 
 # Network ----------------------------------------------------------------------
+broadcastIP = 1000
 broadcastPort  = 100
 broadcastPeriodMS = 101
 periodMS = 103
@@ -337,7 +338,11 @@ META = {
 		TYPE_PRIMITIVE,
 		False,
 		v_fail_all),
-
+    broadcastIP  : ("broadcastIP",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+		v_nonempty_str),
     broadcastPort  : ("broadcastPort",
 		4,
 		TYPE_PRIMITIVE,
@@ -439,9 +444,7 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         make_lambda_validator(lambda v: len(v) == 2 and \
-            type(v[0] in (float,
-		int)) and type(v[i] in (float,
-		int)))),
+            type(v[0]) in (float, int) and type(v[i]) in (float, int))),
     SV_chaserTolerance : ("SV_chaserTolerance",
 		6,
 		TYPE_PRIMITIVE,
@@ -615,6 +618,7 @@ class FCArchive(us.PrintClient):
         description : "",
         platform : UNKNOWN,
 
+        broadcastIP : "<broadcast>",
         broadcastPort  : 65000,
         broadcastPeriodMS : 1000,
         periodMS : 100,
@@ -684,7 +688,7 @@ class FCArchive(us.PrintClient):
         self.modified = False
 
         # TODO: Startup "auto-load" routine
-        self.builtin("DEV2") # FIXME temporary
+        self.builtin("BASE") # FIXME temporary
         self.printw("Provisional profile set")
 
     def modified(self):
@@ -819,6 +823,7 @@ DEV1 = {
     description : "A provisional profile to be used for development.",
     platform : UNKNOWN,
 
+    broadcastIP : "10.42.0.255",
     broadcastPort  : 65000,
     broadcastPeriodMS : 1000,
     periodMS : 100,
@@ -927,6 +932,7 @@ DEV2 = {
         "Uses double fans.",
     platform : UNKNOWN,
 
+    broadcastIP : "10.42.0.255",
     broadcastPort  : 65000,
     broadcastPeriodMS : 1000,
     periodMS : 100,
@@ -1029,11 +1035,119 @@ DEV2 = {
     },
 }
 
+DEV3 = {
+    name : "Development Profile 3",
+    description : "A provisional profile to be used for development.",
+    platform : UNKNOWN,
+
+    broadcastIP : "10.42.0.255",
+    broadcastPort  : 65000,
+    broadcastPeriodMS : 1000,
+    periodMS : 100,
+    maxLength : 512,
+    maxTimeouts : 10,
+
+    mainQueueSize : 10,
+    slaveQueueSize: 10,
+    broadcastQueueSize : 2,
+    listenerQueueSize : 3,
+    misoQueueSize : 2,
+    printerQueueSize : 3,
+    passcode : "CT",
+    socketLimit : 1024,
+
+    defaultSlave :
+        {
+            SV_name : "FAWT Module",
+            SV_mac : "None",
+            SV_index : -1,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.5,
+            SV_maxFans : 21,
+            SV_pinout : "BASE",
+            MD_assigned : False,
+            MD_row : -1,
+            MD_column : -1,
+            MD_rows : 0,
+            MD_columns : 0,
+            MD_mapping : ()
+        },
+    savedSlaves : (
+        {
+            SV_name : "A1",
+            SV_mac : "00:80:e1:38:00:2a",
+            SV_index : -1,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 21,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 0,
+            MD_column : 0,
+            MD_rows : 5,
+            MD_columns : 4,
+            MD_mapping : \
+                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
+        },
+        {
+            SV_name : "A2",
+            SV_mac : "00:80:e1:45:00:46",
+            SV_index : -1,
+            SV_fanModel : "Unknown",
+            SV_fanMode : SINGLE,
+            SV_targetRelation :(1.0, 0.0),
+            SV_chaserTolerance : 0.02,
+            SV_fanFrequencyHZ : 25000,
+            SV_counterCounts : 2,
+            SV_counterTimeoutMS : 30,
+            SV_pulsesPerRotation : 2,
+            SV_maxRPM : 16000,
+            SV_minRPM : 1200,
+            SV_minDC : 0.1,
+            SV_maxFans : 21,
+            SV_pinout : "BASE",
+            MD_assigned : True,
+            MD_row : 0,
+            MD_column : 4,
+            MD_rows : 5,
+            MD_columns : 4,
+            MD_mapping : \
+                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
+        }),
+    pinouts : PINOUTS.copy(),
+    maxRPM : 16000,
+    maxFans : 21,
+    dcDecimals : 2,
+    fanArray : {
+        FA_rows : 5,
+        FA_columns : 8,
+        FA_layers : 1,
+    },
+}
 BASE = {
     name : "Prov. Basement Tunnel",
     description : "Not the wind tunnel GALCIT wants, but the one it needs.",
     platform : UNKNOWN,
 
+    broadcastIP : "10.42.0.255",
     broadcastPort  : 65000,
     broadcastPeriodMS : 1000,
     periodMS : 100,
@@ -1242,5 +1356,6 @@ BASE = {
 PROFILES = {
     "DEV1" : DEV1,
     "DEV2" : DEV2,
+    "DEV3" : DEV3,
     "BASE": BASE
 }

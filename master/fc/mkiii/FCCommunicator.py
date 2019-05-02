@@ -160,7 +160,7 @@ class FCCommunicator(us.PrintClient):
     # TODO: parameterize these
     DEFAULT_IP_ADDRESS = "0.0.0.0"
         #"0.0.0.0"
-    DEFAULT_BROADCAST_IP = "10.42.0.255"#"<broadcast>"
+    DEFAULT_BROADCAST_IP = "<broadcast>"
 
     def __init__(self,
             profile,
@@ -256,6 +256,7 @@ class FCCommunicator(us.PrintClient):
                 s.CMD_FUPDATE_STOP : self.__handle_input_CMD_FUPDATE_STOP,
                 s.CMD_STOP : self.__handle_input_CMD_STOP,
                 s.CMD_BMODE : self.__handle_input_CMD_BMODE,
+                s.CMD_BIP : self.__handle_input_CMD_BIP,
             }
 
             self.controlHandlers = {
@@ -309,6 +310,7 @@ class FCCommunicator(us.PrintClient):
             # Bind socket to "nothing" (Broadcast on all interfaces and let OS
             # assign port number):
             self.broadcastSocket.bind((self.DEFAULT_IP_ADDRESS, 0))
+            self.broadcastIP = self.profile[ac.broadcastIP]
 
             self.broadcastSocketPort = self.broadcastSocket.getsockname()[1]
 
@@ -482,11 +484,7 @@ class FCCommunicator(us.PrintClient):
                 slave.start()
 
             self.printw("NOTE: Reporting back-end listener IP as whole IP")
-            self.networkPipeSend.send(
-                (s.NS_CONNECTED,
-                self.listenerSocket.getsockname()[0], # FIXME (?)
-                self.DEFAULT_BROADCAST_IP, # FIXME
-                self.broadcastPort, self.listenerPort))
+            self._sendNetwork()
 
             # DONE
             self.prints("Communicator ready")
@@ -626,9 +624,40 @@ class FCCommunicator(us.PrintClient):
         See fc.standards for the expected form of D.
         """
         self.broadcastMode = D[s.CMD_I_BM_BMODE]
-        self.printr("Broadcast mode changed to \"{}\"".format(
-            s.BROADCAST_MODES[self.broadcastMode]))
         self.printw("BMODE BEHAVIOR NOT YET IMPLEMENTED") # FIXME
+
+    def __handle_input_CMD_BIP(self, D):
+        """
+        Process the command vector D with the corresponding command.
+        See fc.standards for the expected form of D.
+        """
+        ip = D[s.CMD_I_BIP_IP]
+        if self._validBIP(ip):
+            self.broadcastIP = ip
+            self.prints("Broadcast IP set to {}".format(ip))
+            self._sendNetwork()
+        else:
+            self.printe("Invalid broadcast IP received: {}".format(ip))
+
+    def _validBIP(self, ip):
+        """
+        Return whether the given ip address is a valid broadcast IP.
+            - ip := String, IP address to use.
+        """
+        if ip == "<broadcast>":
+            return True
+        else:
+            try:
+                numbers = tuple(map(int, ip.split(".")))
+                if len(numbers) != 4:
+                    return False
+                else:
+                    for number in numbers:
+                        if number < 0 or number > 255:
+                            return False
+                    return True
+            except:
+                return False
 
     def __handle_input_CTL_DC_SINGLE(self, C):
         """
@@ -723,41 +752,23 @@ class FCCommunicator(us.PrintClient):
         """ ABOUT: This method is meant to run inside a Communicator instance's
             broadcastThread.
         """
-        try: # Catch any exception for printing (have no stdout w/ GUI!)
-
-            broadcastSocketPortCopy = self.broadcastSocketPort # Thread safety
-
+        try:
             self.prints("[BT] Broadcast thread started w/ period of {}s "\
                 "on port {}".format(broadcastPeriod, self.broadcastPort))
 
             count = 0
-
             while(True):
-
                 # Increment counter:
                 count += 1
-
                 # Wait designated period:
                 time.sleep(broadcastPeriod)
-
-                #self.broadcastLock.acquire()
-                #self.broadcastSwitchLock.acquire()
-                # Send broadcast only if self.broadcastSwitch is True:
                 if self.broadcastSwitch:
                     # Broadcast message:
-                    """
-                    for i in (1,2):
-                        self.broadcastSocket.sendto(broadcastMessage,
-                            (self.DEFAULT_BROADCAST_IP, self.broadcastPort))
-                    """
                     self.broadcastSocket.sendto(broadcastMessage,
-                        (self.DEFAULT_BROADCAST_IP, self.broadcastPort))
-        except socket.error:
-            self.printx(e, "[BT] Network Error in broadcast thread:")
-            self.stop()
-
+                        (self.broadcastIP, self.broadcastPort))
         except Exception as e:
-            self.printx(e, "[BT] Exception in broadcast thread:")
+            self.printx(e, "[BT] Fatal error in broadcast thread:")
+            self.stop()
         # End _broadcastRoutine ================================================
 
     def _listenerRoutine(self): # ==============================================
@@ -1714,10 +1725,8 @@ class FCCommunicator(us.PrintClient):
                 # Targetted broadcast w/o IP (use MAC):
                 self.rebootSocket.sendto(
                     bytearray("r|{}|{}".format(self.passcode, target.getMAC()),
-                        'ascii'
-                    ),
-                    (self.DEFAULT_BROADCAST_IP, self.broadcastPort)
-                )
+                        'ascii'),
+                        (self.DEFAULT_BROADCAST_IP, self.broadcastPort))
 
         except Exception as e:
             self.printx(e, "[sR] Exception in reboot routine:")
@@ -1781,6 +1790,17 @@ class FCCommunicator(us.PrintClient):
             timeout := seconds to wait (float)
         """
         self.stopped.wait(timeout)
+
+    def _sendNetwork(self):
+        """
+        Send a network state vector to the front end.
+        """
+        self.networkPipeSend.send(
+            (s.NS_CONNECTED,
+            self.listenerSocket.getsockname()[0], # FIXME (?)
+            self.broadcastIP,
+            self.broadcastPort,
+            self.listenerPort))
 
 ## MODULE'S TEST SUITE #########################################################
 

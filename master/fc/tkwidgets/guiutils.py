@@ -33,6 +33,7 @@ import traceback
 
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import simpledialog
 
 from .. import utils as us
 
@@ -87,3 +88,70 @@ def popup_exception(title, message, exception):
     messagebox.showerror(title = title,
         message = message + "\n\nException:\"{}\"".format(
             traceback.format_exc()))
+
+class PromptLabel(tk.Label):
+    """
+    A Tkinter Label that creates a popup window requesting a value when
+    it is clicked. Besides its required arguments upon construction, it may
+    be handled like a regular Tkinter Label.
+
+    NOTE: Do not bind callbacks to this widget upon left click (<Button-1>),
+    for this will interfere with the prompt behavior. Instead, incorporate
+    the desired behavior into the "callback" method to be passed upon
+    construction.
+    """
+
+    DIALOGMETHOD = simpledialog.askstring
+    N = lambda: ""
+
+    ACTIVE_BG = "white"
+    INACTIVE_BG = "gray"
+
+    def __init__(self, master, title, prompt, callback, starter = "", **kwargs):
+        """
+        Create a new PromptLabel.
+        - master := Tkinter parent widget
+        - title := String, title to display in popup window
+        - prompt := String, text to write in popup window to request input
+        - callback := Function to be called when a new input is given; such
+            new input will be passed to it
+        - starter := method that returns a String when called without arguments;
+            the String is to be used as a starting value for the text entry.
+            Defaults to a method that returns an empty String.
+        Additionally, all optional keyword arguments accepted by Tkinter
+        Labels may be used.
+        """
+        tk.Label.__init__(self, master, **kwargs)
+
+        self.title = title
+        self.prompt = prompt
+        self.starter = starter
+
+        self.callback = callback
+        self.bind("<Button-1>", self._onClick)
+
+        self.enable()
+
+    def _onClick(self, event = None):
+        """
+        Handle left click event. Generates prompt and passed its result to the
+        given callback.
+        """
+        if self.enabled:
+            self.callback(PromptLabel.DIALOGMETHOD(self.title, self.prompt,
+                initialvalue = self.starter(), parent = self.winfo_toplevel()))
+
+    def enable(self):
+        """
+        Enable the widget's interactive behavior. This is the default state.
+        """
+        self.enabled = True
+        self.config(bg = self.ACTIVE_BG)
+
+    def disable(self):
+        """
+        Disable the widget's interactive behavior.
+        """
+        self.enabled = False
+        self.config(bg = self.INACTIVE_BG)
+

@@ -3,7 +3,7 @@
 # METAL GEAR SOLID CODENAMES ###################################################
 mgsCodenames = \
 	[
-	"FOX HOUND",
+	"FOXHOUND",
 	"FOX",
 	"Dobermann",
 	"Hound",
@@ -17,7 +17,6 @@ mgsCodenames = \
 	"Puma",
 	"Gull",
 	"Swallow",
-	"Raven",
 	"Hawk",
 	"Whale",
 	"Octopus",
@@ -35,7 +34,6 @@ mgsCodenames = \
 	"Octopus",
 	"Bear",
 	"Eagle",
-	"Assassin",
 	"Pigeon",
 	"Blue bird",
 	"Hawk",

@@ -113,6 +113,12 @@ TARGET_CODES = {
 #              |                  Version name (String)
 #              Start firmware update
 #
+#                       IP address to target
+#                       |
+#        D =  [CMD_BIP, IP]
+#              |
+#              |
+#              Set new broadcast IP
 
 # Command codes:
 CMD_ADD = 3031
@@ -123,6 +129,7 @@ CMD_FUPDATE_START = 3036 # .............................. Start firmware update
 CMD_FUPDATE_STOP = 3037
 CMD_STOP = 3038 # ............................................... Stop back-end
 CMD_BMODE = 3039  # .............................................. Set broadcast
+CMD_BIP = 3040
 
 # Broadcast modes:
 BMODE_BROADCAST = 8391
@@ -139,6 +146,8 @@ CMD_I_FU_FILESIZE = 3
 
 CMD_I_BM_BMODE = 1
 
+CMD_I_BIP_IP = 1
+
 COMMAND_CODES = {
     CMD_ADD : "CMD_ADD",
     CMD_DISCONNECT : "CMD_DISCONNECT",
@@ -148,6 +157,7 @@ COMMAND_CODES = {
     CMD_FUPDATE_STOP : "CMD_FUPDATE_STOP",
     CMD_STOP : "CMD_STOP",
     CMD_BMODE : "CMD_BMODE",
+    CMD_BIP : "CMD_BIP"
 }
 
 # Control vectors ##############################################################

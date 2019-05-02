@@ -996,12 +996,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # Automatic resizing:
         self.bind("<Configure>", self._scheduleAdjust)
 
-        # NOTE: use this block of code for "rebuild" method, or perhaps try
-        # calling the constructor again...
         self.fanArray = fanArray
         self.maxFans = self.archive[ac.maxFans]
         self.adjusting = False
-        self.last_width, self.last_height = 0, 0
         self.colors = colors
         self.numColors = len(colors)
         self.maxColor = self.numColors - 1
@@ -1011,6 +1008,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.range = range(self.size)
         self.rows, self.columns = range(R), range(C)
         self.dc = 0 # Whether to use duty cycles
+
+        self.is_live = True
+
+        # For flow builders:
+        # - Activate everything and set it to 0
+        # - Ignore all incoming vectors
+        # - Redirect controls to self
+        # - Store controls in buffer
+        # - Set buffer when switching
 
         self.layers = {}
         self.selected = {}
@@ -1044,7 +1050,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # - handle control vector construction TODO
         # - handle multilayer assignment (how to deal with unselected layers?)
         #   (TODO)
-        # - activity tracking (who is active and who isn't)
         # - drag, drop, etc..
         # - get selections
         # - [...]
