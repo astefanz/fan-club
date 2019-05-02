@@ -57,7 +57,7 @@ class Base(tk.Frame, us.PrintClient):
     SYMBOL = "[BS]"
 
     def __init__(self, master, network, archive, title, version,
-        feedbackAdd, networkAdd, slavesAdd, pqueue):
+        feedbackAdd, networkAdd, slavesAdd, profileCallback, pqueue):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
         showing the version VERSION.
@@ -66,6 +66,9 @@ class Base(tk.Frame, us.PrintClient):
         are "clients" of the feedback, network and slaves vectors should be
         passed to assign them as such to the inter-process communications
         framework.
+
+        PROFILECALLBACK is a method to be called without arguments when a
+        profile is changed.
 
         PQUEUE is the Queue object to be used for inter-process printing.
         """
@@ -128,7 +131,7 @@ class Base(tk.Frame, us.PrintClient):
 
         # Profile tab:
         self.profileWidget = pro.ProfileDisplay(self.profileTab, archive,
-            pqueue)
+            profileCallback, pqueue)
         self.profileWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
 
@@ -189,6 +192,9 @@ class Base(tk.Frame, us.PrintClient):
     def getConsoleMethods(self):
         c = self.consoleWidget
         return (c.printr, c.printw, c.printe, c.prints, c.printd, c.printx)
+
+    def profileChange(self):
+        self.controlWidget.profileChange()
 
     # Internal methods ---------------------------------------------------------
     def _helpCallback(self):

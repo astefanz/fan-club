@@ -32,6 +32,7 @@ import tkinter.ttk as ttk
 
 from . import loader as ldr, guiutils as gus
 from .. import archive as ac, utils as us
+from fc.builtin import profiles as btp
 
 ## AUXILIARY GLOBALS ###########################################################
 TAG_SUB = "M"
@@ -42,9 +43,13 @@ TAG_LIST = "L"
 class ProfileDisplay(tk.Frame, us.PrintClient):
     SYMBOL = "[PD]"
 
-    def __init__(self, master, archive, pqueue):
+    def __init__(self, master, archive, callback, pqueue):
         """
         Build an empty FC profile display in container MASTER.
+        - master := Tkinter parent widget
+        - archive := FC Archive instance
+        - callback := method to call without arguments to apply profile changes
+        - pqueue := Queue object to use for I-P printing
         """
         tk.Frame.__init__(self, master = master)
         us.PrintClient.__init__(self, pqueue, self.SYMBOL)
@@ -55,6 +60,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
 
         # Core setup ...........................................................
         self.archive = archive
+        self.callback = callback
         self.map = {}
         self.root = ''
 
@@ -64,6 +70,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
         self.grid_rowconfigure(2, weight = 1)
         self.grid_columnconfigure(0, weight = 1)
         self.grid_columnconfigure(2, weight = 1)
+        self.numcolumns = 3
 
         # Callbacks:
         # FIXME
@@ -74,7 +81,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
 
         # Build top bar ........................................................
         self.topBar = tk.Frame(self)
-        self.topBar.grid(row = 0, sticky = "EW")
+        self.topBar.grid(row = 0, columnspan = self.numcolumns, sticky = "EW")
 
         self.topLabel = tk.Label(self.topBar, text = "Profile:   ",
             justify = tk.LEFT)
@@ -96,6 +103,20 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
             command = self.applyCallback)
         self.applyButton.pack(side = tk.LEFT)
 
+        # Built-in menu:
+        self.builtin = btp.PROFILES
+        builtinkeys = ("N/A",) + tuple(self.builtin.keys())
+        self.builtinFrame = tk.Frame(self.topBar)
+        self.builtinFrame.pack(side = tk.RIGHT)
+        self.builtinLabel = tk.Label(self.builtinFrame,
+            text = "Built-in: ")
+        self.builtinLabel.pack(side = tk.LEFT)
+        self.builtinMenuVar = tk.StringVar()
+        self.builtinMenuVar.trace('w', self._onBuiltinMenuChange)
+        self.builtinMenuVar.set(builtinkeys[0])
+        self.builtinMenu = tk.OptionMenu(self.builtinFrame, self.builtinMenuVar,
+            *builtinkeys)
+        self.builtinMenu.pack(side = tk.LEFT, expand = True)
 
         # Build display ........................................................
         self.displayFrame = tk.Frame(self)
@@ -218,6 +239,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
         """
         self.archive.default()
         self.build()
+        self.callback()
 
     def _save(self, event = None):
         """
@@ -235,6 +257,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
         if name:
             self.archive.load(name)
             self.build()
+            self.callback()
 
     def _check_editability(self, event = None):
         """
@@ -336,12 +359,31 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
 
 
     # Auxiliary ----------------------------------------------------------------
-
     def _nothing(*args):
         """
         Placeholder for unnasigned callbacks.
         """
         pass
+
+    def _loadBuiltin(self, name):
+        """
+        Load the given built-in profile.
+        - name := String, name of the built-in profile, as defined in
+            fc.builtin.profiles.
+        """
+        # FIXME TODO GGG
+        self.archive.profile(self.builtin[name])
+        self.build()
+        self.callback()
+        return
+
+    def _onBuiltinMenuChange(self, *event):
+        """
+        Callback for changes to the built-in profile menu.
+        """
+        name = self.builtinMenuVar.get()
+        if name != "N/A":
+            self._loadBuiltin(name)
 
     # Editors ------------------------------------------------------------------
     def _edit_generic(self, attribute, current = None):
@@ -590,6 +632,8 @@ class PythonEditor(tk.Frame):
         Set whether the currently selected value can be removed.
         """
         self.removeButton.config(state = tk.NORMAL if value else tk.DISABLED)
+
+
 
 
 ## DEMO ########################################################################

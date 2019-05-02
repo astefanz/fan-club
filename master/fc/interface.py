@@ -85,6 +85,8 @@ class FCInterface(us.PrintServer):
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
             self.networkPipeSend, archive, pqueue)
 
+        self.archiveClients = []
+
     # "PUBLIC" INTERFACE -------------------------------------------------------
     def run(self):
         """
@@ -124,6 +126,13 @@ class FCInterface(us.PrintServer):
         called to distribute incoming slaves vectors.
         """
         self.slaveClients.append(client.slavesIn)
+
+    def archiveClient(self, client):
+        """
+        Add CLIENT to the list of objects to be notified when the loaded
+        profile is modified by calling their profileChange method.
+        """
+        self.archiveClients.append(client)
 
     # FOR INHERITANCE ----------------------------------------------------------
     def _mainloop():
@@ -176,3 +185,16 @@ class FCInterface(us.PrintServer):
         self.feedbackClients = []
         self.networkClients = []
         self.slaveClients = []
+
+    def _onProfileChange(self):
+        """
+        Handle a change in the loaded FC Profile.
+        """
+        was_active = self.network.active()
+        self.network.stop()
+        for client in self.archiveClients:
+            client.profileChange()
+        if was_active:
+            self.network.start()
+
+

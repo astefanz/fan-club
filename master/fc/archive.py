@@ -683,44 +683,46 @@ class FCArchive(us.PrintClient):
         """
         us.PrintClient.__init__(self, pqueue)
         self.runtime = {platform : us.platform(), version : ver}
-        self.P = {}
-        self.P.update(self.runtime)
-        self.modified = False
-
-        # TODO: Startup "auto-load" routine
-        self.builtin("BASE") # FIXME temporary
-        self.printw("Provisional profile set")
+        self.P = None
+        self.isModified = False
+        # FIXME startup
 
     def modified(self):
         """
         Return whether the current profile has been modified without saving.
         """
-        return self.modified
+        return self.isModified
 
     def default(self):
         """
         Load the default profile.
         """
-        return # FIXME (blocking for builtin call)
-        self.P = cp.deepcopy(FCArchive.DEFAULT)
-        self.P.update(self.runtime)
-        self.modified = False
+        self.profile(FCArchive.DEFAULT)
 
-    def builtin(self, name):
-        """
-        Provisional method to switch to a "built-in" (hardcoded) profile.
-        """
-        self.P = cp.deepcopy(PROFILES[name])
-        self.P.update(self.runtime)
-        self.modified = False
+    # FIXME
+    # def builtin(self, name):
+    #     """
+    #     Provisional method to switch to a "built-in" (hardcoded) profile.
+    #     """
+    #     self.P = cp.deepcopy(btp.PROFILES[name])
+    #     self.P.update(self.runtime)
+    #     self.isModified = False
 
-    def profile(self):
+    def profile(self, new = None):
         """
+        Set the current profile to the given profile, if one is provided.
         Return a copy of the current profile, represented as a dictionary who's
         keys are constants defined in this module.
 
+        - new := new profile to use, (Python dictionary). Defaults to None, in
+            which case the current profile is returned.
+
         Raises an AttributeError if this instance has no profile loaded.
         """
+        if new is not None:
+            self.P = cp.deepcopy(new)
+            self.P.update(self.runtime)
+            self.isModified = False
         if self.P is not None:
             return cp.deepcopy(self.P)
         else:
@@ -739,7 +741,7 @@ class FCArchive(us.PrintClient):
             # Check if type is valid
             # Check if value is valid
             self.P[attribute] += (value,)
-            self.modified = True
+            self.isModified = True
         except KeyError as e:
             self.printe("Invalid FC Archive key \"{}\"".format(attribute))
 
@@ -758,7 +760,7 @@ class FCArchive(us.PrintClient):
             # Check if type is valid
             # Check if value is valid
             self.P[attribute] = value
-            self.modified = True
+            self.isModified = True
         except KeyError as e:
             self.printe("Invalid FC Archive key \"{}\"".format(attribute))
 
@@ -775,7 +777,7 @@ class FCArchive(us.PrintClient):
             # TODO: Validate?
             self.P = new
             self.P.update(self.runtime)
-            self.modified = False
+            self.isModified = False
         except IOError as e:
             self.printx(e, "Could not load profile")
             self.P = old
@@ -791,7 +793,7 @@ class FCArchive(us.PrintClient):
         """
         try:
             pk.dump(self.profile(), open(name, 'wb'))
-            self.modified = False
+            self.isModified = False
         except IOError as e:
             self.printx(e, "Could not save profile")
 
@@ -816,546 +818,3 @@ class FCArchive(us.PrintClient):
         be a valid key value defined in fc.archive.
         """
         return self.P[key]
-
-""" Provisional, hard-coded profiles. """ # FIXME
-DEV1 = {
-    name : "Development Profile",
-    description : "A provisional profile to be used for development.",
-    platform : UNKNOWN,
-
-    broadcastIP : "10.42.0.255",
-    broadcastPort  : 65000,
-    broadcastPeriodMS : 1000,
-    periodMS : 100,
-    maxLength : 512,
-    maxTimeouts : 10,
-
-    mainQueueSize : 10,
-    slaveQueueSize: 10,
-    broadcastQueueSize : 2,
-    listenerQueueSize : 3,
-    misoQueueSize : 2,
-    printerQueueSize : 3,
-    passcode : "CT",
-    socketLimit : 1024,
-
-    defaultSlave :
-        {
-            SV_name : "FAWT Module",
-            SV_mac : "None",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.5,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : False,
-            MD_row : -1,
-            MD_column : -1,
-            MD_rows : 0,
-            MD_columns : 0,
-            MD_mapping : ()
-        },
-    savedSlaves : (
-        {
-            SV_name : "A1",
-            SV_mac : "00:80:e1:38:00:2a",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 0,
-            MD_rows : 1,
-            MD_columns : 21,
-            MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
-        },
-        {
-            SV_name : "A2",
-            SV_mac : "00:80:e1:45:00:46",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 1,
-            MD_column : 0,
-            MD_rows : 1,
-            MD_columns : 21,
-            MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
-        }),
-    pinouts : PINOUTS.copy(),
-    maxRPM : 16000,
-    maxFans : 21,
-    dcDecimals : 2,
-    fanArray : {
-        FA_rows : 2,
-        FA_columns : 21,
-        FA_layers : 1,
-    },
-}
-
-DEV2 = {
-    name : "Development Profile 2" ,
-    description : "A provisional profile to be used for development. " \
-        "Uses double fans.",
-    platform : UNKNOWN,
-
-    broadcastIP : "10.42.0.255",
-    broadcastPort  : 65000,
-    broadcastPeriodMS : 1000,
-    periodMS : 100,
-    maxLength : 512,
-    maxTimeouts : 10,
-
-    mainQueueSize : 10,
-    slaveQueueSize: 10,
-    broadcastQueueSize : 2,
-    listenerQueueSize : 3,
-    misoQueueSize : 2,
-    printerQueueSize : 3,
-    passcode : "CT",
-    socketLimit : 1024,
-
-    defaultSlave :
-        {
-            SV_name : "FAWT Module",
-            SV_mac : "None",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : DOUBLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.5,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : False,
-            MD_row : -1,
-            MD_column : -1,
-            MD_rows : 0,
-            MD_columns : 0,
-            MD_mapping : ()
-        },
-    savedSlaves : (
-        {
-            SV_name : "A1",
-            SV_mac : "00:80:e1:38:00:2a",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : DOUBLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 0,
-            MD_rows : 1,
-            MD_columns : 10,
-            MD_mapping : \
-                ("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17,18-19")
-        },
-        {
-            SV_name : "A2",
-            SV_mac : "00:80:e1:45:00:46",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : DOUBLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 1,
-            MD_column : 0,
-            MD_rows : 1,
-            MD_columns : 10,
-            MD_mapping : \
-                ("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17,18-19")
-        }),
-    pinouts : PINOUTS.copy(),
-    maxRPM : 16000,
-    maxFans : 20,
-    dcDecimals : 2,
-    fanArray : {
-        FA_rows : 2,
-        FA_columns : 10,
-        FA_layers : 2,
-    },
-}
-
-DEV3 = {
-    name : "Development Profile 3",
-    description : "A provisional profile to be used for development.",
-    platform : UNKNOWN,
-
-    broadcastIP : "10.42.0.255",
-    broadcastPort  : 65000,
-    broadcastPeriodMS : 1000,
-    periodMS : 100,
-    maxLength : 512,
-    maxTimeouts : 10,
-
-    mainQueueSize : 10,
-    slaveQueueSize: 10,
-    broadcastQueueSize : 2,
-    listenerQueueSize : 3,
-    misoQueueSize : 2,
-    printerQueueSize : 3,
-    passcode : "CT",
-    socketLimit : 1024,
-
-    defaultSlave :
-        {
-            SV_name : "FAWT Module",
-            SV_mac : "None",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.5,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : False,
-            MD_row : -1,
-            MD_column : -1,
-            MD_rows : 0,
-            MD_columns : 0,
-            MD_mapping : ()
-        },
-    savedSlaves : (
-        {
-            SV_name : "A1",
-            SV_mac : "00:80:e1:38:00:2a",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 0,
-            MD_rows : 5,
-            MD_columns : 4,
-            MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
-        },
-        {
-            SV_name : "A2",
-            SV_mac : "00:80:e1:45:00:46",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 4,
-            MD_rows : 5,
-            MD_columns : 4,
-            MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20")
-        }),
-    pinouts : PINOUTS.copy(),
-    maxRPM : 16000,
-    maxFans : 21,
-    dcDecimals : 2,
-    fanArray : {
-        FA_rows : 5,
-        FA_columns : 8,
-        FA_layers : 1,
-    },
-}
-BASE = {
-    name : "Prov. Basement Tunnel",
-    description : "Not the wind tunnel GALCIT wants, but the one it needs.",
-    platform : UNKNOWN,
-
-    broadcastIP : "10.42.0.255",
-    broadcastPort  : 65000,
-    broadcastPeriodMS : 1000,
-    periodMS : 100,
-    maxLength : 512,
-    maxTimeouts : 10,
-
-    mainQueueSize : 10,
-    slaveQueueSize: 10,
-    broadcastQueueSize : 2,
-    listenerQueueSize : 3,
-    misoQueueSize : 2,
-    printerQueueSize : 3,
-    passcode : "CT",
-    socketLimit : 1024,
-
-    defaultSlave :
-        {
-            SV_name : "FAWT Module",
-            SV_mac : "None",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : False,
-            MD_row : -1,
-            MD_column : -1,
-            MD_rows : 0,
-            MD_columns : 0,
-            MD_mapping : ()
-        },
-    savedSlaves : (
-        {
-            SV_name : "B1",
-            SV_mac : "00:80:e1:4b:00:36",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 7,
-            MD_column : 5,
-            MD_rows : 4,
-            MD_columns : 6,
-            MD_mapping : \
-                '19,17,13,9,,,18,16,12,8,5,2,,15,11,7,4,1,,14,10,6,3,0'
-        },
-        {
-            SV_name : "B2",
-            SV_mac : "00:80:e1:2f:00:1d",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 7,
-            MD_column : 0,
-            MD_rows : 4,
-            MD_columns : 6,
-            MD_mapping : \
-                ',,13,9,5,,19,16,12,8,4,,18,15,11,7,3,1,17,14,10,6,2,0'
-        },
-        {
-            SV_name : "B3",
-            SV_mac : "00:80:e1:29:00:2e",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 3,
-            MD_column : 0,
-            MD_rows : 5,
-            MD_columns : 6,
-            MD_mapping : \
-                '18,19,,,,,13,14,15,16,17,,7,8,9,10,11,12,2,3,4,5,6,,0,1,,,,'
-        },
-        {
-            SV_name : "B4",
-            SV_mac : "00:80:e1:27:00:3e",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 0,
-            MD_rows : 4,
-            MD_columns : 6,
-            MD_mapping : \
-                '0,1,2,3,4,,5,6,7,8,9,,10,11,12,13,14,15,,,16,17,18,19'
-        },
-        {
-            SV_name : "B5",
-            SV_mac : "00:80:e1:4b:00:42",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 20,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 0,
-            MD_column : 5,
-            MD_rows : 4,
-            MD_columns : 6,
-            MD_mapping : \
-                '19,17,13,9,5,2,18,16,12,8,4,1,,15,11,7,3,0,,14,10,6,,,'
-        },
-        {
-            SV_name : "B6",
-            SV_mac : "00:80:e1:47:00:3d",
-            SV_index : -1,
-            SV_fanModel : "Unknown",
-            SV_fanMode : SINGLE,
-            SV_targetRelation :(1.0, 0.0),
-            SV_chaserTolerance : 0.02,
-            SV_fanFrequencyHZ : 25000,
-            SV_counterCounts : 2,
-            SV_counterTimeoutMS : 30,
-            SV_pulsesPerRotation : 2,
-            SV_maxRPM : 16000,
-            SV_minRPM : 1200,
-            SV_minDC : 0.1,
-            SV_maxFans : 21,
-            SV_pinout : "BASE",
-            MD_assigned : True,
-            MD_row : 3,
-            MD_column : 5,
-            MD_rows : 5,
-            MD_columns : 6,
-            MD_mapping : \
-                ',,,,9,4,20,18,15,12,8,3,,17,14,11,7,2,19,16,13,10,6,1,,,,,5,0'
-
-        }
-    ),
-    pinouts : PINOUTS.copy(),
-    maxRPM : 16000,
-    maxFans : 21,
-    dcDecimals : 2,
-    fanArray : {
-        FA_rows : 11,
-        FA_columns : 11,
-        FA_layers : 1,
-    },
-}
-
-
-PROFILES = {
-    "DEV1" : DEV1,
-    "DEV2" : DEV2,
-    "DEV3" : DEV3,
-    "BASE": BASE
-}

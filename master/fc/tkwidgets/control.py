@@ -68,23 +68,16 @@ class ControlWidget(tk.Frame, us.PrintClient):
         us.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
+        self.network = network
 
         # Core setup -----------------------------------------------------------
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
 
         # Interactive control widgets ..........................................
-        self.display = DisplayMaster(self.main, pqueue)
-
-        # Grid:
-        self.grid = GridWidget(self.display, self.archive, network.controlIn,
-            pqueue = pqueue)
-        self.display.add(self.grid, text = "Control Grid")
-
-        # Live table
-        self.table = LiveTable(self.display, self.archive, network.controlIn,
-            network, pqueue = pqueue)
-        self.display.add(self.table, text = "Live Table")
+        self.displayFrame = tk.Frame(self.main)
+        self.displays = []
+        self._buildDisplays()
 
         # Control panel --------------------------------------------------------
         self.control = ControlPanelWidget(self.main, network, self.display,
@@ -92,7 +85,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
 
         # Assemble .............................................................
         self.main.add(self.control, weight = 2)
-        self.main.add(self.display, weight = 16)
+        self.main.add(self.displayFrame, weight = 16)
 
     def redraw(self):
         """
@@ -130,6 +123,37 @@ class ControlWidget(tk.Frame, us.PrintClient):
         Activate automatic adjustment of widgets upon window resizes.
         """
         self.display.unblockAdjust()
+
+    def _buildDisplays(self):
+        """
+        Build the interactive display widgets.
+        """
+        if self.displays:
+            for display in self.displays:
+                display.destroy()
+            self.display.destroy()
+        self.displays = []
+
+        self.display = DisplayMaster(self.displayFrame, self.pqueue)
+        self.display.pack(fill = tk.BOTH, expand = True)
+
+        # Grid:
+        self.grid = GridWidget(self.display, self.archive,
+            self.network.controlIn, pqueue = self.pqueue)
+        self.display.add(self.grid, text = "Control Grid")
+        self.displays.append(self.grid)
+
+        # Live table
+        self.table = LiveTable(self.display, self.archive,
+            self.network.controlIn, self.network, pqueue = self.pqueue)
+        self.display.add(self.table, text = "Live Table")
+        self.displays.append(self.table)
+
+    def profileChange(self):
+        """
+        Handle a change in the loaded profile.
+        """
+        self._buildDisplays()
 
 
 
@@ -900,14 +924,24 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
         self.archive = archive
         self._send = send
-        fanArray = self.archive[ac.fanArray]
-        R, C = fanArray[ac.FA_rows], fanArray[ac.FA_columns]
 
-        gd.BaseGrid.__init__(self, master, R, C, cursor = self.CURSOR,
+        self.fanArray = self.archive[ac.fanArray]
+        self.R, self.C = self.fanArray[ac.FA_rows], self.fanArray[ac.FA_columns]
+        self.maxRPM = self.archive[ac.maxRPM]
+        self.L = self.archive[ac.fanArray][ac.FA_layers]
+        self.maxFans = self.archive[ac.maxFans]
+        # Save the slaves that are mapped to the grid and have not received an
+        # index from the back-end
+        self.unindexed = {}
+        self.indexed = {}
+        for slave in self.archive[ac.savedSlaves]:
+            if slave[ac.MD_assigned]:
+                self.unindexed[slave[ac.SV_mac]] = slave
+
+        gd.BaseGrid.__init__(self, master, self.R, self.C, cursor = self.CURSOR,
             empty = 'darkgray')
         us.PrintClient.__init__(self, pqueue)
 
-        self.maxRPM = self.archive[ac.maxRPM]
         # Tools ................................................................
         self.toolBar = tk.Frame(self)
         self.toolBar.grid(row = self.GRID_ROW + 1, sticky = "WE")
@@ -915,8 +949,8 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # Data type control (RPM vs DC) ........................................
         self.maxValue = self.maxRPM
         self.maxValues = {"RPM" : self.maxRPM, "DC" : 1}
-        self.offset = 0
         self.offsets = {"RPM" : 0, "DC" : 1}
+        self.offset = self.offsets["RPM"]
         self.typeFrame = tk.Frame(self.toolBar)
         self.typeFrame.pack(side = tk.LEFT, fill = tk.Y)
         self.typeLabel = tk.Label(self.typeFrame, text = "Data: ",
@@ -931,7 +965,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.typeMenu.pack(side = tk.LEFT)
 
         # Layer control ........................................................
-        self.L = self.archive[ac.fanArray][ac.FA_layers]
         self.layer = 0
         self.layerFrame = tk.Frame(self.toolBar)
         self.layerFrame.pack(side = tk.LEFT, fill = tk.Y)
@@ -987,7 +1020,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
         # Color Bar ............................................................
         self.colorBar = ColorBarWidget(self, colors = cms.COLORMAP_GALCIT,
-            high = self.archive[ac.maxRPM], unit = "RPM", pqueue = pqueue)
+            high = self.maxRPM, unit = "RPM", pqueue = pqueue)
         self.colorBar.grid(row = self.GRID_ROW, column = self.GRID_COLUMN + 1,
             sticky = "NS")
 
@@ -996,8 +1029,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # Automatic resizing:
         self.bind("<Configure>", self._scheduleAdjust)
 
-        self.fanArray = fanArray
-        self.maxFans = self.archive[ac.maxFans]
         self.adjusting = False
         self.colors = colors
         self.numColors = len(colors)
@@ -1006,7 +1037,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.low = 0
         self.off_color = off_color
         self.range = range(self.size)
-        self.rows, self.columns = range(R), range(C)
+        self.rows, self.columns = range(self.R), range(self.C)
         self.dc = 0 # Whether to use duty cycles
 
         self.is_live = True
@@ -1036,14 +1067,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
         # FIXME: are we using self.values correctly, or at all?
 
-        # Save the slaves that are mapped to the grid and have not received an
-        # index from the back-end
-        self.unindexed = {}
-        self.indexed = {}
-        for slave in self.archive[ac.savedSlaves]:
-            if slave[ac.MD_assigned]:
-                self.unindexed[slave[ac.SV_mac]] = slave
-
 
         # TODO: (redundant "TODO's" indicate priority)
         # - handle resets on profile changing TODO
@@ -1070,25 +1093,26 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             grid.layers[grid.layer][i]%grid.maxFans))
         """
         # FIXME performance
-        L = len(F)//2
-        self.totalSlaves = L//self.maxFans
+        if self.canvas:
+            L = len(F)//2
+            self.totalSlaves = L//self.maxFans
 
-        offset = self.offset*L
+            offset = self.offset*L
 
-        for l in self.layers:
-            for i in self.range:
-                f = self.layers[l][i]
-                if f is not None:
-                    self.updatei(i, l, F[self.layers[l][i] + offset])
+            for l in self.layers:
+                for i in self.range:
+                    f = self.layers[l][i]
+                    if f is not None:
+                        self.updatei(i, l, F[self.layers[l][i] + offset])
 
-        """
-        grid_i = 0
-        offset = self.offset*len(F)//2
-        for feedback_i in self.layers[self.layer]:
-            if feedback_i is not None:
-                self.updatei(grid_i, self.layer, F[feedback_i + offset])
-            grid_i += 1
-        """
+            """
+            grid_i = 0
+            offset = self.offset*len(F)//2
+            for feedback_i in self.layers[self.layer]:
+                if feedback_i is not None:
+                    self.updatei(grid_i, self.layer, F[feedback_i + offset])
+                grid_i += 1
+            """
 
     def networkIn(self, N):
         if N[0]:
@@ -1388,6 +1412,12 @@ class ColorBarWidget(tk.Frame):
         self.canvas.delete(tk.ALL)
         self._draw()
 
+    def setHigh(self, new):
+        """
+        Set a new high value.
+        """
+        self.high = new
+
     # Internal methods .........................................................
     def _draw(self, *E):
         """
@@ -1438,25 +1468,28 @@ class LiveTable(us.PrintClient, tk.Frame):
         us.PrintClient.__init__(self, pqueue)
         self.archive = archive
         self._send = send
-        self.maxFans = archive[ac.maxFans]
 
-        self.grid_rowconfigure(self.TABLE_ROW, weight = 1)
-        self.grid_columnconfigure(self.TABLE_COLUMN, weight = 1)
+        self.maxFans = self.archive[ac.maxFans]
+        self.startDisplacement = 2
+        self.endDisplacement = self.startDisplacement + self.maxFans
 
         # Build menu ...........................................................
+        self.main = tk.Frame(self)
+        self.main.pack(fill = tk.BOTH, expand = True)
+
+        self.main.grid_rowconfigure(self.TABLE_ROW, weight = 1)
+        self.main.grid_columnconfigure(self.TABLE_COLUMN, weight = 1)
 
         # Set background:
         self.bg = "#e2e2e2"
         self.fg = "black"
-        self.config(bg = self.bg)
+        self.main.config(bg = self.bg)
 
-        self.topBar = tk.Frame(self, bg = self.bg)
+        self.topBar = tk.Frame(self.main, bg = self.bg)
         self.topBar.grid(row = self.MENU_ROW, column = self.MENU_COLUMN,
             sticky = "EW")
 
         self.offset = 0
-        self.startDisplacement = 2
-        self.endDisplacement = self.startDisplacement + self.archive[ac.maxFans]
         self.showMenuVar = tk.StringVar()
         self.showMenuVar.trace('w', self._showMenuCallback)
         self.showMenuVar.set("RPM")
@@ -1629,7 +1662,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.sentinelFlag = False
 
         # Build table ..........................................................
-        self.tableFrame = tk.Frame(self)
+        self.tableFrame = tk.Frame(self.main)
         self.tableFrame.grid(row = self.TABLE_ROW, column = self.TABLE_COLUMN,
             sticky = "NEWS")
         self.table = ttk.Treeview(self.tableFrame,
@@ -1696,12 +1729,12 @@ class LiveTable(us.PrintClient, tk.Frame):
         # Build scrollbars .....................................................
         # See: https://lucasg.github.io/2015/07/21/
         #    How-to-make-a-proper-double-scrollbar-frame-in-Tkinter/
-        self.hscrollbar = ttk.Scrollbar(self, orient = tk.HORIZONTAL)
+        self.hscrollbar = ttk.Scrollbar(self.main, orient = tk.HORIZONTAL)
         self.hscrollbar.config(command = self.table.xview)
         self.hscrollbar.grid(row = self.HSCROLL_ROW,
             column = self.HSCROLL_COLUMN, sticky = "EW")
 
-        self.vscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL)
+        self.vscrollbar = ttk.Scrollbar(self.main, orient = tk.VERTICAL)
         self.vscrollbar.config(command = self.table.yview)
         self.vscrollbar.grid(row = self.VSCROLL_ROW,
             column = self.VSCROLL_COLUMN, sticky = "NS")
@@ -1712,42 +1745,6 @@ class LiveTable(us.PrintClient, tk.Frame):
         self.slaves = {}
         self.fans = range(self.maxFans)
         self.numSlaves = 0
-
-    # Standard interface .......................................................
-    def feedbackIn(self, F):
-        if self.playPauseFlag:
-            # FIXME: performance
-            L = len(F)//2
-            N = L//self.maxFans
-
-            if N > self.numSlaves:
-                for index in range(self.numSlaves, N):
-                    self.slaves[index] = self.table.insert('', 'end',
-                        values = (index + 1,) + self.zeroes, tag = 'N')
-                    self.numSlaves += 1
-
-            slave_i, vector_i = 0, L*self.offset
-            end_i = L + vector_i
-            tag = "N"
-            while vector_i < end_i:
-                values = tuple(F[vector_i:vector_i + self.maxFans])
-
-                if s.RIP in values:
-                    # This slave is disconnected
-                    self.table.item(self.slaves[slave_i],
-                        values = (slave_i + 1,), tag = "D")
-                elif s.PAD not in values:
-                    # This slave is active
-                    if self.sentinelFlag:
-                        for fan, value in enumerate(values):
-                            if self._sentinelCheck(values):
-                                tag = "H"
-                                self._executeSentinel(slave_i, fan, value)
-                    self.table.item(self.slaves[slave_i],
-                        values = (slave_i + 1, max(values), min(values)) \
-                            + values, tag = tag)
-                slave_i += 1
-                vector_i += self.maxFans
 
     def networkIn(self, N):
         if not N[s.NS_I_CONN]:
@@ -2064,6 +2061,47 @@ class LiveTable(us.PrintClient, tk.Frame):
             self.offset = 0
         elif self.showMenuVar.get() == "DC":
             self.offset = 1
+
+    # Standard interface .......................................................
+    def feedbackIn(self, F):
+        if self.playPauseFlag:
+            # FIXME: performance
+            L = len(F)//2
+            N = L//self.maxFans
+
+            if N > self.numSlaves:
+                for index in range(self.numSlaves, N):
+                    self.slaves[index] = self.table.insert('', 'end',
+                        values = (index + 1,) + self.zeroes, tag = 'N')
+                    self.numSlaves += 1
+
+            slave_i, vector_i = 0, L*self.offset
+            end_i = L + vector_i
+            tag = "N"
+            while vector_i < end_i:
+                values = tuple(F[vector_i:vector_i + self.maxFans])
+
+                if s.RIP in values:
+                    # This slave is disconnected
+                    self.table.item(self.slaves[slave_i],
+                        values = (slave_i + 1,), tag = "D")
+                elif s.PAD not in values:
+                    # This slave is active
+                    if self.sentinelFlag:
+                        for fan, value in enumerate(values):
+                            if self._sentinelCheck(values):
+                                tag = "H"
+                                self._executeSentinel(slave_i, fan, value)
+                    self.table.item(self.slaves[slave_i],
+                        values = (slave_i + 1, max(values), min(values)) \
+                            + values, tag = tag)
+                slave_i += 1
+                vector_i += self.maxFans
+
+
+        self.built = True
+
+
 
 ## DEMO ########################################################################
 if __name__ == "__main__":

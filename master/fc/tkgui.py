@@ -56,6 +56,7 @@ class FCGUI(it.FCInterface):
         defaults to fc.interface.SENTINEL_PERIOD.
         """
         it.FCInterface.__init__(self, archive, pqueue, period)
+        self.base = None
 
     def _mainloop(self):
         """
@@ -78,9 +79,10 @@ class FCGUI(it.FCInterface):
         title = TITLE + " " + self.version
         base = bas.Base(self.root, self.network, self.archive, title,
             self.version, self.feedbackClient, self.networkClient,
-            self.slaveClient, self.pqueue)
+            self.slaveClient, self._onProfileChange, self.pqueue)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)
+        self.archiveClient(base)
         self.network.connect()
         base.focusControl()
 

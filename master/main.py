@@ -33,9 +33,11 @@ import fc.tkgui as tkg
 import fc.archive as ac
 import fc.communicator as cm
 import fc.utils as us
+import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
 VERSION = "0.5"
+INIT_PROFILE = "BASE" # FIXME
 
 ## MAIN ########################################################################
 # NOTE: Currently a GUI demo 'empty shell'
@@ -44,6 +46,7 @@ print(us.HEADER)
 print("[--] FC MkIV GUI demo started") # FIXME
 pqueue = mp.Queue()
 archive = ac.FCArchive(pqueue, VERSION)
+archive.profile(btp.PROFILES[INIT_PROFILE])
 interface = tkg.FCGUI(archive, pqueue)
 interface.run()
 
