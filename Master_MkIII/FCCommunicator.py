@@ -66,7 +66,7 @@ VERSION = "Independent 0"
 FORCE_IP_ADDRESS = "0.0.0.0"
 	#"0.0.0.0"
 	#= "192.168.1.129" # (Basement lab)
-FORCE_BROADCAST_IP = "10.42.0.245" # "<broadcast>"
+FORCE_BROADCAST_IP = "10.42.0.168" # "<broadcast>"
 
 
 # Communicator status codes:

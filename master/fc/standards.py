@@ -105,12 +105,12 @@ TARGET_CODES = {
 #              |          New broadcast mode
 #              Set new broadcast mode
 #
-#        D =  [CMD_FUPDATE_START, VERSION_NAME, FILE_NAME, SIZE]
-#              |                  |             |          |
-#              |                  |             |          |
-#              |                  |             |          File size (bytes)
-#              |                  |             File name (String)
-#              |                  Version name (String)
+#        D =  [CMD_FUPDATE_START, TGT_ALL VERSION_NAME, FILE_NAME, SIZE]
+#              |                          |             |          |
+#              |                          |             |          |
+#              |                          |             |          File size (b)
+#              |                          |             File name (String)
+#              |                          Version name (String)
 #              Start firmware update
 #
 #                       IP address to target
@@ -140,9 +140,9 @@ CMD_I_CODE = 0
 CMD_I_TGT_CODE = 1
 CMD_I_TGT_OFFSET = 2
 
-CMD_I_FU_VERSION = 1
-CMD_I_FU_FILENAME = 2
-CMD_I_FU_FILESIZE = 3
+CMD_I_FU_VERSION = 2
+CMD_I_FU_FILENAME = 3
+CMD_I_FU_FILESIZE = 4
 
 CMD_I_BM_BMODE = 1
 
@@ -267,7 +267,7 @@ SLAVE_STATUSES = {
     SS_KNOWN : 'Known',
     SS_DISCONNECTED : 'Disconnected',
     SS_AVAILABLE : 'Available',
-    SS_UPDATING : 'Updating'
+    SS_UPDATING : 'Bootloader'
 }
 
 

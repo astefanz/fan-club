@@ -162,7 +162,8 @@ class FCNetwork(us.PrintClient):
         Send a command to start the bootloader using the binary file at
         FILENAME with version code VERSION and byte size SIZE.
         """
-        self.commandIn(s.CMD_FUPDATE_START, (filename, version, size))
+        self.commandIn(s.CMD_FUPDATE_START, s.TGT_ALL,
+            (version, filename, size))
 
     def stopBootloader(self):
         """

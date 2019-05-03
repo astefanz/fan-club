@@ -21,7 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * ABOUT: This is the main file of the second major  release  of  the  Fanclub *
  * distributed control system for fan array wind tunnels. This is the  "Slave" *
  * side of the system (the other being the "Master" side, which  controls  the *
@@ -38,22 +38,22 @@
 #include "print.h" // Thread-safe printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "BASE1"
+#define FCMKII_VERSION "BASE1-0"
 // BASE1: Switch to basement configuration
 // CAST17.0DB: Added "MULTI" command to Processor
 // Changed on CAST150.0DB: Removed default fan array values and refactored main
 // Changed on CAST14.2DB: Locked RPM and DC R/W... Fixed crashes
-// Changed on CAST13.0DB: Reduced thread stacks to 4KB each and 
+// Changed on CAST13.0DB: Reduced thread stacks to 4KB each and
 // deactivated stack debug prints
 
 
 void mainLoop(void){
 	// ABOUT: Workaround to control main thread stack size:
-	pl;printf("\n\r[%08dms][M] \"Main\" thread started: %lX", tm, 
+	pl;printf("\n\r[%08dms][M] \"Main\" thread started: %lX", tm,
 		(uint32_t)Thread::gettid());pu;
 	Communicator communicator(FCMKII_VERSION);
 
-	Thread::wait(osWaitForever);	
+	Thread::wait(osWaitForever);
 } // End mainLoop
 
 
@@ -66,8 +66,8 @@ int main(){ ////////////////////////////////////////////////////////////////////
 
     // Print information = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     printf(INIT); // (size: 1560)
-    printf("\n\r VERSION: %s", FCMKII_VERSION);  
-   
+    printf("\n\r VERSION: %s", FCMKII_VERSION);
+
     printf("\n\r+--SETTINGS-------"
     "-------------------------------------------------------------+"
         // General:
@@ -93,11 +93,11 @@ int main(){ ////////////////////////////////////////////////////////////////////
         "\n\r+ - - - - - - - - - - - - - - - - - - - - - - - - - - "
         "- - - - - - - - - - - - - ",
         STACK_SIZE,
-		BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST, 
-		
-		BROADCAST_PORT, TIMEOUT_MS, 
-        PASSCODE, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH, 
-        MAX_NETWORK_TIMEOUTS, 
+		BAUD, NUMFANS, BLINK_SLOW, BLINK_FAST,
+
+		BROADCAST_PORT, TIMEOUT_MS,
+        PASSCODE, SMISO, SMOSI, SLISTENER, MAX_MESSAGE_LENGTH,
+        MAX_NETWORK_TIMEOUTS,
         MAX_MASTER_TIMEOUTS,
 
 		MAX_FANS,
@@ -106,15 +106,15 @@ int main(){ ////////////////////////////////////////////////////////////////////
 	);
     printf("\n\r+-------------------------------------------------------------"
         "-----------------+\n\r");
-        
-    
-    // Initialize modules = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+
+    // Initialize modules = = = = = = = = = = = = = = = = = = = = = = = = = = =
     T.start();
-    
+
     pl
     printf("\n\r[%08dms][M] Done w/ initialization",tm);
     pu
-   
+
 
 // MAIN LOOP ===================================================================
 
@@ -124,21 +124,21 @@ int main(){ ////////////////////////////////////////////////////////////////////
 	#if defined(HEAP_PRINTS) || defined(STACK_PRINTS)
 	while(true){
 	#endif
-	
+
 		#ifdef HEAP_PRINTS
-		// See 
+		// See
 		// https://os.mbed.com/docs/latest/tutorials/
 		//		optimizing.html#runtime-memory-tracing
-		
+
 		mbed_stats_heap_t heap_stats;
 
 			mbed_stats_heap_get(&heap_stats);
 			pl;printf("\n\rHEAP SIZE: %10lu MAX HEAP: %10lu",
 				heap_stats.current_size, heap_stats.max_size);pu;
 
-	
+
 		#endif // HEAP_PRINTS
-		
+
 		#ifdef STACK_PRINTS
 		pl;printf(
 			"\n\r\tFMAIN (%10X): Used: %6lu Size: %6lu Max: %6lu",
@@ -148,7 +148,7 @@ int main(){ ////////////////////////////////////////////////////////////////////
 			mainThread.max_stack()
 		);pu;
 		#endif // STACK_PRINTS
-	
+
 		#if defined(HEAP_PRINTS) || defined(STACK_PRINTS)
 		Thread::wait(1000);
 	} // End heap or stack print loop
@@ -158,6 +158,6 @@ int main(){ ////////////////////////////////////////////////////////////////////
 
 // =============================================================================
 
-    return 0; 
-    
+    return 0;
+
 }// (end main) /////////////////////////////////////////////////////////////////
