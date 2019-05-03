@@ -1,28 +1,46 @@
-bp = """{
-            ac.SV_name : \"FAWT Module\",
-            ac.SV_mac : \"{}\",
-            ac.SV_index : -1,
-            ac.SV_fanModel : \"Unknown\",
-            ac.SV_fanMode : ac.DOUBLE,
-            ac.SV_targetRelation :(1.0, 0.0),
-            ac.SV_chaserTolerance : 0.02,
-            ac.SV_fanFrequencyHZ : 25000,
-            ac.SV_counterCounts : 2,
-            ac.SV_counterTimeoutMS : 30,
-            ac.SV_pulsesPerRotation : 2,
-            ac.SV_maxRPM : 16000,
-            ac.SV_minRPM : 1200,
-            ac.SV_minDC : 0.1,
-            ac.SV_maxFans : 18,
-            ac.SV_pinout : \"CAST\",
-            ac.MD_assigned : True,
-            ac.MD_row : {},
-            ac.MD_column : {},
-            ac.MD_rows : 3,
-            ac.MD_columns : 3,
-            ac.MD_mapping : ("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17")
-        }"""
+CAST_FAN_MODEL = "DELTA GFC..." # FIXME
 
+def build_all(name = "temp.py"):
+    with open(name, 'w') as f:
+        f.write(build())
+
+def build():
+    result = "CAST = (\n"
+    for sv in svs:
+        name, mac, row, column = sv[0], sv[1], sv[3][0], sv[3][1]
+        result += "\t{\n"
+        result += bp.format(name, mac, CAST_FAN_MODEL, row, column)
+        result += "\n\t},\n"
+    result += "\n)\n"
+    return result
+
+bp = """
+        ac.SV_name : \"{}\",
+        ac.SV_mac : \"{}\",
+        ac.SV_index : -1,
+        ac.SV_fanModel : \"{}\",
+        ac.SV_fanMode : ac.DOUBLE,
+        ac.SV_targetRelation :(1.0, 0.0),
+        ac.SV_chaserTolerance : 0.02,
+        ac.SV_fanFrequencyHZ : 25000,
+        ac.SV_counterCounts : 2,
+        ac.SV_counterTimeoutMS : 30,
+        ac.SV_pulsesPerRotation : 2,
+        ac.SV_maxRPM : 16000,
+        ac.SV_minRPM : 1200,
+        ac.SV_minDC : 0.1,
+        ac.SV_maxFans : 18,
+        ac.SV_pinout : \"CAST\",
+        ac.MD_assigned : True,
+        ac.MD_row : {},
+        ac.MD_column : {},
+        ac.MD_rows : 3,
+        ac.MD_columns : 3,
+        ac.MD_mapping : ("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17")
+        """
+
+SPEC_CAST_MODULE_DIMENSIONS = (36, 36)
+SPEC_CAST_MODULE_ASSIGNMENT_CH = ""
 
 svs = [\
     [
