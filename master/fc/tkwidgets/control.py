@@ -70,21 +70,18 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.archive = archive
         self.network = network
 
-        # Core setup -----------------------------------------------------------
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
 
-        # Interactive control widgets ..........................................
         self.displayFrame = tk.Frame(self.main)
         self.displays = []
-        self._buildDisplays()
 
-        # Control panel --------------------------------------------------------
-        self.control = ControlPanelWidget(self.main, network, self.display,
-            pqueue)
+        self.controlFrame = tk.Frame(self.main)
+        self.control = None
 
-        # Assemble .............................................................
-        self.main.add(self.control, weight = 2)
+        self._build()
+
+        self.main.add(self.controlFrame, weight = 2)
         self.main.add(self.displayFrame, weight = 16)
 
     def redraw(self):
@@ -124,6 +121,24 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         self.display.unblockAdjust()
 
+    def _build(self):
+        """
+        Build sub-widgets.
+        """
+        self._buildDisplays()
+        self._buildControl()
+
+    def _buildControl(self):
+        """
+        Build control pane.
+        """
+        if self.control is not None:
+            self.control.destroy()
+            self.control = None
+        self.control = ControlPanelWidget(self.controlFrame, self.network,
+            self.display, self.pqueue)
+        self.control.pack(fill = tk.BOTH, expand = True)
+
     def _buildDisplays(self):
         """
         Build the interactive display widgets.
@@ -153,7 +168,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         Handle a change in the loaded profile.
         """
-        self._buildDisplays()
+        self._build()
 
 
 

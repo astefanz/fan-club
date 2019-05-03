@@ -672,7 +672,7 @@ class FCCommunicator(us.PrintClient):
         if target is s.TGT_ALL:
             fans = C[s.CTL_I_SINGLE_ALL_SELECTION]
             for slave in self.slaves: # FIXME performance w/ getIndex?
-                if slave.getStatus() is sv.CONNECTED:
+                if slave.getStatus() == sv.CONNECTED:
                     slave.setMOSI((MOSI_DC, dc,  fans), False)
         elif target is s.TGT_SELECTED:
             # FIXME performance
@@ -681,7 +681,7 @@ class FCCommunicator(us.PrintClient):
             while i < L:
                 slave = self.slaves[C[i]]
                 fans = C[i + 1]
-                if slave.getStatus() is sv.CONNECTED:
+                if slave.getStatus() == sv.CONNECTED:
                     slave.setMOSI((MOSI_DC, dc,  fans), False)
                 i += 2
         else:
@@ -693,7 +693,7 @@ class FCCommunicator(us.PrintClient):
         Process the control vector C with the corresponding command.
         See fc.standards for the expected form of C.
         """
-        self.printw("Experimental DC MULTI control routine running") # FIXME
+        self.printw("Experimental DC VECTOR control routine running") # FIXME
         # TODO: Revise DC standard with maxFans padding
 
         index = 0
@@ -701,7 +701,7 @@ class FCCommunicator(us.PrintClient):
         L = len(C)
 
         while i < L:
-            if self.slaves[index].getStatus() is sv.CONNECTED:
+            if self.slaves[index].getStatus() == sv.CONNECTED:
                 self.slaves[index].setMOSI((
                     MOSI_DC_MULTI,
                     self.dcTemplate.format(*(C[i:i+self.maxFans]))))
