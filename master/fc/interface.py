@@ -63,7 +63,7 @@ class FCInterface(us.PrintServer):
     """
     SYMBOL = "[FE]"
 
-    def __init__(self, archive, pqueue, period = SENTINEL_PERIOD):
+    def __init__(self, archive, pqueue):
         """
         Initialize a new FC interface. PQUEUE is a Queue
         instance to be used for printing, ARCHIVE is an FCArchive instance.
@@ -73,13 +73,15 @@ class FCInterface(us.PrintServer):
         Note that an FCInstance instance is meant to be used once per execution.
         Calling run twice will result in a RuntimeError.
         """
-        us.PrintServer.__init__(self, pqueue, period)
+        self.period_ms = archive[ac.periodMS]
+        us.PrintServer.__init__(self, pqueue, self.period_ms)
         self.archive = archive
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
 
-        self.__buildPipes()
+        self.__setProfile()
         self.__buildLists()
+        self.__buildPipes()
 
         # Build backend abstraction:
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
@@ -168,6 +170,14 @@ class FCInterface(us.PrintServer):
             self.printx(e, "Exception in I-P watchdog")
 
     # "PRIVATE" AUXILIARY METHODS ----------------------------------------------
+    def __setProfile(self):
+        """
+        Build all data members that depend on the current profile.
+        """
+        # TODO:
+        # Test lists
+        self.period_ms = self.archive[ac.periodMS]
+
     def __buildPipes(self):
         """
         Create the multiprocessing Pipe instances used by this FCInterface and
@@ -192,6 +202,9 @@ class FCInterface(us.PrintServer):
         """
         was_active = self.network.active()
         self.network.stop()
+
+        self.__setProfile()
+
         for client in self.archiveClients:
             client.profileChange()
         if was_active:

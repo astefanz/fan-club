@@ -121,6 +121,8 @@ coolNames = [
 	"MJ",
 
 	# Friends ---------
+    "Jonathan",
+    "Stephan",
 	"Juan",
 	"Roms",
 	"Bash",
@@ -168,6 +170,6 @@ coolNames = [
 	"Boardy McBoardface",
 	"Hercules",
 	"Iron Man",
-
+    "BD-69-420-SM",
 	"Master Chief"
 ]

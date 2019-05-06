@@ -44,7 +44,7 @@ SPLASH_SECONDS = 5
 class FCGUI(it.FCInterface):
     SYMBOL = "[GI]"
 
-    def __init__(self, archive, pqueue, period = it.SENTINEL_PERIOD):
+    def __init__(self, archive, pqueue):
         """
         Build a new FCGUI using PQUEUE for printing and ARCHIVE (FCArchive) to
         manage profile data.
@@ -55,7 +55,7 @@ class FCGUI(it.FCInterface):
         periodic checks to distribute inter-process data and print messages.)
         defaults to fc.interface.SENTINEL_PERIOD.
         """
-        it.FCInterface.__init__(self, archive, pqueue, period)
+        it.FCInterface.__init__(self, archive, pqueue)
         self.base = None
 
     def _mainloop(self):

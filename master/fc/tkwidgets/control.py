@@ -38,6 +38,7 @@
 ## IMPORTS #####################################################################
 import os
 import time as tm
+import multiprocessing as mp
 
 import tkinter as tk
 import tkinter.filedialog as fdg
@@ -102,6 +103,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
         Process a new slaves vector.
         """
         self.display.slavesIn(S)
+        self.control.slavesIn(S)
 
     def networkIn(self, N):
         """
@@ -135,8 +137,8 @@ class ControlWidget(tk.Frame, us.PrintClient):
         if self.control is not None:
             self.control.destroy()
             self.control = None
-        self.control = ControlPanelWidget(self.controlFrame, self.network,
-            self.display, self.pqueue)
+        self.control = ControlPanelWidget(self.controlFrame, self.archive,
+            self.network, self.display, self.pqueue)
         self.control.pack(fill = tk.BOTH, expand = True)
 
     def _buildDisplays(self):
@@ -625,11 +627,12 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     VM_LIVE = 690
     VM_BUILDER = 691
 
-    def __init__(self, master, network, display, pqueue):
+    def __init__(self, master, archive, network, display, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
+        self.archive = archive
         self.network = network
         self.display = display
         self.grid_columnconfigure(0, weight = 1)
@@ -719,14 +722,18 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             **gus.padc)
         self.fileButton.pack(side = tk.LEFT, **gus.padc)
 
+        self.dataLogger = DataLogger(self.archive, self.pqueue)
+
         self.recordControlFrame = tk.Frame(self.recordFrame)
         self.recordControlFrame.pack(side = tk.TOP, fill = tk.X, expand = True,
             **gus.padc)
         self.recordStartButton = tk.Button(self.recordControlFrame,
-            text = "Start", **gus.fontc, **gus.padc)
+            text = "Start", **gus.fontc, **gus.padc,
+            command = self._onRecordStart)
         self.recordStartButton.pack(side = tk.LEFT)
         self.recordPauseButton = tk.Button(self.recordControlFrame,
-            text = "Pause", **gus.fontc, **gus.padc, state = tk.DISABLED)
+            text = "Pause", **gus.fontc, **gus.padc, state = tk.DISABLED,
+            command = self._onRecordPause)
         self.recordPauseButton.pack(side = tk.LEFT, padx = 10)
 
         # Wrap-up ..............................................................
@@ -737,8 +744,14 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         """
         Process a feedback vector F
         """
-        # TODO
+        self.dataLogger.feedbackIn(F)
         pass
+
+    def slavesIn(self, S):
+        """
+        Process a slave vector S.
+        """
+        self.dataLogger.slavesIn(S)
 
     def selectAll(self, event = None):
         self.display.selectAll()
@@ -760,6 +773,35 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         """
         To be called when the view mode is changed (between live mode and flow
         builder.)
+        """
+        # TODO
+        pass
+
+    def _onRecordStart(self, event = None):
+        """
+        Callback for data logger start.
+        """
+        # TODO
+        # Get filename FIXME
+        filename = "FC_recording_on_{}.csv".format(
+            tm.strftime("%a_%d_%b_%Y_%H:%M:%S", tm.localtime()), )
+        self.fileField.config(state = tk.NORMAL)
+        self.fileField.delete(0, tk.END)
+        self.fileField.insert(0, filename)
+        self.fileField.config(state = tk.DISABLED)
+        self.recordStartButton.config(text = "Stop",
+            command = self._onRecordStop) # FIXME temp
+        self.dataLogger.start(filename)
+        pass
+
+    def _onRecordStop(self, event = None):
+        self.dataLogger.stop()
+        self.recordStartButton.config(text = "Start",
+            command = self._onRecordStart) # FIXME temp
+
+    def _onRecordPause(self, event = None):
+        """
+        Callback for data logger pause.
         """
         # TODO
         pass
@@ -816,7 +858,26 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         self.grid_columnconfigure(self.CONTENT_COLUMN, weight = 1)
 
         self.menuFrame = tk.Frame(self)
-        self.menuFrame.grid(row = self.MENU_ROW, column = self.MENU_COLUMN)
+        self.menuFrame.grid(row = self.MENU_ROW, column = self.MENU_COLUMN,
+            sticky = "EW")
+
+        self.digits = 10
+        self.counterFormat = "{" + ":0{}d".format(self.digits) + "}"
+        self.counterVar = tk.StringVar()
+        self.counterVar.set("0"*self.digits)
+        self.deltaVar = tk.StringVar()
+        self.counterVar.set("00.000")
+        self.counterDisplay = tk.Label(self.menuFrame, **gus.fontc,
+            textvariable = self.counterVar, width = 10, fg = "darkgray")
+        self.counterDisplay.pack(side = tk.LEFT)
+        self.deltaDisplay = tk.Label(self.menuFrame, **gus.fontc,
+            textvariable = self.deltaVar, width = 5, fg = "darkgray")
+        self.deltaDisplay.pack(side = tk.LEFT, padx = 10)
+        self.last_time = tm.time()
+        self.count = 0
+
+        self.selectorFrame = tk.Frame(self.menuFrame)
+        self.selectorFrame.pack(side = tk.RIGHT, fill= tk.Y)
 
     # API ----------------------------------------------------------------------
 
@@ -827,7 +888,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         index = len(self.displays)
         self.displays[index] = display
 
-        button = tk.Radiobutton(self.menuFrame, variable = self.selected,
+        button = tk.Radiobutton(self.selectorFrame, variable = self.selected,
             value = index, text = text, **gus.rbconf)
         button.pack(side = tk.LEFT, **gus.padc)
 
@@ -850,6 +911,11 @@ class DisplayMaster(tk.Frame, us.PrintClient):
 
     # Wrapper methods ----------------------------------------------------------
     def feedbackIn(self, F):
+        self.count += 1
+        self.counterVar.set(self.counterFormat.format(self.count))
+        this_time = tm.time()
+        self.deltaVar.set("{:02.3f}s".format(this_time - self.last_time))
+        self.last_time = this_time
         self.displays[self.current].feedbackIn(F)
 
     def networkIn(self, N):
@@ -2116,6 +2182,167 @@ class LiveTable(us.PrintClient, tk.Frame):
 
         self.built = True
 
+class DataLogger(us.PrintClient):
+    """
+    Print feedback vectors to CSV files.
+    """
+    SYMBOL = "[DL]"
+    STOP = -69
+    S_I_NAME, S_I_MAC = 0, 1
+
+
+    # NOTE:
+    # - you cannot add slaves mid-print, as the back-end process takes only F's
+    # NOTE: watchdog?
+
+    def __init__(self, archive, pqueue):
+        us.PrintClient.__init__(self, pqueue)
+
+        self.pipeRecv, self.pipeSend = None, None
+        self._buildPipes()
+        self.archive = archive
+        self.process = None
+
+        self.slaves = {}
+
+    # API ----------------------------------------------------------------------
+
+    def start(self, filename, timeout = s.MP_STOP_TIMEOUT_S):
+        """
+        Begin data logging.
+        """
+        try:
+            if self.active():
+                self.stop(timeout)
+            self._buildPipes()
+            self.process = mp.Process(
+                name = "FC_Log_Backend",
+                target = self._routine,
+                args = (
+                    filename, self.slaves,
+                    self.archive[ac.name], self.archive[ac.maxFans],
+                    self.pipeRecv, self.pqueue),
+                daemon = True,)
+            self.process.start()
+            self.prints("Data log started")
+        except Exception as e:
+            self.printx(e, "Exception activating data log:")
+            self._sendStop()
+
+    def stop(self, timeout = s.MP_STOP_TIMEOUT_S):
+        """
+        Stop data logging.
+        """
+        try:
+            if self.active():
+                self.printr("Stopping data log")
+                self._sendStop()
+                self.process.join(timeout)
+                if self.process.is_alive():
+                    self.process.terminate()
+                self.process = None
+                self.printr("Data log stopped")
+        except Exception as e:
+            self.printx(e, "Exception stopping data log:")
+            self._sendStop()
+
+    def active(self):
+        """
+        Return whether the printer back-end is active.
+        """
+        return self.process is not None and self.process.is_alive()
+
+    def feedbackIn(self, F):
+        """
+        Process the feedback vector F.
+        """
+        if self.active():
+            self.pipeSend.send(F)
+
+    def slavesIn(self, S):
+        """
+        Process a slave data vector.
+        """
+        length = len(S)
+        i = 0
+        while i < length:
+            index, name, mac = \
+                S[i + s.SD_INDEX] + 1, S[i + s.SD_NAME], S[i + s.SD_MAC]
+            if index not in self.slaves:
+                self.slaves[index] = (name, mac)
+            i += s.SD_LEN
+
+    def networkIn(self, N):
+        """
+        Process a network state vector.
+        """
+        pass
+
+    # Internal methods ---------------------------------------------------------
+    def _sendStop(self):
+        """
+        Send the stop signal.
+        """
+        self.pipeSend.send(self.STOP)
+
+    def _buildPipes(self):
+        """
+        Reset the pipes. Do not use while the back-end is active.
+        """
+        self.pipeRecv, self.pipeSend = mp.Pipe(False)
+
+    @staticmethod
+    def _routine(filename, slaves, profileName, maxFans, pipeRecv, pqueue):
+        """
+        Routine executed by the back-end process.
+        """
+
+        # FIXME exception handling
+        # FIXME watch for thread death
+
+        # FIXME performance
+        P = us.PrintClient(pqueue)
+        P.symbol = "[DR]"
+        P.printr("Setting up data log")
+        with open(filename, 'w') as f:
+            # Header (1/4):
+            f.write("Fan Club MkIV data log started on {}  using "\
+                "profile \"{}\" with up to {} fans per module.\n".format(
+                    tm.strftime("%a %d %b %Y %H:%M:%S", tm.localtime()),
+                    profileName, maxFans))
+
+            # Header (2/4):
+            f.write("Modules: |")
+            column_boilerplate = ""
+            for fan in range(maxFans):
+                column_boilerplate += "{0}" + "-{},".format(fan + 1)
+            column_headers = ""
+            for index, data in slaves.items():
+                name, mac = data
+                f.write("{}: {} - \"{}\" | ".format(index, name, mac))
+                column_headers += column_boilerplate.format(index)
+            f.write("\n")
+            column_headers
+
+            # Header (3/4)
+            f.write("Column headers are of the form MODULE#-FAN# "\
+                "with all RPMs and then all DCs\n")
+
+            # Header (4/4):
+            f.write("Time (s)," + column_headers + column_headers + "\n")
+
+            P.prints("Data log online")
+            t_start = tm.time()
+            while True:
+                # FIXME performance
+                F = pipeRecv.recv()
+                if F == DataLogger.STOP:
+                    break
+                f.write("{:.2}s,".format(tm.time() - t_start))
+                for item in F:
+                    f.write("{},".format(item))
+                f.write("\n")
+        P.printr("Data logger back-end ending")
 
 
 ## DEMO ########################################################################

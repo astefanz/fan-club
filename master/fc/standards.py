@@ -66,6 +66,8 @@
 # TODO: Confirm DC normalization and formats
 
 # TODO: Check performance w/ DC fan selections being Strings
+# Timing for multiprocessing back-ends:
+MP_STOP_TIMEOUT_S = 0.5
 
 # Number of decimals to have for duty cyle. Indicates by which power of 10 to
 # normalize
@@ -341,6 +343,6 @@ SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_LEN)
 # code.
 #
 # TODO: Need means by to handle disconnected slaves and different fan sizes...
-RIP = -69
-PAD = -1
+RIP = -666
+PAD = -69
 

@@ -32,10 +32,6 @@ import threading as mt
 from . import standards as s, utils as us
 from fc.mkiii import FCCommunicator as fcc
 
-## CONSTANT DEFINITIONS ########################################################
-MP_STOP_TIMEOUT_S = 0.5
-
-
 ## HELPER CLASSES ##############################################################
 class FCNetwork(us.PrintClient):
     """
@@ -73,7 +69,7 @@ class FCNetwork(us.PrintClient):
             if not self.active():
                 self.printr("Starting CM back-end")
                 self.process = mp.Process(
-                    name = "FC Backend",
+                    name = "FC_Comms_Backend",
                     target = self._b_routine,
                     args = (self.archive.profile(),
                             self.commandPipeRecv,
@@ -95,7 +91,7 @@ class FCNetwork(us.PrintClient):
         except Exception as e:
             self.printx(e, "Exception when starting back-end")
 
-    def stop(self, timeout = MP_STOP_TIMEOUT_S):
+    def stop(self, timeout = s.MP_STOP_TIMEOUT_S):
         """
         Stop this Communicator (shut down the communication daemon). Does
         nothing if this instance is not active.

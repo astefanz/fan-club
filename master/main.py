@@ -36,14 +36,21 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "0.5"
+VERSION = "0.6"
 INIT_PROFILE = "BASE" # FIXME
 
 ## MAIN ########################################################################
-# NOTE: Currently a GUI demo 'empty shell'
-
 print(us.HEADER)
-print("[--] FC MkIV GUI demo started") # FIXME
+
+# FIXME: reminders
+print("[REM] Look into 'memory leak' in profile switches and data path")
+print("[REM] Look into control after profile switching ('return 1')")
+print("[REM] Pass profiles, not archive, when profile changes will cause reset")
+print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
+print("[REM] Indexing by 1 in functional input")
+print("[REM] Standardize notation (also: function argument consistency)")
+print("[REM][control] display time counter in dynamic flow")
+
 pqueue = mp.Queue()
 archive = ac.FCArchive(pqueue, VERSION)
 archive.profile(btp.PROFILES[INIT_PROFILE])
