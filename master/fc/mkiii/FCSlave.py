@@ -262,6 +262,10 @@ class FCSlave:
         self.mosiQueue = queue.Queue(2)
         self.misoQueue = queue.Queue(misoQueueSize)
 
+        # Buffers: FIXME
+        self.misoBuffer = None
+        self.mosiBuffer = None
+
         # Handler thread:
         self.thread = threading.Thread(
             target = routine,
@@ -847,18 +851,10 @@ class FCSlave:
 
     def setMOSI(self, command, block = True): # ================================
         # ABOUT: Add a command (str) to this Slave's MOSI Queue.
-        # PARAMETERS:
-        # - command: str, command to store in Queue.
-        # - block: bool, whether to block until the command has been inserted
-        #   (True) or raise Queue.Full if the queue is full. Defaults to True.
-        # RAISES:
-        # - TypeError if the command is not of type str.
-        # - Queue.Full if the queue is full and block is set to False.
-
-        self.mosiQueue.put(command, block)
-
-        return
-
+        if self.mosiBuffer is not None:
+            # TODO: count drop
+            pass
+        self.mosiBuffer = command
         # End setMOSI ==========================================================
 
     def getMOSI(self, block = False): # ========================================
@@ -869,16 +865,9 @@ class FCSlave:
         # RETURNS:
         # - str representing command to be sent or None if the Queue is empty
         #   and parameter block is set to False.
-
-        try:
-            command = self.mosiQueue.get(block)
-            self.mosiQueue.task_done()
-
-            return command
-
-        except queue.Empty:
-
-            return None
+        value = self.mosiBuffer
+        self.mosiBuffer = None
+        return value
 
         # End getMOSI ==========================================================
 
@@ -904,23 +893,21 @@ class FCSlave:
 
     def setMISO(self, update, block = True): # ================================
         # Add an update to the Slave's misoQueue
-
-        self.misoQueue.put(update, block)
-
-        return
+        if self.misoBuffer is not None:
+            # TODO: count drop
+            pass
+        self.misoBuffer = update
 
         # End setMISO ==========================================================
 
 
     def getMISO(self, block = False): # ========================================
         # ABOUT: Try to get an update from this Slave's misoQueue.
-        # PARAMETERS:
-        # - block: bool, whether to block until an update is received.
-        # RETURNS:
-        # - tuple containing update upon success, None upon failure.
-        try:
-            return self.misoQueue.get(block)
-        except queue.Empty:
+        if self.misoBuffer is not None:
+            value = self.misoBuffer
+            misoBuffer = None
+            return value
+        else:
             return (self.padding_rpm_connected, self.padding_dc_connected) if \
                 self.status is CONNECTED else \
                     (self.padding_rpm_disconnected,

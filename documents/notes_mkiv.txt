@@ -35,6 +35,10 @@
 > Reading command line arguments:
 https://www.tutorialspoint.com/python3/python_command_line_arguments.htm
 
+## ON INTERFACING GO WITH PYTHON ###############################################
+- "BUILDING PYTHON MODULES WITH GO 1.5"
+https://blog.filippo.io/building-python-modules-with-go-1-5/
+
 ## ON COMPILING PYTHON #########################################################
 
 - See PyInstaller:

@@ -73,13 +73,12 @@ class FCInterface(us.PrintServer):
         Note that an FCInstance instance is meant to be used once per execution.
         Calling run twice will result in a RuntimeError.
         """
-        self.period_ms = archive[ac.periodMS]
-        us.PrintServer.__init__(self, pqueue, self.period_ms)
+        us.PrintServer.__init__(self, pqueue)
         self.archive = archive
+        self.__setProfile()
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
 
-        self.__setProfile()
         self.__buildLists()
         self.__buildPipes()
 
@@ -176,7 +175,11 @@ class FCInterface(us.PrintServer):
         """
         # TODO:
         # Test lists
-        self.period_ms = self.archive[ac.periodMS]
+        self.period_ms = int((self.archive[ac.periodMS])/2)
+        print(self.period_ms)
+        if self.period_ms <= 0:
+            raise ValueError("Communications period ({}ms) is too small for "\
+                "front-end".format(self.archive[ac.periodMS]))
 
     def __buildPipes(self):
         """

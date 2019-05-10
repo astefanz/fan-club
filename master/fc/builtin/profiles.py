@@ -227,7 +227,7 @@ CORY2 = {
     ac.broadcastIP : "10.42.0.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
-    ac.periodMS : 50, # FIXME dude ytho
+    ac.periodMS : 90,
     ac.maxLength : 512,
     ac.maxTimeouts : 10,
 

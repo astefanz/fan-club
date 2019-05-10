@@ -664,7 +664,6 @@ class FCCommunicator(us.PrintClient):
         Process the control vector C with the corresponding command.
         See fc.standards for the expected form of C.
         """
-        self.printw("Experimental DC SINGLE control routine running") # FIXME
         target = C[s.CTL_I_TGT_CODE]
         dc = C[s.CTL_I_SINGLE_DC]
         # FIXME MkIV constants (RIP MOSI...)
@@ -693,7 +692,6 @@ class FCCommunicator(us.PrintClient):
         Process the control vector C with the corresponding command.
         See fc.standards for the expected form of C.
         """
-        self.printw("Experimental DC VECTOR control routine running") # FIXME
         # TODO: Revise DC standard with maxFans padding
 
         index = 0

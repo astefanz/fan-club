@@ -1,4 +1,4 @@
-function Y = my_filter(X)
+function Y = snine2NaN(X)
     Y = zeros(length(X), 1);
     for i=1:length(X)
         x = X(i);

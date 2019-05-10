@@ -36,8 +36,8 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "0.6"
-INIT_PROFILE = "BASE" # FIXME
+VERSION = "0.7"
+INIT_PROFILE = "CORY2" # FIXME
 
 ## MAIN ########################################################################
 print(us.HEADER)
@@ -50,6 +50,7 @@ print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
 print("[REM] Indexing by 1 in functional input")
 print("[REM] Standardize notation (also: function argument consistency)")
 print("[REM][control] display time counter in dynamic flow")
+print("[REM] period_ms abstraction barrier in FCInterface")
 
 pqueue = mp.Queue()
 archive = ac.FCArchive(pqueue, VERSION)
