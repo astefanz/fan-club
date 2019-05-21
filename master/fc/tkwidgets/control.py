@@ -80,6 +80,9 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.controlFrame = tk.Frame(self.main)
         self.control = None
 
+        self.isLive = None
+        self.maxRPM = None
+
         self._build()
 
         self.main.add(self.controlFrame, weight = 2)
@@ -91,12 +94,16 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         self.display.redraw()
 
-    def feedbackIn(self, F):
+    def feedbackIn(self, F, simulated = False):
         """
         Process a new feedback vector.
+            - F := feedback vector to process.
+            - simulated := whether this is a fake feedback vector to display
+                when in flow builder mode. Defaults to False.
         """
-        self.display.feedbackIn(F)
-        self.control.feedbackIn(F)
+        if self.isLive or simulated:
+            self.display.feedbackIn(F)
+            self.control.feedbackIn(F)
 
     def slavesIn(self, S):
         """
@@ -123,12 +130,26 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         self.display.unblockAdjust()
 
+    def _setLive(self, live):
+        """
+        Set feedback display mode.
+            - live := whether in live display mode (True) or in flow builder
+                mode (False).
+        """
+        self.isLive = live
+        if self.isLive:
+            self.display.deactivate()
+        else:
+            self.feedbackIn(self._emptyFeedback(), True)
+
     def _build(self):
         """
         Build sub-widgets.
         """
+        self.maxRPM = self.archive[ac.maxRPM]
         self._buildDisplays()
         self._buildControl()
+        self._setLive(True)
 
     def _buildControl(self):
         """
@@ -138,7 +159,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
             self.control.destroy()
             self.control = None
         self.control = ControlPanelWidget(self.controlFrame, self.archive,
-            self.network, self.display, self.pqueue)
+            self.network, self.display, self._setLive, self.pqueue)
         self.control.pack(fill = tk.BOTH, expand = True)
 
     def _buildDisplays(self):
@@ -154,25 +175,46 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.display = DisplayMaster(self.displayFrame, self.pqueue)
         self.display.pack(fill = tk.BOTH, expand = True)
 
+        # Method to process new control vector:
+        def send(C):
+            if self.isLive:
+                self.network.controlIn(C)
+            else:
+                self.feedbackIn(self._buildFlow(C), True)
+
         # Grid:
-        self.grid = GridWidget(self.display, self.archive,
-            self.network.controlIn, pqueue = self.pqueue)
+        self.grid = GridWidget(self.display, self.archive, send,
+            pqueue = self.pqueue)
         self.display.add(self.grid, text = "Control Grid")
         self.displays.append(self.grid)
 
         # Live table
-        self.table = LiveTable(self.display, self.archive,
-            self.network.controlIn, self.network, pqueue = self.pqueue)
+        self.table = LiveTable(self.display, self.archive, send,
+            self.network, pqueue = self.pqueue)
         self.display.add(self.table, text = "Live Table")
         self.displays.append(self.table)
+
+    def _buildFlow(self, C):
+        """
+        Build and return a simulated flow to feed back to the display widgets.
+            - C := Control vector
+        """
+        F = [0]*len(C)*2
+        for i, dc in enumerate(C):
+            F[i] = dc*self.maxRPM
+        return F
+
+    def _emptyFeedback(self):
+        """
+        Build a zeroed-out feedback vector based on the current profile.
+        """
+        return [0]*self.archive[ac.maxFans]*len(self.archive[ac.savedSlaves])*2
 
     def profileChange(self):
         """
         Handle a change in the loaded profile.
         """
         self._build()
-
-
 
 ## WIDGETS #####################################################################
 class PythonInputWidget(tk.Frame):
@@ -623,11 +665,11 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[CP]"
 
-    """ Codes for view modes. """
-    VM_LIVE = 690
-    VM_BUILDER = 691
+    """ Codes for display modes. """
+    DM_LIVE = 690
+    DM_BUILDER = 691
 
-    def __init__(self, master, archive, network, display, pqueue):
+    def __init__(self, master, archive, network, display, setLive, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
@@ -635,6 +677,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.archive = archive
         self.network = network
         self.display = display
+        self.setLive = setLive
         self.grid_columnconfigure(0, weight = 1)
         row = 0
 
@@ -653,11 +696,11 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.viewVar = tk.IntVar()
         self.viewVar.trace('w', self._onModeChange)
         self.liveButton = tk.Radiobutton(self.viewFrame,
-            variable = self.viewVar, value = self.VM_LIVE, text = "Real Time",
+            variable = self.viewVar, value = self.DM_LIVE, text = "Real Time",
             **gus.rbconf)
         self.liveButton.pack(side = tk.LEFT, pady = 5)
         self.builderButton = tk.Radiobutton(self.viewFrame,
-            variable = self.viewVar, value = self.VM_BUILDER,
+            variable = self.viewVar, value = self.DM_BUILDER,
             text = "Flow Builder", **gus.rbconf)
         self.builderButton.pack(side = tk.LEFT, pady = 5)
 
@@ -737,7 +780,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.recordPauseButton.pack(side = tk.LEFT, padx = 10)
 
         # Wrap-up ..............................................................
-        self.viewVar.set(self.VM_LIVE)
+        self.viewVar.set(self.DM_LIVE)
 
     # API ......................................................................
     def feedbackIn(self, F):
@@ -759,13 +802,6 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     def deselectAll(self, event = None):
         self.display.deselectAll()
 
-    def isLive(self):
-        """
-        Return whether the currently selected view mode is "Live Control" (the
-        alternative is "Flow Builder").
-        """
-        return self.viewVar.get() == self.VM_LIVE
-
     # TODO: Set layers?
 
     # Internal methods .........................................................
@@ -774,8 +810,26 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         To be called when the view mode is changed (between live mode and flow
         builder.)
         """
-        # TODO
-        pass
+        if self.viewVar.get() == self.DM_LIVE:
+            self.setLive(True)
+        elif self.viewVar.get() == self.DM_BUILDER:
+            self.setLive(False)
+
+    def _setLive(self, *_):
+        """
+        Set the state of this and sub-modules to "live feedback." Does nothing
+        when already in said state.
+        """
+        if self.viewVar.get() != self.DM_LIVE:
+            self.viewVar.set(self.DM_BUILDER)
+
+    def _setBuilder(self, *_):
+        """
+        Set the state of this and sub-modules to "flow builder." Does nothing
+        when already in said state.
+        """
+        if self.viewVar.get() != self.DM_BUILDER:
+            self.viewVar.set(self.DM_LIVE)
 
     def _onRecordStart(self, event = None):
         """
@@ -825,6 +879,9 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         - networkIn(N) : takes a standard network state vector
         - slavesIn(S) : takes a standard slave state vector
 
+        - activate() : 'turn on' display
+        - deactivate() : 'turn off' display
+
         - selectAll()
         - deselectAll()
         - parameters() : returns a list of parameters for function mapping that
@@ -836,8 +893,6 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         - set(dc) : takes a normalized duty cycle ([0, 1])
         - apply()
         - getC() : return a standard control vector
-        - live()
-        - fake()
         - limit(dc) : takes a normalized duty cycle ([0, 1])
         - redraw()
 
@@ -924,6 +979,14 @@ class DisplayMaster(tk.Frame, us.PrintClient):
     def slavesIn(self, S):
         self.displays[self.current].slavesIn(S)
 
+    def activate(self):
+        for display in self.displays.values():
+            display.activate()
+
+    def deactivate(self):
+        for display in self.displays.values():
+            display.deactivate()
+
     def selectAll(self):
         self.displays[self.current].selectAll()
 
@@ -944,12 +1007,6 @@ class DisplayMaster(tk.Frame, us.PrintClient):
 
     def getC(self):
         return self.displays[self.current].getC()
-
-    def live(self):
-        self.displays[self.current].live()
-
-    def fake(self):
-        self.displays[self.current].fake()
 
     def limit(self, dc):
         self.displays[self.current].limit(dc)
@@ -1244,14 +1301,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         pass
 
     def getC(self):
-        # FIXME
-        pass
-
-    def live(self):
-        # FIXME
-        pass
-
-    def fake(self):
         # FIXME
         pass
 
@@ -1866,14 +1915,6 @@ class LiveTable(us.PrintClient, tk.Frame):
         # FIXME
         pass
 
-    def live(self):
-        # FIXME
-        pass
-
-    def fake(self):
-        # FIXME
-        pass
-
     def limit(self, dc):
         # FIXME
         pass
@@ -1894,6 +1935,19 @@ class LiveTable(us.PrintClient, tk.Frame):
     # TODO implement
 
     # Internal methods .........................................................
+    def activate(self):
+        """
+        "Turn on" all rows with empty data.
+        """
+        for index in self.slaves:
+            self.activatei(index)
+
+    def activatei(self, i):
+        """
+        "Turn on" the row corresponding to the slave in index i.
+        """
+        self.table.item(self.slaves[i], values = (i + 1), tag = "N")
+
     def deactivate(self):
         """
         Seemingly "turn off" all rows to indicate inactivity; meant to be used,
