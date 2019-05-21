@@ -140,7 +140,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
         if self.isLive:
             self.display.deactivate()
         else:
-            self.feedbackIn(self._emptyFeedback(), True)
+            self.display.activate(self._emptyFeedback())
 
     def _build(self):
         """
@@ -879,7 +879,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         - networkIn(N) : takes a standard network state vector
         - slavesIn(S) : takes a standard slave state vector
 
-        - activate() : 'turn on' display
+        - activate(A) : 'turn on' display using the optional activation vector A
         - deactivate() : 'turn off' display
 
         - selectAll()
@@ -979,9 +979,9 @@ class DisplayMaster(tk.Frame, us.PrintClient):
     def slavesIn(self, S):
         self.displays[self.current].slavesIn(S)
 
-    def activate(self):
+    def activate(self, A = None):
         for display in self.displays.values():
-            display.activate()
+            display.activate(A)
 
     def deactivate(self):
         for display in self.displays.values():
@@ -1328,11 +1328,19 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.active[l][i] = False
         self.filli(i, self.off_color)
 
-    def activate(self):
-        for i in self.range:
-            for l in self.layers:
-                if not self.active[l][i]:
-                    self.activatei(i, l)
+    def activate(self, A = None):
+        """
+        Set the display as "active."
+            - A := Optional "activation vector" (a feedback vector with which to
+                initialize slave lists and display values).
+        """
+        if A is None:
+            for i in self.range:
+                for l in self.layers:
+                    if not self.active[l][i]:
+                        self.activatei(i, l)
+        else:
+            self.feedbackIn(A)
 
     def deactivate(self):
         for i in self.range:
@@ -1935,12 +1943,17 @@ class LiveTable(us.PrintClient, tk.Frame):
     # TODO implement
 
     # Internal methods .........................................................
-    def activate(self):
+    def activate(self, A = None):
         """
-        "Turn on" all rows with empty data.
+        Set the display as "active."
+            - A := Optional "activation vector" (a feedback vector with which to
+                initialize slave lists and display values).
         """
-        for index in self.slaves:
-            self.activatei(index)
+        if A is None:
+            for index in self.slaves:
+                self.activatei(index)
+        else:
+            self.feedbackIn(A)
 
     def activatei(self, i):
         """
