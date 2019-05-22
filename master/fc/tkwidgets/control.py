@@ -330,6 +330,17 @@ class PythonInputWidget(tk.Frame):
         self._buildSignature()
         self.topLabel.config(text = self.signature)
 
+    def flat(self):
+        """
+        Get a "flat" (replace newline by semicolon) version of the currently
+        written function.
+        """
+        body = self.text.get("1.0", tk.END)
+        while '\n' in body:
+            body = body.replace('\n', ";")
+        return body
+
+
     # Internal methods .........................................................
     def _run(self, *E):
         """
@@ -463,6 +474,7 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self.display.map,
             self.display.parameters(), pqueue)
+        self.flat = self.python.flat
         self.python.pack(fill = tk.BOTH, expand = True)
         self.display.addParameterCallback(self.python.setParameters)
 
@@ -543,6 +555,7 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._run,
             self.display.parameters(), pqueue)
+        self.flat = self.python.flat
         self.python.pack(fill = tk.BOTH, expand = True)
         self.display.addParameterCallback(self.python.setParameters)
 
@@ -855,7 +868,6 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         Callback for data logger start.
         """
         # TODO
-        # Get filename FIXME
         filename = self.fileField.get()
         if not filename:
             filename = "FC_recording_on_{}.csv".format(
@@ -866,7 +878,22 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.fileField.config(state = tk.DISABLED)
         self.recordStartButton.config(text = "Stop",
             command = self._onRecordStop) # FIXME temp
-        self.dataLogger.start(filename)
+        self.dataLogger.start(filename, steady = self._getSteady(),
+            dynamic = self._getDynamic())
+
+    def _getSteady(self):
+        """
+        Get the "flat" (replace newline by semicolon) Python function
+        in the steady Python input widget.
+        """
+        return self.steady.flat()
+
+    def _getDynamic(self):
+        """
+        Get the "flat" (replace newline by semicolon) Python function
+        in the dynamic Python input widget.
+        """
+        return self.dynamic.flat()
 
     def _onRecordStop(self, event = None):
         self.dataLogger.stop()
@@ -2294,7 +2321,9 @@ class DataLogger(us.PrintClient):
 
     # API ----------------------------------------------------------------------
 
-    def start(self, filename, timeout = s.MP_STOP_TIMEOUT_S):
+    def start(self, filename, timeout = s.MP_STOP_TIMEOUT_S,
+        steady = "[NONE]", dynamic = "[NONE]"):
+        # TODO s & d
         """
         Begin data logging.
         """
@@ -2308,7 +2337,7 @@ class DataLogger(us.PrintClient):
                 args = (
                     filename, self.slaves,
                     self.archive[ac.name], self.archive[ac.maxFans],
-                    self.pipeRecv, self.pqueue),
+                    self.pipeRecv, steady, dynamic, self.pqueue),
                 daemon = True,)
             self.process.start()
             self.prints("Data log started")
@@ -2380,7 +2409,8 @@ class DataLogger(us.PrintClient):
         self.pipeRecv, self.pipeSend = mp.Pipe(False)
 
     @staticmethod
-    def _routine(filename, slaves, profileName, maxFans, pipeRecv, pqueue):
+    def _routine(filename, slaves, profileName, maxFans, pipeRecv,
+        steady, dynamic, pqueue):
         """
         Routine executed by the back-end process.
         """
@@ -2393,31 +2423,42 @@ class DataLogger(us.PrintClient):
         P.symbol = "[DR]"
         P.printr("Setting up data log")
         with open(filename, 'w') as f:
-            # Header (1/4):
+            # (Header) Log basic data:
             f.write("Fan Club MkIV data log started on {}  using "\
                 "profile \"{}\" with up to {} fans per module.\n".format(
                     tm.strftime("%a %d %b %Y %H:%M:%S", tm.localtime()),
                     profileName, maxFans))
 
-            # Header (2/4):
+            # (Header) filename:
+            f.write("Filename: \"{}\"\n".format(filename))
+
+            # (Header) Module breakdown:
             f.write("Modules: |")
-            column_boilerplate = ""
+            rpm_boilerplate = ""
+            dc_boilerplate = ""
             for fan in range(maxFans):
-                column_boilerplate += "s{0}" + "-f{},".format(fan + 1)
-            column_headers = ""
+                rpm_boilerplate += "s{0}" + "rpm{},".format(fan + 1)
+                dc_boilerplate += "s{0}" + "dc{},".format(fan + 1)
+            rpm_headers = ""
+            dc_headers = ""
             for index, data in slaves.items():
                 name, mac = data
-                f.write("{}: {} - \"{}\" | ".format(index, name, mac))
-                column_headers += column_boilerplate.format(index)
+                f.write("\"{}\": {} - \"{}\" | ".format(index, name, mac))
+                rpm_headers += rpm_boilerplate.format(index)
+                dc_headers += dc_boilerplate.format(index)
             f.write("\n")
-            column_headers
+
+            # (Header) Functions in use:
+            fn_temp = "{} function (Flattened. Replace ; for newline):\n"
+            f.write(fn_temp.format("Steady") + steady + "\n")
+            f.write(fn_temp.format("Dynamic") + dynamic + "\n")
 
             # Header (3/4)
-            f.write("Column headers are of the form MODULE#-FAN# "\
-                "with all RPMs and then all DCs\n")
+            f.write("Column headers are of the form s[MODULE#][type][FAN#]"\
+                "with type being first rpm and then all dc\n")
 
             # Header (4/4):
-            f.write("Time (s)," + column_headers + column_headers + "\n")
+            f.write("Time (s)," + rpm_headers + dc_headers + "\n")
 
             P.prints("Data log online")
             t_start = tm.time()
