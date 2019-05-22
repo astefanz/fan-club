@@ -18,3 +18,14 @@ res = 100
 
 return A*math.sin(-2*math.pi*((t%res)/res) + phase) + A
 
+Unsteady Uniform ---------------------------------------------------------------
+# "unsteady uniform flow"
+# sawtooth with DC offset of 30% DC and amplitude of 30% DC
+# dt = 250 ms
+
+res = 25
+ampl = .3 # amplitude
+offset = .3 # dc offset
+t_0 = 0 # wait 10 timesteps
+
+return (ampl*((t%res)/res) if t > t_0 else 0) + offset

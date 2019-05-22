@@ -153,6 +153,8 @@ class FCInterface(us.PrintServer):
         """
         try:
             us.PrintServer._cycle(self)
+            # FIXME concrete
+            """ original
             if self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
                 for client in self.feedbackClients:
@@ -163,6 +165,25 @@ class FCInterface(us.PrintServer):
                     client(N)
             if self.slavePipeRecv.poll():
                 S = self.slavePipeRecv.recv()
+                for client in self.slaveClients:
+                    client(S)
+            """
+            F = None
+            while self.feedbackPipeRecv.poll():
+                F = self.feedbackPipeRecv.recv()
+            if F is not None:
+                for client in self.feedbackClients:
+                    client(F)
+            N = None
+            while self.networkPipeRecv.poll():
+                N = self.networkPipeRecv.recv()
+            if N is not None:
+                for client in self.networkClients:
+                    client(N)
+            S = None
+            while self.slavePipeRecv.poll():
+                S = self.slavePipeRecv.recv()
+            if S is not None:
                 for client in self.slaveClients:
                     client(S)
         except Exception as e:

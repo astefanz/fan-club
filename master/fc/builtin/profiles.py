@@ -136,14 +136,14 @@ DEV1 = {
 }
 
 BOX = {
-    ac.name : "Development Fan Array",
+    ac.name : "Box Array",
     ac.description : "3x5 in a portable cardboard arrangement.",
     ac.platform : ac.UNKNOWN,
 
     ac.broadcastIP : "10.42.0.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
-    ac.periodMS : 100,
+    ac.periodMS : 200,
     ac.maxLength : 512,
     ac.maxTimeouts : 10,
 
@@ -170,7 +170,7 @@ BOX = {
             ac.SV_counterTimeoutMS : 30,
             ac.SV_pulsesPerRotation : 2,
             ac.SV_maxRPM : 5000,
-            ac.SV_minRPM : 300,
+            ac.SV_minRPM : 1200,
             ac.SV_minDC : 0.5,
             ac.SV_maxFans : 21,
             ac.SV_pinout : "BASE",
@@ -195,7 +195,7 @@ BOX = {
             ac.SV_counterTimeoutMS : 30,
             ac.SV_pulsesPerRotation : 2,
             ac.SV_maxRPM : 5000,
-            ac.SV_minRPM : 300,
+            ac.SV_minRPM : 1200,
             ac.SV_minDC : 0.1,
             ac.SV_maxFans : 21,
             ac.SV_pinout : "BASE",
@@ -220,7 +220,7 @@ BOX = {
             ac.SV_counterTimeoutMS : 30,
             ac.SV_pulsesPerRotation : 2,
             ac.SV_maxRPM : 5000,
-            ac.SV_minRPM : 300,
+            ac.SV_minRPM : 1200,
             ac.SV_minDC : 0.1,
             ac.SV_maxFans : 21,
             ac.SV_pinout : "BASE",

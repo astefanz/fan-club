@@ -786,8 +786,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         """
         Process a feedback vector F
         """
-        self.dataLogger.feedbackIn(F)
-        pass
+        self.dataLogger.feedbackIn(F, tm.time())
 
     def slavesIn(self, S):
         """
@@ -2318,12 +2317,13 @@ class DataLogger(us.PrintClient):
         """
         return self.process is not None and self.process.is_alive()
 
-    def feedbackIn(self, F):
+    def feedbackIn(self, F, t = 0):
         """
-        Process the feedback vector F.
+        Process the feedback vector F with timestamp t.
         """
+        # FIXME: optm. time stamping
         if self.active():
-            self.pipeSend.send(F)
+            self.pipeSend.send((F, t))
 
     def slavesIn(self, S):
         """
@@ -2381,7 +2381,7 @@ class DataLogger(us.PrintClient):
             f.write("Modules: |")
             column_boilerplate = ""
             for fan in range(maxFans):
-                column_boilerplate += "{0}" + "-{},".format(fan + 1)
+                column_boilerplate += "s{0}" + "-f{},".format(fan + 1)
             column_headers = ""
             for index, data in slaves.items():
                 name, mac = data
@@ -2401,12 +2401,13 @@ class DataLogger(us.PrintClient):
             t_start = tm.time()
             while True:
                 # FIXME performance
-                F = pipeRecv.recv()
-                if F == DataLogger.STOP:
+                data = pipeRecv.recv()
+                if data == DataLogger.STOP:
                     break
-                f.write("{:.2}s,".format(tm.time() - t_start))
+                F, t = data
+                f.write("{},".format(t - t_start))
                 for item in F:
-                    f.write("{},".format(item))
+                    f.write("{},".format(item if item != -666 else 'NaN'))
                 f.write("\n")
         P.printr("Data logger back-end ending")
 
