@@ -39,6 +39,7 @@
 import os
 import time as tm
 import multiprocessing as mp
+import copy as cp
 
 import tkinter as tk
 import tkinter.filedialog as fdg
@@ -879,7 +880,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.recordStartButton.config(text = "Stop",
             command = self._onRecordStop) # FIXME temp
         self.dataLogger.start(filename, steady = self._getSteady(),
-            dynamic = self._getDynamic())
+            dynamic = self._getDynamic(),
+            mappings = [str(mapping) for mapping in self.display.getMappings()])
 
     def _getSteady(self):
         """
@@ -945,6 +947,8 @@ class DisplayMaster(tk.Frame, us.PrintClient):
 
         - blockAdjust()
         - unblockAdjust()
+
+        - getMapping()
 
         See fc.standards.
         """
@@ -1066,6 +1070,14 @@ class DisplayMaster(tk.Frame, us.PrintClient):
 
     def redraw(self):
         self.displays[self.current].redraw()
+
+    def getMappings(self):
+        mappings = []
+        for display in self.displays.values():
+            mapping = display.getMapping()
+            if mapping is not None:
+                mappings.append(mapping)
+        return mappings
 
     # Internal methods ---------------------------------------------------------
     def _update(self, *event):
@@ -1448,6 +1460,12 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         Activate automatic adjustment of widgets upon window resizes.
         """
         self.bind("<Configure>", self._scheduleAdjust)
+
+    def getMapping(self):
+        """
+        Get the mapping data structure of this Grid.
+        """
+        return cp.deepcopy(self.layers)
 
     # Internal methods .........................................................
     def _assign(self, index, mac):
@@ -1986,6 +2004,9 @@ class LiveTable(us.PrintClient, tk.Frame):
         # FIXME
         pass
 
+    def getMapping(self):
+        return None
+
     # Selection ................................................................
     # TODO implement
 
@@ -2322,8 +2343,7 @@ class DataLogger(us.PrintClient):
     # API ----------------------------------------------------------------------
 
     def start(self, filename, timeout = s.MP_STOP_TIMEOUT_S,
-        steady = "[NONE]", dynamic = "[NONE]"):
-        # TODO s & d
+        steady = "[NONE]", dynamic = "[NONE]", mappings = ("[NONE]",)):
         """
         Begin data logging.
         """
@@ -2337,7 +2357,7 @@ class DataLogger(us.PrintClient):
                 args = (
                     filename, self.slaves,
                     self.archive[ac.name], self.archive[ac.maxFans],
-                    self.pipeRecv, steady, dynamic, self.pqueue),
+                    self.pipeRecv, steady, dynamic, mappings, self.pqueue),
                 daemon = True,)
             self.process.start()
             self.prints("Data log started")
@@ -2410,7 +2430,7 @@ class DataLogger(us.PrintClient):
 
     @staticmethod
     def _routine(filename, slaves, profileName, maxFans, pipeRecv,
-        steady, dynamic, pqueue):
+        steady, dynamic, mappings, pqueue):
         """
         Routine executed by the back-end process.
         """
@@ -2447,6 +2467,11 @@ class DataLogger(us.PrintClient):
                 rpm_headers += rpm_boilerplate.format(index)
                 dc_headers += dc_boilerplate.format(index)
             f.write("\n")
+
+            # (Header) Mappings:
+            f.write("Fan Array Mapping(s):\n")
+            for i, mapping in enumerate(mappings):
+                f.write("\tMapping {}: {}\n".format(i + 1, mapping))
 
             # (Header) Functions in use:
             fn_temp = "{} function (Flattened. Replace ; for newline):\n"
