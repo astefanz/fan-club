@@ -175,24 +175,23 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.display = DisplayMaster(self.displayFrame, self.pqueue)
         self.display.pack(fill = tk.BOTH, expand = True)
 
-        # Method to process new control vector:
-        def send(C):
-            if self.isLive:
-                self.network.controlIn(C)
-            else:
-                self.feedbackIn(self._buildFlow(C), True)
-
         # Grid:
-        self.grid = GridWidget(self.display, self.archive, send,
+        self.grid = GridWidget(self.display, self.archive, self._send,
             pqueue = self.pqueue)
         self.display.add(self.grid, text = "Control Grid")
         self.displays.append(self.grid)
 
         # Live table
-        self.table = LiveTable(self.display, self.archive, send,
+        self.table = LiveTable(self.display, self.archive, self._send,
             self.network, pqueue = self.pqueue)
         self.display.add(self.table, text = "Live Table")
         self.displays.append(self.table)
+
+    def _send(self, C):
+        if self.isLive:
+            self.network.controlIn(C)
+        else:
+            self.feedbackIn(self._buildFlow(C), True)
 
     def _buildFlow(self, C):
         """

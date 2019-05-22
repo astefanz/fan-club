@@ -37,7 +37,7 @@ import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
 VERSION = "0.7"
-INIT_PROFILE = "CORY2" # FIXME
+INIT_PROFILE = "BOX" # FIXME
 
 ## MAIN ########################################################################
 print(us.HEADER)

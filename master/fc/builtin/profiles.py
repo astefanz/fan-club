@@ -135,9 +135,9 @@ DEV1 = {
     },
 }
 
-CORY1 = {
-    ac.name : "Prov. Cory Hall Array",
-    ac.description : "Four fans on one Nucleo using the Basement Pinout.",
+BOX = {
+    ac.name : "Development Fan Array",
+    ac.description : "3x5 in a portable cardboard arrangement.",
     ac.platform : ac.UNKNOWN,
 
     ac.broadcastIP : "10.42.0.255",
@@ -183,7 +183,7 @@ CORY1 = {
         },
     ac.savedSlaves : (
         {
-            ac.SV_name : "A1",
+            ac.SV_name : "Jonathan (A)",
             ac.SV_mac : "00:80:e1:38:00:2a",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
@@ -197,102 +197,18 @@ CORY1 = {
             ac.SV_maxRPM : 5000,
             ac.SV_minRPM : 300,
             ac.SV_minDC : 0.1,
-            ac.SV_maxFans : 4,
-            ac.SV_pinout : "BASE",
-            ac.MD_assigned : True,
-            ac.MD_row : 0,
-            ac.MD_column : 0,
-            ac.MD_rows : 1,
-            ac.MD_columns : 4,
-            ac.MD_mapping : \
-                ("0,1,2,3")
-        },
-    ),
-    ac.pinouts : ac.PINOUTS.copy(),
-    ac.maxRPM : 5000,
-    ac.maxFans : 4,
-    ac.dcDecimals : 2,
-    ac.fanArray : {
-        ac.FA_rows : 1,
-        ac.FA_columns : 4,
-        ac.FA_layers : 1,
-    },
-}
-
-CORY2 = {
-    ac.name : "Prov. Cory Hall Array",
-    ac.description : "Four fans on one Nucleo using the Basement Pinout.",
-    ac.platform : ac.UNKNOWN,
-
-    ac.broadcastIP : "10.42.0.255",
-    ac.broadcastPort  : 65000,
-    ac.broadcastPeriodMS : 1000,
-    ac.periodMS : 90,
-    ac.maxLength : 512,
-    ac.maxTimeouts : 10,
-
-    ac.mainQueueSize : 10,
-    ac.slaveQueueSize: 10,
-    ac.broadcastQueueSize : 2,
-    ac.listenerQueueSize : 3,
-    ac.misoQueueSize : 2,
-    ac.printerQueueSize : 3,
-    ac.passcode : "CT",
-    ac.socketLimit : 1024,
-
-    ac.defaultSlave :
-        {
-            ac.SV_name : "FAWT Module",
-            ac.SV_mac : "None",
-            ac.SV_index : -1,
-            ac.SV_fanModel : "Unknown",
-            ac.SV_fanMode : ac.SINGLE,
-            ac.SV_targetRelation :(1.0, 0.0),
-            ac.SV_chaserTolerance : 0.02,
-            ac.SV_fanFrequencyHZ : 25000,
-            ac.SV_counterCounts : 2,
-            ac.SV_counterTimeoutMS : 30,
-            ac.SV_pulsesPerRotation : 2,
-            ac.SV_maxRPM : 5000,
-            ac.SV_minRPM : 300,
-            ac.SV_minDC : 0.5,
             ac.SV_maxFans : 21,
             ac.SV_pinout : "BASE",
-            ac.MD_assigned : False,
-            ac.MD_row : -1,
-            ac.MD_column : -1,
-            ac.MD_rows : 0,
-            ac.MD_columns : 0,
-            ac.MD_mapping : ()
-        },
-    ac.savedSlaves : (
-        {
-            ac.SV_name : "Jonathan",
-            ac.SV_mac : "00:80:e1:38:00:2a",
-            ac.SV_index : -1,
-            ac.SV_fanModel : "Unknown",
-            ac.SV_fanMode : ac.SINGLE,
-            ac.SV_targetRelation :(1.0, 0.0),
-            ac.SV_chaserTolerance : 0.02,
-            ac.SV_fanFrequencyHZ : 25000,
-            ac.SV_counterCounts : 2,
-            ac.SV_counterTimeoutMS : 30,
-            ac.SV_pulsesPerRotation : 2,
-            ac.SV_maxRPM : 5000,
-            ac.SV_minRPM : 300,
-            ac.SV_minDC : 0.1,
-            ac.SV_maxFans : 4,
-            ac.SV_pinout : "BASE",
             ac.MD_assigned : True,
             ac.MD_row : 0,
             ac.MD_column : 0,
-            ac.MD_rows : 1,
-            ac.MD_columns : 2,
+            ac.MD_rows : 2,
+            ac.MD_columns : 5,
             ac.MD_mapping : \
-                ("0,1")
+                ("0,1,2,3,4,5,6,20,")
         },
         {
-            ac.SV_name : "Stephan",
+            ac.SV_name : "Stephan (B)",
             ac.SV_mac : "00:80:e1:45:00:46",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
@@ -306,24 +222,24 @@ CORY2 = {
             ac.SV_maxRPM : 5000,
             ac.SV_minRPM : 300,
             ac.SV_minDC : 0.1,
-            ac.SV_maxFans : 4,
+            ac.SV_maxFans : 21,
             ac.SV_pinout : "BASE",
             ac.MD_assigned : True,
-            ac.MD_row : 0,
-            ac.MD_column : 2,
-            ac.MD_rows : 1,
-            ac.MD_columns : 2,
+            ac.MD_row : 1,
+            ac.MD_column : 0,
+            ac.MD_rows : 2,
+            ac.MD_columns : 5,
             ac.MD_mapping : \
-                ("0,1")
+                (",,,0,1,2,3,4,5,6")
         },
     ),
     ac.pinouts : ac.PINOUTS.copy(),
     ac.maxRPM : 5000,
-    ac.maxFans : 4,
+    ac.maxFans : 21,
     ac.dcDecimals : 2,
     ac.fanArray : {
-        ac.FA_rows : 1,
-        ac.FA_columns : 4,
+        ac.FA_rows : 3,
+        ac.FA_columns : 5,
         ac.FA_layers : 1,
     },
 }
@@ -8482,10 +8398,9 @@ CAST_SIDE = {
 PROFILES = {
     "BASE": BASE,
     "CAST" : CAST,
+    "BOX"  : BOX,
     "SIDE" : CAST_SIDE,
     "DEV1" : DEV1,
     "DEV2" : DEV2,
     "DEV3" : DEV3,
-    "CORY1" : CORY1,
-    "CORY2" : CORY2,
 }
