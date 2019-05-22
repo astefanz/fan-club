@@ -112,10 +112,12 @@ class Loader(tk.Frame):
 
     def load(self, filename = None):
         """
-        Load the file given by FILENAME and return its contents as text. If
-        FILENAME is omitted, loadDialog will be called to request a file name
-        from the user. Returns None if a dialog is used and the user does
-        not choose a file.
+        Load the file given by FILENAME and return its contents (as a string) in
+        a tuple, of the form:
+            (CONTENTS, FILENAME)
+        If the argument FILENAME is omitted, loadDialog will be called to
+        request a file name from the user. Returns None if a dialog is used and
+        the user does not choose a file.
         """
         if not filename:
             filename = self.loadDialog()
@@ -123,7 +125,7 @@ class Loader(tk.Frame):
             return None
         with open(filename, 'r') as f:
             contents = f.read()
-        return contents
+        return (contents, filename)
 
     def save(self, contents, filename = None, default = None):
         """

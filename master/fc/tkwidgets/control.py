@@ -360,12 +360,17 @@ class PythonInputWidget(tk.Frame):
         self.signature = self.HEADER.format(
             ("{}, "*len(self.parameters)).format(*self.parameters)[:-2])
 
-    def _onLoad(self, contents):
+    def _onLoad(self, loaded):
         """
         To be executed by the Load routine within a LoaderWidget.
         """
-        print("[WARNING] FCPY not yet implemented")
-        print(contents)
+        if loaded is not None:
+            body, filename = loaded
+            self.printr("Loaded FC Python function \"{}\"".format(filename))
+            self.text.delete('1.0', tk.END)
+            self.text.insert('1.0', body)
+            # See: https://stackoverflow.com/questions/27966626/
+            #   how-to-clear-delete-the-contents-of-a-tkinter-text-widget
 
     def _builtin(self, *E):
         """
@@ -377,7 +382,7 @@ class PythonInputWidget(tk.Frame):
         """
         To be executed by the Save routine within a LoaderWidget.
         """
-        print("[WARNING] _save not implemented ")
+        return self.text.get('1.0', tk.END)
 
     def _help(self, *E):
         """
