@@ -765,8 +765,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.fileField = tk.Entry(self.fileFrame, **gus.fontc, width = 20,
             state = tk.DISABLED)
         self.fileField.pack(side = tk.LEFT, fill = tk.X, expand = True)
-        self.fileButton = tk.Button(self.fileFrame, text = "...", **gus.fontc,
-            **gus.padc)
+        self.fileButton = tk.Button(self.fileFrame, text = "...",
+            command = self._onFileButton, **gus.fontc, **gus.padc)
         self.fileButton.pack(side = tk.LEFT, **gus.padc)
 
         self.dataLogger = DataLogger(self.archive, self.pqueue)
@@ -818,6 +818,22 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         elif self.viewVar.get() == self.DM_BUILDER:
             self.setLive(False)
 
+    def _onFileButton(self, *_):
+        """
+        To be called when the "..." button to set a filename for the data logger
+        is pressed. Will request a filename from the user and, if one is given,
+        write it in the corresponding input field.
+        """
+        filename = fdg.asksaveasfilename(
+            initialdir = os.getcwd(), # Get current working directory
+            title = "Set Log File", filetypes = (("CSV", ".csv"),
+                ("Plain Text", ".txt")))
+        if filename:
+            self.fileField.config(state = tk.NORMAL)
+            self.fileField.delete(0, tk.END)
+            self.fileField.insert(0, filename)
+            self.fileField.config(state = tk.DISABLED)
+
     def _setLive(self, *_):
         """
         Set the state of this and sub-modules to "live feedback." Does nothing
@@ -840,8 +856,10 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         """
         # TODO
         # Get filename FIXME
-        filename = "FC_recording_on_{}.csv".format(
-            tm.strftime("%a_%d_%b_%Y_%H:%M:%S", tm.localtime()), )
+        filename = self.fileField.get()
+        if not filename:
+            filename = "FC_recording_on_{}.csv".format(
+                tm.strftime("%a_%d_%b_%Y_%H:%M:%S", tm.localtime()), )
         self.fileField.config(state = tk.NORMAL)
         self.fileField.delete(0, tk.END)
         self.fileField.insert(0, filename)
@@ -849,7 +867,6 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.recordStartButton.config(text = "Stop",
             command = self._onRecordStop) # FIXME temp
         self.dataLogger.start(filename)
-        pass
 
     def _onRecordStop(self, event = None):
         self.dataLogger.stop()
