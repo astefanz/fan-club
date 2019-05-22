@@ -2351,12 +2351,14 @@ class DataLogger(us.PrintClient):
             if self.active():
                 self.stop(timeout)
             self._buildPipes()
+            arr = self.archive[ac.fanArray]
             self.process = mp.Process(
                 name = "FC_Log_Backend",
                 target = self._routine,
                 args = (
-                    filename, self.slaves,
+                    filename, self.archive[ac.version], self.slaves,
                     self.archive[ac.name], self.archive[ac.maxFans],
+                    (arr[ac.FA_rows], arr[ac.FA_columns], arr[ac.FA_layers]),
                     self.pipeRecv, steady, dynamic, mappings, self.pqueue),
                 daemon = True,)
             self.process.start()
@@ -2429,8 +2431,8 @@ class DataLogger(us.PrintClient):
         self.pipeRecv, self.pipeSend = mp.Pipe(False)
 
     @staticmethod
-    def _routine(filename, slaves, profileName, maxFans, pipeRecv,
-        steady, dynamic, mappings, pqueue):
+    def _routine(filename, version, slaves, profileName, maxFans, dimensions,
+        pipeRecv, steady, dynamic, mappings, pqueue):
         """
         Routine executed by the back-end process.
         """
@@ -2444,10 +2446,10 @@ class DataLogger(us.PrintClient):
         P.printr("Setting up data log")
         with open(filename, 'w') as f:
             # (Header) Log basic data:
-            f.write("Fan Club MkIV data log started on {}  using "\
-                "profile \"{}\" with up to {} fans per module.\n".format(
-                    tm.strftime("%a %d %b %Y %H:%M:%S", tm.localtime()),
-                    profileName, maxFans))
+            f.write("Fan Club MkIV ({}) data log started on {}  using "\
+                "profile \"{}\"\n".format(
+                    version,tm.strftime("%a %d %b %Y %H:%M:%S", tm.localtime()),
+                    profileName))
 
             # (Header) filename:
             f.write("Filename: \"{}\"\n".format(filename))
@@ -2468,6 +2470,13 @@ class DataLogger(us.PrintClient):
                 dc_headers += dc_boilerplate.format(index)
             f.write("\n")
 
+            # (Header) Dimensions:
+            f.write("Dimensions (rows, columns, layers): {}x{}x{}\n".format(
+                *dimensions))
+
+            # (Header) Max fans:
+            f.write("Max Fans: {}\n".format(maxFans))
+
             # (Header) Mappings:
             f.write("Fan Array Mapping(s):\n")
             for i, mapping in enumerate(mappings):
@@ -2480,7 +2489,7 @@ class DataLogger(us.PrintClient):
 
             # Header (3/4)
             f.write("Column headers are of the form s[MODULE#][type][FAN#]"\
-                "with type being first rpm and then all dc\n")
+                "with type being first \"rpm\" and then all \"dc\"\n")
 
             # Header (4/4):
             f.write("Time (s)," + rpm_headers + dc_headers + "\n")
