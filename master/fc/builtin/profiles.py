@@ -467,7 +467,7 @@ BASE = {
     ac.description : "Not the wind tunnel GALCIT wants, but the one it needs.",
     ac.platform : ac.UNKNOWN,
 
-    ac.broadcastIP : "10.42.0.255",
+    ac.broadcastIP : "255.255.255.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
     ac.periodMS : 100,

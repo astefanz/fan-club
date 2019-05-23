@@ -79,6 +79,7 @@ class Loader(tk.Frame):
 
         # Build member attributes:
         self.filetypes = tuple(filetypes)
+        self.directory = os.getcwd()
 
     def loadDialog(self):
         """
@@ -86,11 +87,12 @@ class Loader(tk.Frame):
         the path to the chosen file.
         """
 
-        filename = fdg.askopenfilename(
-            initialdir = os.getcwd(), # Get current working directory
+        filename = fdg.askopenfilename(initialdir = self.directory,
             title = self.TITLE, filetypes = self.filetypes)
         if not filename:
             return None
+        splitted = filename.split('/')[:-1]
+        self.directory = ("{}/"*len(splitted)).format(*splitted)
         return filename
 
     def saveDialog(self, default = None):
@@ -104,8 +106,10 @@ class Loader(tk.Frame):
         args = {} if not default else {'initialfile' : default}
 
         filename = fdg.asksaveasfilename(
-            initialdir = os.getcwd(), # Get current working directory
+            initialdir = self.directory,
             title = self.TITLE, filetypes = self.filetypes, **args)
+        splitted = filename.split('/')[:-1]
+        self.directory = ("{}/"*len(splitted)).format(*splitted)
         if not filename:
             return None
         return filename

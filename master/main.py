@@ -36,8 +36,8 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "0.8"
-INIT_PROFILE = "BOX" # FIXME
+VERSION = "0.9"
+INIT_PROFILE = "BASE" # FIXME
 
 ## MAIN ########################################################################
 print(us.HEADER)

@@ -52,7 +52,7 @@ NOPE = lambda m: print("[SILENCED]: ", m)
 class Base(tk.Frame, us.PrintClient):
 
     ERROR_MESSAGE = \
-        "[NOTE: There are error messages in the console. Click here.]"
+        "[There are error messages in the console. Click here.]"
 
     SYMBOL = "[BS]"
 

@@ -155,6 +155,7 @@ class FCInterface(us.PrintServer):
             us.PrintServer._cycle(self)
             # FIXME concrete
             """ original
+            """
             if self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
                 for client in self.feedbackClients:
@@ -167,7 +168,7 @@ class FCInterface(us.PrintServer):
                 S = self.slavePipeRecv.recv()
                 for client in self.slaveClients:
                     client(S)
-            """
+            """ experimental
             F = None
             while self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
@@ -186,6 +187,7 @@ class FCInterface(us.PrintServer):
             if S is not None:
                 for client in self.slaveClients:
                     client(S)
+            """
         except Exception as e:
             self.printx(e, "Exception in I-P watchdog")
 

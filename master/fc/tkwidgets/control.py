@@ -784,6 +784,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.fileButton.pack(side = tk.LEFT, **gus.padc)
 
         self.dataLogger = DataLogger(self.archive, self.pqueue)
+        self.logDirectory = os.getcwd() # Get current working directory
 
         self.recordControlFrame = tk.Frame(self.recordFrame)
         self.recordControlFrame.pack(side = tk.TOP, fill = tk.X, expand = True,
@@ -839,9 +840,13 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         write it in the corresponding input field.
         """
         filename = fdg.asksaveasfilename(
-            initialdir = os.getcwd(), # Get current working directory
-            title = "Set Log File", filetypes = (("CSV", ".csv"),
-                ("Plain Text", ".txt")))
+            initialdir = self.logDirectory,
+            title = "Set Log File", initialfile = \
+                self.fileField.get().split('/')[-1],
+                filetypes = (("CSV", ".csv"),("Plain Text", ".txt")))
+        logd_splitted = filename.split('/')[:-1]
+        self.logDirectory = ("{}/"*len(logd_splitted)).format(*logd_splitted)
+
         if filename:
             self.fileField.config(state = tk.NORMAL)
             self.fileField.delete(0, tk.END)
