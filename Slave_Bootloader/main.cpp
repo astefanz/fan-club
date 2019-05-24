@@ -20,7 +20,7 @@
 // Alejandro A. Stefan Zavala // <astefanz@berkeley.com> //                   //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define FCIIB_VERSION "GBT2"
+#define FCIIB_VERSION "GBT4"
 
 ////////////////////////////////////////////////////////////////////////////////
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -80,7 +80,7 @@
 // USAGE OF FLASH MEMORY:
 /*
 
-+----------------+ End of Flash: POST_APPLICATION_ADDR + POST_APPLICATION_SIZE 
++----------------+ End of Flash: POST_APPLICATION_ADDR + POST_APPLICATION_SIZE
 |                |\
 | FLASH BUFFER   | \__FLASH_BUFFER_SIZE
 | (Download here)| /
@@ -130,7 +130,7 @@ size_t printed = 0;
 void _storeFragment(const char buffer[], size_t size);
 
 // Network ---------------------------------------------------------------------
-void sendError(const char message[], size_t length);	
+void sendError(const char message[], size_t length);
 void _watchConnection(void);
 
 //// MAIN //////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ int main() {
 
 	/*
 	// Optional PSU pin:
-	// 	NOTE: Setting D9 to high will set PWM pin PD_15 (not present in all 
+	// 	NOTE: Setting D9 to high will set PWM pin PD_15 (not present in all
 	//	pinouts) to high.
 	DigitalOut PSU_off(D9);
 	PSU_off.write(true);
@@ -154,14 +154,14 @@ int main() {
 	// Print initialization message:
 	printf("\n\n\r==========================================================="\
 	"=====================\n\r");
-	printf("FCMkII Bootloader (\"%s\") (%d KB) (Port: %d) (mbed-os 5.9...)\n\r", 
+	printf("FCMkII Bootloader (\"%s\") (%d KB) (Port: %d) (mbed-os 5.9...)\n\r",
 		FCIIB_VERSION, FLASH_BUFFER_SIZE/1000, LISTENER_PORT);
 	printf("----------------------------------------------------------------"\
 		"----------------\n\r");
-	
+
 	// Initialize communications -----------------------------------------------
 	printf("Init. Network:\n\r ");
-	
+
 	// Network interface and sockets:
 	ethernet = new EthernetInterface;
 	int c = ethernet->connect();
@@ -174,9 +174,9 @@ int main() {
 	listenerSocket.bind(LISTENER_PORT);
 	listenerSocket.set_timeout(SOCKET_TIMEOUT_MS);
 
-	printf("\tConnected: %s (%d) MAC: %s\n\r", 
+	printf("\tConnected: %s (%d) MAC: %s\n\r",
 		ethernet->get_ip_address(), LISTENER_PORT, ethernet->get_mac_address());
-	
+
 	// Storage:
 	char filename[MAX_FILENAME_LENGTH] = {0};
 	char addressBuffer[MAX_ADDRESS_SIZE] = {0};
@@ -188,37 +188,37 @@ int main() {
 	// Listen for messages -----------------------------------------------------
 	printf("Listening:\n\r");
 	BTUtils::setLED(BTUtils::MID, BTUtils::ON);
-	
-	
+
+
 	// Set slow blink to indicate standby:
 	Ticker ticker;
 	ticker.attach(Callback<void()>(BTUtils::blinkMID), 1);
 
 	do { // ....................................................................
-				
+
 		// Reset values:
 		misoPort = 0;
 		for(uint8_t i = 0; i < BUFFER_SIZE; i++){
 			misoBuffer[i] = '\0';
 			mosiBuffer[i] = '\0';
-			
+
 			if(i < PW_BUFFER_SIZE){
 				passcodeBuffer[i] = '\0';
 			}
 		}
 
-		int result = -666;	
+		int result = -666;
 
 		// Listen for broadcast:
 		result = listenerSocket.recvfrom(
-			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE); 
+			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE);
 
 		// Check for errors:
 		if (result == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
 			// Check network status
-			
-			nsapi_connection_status_t cstatus = 
+
+			nsapi_connection_status_t cstatus =
 				ethernet->get_connection_status();
 			switch(cstatus){
 				case NSAPI_STATUS_GLOBAL_UP:
@@ -242,15 +242,15 @@ int main() {
 			}
 		} else if (result <= 0){
 			// Network error
-			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r", 
+			printf("\n\r\tERROR: SOCKET ERR. CODE %d\n\r",
 				result);
 
 			BTUtils::fatal();
 			break;
-		
+
 		} else {
 			// Something was received. Reset timeout counter
-			printf("\n\rMessage received from %s", 
+			printf("\n\rMessage received from %s",
 				masterBroadcastAddress.get_ip_address());
 
 			// Add null-termination character
@@ -260,7 +260,7 @@ int main() {
 			// Parse message:
 
 			/* NOTE: The following are expected broadcast formats:
-			 * 
+			 *
 			 * FORMAT                        | MEANING           | ACTION
 			 * ------------------------------+-------------------+--------------
 			 * N|PASSCODE|MLPORT             | STD broadcast     | Send reply*
@@ -270,22 +270,22 @@ int main() {
 			 * ------------------------------+-------------------+--------------
 			 * *Reply format: B|passcode|MAC
 			 */
-			
+
 			// Prepare placeholders for (potential) parsing:
 			char *splitPointer = NULL, *savePointer = NULL;
 
 			// Check message:
 			switch(mosiBuffer[0]){
-				
+
 				case STD_BCAST: // Standard broadcast ..........................
 					// Validate message and send reply
 					printf("\n\rStandard broadcast received");
 
 					// Get passcode
 					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to passcode
-				
+
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL PASSCODE");
@@ -294,9 +294,9 @@ int main() {
 					strcpy(passcodeBuffer, splitPointer);
 
 					// Get Master Listener port
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to MLPORT
-				
+
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL ML PORT");
@@ -306,10 +306,10 @@ int main() {
 						continue;
 					}
 
-					
+
 					// Format reply:
 					snprintf(misoBuffer, BUFFER_SIZE,"B|%s|%s|N|%s",
-						passcodeBuffer, 
+						passcodeBuffer,
 						ethernet->get_mac_address(),
 						FCIIB_VERSION
 						);
@@ -331,12 +331,12 @@ int main() {
 				case UPDATE_COMMAND: {// Update command ........................
 					// Validate message and proceed to fetch update
 					printf("\n\rUpdate order received");
-					
+
 					// Get passcode
 					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to passcode
-				
+
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL PASSCODE");
@@ -347,7 +347,7 @@ int main() {
 
 
 					// Get Master Listener Port
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to MLPORT
 
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
@@ -360,9 +360,9 @@ int main() {
 						sendError("ML port 0", 9);
 						continue;
 					}
-					
+
 					// Get HTTP Server Port
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to MLPORT
 
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
@@ -377,7 +377,7 @@ int main() {
 					}
 
 					// Get filename
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to F.Name
 					if(splitPointer == NULL){
 						printf("\n\r\tERROR: NULL FILE NAME");
@@ -386,28 +386,28 @@ int main() {
 					} else if(strlen(splitPointer) > MAX_FILENAME_LENGTH){
 						printf("\n\r\tERROR: FILE NAME TOO LONG (>%d)",
 							MAX_FILENAME_LENGTH);
-						snprintf(errorBuffer, BUFFER_SIZE, 
-							"File name too long (%d)", 
+						snprintf(errorBuffer, BUFFER_SIZE,
+							"File name too long (%d)",
 							MAX_FILENAME_LENGTH);
 						sendError(errorBuffer, strlen(errorBuffer));
-						continue;	
+						continue;
 					} else {
 						strcpy(filename, splitPointer);
 						printf("\n\r\tFile name: %s", filename);
 					}
-								
+
 					// Get filesize
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to F.size
 
 					if(splitPointer == NULL or splitPointer[0] == '\0'){
 						// NOTE: Relying on short-circuiting here...
 						printf("\n\r\tERROR: NULL FILE SIZE");
-						sendError("NULL file size", 14); 
+						sendError("NULL file size", 14);
 						continue;
 					} else if ((filesize = atoi(splitPointer)) == 0){
 						printf("\n\r\tERROR: FILE SIZE 0");
-						sendError("File size 0", 11); 
+						sendError("File size 0", 11);
 						continue;
 					} else {
 						printf("\n\r\tFile size: %lu B", filesize);
@@ -420,30 +420,30 @@ int main() {
 
 					// Launch Update sequence
 					printf("\n\rUpdating\n\r");
-					
+
 					// Start sentinel thread in case of mid-flash disconnection:
 					printf("\n\rActivating connection sentinel thread:");
 					connectionSentinel.set_priority(osPriorityBelowNormal);
 					connectionSentinel.start(_watchConnection);
 					printf("\n\r\tDone");
 					// Download file -------------------------------------------
-						
-					snprintf(addressBuffer, MAX_ADDRESS_SIZE, 
+
+					snprintf(addressBuffer, MAX_ADDRESS_SIZE,
 						"http://%s:%u/%s",
 						masterBroadcastAddress.get_ip_address(),
 						httpPort,
 						filename
 					);
-					
+
 					printf("\n\r\tConnecting to %s", addressBuffer);
-					
+
 					BTFlash::flashIAP.init();
 					HttpRequest* req = new HttpRequest(
 						ethernet, HTTP_GET, addressBuffer, _storeFragment);
 
 					HttpResponse* res = req->send();
 					if (res == NULL) {
-						printf("\n\r\tERROR IN DOWNLOAD: %d", 
+						printf("\n\r\tERROR IN DOWNLOAD: %d",
 							req->get_error());
 						snprintf(errorBuffer, BUFFER_SIZE,
 							"Download error (%d)", req->get_error());
@@ -457,19 +457,19 @@ int main() {
 							"File size mismatch: %lu B, exp't %lu B",
 							received, filesize);
 						sendError(errorBuffer, strlen(errorBuffer));
-						
+
 						// RIP
 						BTUtils::fatal();
 					}
 					delete req;
 					printf("\n\rDownload successful");
-					
-	
+
+
 					// Flash file ----------------------------------------------
 					printf("\n\rFlashing file");
 
 					BTFlash::copy(
-						POST_APPLICATION_ADDR + POST_APPLICATION_SIZE - 
+						POST_APPLICATION_ADDR + POST_APPLICATION_SIZE -
 							FLASH_BUFFER_SIZE,
 						received,
 						POST_APPLICATION_ADDR,
@@ -484,7 +484,7 @@ int main() {
 					}
 
 					BTFlash::flashIAP.deinit();
-					
+
 					// Deactivate sentinel thread:
 					// (Even if there is a disconnection, we do not want the
 					// flashing to the actual application memory to be cut
@@ -495,7 +495,7 @@ int main() {
 					watchFlagLock.unlock();
 					connectionSentinel.join();
 					printf("\n\r\tDone");
-					
+
 
 					printf("\n\rDeactivating network interface and UDP Socket");
 					listenerSocket.close();
@@ -511,15 +511,15 @@ int main() {
 				case LAUNCH_COMMAND: // Launch application (MkII) ..............
 					// Launch MkII
 
-					// Check for nonempty passcode:	
+					// Check for nonempty passcode:
 					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to passcode
-					
+
 					if(strlen(splitPointer) > 0){
 						// Nonempty passcode. Proceed to reboot
 						printf("\n\rLaunch order received ");
-						
+
 						// Detach ticker:
 						ticker.detach();
 
@@ -528,14 +528,14 @@ int main() {
 						listenerSocket.close();
 						ethernet->disconnect();
 						printf("\n\r\tDone");
-						
+
 						// Jump to MkII:
 						BTUtils::launch();
 						break;
 
 					} else {
 						// Invalid message
-						printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+						printf("\n\rERROR: NO PASSCODE IN \"%s\"",
 							splitPointer);
 						continue;
 					}
@@ -543,41 +543,41 @@ int main() {
 
 				case SHUTDOWN_COMMAND: // Shutdown MCU .........................
 					// Reboot
-					
-					// Check for nonempty passcode:					
+
+					// Check for nonempty passcode:
 					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to passcode
-				
+
 					if(strlen(splitPointer) > 0){
 						// Nonempty passcode. Proceed to reboot
 						printf("\n\rShutdown order received");
 						BTUtils::reboot();
 					} else {
 						// Invalid message
-						printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+						printf("\n\rERROR: NO PASSCODE IN \"%s\"",
 							splitPointer);
 						continue;
 					}
 					break;
-				
+
 				case DISCONNECT_COMMAND: // Terminate connection (MkII) ........
 					// Reboot
-					
-					// Check for nonempty passcode:					
+
+					// Check for nonempty passcode:
 					strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-					splitPointer = 
+					splitPointer =
 						strtok_r(NULL, "|", &savePointer); // Point to passcode
-				
+
 					if(strlen(splitPointer) > 0){
 						// Nonempty passcode. Proceed to reboot
 						printf("\n\rDisconnect order ignored (for MkII)");
 					} else {
 						// Invalid message
-						printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+						printf("\n\rERROR: NO PASSCODE IN \"%s\"",
 							splitPointer);
 					}
-					
+
 					continue;
 					break;
 
@@ -601,7 +601,7 @@ int main() {
 					break;
 
 			} // End switch
-		
+
 		} // End message reception test
 
 	} while(timeouts < MAX_TIMEOUTS);
@@ -609,7 +609,7 @@ int main() {
 	printf("\n\rDeactivating network interface and UDP Socket");
 	listenerSocket.close();
 	ethernet->disconnect();
-	printf("\n\r\tDone");					
+	printf("\n\r\tDone");
 
 	// Launch MkII:
 	printf("\n\rTimeout limit reached. Launching MkII");
@@ -629,14 +629,14 @@ void _storeFragment(const char buffer[], size_t size) {
 
 	static bool initialized = false;
     static bool sector_erased = false;
-	static uint32_t addr = 
+	static uint32_t addr =
 		POST_APPLICATION_ADDR + POST_APPLICATION_SIZE - FLASH_BUFFER_SIZE;
 	static uint32_t addr_original = addr;
 	static char* page_buffer;
 	static uint32_t page_size;
 	static uint32_t next_sector;
     static size_t pages_flashed = 0;
-	
+
 	if(not initialized){
 		int res = BTFlash::flashIAP.init();
 		page_size = BTFlash::flashIAP.get_page_size();
@@ -644,10 +644,10 @@ void _storeFragment(const char buffer[], size_t size) {
     	next_sector = addr + BTFlash::flashIAP.get_sector_size(addr);
 		initialized = true;
 		printf("\n\r\tWriting directly to flash memory (%d)\n\r"\
-			"\t\tSector size: %lu B\n\r\t\tPage size: %lu B\n\r", 
+			"\t\tSector size: %lu B\n\r\t\tPage size: %lu B\n\r",
 			res, BTFlash::flashIAP.get_sector_size(addr), page_size);
 	}
-	
+
 	//printf("\tWriting %lu bytes starting on 0x%lx\n\r", size, addr);
 
     receivedPackets++;
@@ -668,7 +668,7 @@ void _storeFragment(const char buffer[], size_t size) {
 		// Wipe page_buffer:
 		// Read data for this page
 		memset(page_buffer, 0, sizeof(page_buffer));
-        
+
 		for(uint32_t i = 0; i < page_size; i++){
 			page_buffer[i] = buffer[count + i];
 			count++;
@@ -687,12 +687,12 @@ void _storeFragment(const char buffer[], size_t size) {
 				//BTUtils::fatal();
 			//	break;
 			} else{
-			
+
 				printf("\n\r");
 			}
 			sector_erased = true;
         }
-		
+
 
         // Program page
 		result = BTFlash::flashIAP.program(page_buffer, addr, page_size);
@@ -701,14 +701,14 @@ void _storeFragment(const char buffer[], size_t size) {
 			printf("\n\r\tError (%d) while writing on 0x%lx\n\r",
 				result, addr);
 			printed  = snprintf(errorBuffer, BUFFER_SIZE,
-				"Error code %d while writing on 0x%lx", 
+				"Error code %d while writing on 0x%lx",
 				result, addr);
 			sendError(errorBuffer, printed);
 			BTUtils::fatal();
 
 			break;
 		}
-        
+
 
 		addr += page_size;
 		received += page_size;
@@ -718,9 +718,9 @@ void _storeFragment(const char buffer[], size_t size) {
         }
 
 		pages_flashed++;
-		
+
 		/*
-			printf("\r\tFlashed %lu page(s) (@0x%lx) (%d)", 
+			printf("\r\tFlashed %lu page(s) (@0x%lx) (%d)",
 				pages_flashed, addr, sector_erased);
 		*/
 
@@ -728,25 +728,25 @@ void _storeFragment(const char buffer[], size_t size) {
 			printf("\n\r\tERROR: NOT ENOUGH ROOM (%lu B/ %d B)",
 				received, FLASH_BUFFER_SIZE);
 			printed  = snprintf(errorBuffer, BUFFER_SIZE,
-				"Flash buffer exhausted: %lu B / %d B", 
+				"Flash buffer exhausted: %lu B / %d B",
 				received, FLASH_BUFFER_SIZE);
 			sendError(errorBuffer, printed);
 			BTUtils::fatal();
 		}
     }
-	printf("\r\tDownloaded %lu B [0x%lx, 0x%lx]", 
+	printf("\r\tDownloaded %lu B [0x%lx, 0x%lx]",
 		received, addr_original, addr);
-	
-	
-	
+
+
+
 } // End _storeFragment
 
 // Network ---------------------------------------------------------------------
-void sendError(const char message[], size_t length){	
-	
+void sendError(const char message[], size_t length){
+
 	static char errorMessage[BUFFER_SIZE];
 	int sent;
-	
+
 	if(misoPort == 0){
 		printf("\n\rERROR: Tried to send error message \"%s\" w/o MISO port",
 			message);
@@ -758,11 +758,11 @@ void sendError(const char message[], size_t length){
 		ethernet->get_mac_address(),
 		message
 	);
-	
+
 	// Send given error message:
 	if( (sent = listenerSocket.sendto(
 			masterBroadcastAddress.get_ip_address(),
-			misoPort, 
+			misoPort,
 			errorMessage,
 			strlen(errorMessage))) <= 0 ){
 
@@ -783,17 +783,17 @@ void _watchConnection(void){
 		watchFlagLock.lock();
 		keepWatching = watchFlag;
 		watchFlagLock.unlock();
-	
+
 		// Listen for broadcast:
 		int result = listenerSocket.recvfrom(
-			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE); 
+			&masterBroadcastAddress, mosiBuffer, BUFFER_SIZE);
 
 		// Check for errors:
 		if (result == NSAPI_ERROR_WOULD_BLOCK){
 			// Timed out
 			// Check network status
-			
-			nsapi_connection_status_t cstatus = 
+
+			nsapi_connection_status_t cstatus =
 				ethernet->get_connection_status();
 			switch(cstatus){
 				case NSAPI_STATUS_GLOBAL_UP:
@@ -818,40 +818,40 @@ void _watchConnection(void){
 			printf("\n\r\t[W] ERROR: SOCKET ERR. CODE %d\n\r", result);
 			BTUtils::fatal();
 			break;
-		
+
 		} else {
 			// Message received. Check for reboot
-			
+
 			// Prepare placeholders for (potential) parsing:
 			char *splitPointer = NULL, *savePointer = NULL;
 
-			
+
 			mosiBuffer[result < BUFFER_SIZE? result:BUFFER_SIZE-1] = '\0';
 			if(mosiBuffer[0] == SHUTDOWN_COMMAND){
-				// Check for nonempty passcode:					
+				// Check for nonempty passcode:
 				strtok_r(mosiBuffer, "|", &savePointer); // Point to char.
-				splitPointer = 
+				splitPointer =
 					strtok_r(NULL, "|", &savePointer); // Point to passcode
-			
+
 				if(strlen(splitPointer) > 0){
 					// Nonempty passcode. Proceed to reboot
 					printf("\n\rShutdown order received");
 					BTUtils::reboot();
 				} else {
 					// Invalid message
-					printf("\n\rERROR: NO PASSCODE IN \"%s\"", 
+					printf("\n\rERROR: NO PASSCODE IN \"%s\"",
 						splitPointer);
 					continue;
 				}
-				break;	
-			
+				break;
+
 			}
 
 			else{
 				// Ignore all other messages
 				continue;
 			}
-			
+
 
 
 		}

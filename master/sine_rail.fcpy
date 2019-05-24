@@ -1,4 +1,5 @@
-# basic sine wave
+# railing sine wave
+# saturates at dc offset
 # assuming time step of 100ms
 
 t_0 = 20 # time steps to wait
@@ -17,7 +18,4 @@ if t < t_0:
 elif t_f is not None and t > t_f:
 	return d
 else:
-	return a*math.sin(b*x + c) + d
-
-
-
+	return max(a*math.sin(b*x + c), 0) + d

@@ -1,0 +1,7 @@
+# Sweep through fans setting one on at a time
+# (per module)
+
+maxFans = 21
+dc_on = .3
+
+return dc_on if f == t%maxFans else 0

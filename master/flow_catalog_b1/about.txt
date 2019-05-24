@@ -1,0 +1,15 @@
+FAWT Flow Cataloging (Basement, #1) -- May 2019
+
+Remarks:
+- All experiments will be by default:
+    - 1 min. long
+    - control period of 100ms (send a command every such ms)
+    - DC offset of 40% for periodics
+    - Amplitude of 30% DC for periodics
+
+Notation:
+- U.P. -> "uniform periodic"
+- 150, 125, 100, 075, 050 are downstream distance to fan array length ratios
+- Each test run's MkIV CSV file is coupled with a set of ThermalPro logs as:
+    ctg_X-Z_*.csv <-> CTGX.Y000Z
+    Here X-Z identifies an unique test run and Y is one of R, S, T, V, W
