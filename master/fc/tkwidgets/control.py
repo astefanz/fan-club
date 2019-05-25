@@ -306,6 +306,9 @@ class PythonInputWidget(tk.Frame):
             **gus.padc, **gus.fontc, command = self._help)
         self.helpButton.pack(side = tk.LEFT, **gus.padc)
 
+        # Wrap-up:
+        self.func = None
+
     # API ......................................................................
     def enable(self):
         """
@@ -341,25 +344,43 @@ class PythonInputWidget(tk.Frame):
             body = body.replace('\n', ";")
         return body
 
+    def get(self, *_):
+        """
+        Parses and returns current function. Returns None if the input field is
+        left blank
+        """
+        return self._parse()
 
     # Internal methods .........................................................
-    def _run(self, *E):
+    def _parse(self):
+        """
+        Parse and return the current function.
+        """
+        raw = self.text.get(1.0, tk.END)
+        if len(raw) < len("return"):
+            print("Too short") # FIXME DEBUG
+            return None
+        retabbed = raw.replace('\t', self.realtabs)
+
+        built = self.signature + '\n'
+        built += self.realtabs + "import math\n"
+        for line in retabbed.split('\n'):
+            built += self.realtabs + line + '\n'
+        built += self.FOOTER + '\n'
+
+        exec(built) # TODO: fix security hole in exec
+        # Function is stored in self.func
+        return self.func
+
+    def _run(self, *_):
         """
         To be called when the Run button is clicked. Parse the function and
         pass it to the given callback.
         """
         try:
-            raw = self.text.get(1.0, tk.END)
-            retabbed = raw.replace('\t', self.realtabs)
-
-            built = self.signature + '\n'
-            built += self.realtabs + "import math\n"
-            for line in retabbed.split('\n'):
-                built += self.realtabs + line + '\n'
-            built += self.FOOTER + '\n'
-
-            exec(built) # TODO: fix security hole in exec
-            self.callback(self.func, 0) # FIXME: time
+            self._parse()
+            if self.func is not None:
+                self.callback(self.func, 0) # FIXME: time
 
         except Exception as e:
             self.printx(e, "Exception when parsing Python input:")
@@ -534,19 +555,23 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
 
 class DynamicControlWidget(tk.Frame, us.PrintClient):
     """
-    Container for the steady flow control tools.
+    Container for the dynamic flow control tools.
     """
     SYMBOL = "[DC]"
     DEFAULT_STEP_MS = 1000
+    DEFAULT_END = ""
 
-    def __init__(self, master, display, pqueue):
+    def __init__(self, master, display, logstart, logstop, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         self.display = display
+        self.logstart, self.logstop = logstart, logstop
 
         self.grid_columnconfigure(0, weight = 1)
         row = 0
+
+        self.activeWidgets = []
 
         # Python interpreter ...................................................
         self.grid_rowconfigure(row, weight = 1)
@@ -554,7 +579,7 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
             **gus.lfconf)
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
-        self.python = PythonInputWidget(self.pythonFrame, self._run,
+        self.python = PythonInputWidget(self.pythonFrame, self._applyFunction,
             self.display.parameters(), pqueue)
         self.flat = self.python.flat
         self.python.pack(fill = tk.BOTH, expand = True)
@@ -566,67 +591,163 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         self.timeFrame.grid(row = row, sticky = "EW")
         row += 1
 
-        # Stop button:
-        self.stopButton = tk.Button(self.timeFrame, text = "Stop",
-            state = tk.DISABLED, command = self._stop, **gus.fontc)
-        self.stopButton.pack(side = tk.LEFT)
+        self.timeTopBar = tk.Frame(self.timeFrame)
+        self.timeTopBar.pack(side = tk.TOP, fill = tk.X, expand = True)
+
+        # Start/Stop button:
+        self.startStopButton = tk.Button(self.timeTopBar, text = "Start",
+            state = tk.NORMAL, command = self._start, **gus.fontc)
+        self.startStopButton.pack(side = tk.LEFT)
 
         # Step label:
-        self.stepLabel = tk.Label(self.timeFrame, text = "   Step: ",
+        self.stepLabel = tk.Label(self.timeTopBar, text = "   Step: ",
             **gus.fontc)
         self.stepLabel.pack(side = tk.LEFT)
 
         # Step field:
         validateC = self.register(self._validateN)
-        self.stepEntry = tk.Entry(self.timeFrame, bg = 'white', width  = 6,
+        self.stepEntry = tk.Entry(self.timeTopBar, bg = 'white', width  = 6,
             **gus.efont, validate = 'key',
             validatecommand = (validateC, '%S', '%s', '%d'))
         self.stepEntry.insert(0, self.DEFAULT_STEP_MS)
         self.stepEntry.pack(side = tk.LEFT)
+        self.activeWidgets.append(self.stepEntry)
 
         # Unit label:
-        self.unitLabel = tk.Label(self.timeFrame, text = "(ms)",
+        self.unitLabel = tk.Label(self.timeTopBar, text = "(ms)",
             **gus.fontc)
         self.unitLabel.pack(side = tk.LEFT)
 
-        # Time display:
-        self.tVar = tk.IntVar()
-        self.timeDisplay = tk.Label(self.timeFrame, textvariable = self.tVar,
+        # End label:
+        self.endLabel = tk.Label(self.timeTopBar, text = "   End: ",
             **gus.fontc)
+        self.endLabel.pack(side = tk.LEFT)
+
+        # End field:
+        validateC = self.register(self._validateN)
+        self.endEntry = tk.Entry(self.timeTopBar, bg = 'white', width  = 6,
+            **gus.efont, validate = 'key',
+            validatecommand = (validateC, '%S', '%s', '%d'))
+        self.endEntry.insert(0, self.DEFAULT_END)
+        self.endEntry.pack(side = tk.LEFT)
+        self.end = None
+        self.activeWidgets.append(self.endEntry)
+
+        self.endLabel = tk.Label(self.timeTopBar, text = "(step)",
+            **gus.fontc)
+        self.endLabel.pack(side = tk.LEFT)
+
+        # Timing display bar:
+        self.timeDisplayBar = tk.Frame(self.timeFrame)
+        self.timeDisplayBar.pack(side = tk.TOP, fill = tk.X, expand = True,
+            pady = 10)
+
+        # Time display:
+        self.tLabel = tk.Label(self.timeDisplayBar, text = "  t = ",
+            **gus.fontc)
+        self.tLabel.pack(side = tk.LEFT)
+
+        self.tVar = tk.IntVar()
+        self.timeDisplay = tk.Label(self.timeDisplayBar, relief = tk.SUNKEN,
+            bd = 1, textvariable = self.tVar, **gus.fontc)
+        self.timeDisplay.pack(side = tk.LEFT, fill = tk.X, expand = True)
         self.tVar.set(0)
 
-        # File .................................................................
-        self.fileFrame = tk.LabelFrame(self, text = "Load/Save Flows",
-            **gus.lfconf)
-        self.fileFrame.grid(row = row, sticky = "EW")
-        row += 1
+        # Timing control bar:
+        self.timeControlBar = tk.Frame(self.timeFrame)
+        self.timeControlBar.pack(side = tk.TOP, fill = tk.X, expand = True)
 
-        self.loader = ldr.FlowLoaderWidget(self.fileFrame, self._onSave,
-            self._onLoad)
-        self.loader.pack(side = tk.LEFT)
+        # Control logging:
+        self.logVar = tk.BooleanVar()
+        self.logVar.set(False)
+        self.logButton = tk.Checkbutton(self.timeControlBar,
+            text = "Log Data", variable = self.logVar,
+            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
+        self.logButton.pack(side = tk.LEFT, **gus.padc)
+        self.activeWidgets.append(self.logButton)
 
+        # End DC:
+        self.endDCVar = tk.BooleanVar()
+        self.endDCVar.set(False)
+        self.endDCButton = tk.Checkbutton(self.timeControlBar,
+            text = "Set DC at end: ", variable = self.endDCVar,
+            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
+        self.endDCButton.pack(side = tk.LEFT, **gus.padc)
+        self.activeWidgets.append(self.endDCButton)
+
+        validateF = self.register(self._validateF)
+        self.endDCEntry = tk.Entry(self.timeControlBar, **gus.efont, width = 6,
+            validate = 'key',validatecommand = (validateF, '%S', '%s', '%d'))
+        self.endDCEntry.pack(side = tk.LEFT, **gus.padc)
+        self.endDCEntry.insert(0, "0")
+
+        self.endDCLabel  = tk.Label(self.timeControlBar, **gus.fontc,
+            fg = "darkgray", text = "[0.0, 100.0]")
+        self.endDCLabel.pack(side = tk.LEFT)
+
+
+        # Wrap-up:
         self.f = None
         self.running = False
         self.period = self.DEFAULT_STEP_MS
         self.widget = None
 
-    def _run(self, f, t):
-        if not self.running:
-            self.widget = self.display.currentWidget()
-            self.running = True
+    def _applyFunction(self, f, t):
+        """
+        To be called by the Python input widget to apply its function once.
+        """
+        self._stop()
+        if f is not None:
             self.f = f
-            self.stopButton.config(state = tk.NORMAL)
-            self.python.disable()
-            self.period = int(self.stepEntry.get())
-            self._step()
+            self.display.map(f, t)
+
+    def _start(self, *_):
+        if not self.running:
+            self.f = self.python.get()
+            if self.f is not None:
+                self.widget = self.display.currentWidget()
+                self.running = True
+                self.startStopButton.config(state = tk.NORMAL, text = "Stop",
+                    command = self._stop)
+                self.python.disable()
+                self.period = int(self.stepEntry.get())
+                end = self.endEntry.get()
+
+                for widget in self.activeWidgets:
+                    widget.config(state = tk.DISABLED)
+
+                if end is None or len(end) == 0:
+                    self.end = None
+                else:
+                    self.end = int(end)
+
+                if self.logVar.get():
+                    self.logstart()
+
+                self._step()
 
     def _stop(self, event = None):
-        self.running = False
-        self.widget = None
-        self.stopButton.config(state = tk.DISABLED)
-        self.python.enable()
-        self.f = None
-        self.tVar.set(0)
+        # FIXME:
+        if self.running:
+            if self.endDCVar.get():
+                endDC_raw = self.endDCEntry.get()
+                if endDC_raw is not None and len(endDC_raw) > 0:
+                    endDC = float(endDC_raw)/100.0
+                    if endDC <= 1.0 and endDC >= 0.0:
+                        self.display.set(endDC)
+
+            if self.logVar.get():
+                self.logstop()
+
+            self.running = False
+            self.widget = None
+            self.python.enable()
+            self.f = None
+            self.tVar.set(0)
+            for widget in self.activeWidgets:
+                widget.config(state = tk.NORMAL)
+            self.startStopButton.config(state = tk.NORMAL, text = "Start",
+                command = self._start)
 
     def _step(self):
         """
@@ -636,22 +757,10 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
             t = self.tVar.get()
             self.widget.map(self.f, t)
             self.tVar.set(t + 1)
-
-            self.after(self.period, self._step)
-
-    def _onSave(self):
-        """
-        Save callback for FlowLoader.
-        """
-        # FIXME
-        print("[WARNING] _onSave not implemented")
-
-    def _onLoad(self, loaded):
-        """
-        Load callback for FlowLoader.
-        """
-        # FIXME
-        print("[WARNING] _onLoad not implemented")
+            if self.end is None or t < self.end:
+                self.after(self.period, self._step)
+            else:
+                self._stop()
 
     @staticmethod
     def _validateN(newCharacter, textBeforeCall, action):
@@ -663,6 +772,18 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
                 int(newCharacter) > 0
         except:
             return False
+
+    @staticmethod
+    def _validateF(newCharacter, textBeforeCall, action):
+        """
+        To be used by Tkinter to validate text in DC entries.
+        """
+        try:
+            return action == '0' or  newCharacter in '0123456789' or \
+                float(newCharacter) > 0 and float(newCharacter) <= 100
+        except:
+            return False
+
 
 class ExternalControlWidget(tk.Frame, us.PrintClient):
     """
@@ -752,7 +873,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.notebook.add(self.steady, text = "Steady Flow")
 
         # Dynamic ..............................................................
-        self.dynamic = DynamicControlWidget(self.notebook, display, pqueue)
+        self.dynamic = DynamicControlWidget(self.notebook, display,
+            self._onRecordStart, self._onRecordStop, pqueue)
         self.notebook.add(self.dynamic, text = "Dynamic Flow",
             state = tk.NORMAL)
 
@@ -844,10 +966,11 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             title = "Set Log File", initialfile = \
                 self.fileField.get().split('/')[-1],
                 filetypes = (("CSV", ".csv"),("Plain Text", ".txt")))
-        logd_splitted = filename.split('/')[:-1]
-        self.logDirectory = ("{}/"*len(logd_splitted)).format(*logd_splitted)
 
-        if filename:
+        if filename is not None and len(filename) > 0:
+            logd_splitted = filename.split('/')[:-1]
+            self.logDirectory = ("{}/"*len(logd_splitted)).format(*logd_splitted)
+
             self.fileField.config(state = tk.NORMAL)
             self.fileField.delete(0, tk.END)
             self.fileField.insert(0, filename)
@@ -1357,8 +1480,10 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             self.deselectAll()
 
     def set(self, dc):
-        # FIXME
-        pass
+        """
+        Map the given duty cycle.
+        """
+        self.map(self._const(dc), 0)
 
     def apply(self):
         # FIXME
@@ -1574,7 +1699,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                     grid.layers[grid.layer][i]//grid.maxFans,
                     grid.layers[grid.layer][i]%grid.maxFans))
                 """
-
+    @staticmethod
+    def _const(dc):
+        """
+        Return a function that ignores all arguments and returns the given
+        duty cycle.
+        """
+        def g(*_):
+            return dc
+        return g
 
 class ColorBarWidget(tk.Frame):
     """

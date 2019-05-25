@@ -1,0 +1,66 @@
+[IFA Temperature]
+File Format = 8
+numsnr = 1
+ext = 0
+boxa = 0.1
+boxb = 0
+
+[Acq Pressure]
+snr01 = 760
+
+[Acq Temperature]
+snr01 = 0.1
+
+[Avg Temperature]
+snr01 = 0.1
+
+[aqsetup]
+expname = "C:/PROGRAM FILES (X86)/THERMALPRO/DATA/CTG10.R0013"
+ifamax = 16
+
+[aqsensor01]
+tag = "*"
+adch = 0
+ifach = 1
+type = 0
+serial = "75096_NEW"
+cblres = 1.21
+oprres = 11.43
+offset = 0.28
+wf = 0
+gain = 60
+ctemprch = "A"
+itemprch = 1
+isensornum = 1
+iprobenum = 1
+iccacurrent = 6
+component = " U"
+icable = 0
+ibridge = 0
+itemprng = 0
+modtype100 = 0
+
+[aqconditions]
+ctempunits = "C"
+itempunits = 0
+baropres = 760
+cbarounits = "mmHg"
+ibarounits = 0
+kptsch = 64
+posx = 0
+posy = 0
+posz = 0
+cposunits = "In"
+iposunits = 0
+expcmnt = ""
+cshowdata = "Graphics"
+ishowdata = 0
+cvelunits = "m/s"
+ivelunits = 0
+vsetsamprate = 1000
+isetsamprate = 11
+ilpfilter = 0
+iccalpfilter = 10
+trigsource = 0
+ihpfilter = 0
+

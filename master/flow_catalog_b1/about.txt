@@ -1,11 +1,30 @@
 FAWT Flow Cataloging (Basement, #1) -- May 2019
 
+Streamwise distances used:
+
+- 1.50 -> about 63'' downstream
+- 1.25 -> about 52.5'' downstream
+- 1.00 -> about 42'' downstream
+- 0.75 -> about 31.5'' downstream
+- 0.5  -> about 21'' downstream
+
 Remarks:
 - All experiments will be by default:
     - 1 min. long
     - control period of 100ms (send a command every such ms)
     - DC offset of 40% for periodics
     - Amplitude of 30% DC for periodics
+
+- All spanwise experiments are done at 0.75 l/x streamwise distance
+- Assuming the wind tunnel's side length is 42''
+
+Test-run-specific remarks:
+- in CTG9-3 (donut 0-0), the DC offset resets to a lower one at the start (ignore that transient)
+
+
+Broken test runs (ignore):
+- CTG10-7
+- CTG10-8
 
 Notation:
 - U.P. -> "uniform periodic"

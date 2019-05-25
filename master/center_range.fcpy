@@ -1,0 +1,24 @@
+# apply dc to all fans within range of the center
+
+# value for fans within and without range:
+value_in = .3
+value_out = 0
+
+# define range (this far from center):
+dist_c = 1
+dist_r = 1
+
+# define center:
+c_c = C//2
+r_c = R//2
+
+# calculate distance:
+dr = abs(r - r_c)
+dc = abs(c - c_c)
+
+# determine if in range:
+f_in = dr <= dist_r and dc <= dist_c
+
+# apply:
+return value_in if f_in else value_out
+
