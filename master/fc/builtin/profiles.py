@@ -27,6 +27,91 @@
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 from .. import archive as ac
 
+MODULE = {
+    ac.name : "Single CAST Module",
+    ac.description : "...",
+    ac.platform : ac.UNKNOWN,
+
+    ac.broadcastIP : "10.0.0.255",
+    ac.broadcastPort  : 65000,
+    ac.broadcastPeriodMS : 1000,
+    ac.periodMS : 100,
+    ac.maxLength : 512,
+    ac.maxTimeouts : 10,
+
+    ac.mainQueueSize : 10,
+    ac.slaveQueueSize: 10,
+    ac.broadcastQueueSize : 2,
+    ac.listenerQueueSize : 3,
+    ac.misoQueueSize : 2,
+    ac.printerQueueSize : 3,
+    ac.passcode : "CT",
+    ac.socketLimit : 1024,
+
+    ac.defaultSlave :
+        {
+            ac.SV_name : "FAWT Module",
+            ac.SV_mac : "None",
+            ac.SV_index : -1,
+            ac.SV_fanModel : "Unknown",
+            ac.SV_fanMode : ac.SINGLE,
+            ac.SV_targetRelation :(1.0, 0.0),
+            ac.SV_chaserTolerance : 0.02,
+            ac.SV_fanFrequencyHZ : 25000,
+            ac.SV_counterCounts : 2,
+            ac.SV_counterTimeoutMS : 30,
+            ac.SV_pulsesPerRotation : 2,
+            ac.SV_maxRPM : 16000,
+            ac.SV_minRPM : 1200,
+            ac.SV_minDC : 0.1,
+            ac.SV_maxFans : 18,
+            ac.SV_pinout : "CAST",
+            ac.MD_assigned : True,
+            ac.MD_row : 0,
+            ac.MD_column : 0,
+            ac.MD_rows : 3,
+            ac.MD_columns : 3,
+            ac.MD_mapping : ("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17")
+        },
+    ac.savedSlaves : (
+        {
+            ac.SV_name : "Module 1",
+            ac.SV_mac : "00:80:e1:42:00:1f",
+            ac.SV_index : -1,
+            ac.SV_fanModel : "Unknown",
+            ac.SV_fanMode : ac.DOUBLE,
+            ac.SV_targetRelation :(1.0, 0.0),
+            ac.SV_chaserTolerance : 0.02,
+            ac.SV_fanFrequencyHZ : 25000,
+            ac.SV_counterCounts : 2,
+            ac.SV_counterTimeoutMS : 30,
+            ac.SV_pulsesPerRotation : 2,
+            ac.SV_maxRPM : 16000,
+            ac.SV_minRPM : 1200,
+            ac.SV_minDC : 0.1,
+            ac.SV_maxFans : 18,
+            ac.SV_pinout : "CAST",
+            ac.MD_assigned : True,
+            ac.MD_row : 0,
+            ac.MD_column : 0,
+            ac.MD_rows : 3,
+            ac.MD_columns : 7,
+            ac.MD_mapping : \
+                "0,2,4,,1,3,5,6,8,10,,7,9,11,12,14,16,,13,15,17"
+            #("0-1,2-3,4-5,6-7,8-9,10-11,12-13,14-15,16-17")
+        },
+    ),
+    ac.pinouts : ac.PINOUTS.copy(),
+    ac.maxRPM : 16000,
+    ac.maxFans : 18,
+    ac.dcDecimals : 2,
+    ac.fanArray : {
+        ac.FA_rows : 3,
+        ac.FA_columns : 7,
+        ac.FA_layers : 2,
+    },
+}
+
 DEV1 = {
     ac.name : "Development Profile",
     ac.description : "A provisional profile to be used for development.",
@@ -662,7 +747,7 @@ BASE = {
         }
     ),
     ac.pinouts : ac.PINOUTS.copy(),
-    ac.maxRPM : 16000,
+    ac.maxRPM : 12000,
     ac.maxFans : 21,
     ac.dcDecimals : 2,
     ac.fanArray : {
@@ -8398,6 +8483,7 @@ CAST_SIDE = {
 PROFILES = {
     "BASE": BASE,
     "CAST" : CAST,
+    "MODULE":MODULE,
     "BOX"  : BOX,
     "SIDE" : CAST_SIDE,
     "DEV1" : DEV1,

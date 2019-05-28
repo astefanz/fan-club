@@ -1,0 +1,12 @@
+n = 13
+
+dcs = [m/n for m in range(n)]
+
+if t >= n*n:
+	return 0
+
+if c <= 2: # front
+	return dcs[t%n]
+
+else: # back
+	return dcs[t//n]

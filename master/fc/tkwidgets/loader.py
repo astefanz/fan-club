@@ -178,15 +178,8 @@ class LoaderWidget(Loader):
         self.onLoad = onLoad
         self.interactive = []
 
-        self.loadButton = tk.Button(self, text = "Load",
-            **gus.padc, **gus.fontc, command = self._load)
-        self.loadButton.pack(side = tk.LEFT, **gus.padc)
-        self.interactive.append(self.loadButton)
-
-        self.saveButton = tk.Button(self, text = "Save",
-            **gus.padc, **gus.fontc, command = self._save)
-        self.saveButton.pack(side = tk.LEFT, **gus.padc)
-        self.interactive.append(self.saveButton)
+        self._buildLoadButton()
+        self._buildSaveButton()
 
     def enable(self):
         """
@@ -214,20 +207,52 @@ class LoaderWidget(Loader):
         """
         self.save(self.onSave(), default = self.default())
 
+    def _addInteractive(self, widget):
+        """
+        Add an interactive widget for systematic enabling and disabling.
+        """
+        self.interactive.append(widget)
+
+    def _buildLoadButton(self, text = "Load"):
+        self.loadButton = tk.Button(self, text = text,
+            **gus.padc, **gus.fontc, command = self._load)
+        self.loadButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.loadButton)
+
+    def _buildSaveButton(self, text = "Save"):
+        self.saveButton = tk.Button(self, text = text,
+            **gus.padc, **gus.fontc, command = self._save)
+        self.saveButton.pack(side = tk.LEFT, **gus.padc)
+        self.interactive.append(self.saveButton)
+
 class FlowLoaderWidget(LoaderWidget):
     """
-    Shorthand for a LoaderWidget that loads saved FC Flows.
-
-    (I'm not repeating myself any more than I have to.)
+    Shorthand for a LoaderWidget that loads flows from CSV files.
+    Does not allow saving.
     """
-    EXTENSION = ".fcflow"
-    FILETYPES = (("Fan Club Saved Flows", EXTENSION),)
+    EXTENSION = ".csv"
+    FILETYPES = (("CSV", EXTENSION),)
 
-    def __init__(self, master, onSave, onLoad):
+    def __init__(self, master, onLoad):
         """
         See LoaderWidget.
         """
-        LoaderWidget.__init__(self, master, self.FILETYPES, onSave, onLoad)
+        LoaderWidget.__init__(self, master, self.FILETYPES, lambda: None, onLoad)
         self.default = lambda: "FCMkIV_flow_{}{}".format(tm.strftime(
             "%a_%d_%b_%Y_%H-%M-%S", tm.localtime()), self.EXTENSION)
+
+    def _save(self, *_):
+        """
+        No saving implemented.
+        """
+        pass
+
+    def _buildSaveButton(self):
+        """
+        No saving here.
+        """
+        pass
+
+    def _buildLoadButton(self):
+        LoaderWidget._buildLoadButton(self, "Choose File")
 

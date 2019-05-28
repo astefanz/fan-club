@@ -1068,10 +1068,11 @@ class FCCommunicator(us.PrintClient):
             slave.setSockets(newMISOS = misoS, newMOSIS = mosiS)
 
             self.printr("[SV] ({:3d}) Slave sockets connected: "\
-             " MMISO: {} MMOSI:{}".\
+             " MMISO: {} MMOSI:{} (IP: {})".\
                 format(targetIndex + 1,
                     slave._misoSocket().getsockname()[1],
-                    slave._mosiSocket().getsockname()[1]))
+                    slave._mosiSocket().getsockname()[1],
+                    slave.getIP()))
 
             # HSK message ------------------------------------------------------
             def _makeHSK():

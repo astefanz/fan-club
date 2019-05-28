@@ -116,6 +116,8 @@ class BaseGrid(tk.Frame):
 
         self.size = R*C
         self.iids = [0]*self.size
+        self._temp_tiids = [0]*self.size # FIXME
+        self._temp_tmaps = [[]]*self.size # FIXME
         self.fills = [self.empty]*self.size
         self.outlines = [self.outline]*self.size
         self.widths = [self.width]*self.size
@@ -127,6 +129,22 @@ class BaseGrid(tk.Frame):
         Return the index that corresponds to row R and column C.
         """
         return r*self.C + c
+
+    def _temp_setmap(self, i, s, f):
+        # FIXME
+        self.canvas.itemconfig(
+            self._temp_tiids[i], text = "{}\ns{}f{}".format(i, s, f),
+                fill = "white")
+        self._temp_tmaps[i] = [s, f]
+        print("** ---------- temp:")
+        print("[...")
+        for i, p in enumerate(self._temp_tmaps):
+            if len(p) > 0:
+                print("\t{} {};".format(*p), end="")
+            if i%11 == 0:
+                print("")
+
+        print("]")
 
     def draw(self, cellLength = None, margin = 1):
         """
@@ -184,6 +202,10 @@ class BaseGrid(tk.Frame):
                 self.indices[iid] = index
                 self.iids[index] = iid
 
+                # FIXME
+                self._temp_tiids[index] = self.canvas.create_text(
+                    x + l/2, y + l/2, font = "TkFixedFont 7")
+
                 self.canvas.tag_bind(iid, '<ButtonPress-1>',
                     self._wrapper(_LEFT_CLICK))
                 self.canvas.tag_bind(iid, '<Double-Button-1>',
@@ -204,8 +226,12 @@ class BaseGrid(tk.Frame):
             x = xmargin
             y += l
 
+
         self.xmargin = xmargin
         self.ymargin = margin
+        # TODO
+        self.canvas.create_line(self.xmargin, self.ymargin + l*self.R/2,
+            0, self.ymargin + l*self.R/2, fill = "darkgray", width = 4)
 
     def filli(self, i, fill):
         """

@@ -155,3 +155,18 @@ class PromptLabel(tk.Label):
         self.enabled = False
         self.config(bg = self.INACTIVE_BG)
 
+
+def _validateN(newCharacter, textBeforeCall, action):
+    try:
+        return action == '0' or  newCharacter in '0123456789' or \
+            int(newCharacter) > 0
+    except:
+        return False
+
+def _validateF(newCharacter, textBeforeCall, action):
+    try:
+        return action == '0' or  newCharacter in '.0123456789' or \
+            float(newCharacter) > 0 and float(newCharacter) <= 100
+    except:
+        return False
+
