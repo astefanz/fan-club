@@ -36,7 +36,7 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "1.0"
+VERSION = "0.10"
 INIT_PROFILE = "BASE" # FIXME
 
 ## MAIN ########################################################################
@@ -49,7 +49,6 @@ print("[REM] Pass profiles, not archive, when profile changes will cause reset")
 print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
 print("[REM] Indexing by 1 in functional input")
 print("[REM] Standardize notation (also: function argument consistency)")
-print("[REM][control] display time counter in dynamic flow")
 print("[REM] period_ms abstraction barrier in FCInterface")
 
 pqueue = mp.Queue()

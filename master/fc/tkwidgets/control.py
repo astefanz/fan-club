@@ -268,8 +268,8 @@ class PythonInputWidget(tk.Frame):
         self.indent.grid(row = row, column = 0, sticky = "NS")
 
         self.text = tk.Text(self, font = self.font,
-            width = 30, height = 2, padx = 10, pady = 0, bg = 'black',
-            fg = 'lightgray', insertbackground = "#ff6e1f",
+            width = 30, height = 2, padx = 10, pady = 0, bg = 'white',
+            fg = 'black', insertbackground = "#ff6e1f",
             tabs = self.tabsize)
         self.text.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
         self.interactive.append(self.text)
@@ -289,7 +289,7 @@ class PythonInputWidget(tk.Frame):
             sticky = "WE")
 
         # TODO
-        self.runButton = tk.Button(self.buttonFrame, text = "Run",
+        self.runButton = tk.Button(self.buttonFrame, text = "Apply Statically",
             command = self._run, **gus.padc, **gus.fontc)
         self.runButton.pack(side = tk.LEFT, **gus.padc)
         self.interactive.append(self.runButton)
@@ -298,17 +298,6 @@ class PythonInputWidget(tk.Frame):
             filetypes = (("Fan Club Python Procedures", ".fcpy"),),
             onSave = self._onSave, onLoad = self._onLoad)
         self.loader.pack(side = tk.LEFT)
-
-        # TODO
-        self.builtinButton = tk.Button(self.buttonFrame, text = "Built-in",
-            **gus.padc, **gus.fontc, command = self._builtin)
-        self.builtinButton.pack(side = tk.LEFT, **gus.padc)
-        self.interactive.append(self.builtinButton)
-
-        # TODO
-        self.helpButton = tk.Button(self.buttonFrame, text = "Help",
-            **gus.padc, **gus.fontc, command = self._help)
-        self.helpButton.pack(side = tk.LEFT, **gus.padc)
 
         # Wrap-up:
         self.func = None
@@ -428,13 +417,23 @@ class PythonInputWidget(tk.Frame):
         """
         print("[WARNING] _help not implemented ")
 
-class SteadyControlWidget(tk.Frame, us.PrintClient):
+class MainControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the steady flow control tools.
     """
     SYMBOL = "[SC]"
     SLIDER_MIN = 0
     SLIDER_MAX = 100
+
+    FT_ROW, FT_COL, FT_TV, FT_GNLOG, FT_GDLOG = 0, 1 ,2 ,3, 5
+    FT_LIST =4 # FIXME temp
+    FILETYPES = (
+        ("Row (,)", FT_ROW),
+        ("Column (\\n)", FT_COL),
+        ("t, val", FT_TV),
+        ("Log (gen)", FT_GNLOG),
+        ("Log (grid)", FT_GDLOG),
+    )
 
 
     def __init__(self, master, network, display, logstart, logstop,  pqueue):
@@ -450,6 +449,12 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.grid_columnconfigure(0, weight = 1)
         row = 0
         self.loadedFlow = None
+        self.flowType = None
+        self.values = None
+        self.n = None
+        self.times = None
+        self.tmax = 0
+        self.activeWidgets = []
 
         # Callbacks:
         self.selectAll = self._nothing
@@ -458,7 +463,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.simpleFrame = tk.Frame(self)
         self.simpleFrame.grid(row = row, sticky = "EW")
         row += 1
-
 
         # Direct input .........................................................
         self.directFrame = tk.LabelFrame(self.simpleFrame,
@@ -472,6 +476,8 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.sendDirectButton = tk.Button(self.directFrame, text = "Apply",
             **gus.padc, **gus.fontc, command = self._onSendDirect)
         self.sendDirectButton.pack(side = tk.LEFT, **gus.padc)
+        self.activeWidgets.append(self.directValueEntry)
+        self.activeWidgets.append(self.sendDirectButton)
 
         # FIXME keyboard bindings
 
@@ -487,6 +493,7 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.randomLow = tk.Entry(self.randomFrame, **gus.fontc, width = 5)
         self.randomLow.pack(side = tk.LEFT)
         self.randomLow.insert(0, "0")
+        self.activeWidgets.append(self.randomLow)
 
         self.comma = tk.Label(self.randomFrame, text = ", ", **gus.efont)
         self.comma.pack(side = tk.LEFT)
@@ -495,13 +502,15 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.randomHigh = tk.Entry(self.randomFrame, **gus.efont, width = 5)
         self.randomHigh.pack(side = tk.LEFT)
         self.randomHigh.insert(0, "100")
+        self.activeWidgets.append(self.randomHigh)
 
         self.rightB = tk.Label(self.randomFrame, text = "]", **gus.fontc)
         self.rightB.pack(side = tk.LEFT)
 
-        self.sendRandomButton = tk.Button(self.randomFrame, text = "Send",
+        self.sendRandomButton = tk.Button(self.randomFrame, text = "Apply",
             **gus.padc, **gus.fontc, command = self._sendRandom)
         self.sendRandomButton.pack(side = tk.LEFT, **gus.padc)
+        self.activeWidgets.append(self.sendRandomButton)
 
         # Slider ...............................................................
         self.sliderFrame = tk.LabelFrame(self, text = "Slider",
@@ -509,21 +518,25 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.sliderFrame.grid(row = row, sticky = "EW")
         row += 1
 
-        # Min button:
-        self.setSliderMinButton = tk.Button(self.sliderFrame, text = " 0% ",
-            **gus.padc, **gus.fontc, command = self._setSliderMin)
-        self.setSliderMinButton.pack(side = tk.LEFT, **gus.padc)
-
         # Slider:
         self.slider = tk.Scale(self.sliderFrame, from_ = 0, to = 100,
             command = lambda s: self._sendDirect(float(s)),
             orient = tk.HORIZONTAL)
-        self.slider.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.slider.pack(side = tk.TOP, fill = tk.X, expand = True)
+        self.activeWidgets.append(self.slider)
 
-        # Max button:
-        self.setSliderMaxButton = tk.Button(self.sliderFrame, text = " 100% ",
-            **gus.padc, **gus.fontc, command = self._setSliderMax)
-        self.setSliderMaxButton.pack(side = tk.LEFT, **gus.padc)
+        # Quick duty cycles:
+        self.quickDCButtons = []
+        self.quickDCFrame = tk.Frame(self.sliderFrame)
+        self.quickDCFrame.pack(side = tk.TOP, fill = tk.X, expand = True)
+        for dc in [0, 10, 20, 30, 50, 70, 80, 90, 100]:
+            button = tk.Button(self.quickDCFrame, text = "{:3d}%".format(dc),
+                command = self._quickDCCallback(dc/100),
+                padx = 0, font = "TkFixedFont 6" \
+                + (" bold" if dc in (0, 50, 100) else ""))
+            button.pack(side = tk.LEFT, fill = tk.X, expand = True)
+            self.quickDCButtons.append(button)
+            self.activeWidgets.append(button)
 
         # Padding row:
         self.grid_rowconfigure(row, weight = 2)
@@ -539,6 +552,7 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         self.flowLoader = ldr.FlowLoaderWidget(self.flowLoaderFrame,
             self._onLoad)
         self.flowLoader.pack(side = tk.LEFT)
+        self.activeWidgets.append(self.flowLoader)
 
         self.fileLabel = tk.Label(self.flowLoaderFrame, text = "File: ",
             **gus.fontc, **gus.padc)
@@ -550,8 +564,8 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
             **gus.fontc, **gus.padc)
         self.fileTypeLabel.pack(side = tk.LEFT)
 
-        self.fileTypes = {"t/vel" : 0,
-            #"log-u" : 1, "log-g" : 2 FIXME implement
+        self.fileTypes = {"List": self.FT_LIST, "t vs U" : self.FT_TV,
+            #"log-u" : self.FT_LGU, "log-g" : self.FT_LGG FIXME implement
             }
         self.typeMenuVar = tk.StringVar()
         self.typeMenuVar.trace('w', self._onTypeMenuChange)
@@ -560,17 +574,17 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
             *list(self.fileTypes.keys()))
         self.typeMenu.config(width = 6, **gus.fontc)
         self.typeMenu.pack(side = tk.LEFT)
+        self.activeWidgets.append(self.typeMenu)
 
         # TODO:
         # - start/stop
         # - display
         # - tstep
-        temp = lambda: None
         self.timer = tmr.TimerWidget(self.flowFrame,
             startF = self._startFlow,
-            stopF = lambda: print("stopf"),
-            stepF = lambda t, k: print(x),
-            endDCF = lambda x: print(x),
+            stopF = self._stopFlow,
+            stepF = self._stepF,
+            endDCF = lambda dc:self._sendDirect(dc, False),
             logstartF = self.logstart,
             logstopF = self.logstop)
         self.timer.pack(side = tk.TOP, fill = tk.X, expand = True)
@@ -583,17 +597,20 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         Callback for direct send button.
         """
         try:
-            self._sendDirect(float(self.directValueEntry.get()))
+            self._sendDirect(float(self.directValueEntry.get()), True)
         except Exception as e:
             self.printx(e, "Exception when sending direct DC")
 
-
-    def _sendDirect(self, dc):
+    def _sendDirect(self, dc, normalize = True):
         """
         Send a "direct input" command using the given send callback.
-            - dc := duty cycle to send as float in [0, 100]
+            - dc := duty cycle to send as float in [0, 100] if normalize is True
+                or in [0, 1] if normalize is False.
+            - normalize := bool, whether to divide dc by 100.
         """
-        self.display.set(dc/100)
+        normalized = dc/100 if normalize else dc
+        self.slider.set(dc if normalize else dc*100)
+        self.display.set(normalized)
 
     def _sendRandom(self, *_):
         """
@@ -610,7 +627,6 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
                 return ((rd.random()*(maxDC - minDC) + minDC))/100
             self.display.map(f, 0, 0)
 
-
         except Exception as e:
             self.printx(e, "Exception while processing random DC")
 
@@ -626,25 +642,140 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         """
         self._sendDirect(self.SLIDER_MIN)
 
+    def _quickDCCallback(self, dc):
+        """
+        Build a callback to apply the given duty cycle.
+        - dc: float, in [0.0, 1.0] to apply when called.
+        """
+        def callback(*_):
+            self._sendDirect(dc, normalize = False)
+        return callback
+
     def _startFlow(self):
-        if self.loadedFlow is not None:
-            # TODO prepare (disable widgets, etc)
-            return True
-        else:
+        try:
+            if self.loadedFlow is not None and self._parseFlow():
+                # TODO prepare (disable widgets, etc)
+                self._setActiveWidgets(tk.DISABLED)
+                return True
+            else:
+                return False
+        except Exception as e:
+            self.printx(e, "Exception while starting loaded flow")
             return False
 
+    def _stepF(self, t, k):
+        """
+        To be called on each step of the flow loader.
+        """
+        # Process step:
+        if self.flowType == self.FT_LIST:
+            self.display.set(self.values[min(k, self.n - 1)])
+        elif self.flowType == self.FT_TV:
+            dc = self._getInterpolatedDC(t)
+            print(t, dc)
+            self._sendDirect(dc, False)
+        else:
+            self.printe("Flow type unavailable")
+        # Check for stop or continue condition:
+
+    def _stopFlow(self):
+        """
+        Callback to stop the loaded flow.
+        """
+        self.values = None
+        self.times = None
+        self.tmax = 0
+        self._setActiveWidgets(tk.NORMAL)
+
     def _onTypeMenuChange(self, *_):
-        # TODO
-        pass
+        self.flowType = self.fileTypes[self.typeMenuVar.get()]
+
+    def _setActiveWidgets(self, state):
+        """
+        Set all interactive widgets to the given state (either tk.DISABLED or
+        tk.NORMAL)
+        """
+        for widget in self.activeWidgets:
+            widget.config(state = state)
 
     def _onLoad(self, loaded):
         """
         Load callback for FlowLoader.
         """
-        # FIXME parse and verify?
         if loaded is not None:
-            # TODO put flow filename in display
-            self.loadedFlow = loaded
+            data, filename = loaded
+            self.loadedFlow = data
+            self.fileField.config(state = tk.NORMAL)
+            self.fileField.delete(0, tk.END)
+            self.fileField.insert(0, filename.split("/")[-1].split("\\")[-1])
+            self.fileField.config(state = tk.DISABLED)
+
+    def _parseFlow(self):
+        """
+        Extract data from the loaded flow for execution and return whether such
+        extraction was successful or not (as bool).
+        """
+
+        try:
+            if self.flowType == self.FT_LIST:
+                values_raw = eval("[" + self.loadedFlow  +"]")
+                self.n = len(values_raw)
+
+            elif self.flowType == self.FT_TV:
+                lines = self.loadedFlow.split("\n")
+                self.n = len(lines)
+                self.times, values_raw = [0]*self.n, [0]*self.n
+                for i, line in enumerate(lines):
+                    if len(line) > 0:
+                        time, value = line.split(",")
+                        self.times[i], values_raw[i] = float(time),float(value)
+                self.tmax = max(self.times)
+            else:
+                raise RuntimeError("Loaded flow type not available") # TODO
+
+            # Normalize and store extracted values:
+            normalize = False
+            for value in values_raw:
+                if value > 1.0:
+                    normalize = True
+                    break
+            if normalize:
+                values_max = max(values_raw)
+                self.values = list(map(lambda v: v/values_max, values_raw))
+            else:
+                self.values = values_raw
+
+            print(self.times) # FIXME debug
+            return True
+
+        except Exception as e:
+            self.printx(e, "Exception while parsing flow")
+            return False
+
+    def _getInterpolatedDC(self, t):
+        """
+        Interpolate a duty cycle from the loaded flow's values and times
+        list, using the current timestamp.
+        """
+        # Handle out-of-range cases:
+        if t <= self.times[0]:
+            return self.values[0]
+        elif t >= self.tmax:
+            return self.values[-1]
+
+        # Find nearest timestamp:
+        # Find nearest time:
+        i, ti = 0, self.times[0]
+        while t > ti and i < self.n:
+            i += 1
+            ti = self.times[i]
+        t0 = self.times[i - 1]
+        v0, vi = self.values[i-1], self.values[i]
+
+        # Interpolate a weighted average of the two values:
+        p = (ti - t)/(ti - t0)
+        dc =  (v0*p + vi*(1 - p))
+        return dc
 
     @staticmethod
     def _nothing(*_):
@@ -653,9 +784,7 @@ class SteadyControlWidget(tk.Frame, us.PrintClient):
         """
         pass
 
-    # FIXME
-
-class DynamicControlWidget(tk.Frame, us.PrintClient):
+class FunctionControlWidget(tk.Frame, us.PrintClient):
     """
     Container for the dynamic flow control tools.
     """
@@ -688,7 +817,7 @@ class DynamicControlWidget(tk.Frame, us.PrintClient):
         self.display.addParameterCallback(self.python.setParameters)
 
         # Timing ...............................................................
-        self.timeFrame = tk.LabelFrame(self, text = "Timing",
+        self.timeFrame = tk.LabelFrame(self, text = "Time Series",
             **gus.lfconf)
         self.timeFrame.grid(row = row, sticky = "EW")
         row += 1
@@ -750,7 +879,167 @@ class ExternalControlWidget(tk.Frame, us.PrintClient):
         us.PrintClient.__init__(self, pqueue)
         l = tk.Label(self, text = "[External control goes here]")
         l.pack(fill = tk.BOTH, expand = True)
+
         # FIXME
+    # FIXME
+
+class BuiltinFlow:
+    """
+    Data structure for pre-built flows.
+    """
+
+    PTYPE_GRID, PTYPE_TABLE = range(2)
+    ATTR_INT, ATTR_INT_NONNEG, ATTR_INT_POS, ATTR_FLOAT_NONNEG, ATTR_FLOAT_POS,\
+    ATTR_BOOL = range(6)
+
+
+    def __init__(self, name, description, source, ptype, attributes):
+        """
+        Build a new data structure to contain the data for a built-in flow.
+
+        - name: str, name to display to the user to refer to this flow.
+        - description: str, description to display to the user about this flow.
+        - source: str, python code to be plugged into the FC Python interpreter.
+        - ptype: int, predefined constant (as a class attribute) that indicates
+            the kind of parameters the flow's function takes (either those in
+            the Grid or in the LiveTable).
+        - attributes: dict, mapping from attribute names (str) to their format
+            as a corresponding constant as defined in this class' attributes.
+        """
+        self.name, self.description = name, description
+        self.source, self.ptype, self.attributes = source, ptype, attributes
+
+class FlowLibraryWidget(tk.Frame, us.PrintClient):
+    """
+    Container for built-in flows.
+    """
+
+    def __init__(self, master, flows, display, pqueue):
+        tk.Frame.__init__(self, master)
+        us.PrintClient.__init__(self, pqueue)
+        # Setup:
+        self.flows = flows
+        self.display = display
+
+        self.interactive = []
+
+        LIST_ROW, LIST_COLUMN = 0, 0
+        HSCROLL_ROW, HSCROLL_COLUMN = LIST_ROW + 1, LIST_COLUMN
+        VSCROLL_ROW, VSCROLL_COLUMN = LIST_ROW, LIST_COLUMN + 1
+        DESC_ROW, DESC_COLUMN = HSCROLL_ROW + 1, LIST_COLUMN
+        ATTR_ROW, ATTR_COLUMN = DESC_ROW + 1, DESC_COLUMN
+        ASCROLL_ROW, ASCROLL_COLUMN = ATTR_ROW, ATTR_COLUMN + 1
+        CTRL_ROW, CTRL_COLUMN = ATTR_ROW + 1, ATTR_COLUMN
+
+        self.grid_columnconfigure(LIST_COLUMN, weight = 1)
+        self.grid_rowconfigure(ATTR_ROW, weight = 1)
+
+        # TODO
+        # Flow list ............................................................
+        self.list = ttk.Treeview(self, height = 5)
+        self.list.grid(row = LIST_ROW, column = LIST_COLUMN,
+            sticky = "NEW")
+        # Add columns:
+        self.columns = ("Built-in Flows",)
+        self.list['columns'] = self.columns
+        self.list.column("#0", width = 20, stretch = False)
+        for column in self.columns:
+            self.list.column(column, anchor = "center")
+            self.list.heading(column, text = column)
+        # Build scrollbars:
+        # See: https://lucasg.github.io/2015/07/21/
+        #    How-to-make-a-proper-double-scrollbar-frame-in-Tkinter/
+        self.hscrollbar = ttk.Scrollbar(self, orient = tk.HORIZONTAL)
+        self.hscrollbar.config(command = self.list.xview)
+        self.hscrollbar.grid(row = HSCROLL_ROW,
+            column = HSCROLL_COLUMN, sticky = "EW")
+        self.vscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL)
+        self.vscrollbar.config(command = self.list.yview)
+        self.vscrollbar.grid(row = VSCROLL_ROW,
+            column = VSCROLL_COLUMN, sticky = "NS")
+
+        # Build description display
+        self.descriptionFrame = tk.LabelFrame(self, text = "About",
+            **gus.fontc)
+        self.descriptionFrame.grid(row = DESC_ROW, column = DESC_COLUMN,
+            sticky = "NEWS", columnspan = 2)
+        self.descriptionFrame.grid_columnconfigure(0, weight = 1)
+
+        self.nameDisplay = tk.Label(self.descriptionFrame, anchor = tk.W,
+            relief =tk.SUNKEN, bd = 1)
+        self.nameDisplay.grid(row = 0, column = 0, sticky = "EW")
+
+        self.descriptionDisplay = tk.Text(self.descriptionFrame,
+            width = 30, height = 2, padx = 10, pady = 0,
+            bg = 'darkgray', fg = 'black', insertbackground = "#ff6e1f",
+            state = tk.DISABLED)
+        self.descriptionDisplay.grid(row = 1, column = 0, sticky = "NEWS")
+
+        self.dscrollbar = ttk.Scrollbar(self.descriptionFrame,
+            orient = tk.VERTICAL)
+        self.dscrollbar.config(command = self.descriptionDisplay.yview)
+        self.dscrollbar.grid(row = 1, column = 1, sticky = "NS")
+
+        # Build attribute menu NOTE: add scrollbar
+        self.attributeFrame = tk.LabelFrame(self, text = "Configure Flow",
+            **gus.fontc)
+        self.attributeFrame.grid(row = ATTR_ROW, column = ATTR_COLUMN,
+            sticky = "NEWS")
+
+        self.attributeDisplay = tk.Frame(self.attributeFrame)
+        self.attributeDisplay.pack(fill = tk.BOTH, expand = True)
+
+        self.ascrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL)
+        #self.ascrollbar.config(command = self.attributeDisplay.yview) FIXME
+        self.ascrollbar.grid(row = ASCROLL_ROW, column = ASCROLL_COLUMN,
+            sticky = "NS")
+
+
+        # Build control
+        self._apply = lambda: None # FIXME
+        self.controlFrame = tk.LabelFrame(self, text = "Control", **gus.fontc)
+        self.controlFrame.grid(row = CTRL_ROW, column = CTRL_COLUMN,
+            sticky = "NEWS", columnspan = 2)
+        self.applyButton = tk.Button(self.controlFrame, text = "Apply",
+            command = self._apply, **gus.fontc)
+        self.applyButton.pack(side = tk.TOP, fill = tk.X, expand = True)
+
+        # FIXME temp
+        self._startFlow = lambda: None
+        self._stopFlow = lambda: None
+        self._stepF = lambda: None
+        self._sendDirect = lambda: None
+        self.logstart = lambda: None
+        self.logstop = lambda: None
+
+        self.timer = tmr.TimerWidget(self.controlFrame,
+            startF = self._startFlow,
+            stopF = self._stopFlow,
+            stepF = self._stepF,
+            endDCF = lambda dc:self._sendDirect(dc, False),
+            logstartF = self.logstart,
+            logstopF = self.logstop)
+        self.timer.pack(side = tk.TOP, fill = tk.X, expand = True)
+
+        # Add flows
+        for category, name in flows:
+            self.add(flow, category)
+
+    # API ......................................................................
+    def add(self, flow: BuiltinFlow, category: str):
+        """
+        Add a flow to the library.
+        """
+        # TODO
+        pass
+
+    def config(self, state):
+        """
+        Set the state of all interactive widgets.
+        - state := Tkinter constant, one of tk.NORMAL and tk.DISABLED.
+        """
+        for widget in self.interactive:
+            widget.config(state = state)
     # FIXME
 
 class ControlPanelWidget(tk.Frame, us.PrintClient):
@@ -828,20 +1117,20 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         self.notebook.grid(row = row, sticky = "NEWS")
         row += 1
 
-        # Steady ...............................................................
-        self.steady = SteadyControlWidget(self.notebook, network, display,
+        # Basic ................................................................
+        self.basic = MainControlWidget(self.notebook, network, display,
             self._onRecordStart, self._onRecordStop, pqueue)
-        self.notebook.add(self.steady, text = "Manual Control")
+        self.notebook.add(self.basic, text = "Manual Control")
 
         # Flow Library .........................................................
-        self.library = ExternalControlWidget(self.notebook, pqueue) # FIXME
-        self.notebook.add(self.library, text = "Flow Library",
-            state = tk.NORMAL)
+        self.library = FlowLibraryWidget(self.notebook, {}, self.display,pqueue)
+            # TODO
+        self.notebook.add(self.library, text = "Flow Library",state = tk.NORMAL)
 
-        # Dynamic ..............................................................
-        self.dynamic = DynamicControlWidget(self.notebook, display,
+        # Functional ...........................................................
+        self.functional = FunctionControlWidget(self.notebook, display,
             self._onRecordStart, self._onRecordStop, pqueue)
-        self.notebook.add(self.dynamic, text = "Scripting",
+        self.notebook.add(self.functional, text = "Scripting",
             state = tk.NORMAL)
 
         # External .............................................................

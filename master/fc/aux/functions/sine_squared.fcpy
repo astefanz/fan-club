@@ -1,0 +1,23 @@
+# squared sine wave
+# assuming time step of 100ms
+
+k_0 = 20 # time steps to wait
+k_f = None # time steps after which to stop
+res = 100 # steps in 1 period
+
+a = .3 # amplitude in DC
+b = 2*math.pi/res # angular freq
+c = -2*math.pi*k_0/res # phase shift (account for t_0)
+d = 0.4 # vertical offset in DC
+
+x = k%res # argument
+
+if k < k_0:
+	return d
+elif k_f is not None and k > k_f:
+	return d
+else:
+	return a*(math.sin(b*x + c))**2 + d
+
+
+

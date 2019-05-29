@@ -1,0 +1,26 @@
+# "Sonar" flow (spinner w/ B < 1)
+# Draws lines revolving around the center
+# assuming comms. period of 100 ms
+
+res = 50 # time steps per period
+A = 0.4  # sine amplitude
+B = .3   # number of "blades"
+D = 0.4  # DC offset
+
+c_center = C/2 - .5*(C%2)
+r_center = R/2 - .5*(R%2)
+
+c_rad = (c - c_center)**2
+r_rad = (r - r_center)**2
+
+
+rad = math.sqrt(c_rad + r_rad)
+max_rad = math.sqrt(c_center**2 + r_center**2)
+
+phase = 2*math.pi*(k/res)
+
+x = c_center - c
+y = r_center - r
+d = math.sqrt(x**2 + y**2)
+
+return A*math.sin(math.atan2(y, x)*B + phase) + D if d != 0 else D

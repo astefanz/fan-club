@@ -26,6 +26,10 @@
  * Development notes on FCMkIV. "Forgotten mistakes are doomed to be repeated."
  ******************************************************************************/
 
+## ON DOCUMENTATION ############################################################
+- See: https://realpython.com/
+    documenting-python-code/#commenting-vs-documenting-code
+
 ## ON TESTING AND DEBUGGING ####################################################
 
 - Want an automated build and test rig.

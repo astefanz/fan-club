@@ -24,7 +24,7 @@
 #define SETTINGS_H
 
 
-#define JPL
+//#define JPL
 //#define STACK_PRINTS
 //#define HEAP_PRINTS
 

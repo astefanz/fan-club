@@ -1,0 +1,9 @@
+# basic linear ramp w/ saturation
+
+top = .4 # Max duty cycle
+m = 0.01 # slope
+b = 0 # y intercept (in DC)
+
+
+
+return min(top, m*k + b)

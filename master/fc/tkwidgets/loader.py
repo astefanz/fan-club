@@ -181,6 +181,15 @@ class LoaderWidget(Loader):
         self._buildLoadButton()
         self._buildSaveButton()
 
+    def config(self, state):
+        """
+        Allow widget to be disabled by Tkinter config method.
+        """
+        if state == tk.NORMAL:
+            self.enable()
+        else:
+            self.disable()
+
     def enable(self):
         """
         Enable interactive components.

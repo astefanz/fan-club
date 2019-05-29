@@ -1,0 +1,30 @@
+# composed sine wave
+# assuming time step of 100ms
+
+k_0 = 20 # time steps to wait
+k_f = 600 # time steps after which to stop
+d = 0.5 # vertical offset in DC
+
+# amplitude - resolution (for ang. freq.) pairs:
+sets = (
+	(.4, 200),
+	(.3, 50),
+	(.2, 10)
+)
+
+if k < k_0:
+	return d
+elif k_f is not None and k > k_f:
+	return d
+else:
+	result = 0
+	for a, res in sets:
+		b = 2*math.pi/res # angular freq
+		c = -2*math.pi*k_0/res
+		x = k%res # argument
+		result += a*math.sin(b*x + c)
+	return result +d
+
+
+
+
