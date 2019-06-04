@@ -257,11 +257,11 @@ class TimerWidget(tk.Frame):
         Complete one timestep
         """
         if self.running:
-            self.t = self.t_in + tm.time() - self.t0
-            self.k += 1
-            self.stepF(self.t, self.k)
-            self.tVar.set(f"{self.t:.3f}")
             self.kVar.set(self.k)
+            self.stepF(self.t, self.k)
+            self.t = self.t_in + tm.time() - self.t0
+            self.tVar.set(f"{self.t:.3f}")
+            self.k += 1
             if self.end is not None and \
                 (self.endType == self.END_TIME and self.t > self.end or\
                 self.endType == self.END_STEP and self.k > self.end):

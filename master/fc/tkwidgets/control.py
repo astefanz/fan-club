@@ -1081,35 +1081,56 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
 
         self.viewFrame = tk.LabelFrame(self.topFrame, text = "View",**gus.fontc,
             padx = 10)
-        self.viewFrame.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.viewFrame.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
 
         self.viewVar = tk.IntVar()
         self.viewVar.trace('w', self._onModeChange)
         self.liveButton = tk.Radiobutton(self.viewFrame,
             variable = self.viewVar, value = self.DM_LIVE, text = "Live",
             **gus.rbconf)
-        self.liveButton.pack(side = tk.LEFT, pady = 5)
+        self.liveButton.pack(side = tk.TOP, padx = 5, fill = tk.X,
+            expand = True)
         self.builderButton = tk.Radiobutton(self.viewFrame,
             variable = self.viewVar, value = self.DM_BUILDER,
             text = "Preview", **gus.rbconf)
-        self.builderButton.pack(side = tk.LEFT, pady = 5)
+        self.builderButton.pack(side = tk.TOP, padx = 5, fill = tk.X,
+            expand = True)
 
         # Selection ............................................................
         self.selectFrame = tk.LabelFrame(self.topFrame, text = "Select",
             **gus.fontc, padx = 10)
-        self.selectFrame.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.selectFrame.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
 
         self.selectAllButton = tk.Button(self.selectFrame, text = "Select All",
             command = self.selectAll, **gus.fontc)
-        self.selectAllButton.pack(side = tk.LEFT, pady = 5)
+        self.selectAllButton.pack(side = tk.TOP, padx = 5, fill = tk.X,
+            expand = True)
         self.deselectAllButton = tk.Button(self.selectFrame,
             text = "Deselect All", command = self.deselectAll, **gus.fontc)
-        self.deselectAllButton.pack(side = tk.LEFT, pady = 5)
+        self.deselectAllButton.pack(side = tk.TOP, padx = 5, fill = tk.X,
+            expand = True)
 
         self.bind('<Control-a>', self.selectAll)
         self.bind('<Control-A>', self.selectAll)
         self.bind('<Control-d>', self.deselectAll)
         self.bind('<Control-D>', self.deselectAll)
+
+        # Flow limits ..........................................................
+        self.limitFrame = tk.LabelFrame(self.topFrame,
+            text = "DC Limit [0, 100]",
+            **gus.fontc, padx = 10)
+        self.limitFrame.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
+
+        self.limitEntry = tk.Entry(self.limitFrame, **gus.efont, width = 6)
+        self.limitEntry.pack(side = tk.TOP, fill = tk.X, expand = True,
+            **gus.padc)
+
+        # TODO: Use "ceiling vs scale" menu instead of "Set" button
+
+        self.limitButton = tk.Button(self.limitFrame, text = "Set",
+            **gus.fontc) # FIXME command
+        self.limitButton.pack(side = tk.TOP, fill = tk.X, expand = True,
+            **gus.padc)
 
         # Flow control .........................................................
         self.grid_rowconfigure(row, weight = 1) # FIXME

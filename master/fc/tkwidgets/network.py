@@ -699,16 +699,17 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
         # Configure row height dynamically
         # See: https://stackoverflow.com/questions/26957845/
         #       ttk-treeview-cant-change-row-height
-        font = fnt.Font(family = 'TkDefaultFont', size = 12)
+        self.listFontSize = 8
+        font = fnt.Font(family = 'TkDefaultFont', size = self.listFontSize)
         self.style = ttk.Style(self.winfo_toplevel())
         self.style.configure('Treeview',
-            rowheight = font.metrics()['linespace'])
+            rowheight = font.metrics()['linespace'] + 2)
 
         # Create columns:
         self.slaveList.column('#0', width = 20, stretch = False)
         self.slaveList.column("Index", width = 20, anchor = "center")
         self.slaveList.column("Name", width = 20, anchor = "center")
-        self.slaveList.column("MAC", width = 70, anchor = "center")
+        self.slaveList.column("MAC", width = 80, anchor = "center")
         self.slaveList.column("Status", width = 70, anchor = "center")
         self.slaveList.column("Fans", width = 50, stretch = True,
             anchor = "center")
@@ -727,31 +728,31 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
             s.SS_CONNECTED,
             background = s.BACKGROUNDS[s.SS_CONNECTED],
             foreground = s.FOREGROUNDS[s.SS_CONNECTED],
-            font = 'Courier 12 ')
+            font = 'Courier {} '.format(self.listFontSize))
 
         self.slaveList.tag_configure(
             s.SS_UPDATING,
             background = s.BACKGROUNDS[s.SS_UPDATING],
             foreground = s.FOREGROUNDS[s.SS_UPDATING],
-            font = 'Courier 12 bold')
+            font = 'Courier {} bold'.format(self.listFontSize))
 
         self.slaveList.tag_configure(
             s.SS_DISCONNECTED,
             background = s.BACKGROUNDS[s.SS_DISCONNECTED],
             foreground = s.FOREGROUNDS[s.SS_DISCONNECTED],
-            font = 'Courier 12 bold')
+            font = 'Courier {} bold'.format(self.listFontSize))
 
         self.slaveList.tag_configure(
             s.SS_KNOWN,
             background = s.BACKGROUNDS[s.SS_KNOWN],
             foreground = s.FOREGROUNDS[s.SS_KNOWN],
-            font = 'Courier 12 bold')
+            font = 'Courier {} bold'.format(self.listFontSize))
 
         self.slaveList.tag_configure(
             s.SS_AVAILABLE,
             background = s.BACKGROUNDS[s.SS_AVAILABLE],
             foreground = s.FOREGROUNDS[s.SS_AVAILABLE],
-            font = 'Courier 12 ')
+            font = 'Courier {} '.format(self.listFontSize))
 
         # Save previous selection:
         self.oldSelection = None
