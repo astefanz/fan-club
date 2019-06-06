@@ -49,11 +49,11 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
 
     MODULE_BROADCAST, MODULE_LISTENER = 0, 1
 
-    def __init__(self, master, archive, external, pqueue):
+    def __init__(self, master, archive, backend, pqueue):
         """
         - master := tkiner parent widget.
         - archive := FCMkIV Archive instance.
-        - external := ExternalControl back end.
+        - backend := ExternalControl back end.
         - vertical := bool, whether the widget will be taller than it is wide.
         - pqueue := Queue instance for printing (see fc.utils).
         """
@@ -61,8 +61,19 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         us.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
-        self.external = external
+        self.backend = backend
         self.modules = {}
+
+        self.setters = {
+            s.EX_BROADCAST: {
+                s.EX_ACTIVE: self._startBroadcastBackEnd,
+                s.EX_INACTIVE: self._stopBroadcastBackEnd
+            },
+            s.EX_LISTENER: {
+                s.EX_ACTIVE: self._startListenerBackEnd,
+                s.EX_INACTIVE: self._stopListenerBackEnd
+            }
+        }
 
         # Build GUI ............................................................
         self.grid_columnconfigure(0, weight = 1)
@@ -108,7 +119,7 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
     def set(self, key, value):
         try:
             self.modules[key].setActive(value)
-            self.external.set(key, value)
+            self.setters[key][value]()
         except Exception as e:
             self.printx(e, "Exception while {}activating {}".format(
                 "de" if value == s.EX_INACTIVE else "", s.EX_NAMES[key]))
@@ -136,6 +147,19 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
             self.set(key, s.EX_INACTIVE)
 
     # Internal methods ---------------------------------------------------------
+    def _startBroadcastBackEnd(self):
+        self.backend.activateBroadcast(
+            (self.broadcast.getIP(), self.broadcast.getPort()))
+
+    def _stopBroadcastBackEnd(self):
+        self.backend.deactivateBroadcast()
+
+    def _startListenerBackEnd(self):
+        self.backend.activateListener(self.listener.getPort())
+
+    def _stopListenerBackEnd(self):
+        self.backend.deactivateListener()
+
     def _onStartAll(self, *_):
         self.startAll()
 
@@ -148,10 +172,10 @@ class ECSetupWidget(tk.Frame):
     external control broadcast server.
     """
 
-    DISP_CONFIG_GENERAL = {'font':'TkFixedFont 16', 'relief':tk.SUNKEN,
+    DISP_CONFIG_GENERAL = {'font':'TkFixedFont 7 bold', 'relief':tk.SUNKEN,
         'bd':2}
     DISP_CONFIG_ACTIVE = {'text' : 'Active',
-    'fg' : s.FOREGROUNDS[s.SS_CONNECTED],
+        'fg' : s.FOREGROUNDS[s.SS_CONNECTED],
         'bg' : s.BACKGROUNDS[s.SS_CONNECTED]}
     DISP_CONFIG_INACTIVE = {'text' : 'Inactive',
         'fg' : s.FOREGROUNDS[s.SS_DISCONNECTED],
@@ -159,13 +183,12 @@ class ECSetupWidget(tk.Frame):
     DISP_CONFIGS = {s.EX_ACTIVE : DISP_CONFIG_ACTIVE,
         s.EX_INACTIVE : DISP_CONFIG_INACTIVE}
 
-    PARAM_IP, PARAM_PORT, PARAM_RATE, PARAM_REPEAT = 0, 1, 2, 3
-    PARAMETERS = (PARAM_IP, PARAM_PORT, PARAM_RATE, PARAM_REPEAT)
+    PARAM_IP, PARAM_PORT, PARAM_REPEAT = 0, 1, 2
+    PARAMETERS = (PARAM_IP, PARAM_PORT, PARAM_REPEAT)
     TYPES = {
         PARAM_IP : str,
         PARAM_PORT : int,
         PARAM_REPEAT : int,
-        PARAM_RATE : int
     }
 
     def __init__(self, master, title, startf, stopf,
@@ -190,19 +213,16 @@ class ECSetupWidget(tk.Frame):
             self.PARAM_IP : self.defaultIP,
             self.PARAM_PORT : self.defaultPort,
             self.PARAM_REPEAT : self.defaultRepeat,
-            self.PARAM_RATE : self.defaultRate
         }
         self.setters =  {
             self.PARAM_IP : self.setIP,
             self.PARAM_PORT : self.setPort,
             self.PARAM_REPEAT : self.setRepeat,
-            self.PARAM_RATE : self.setRate
         }
         self.disabled =  {
             self.PARAM_IP : not self.editIP,
             self.PARAM_PORT : False,
             self.PARAM_REPEAT : False,
-            self.PARAM_RATE : False
         }
         self.entries = {}
         self.active = None
@@ -216,9 +236,9 @@ class ECSetupWidget(tk.Frame):
         # Main Layout:
         self.main = tk.LabelFrame(self, text = title, **gus.fontc)
         self.main.pack(fill = tk.BOTH, expand = True)
-        rows, columns = (0, 1, 2), (0, 1)
+        rows, columns = (0, 1, 2, 3), (0, 1)
 
-        top, mid, bottom = rows
+        top, mid, low, bottom = rows
         left, right = columns
 
         for column in columns:
@@ -226,29 +246,32 @@ class ECSetupWidget(tk.Frame):
 
         # Active display:
         self.activeDisplay = tk.Label(self.main, **self.DISP_CONFIG_GENERAL)
-        self.activeDisplay.grid(row = top, column = left, sticky = "NEWS")
+        self.activeDisplay.grid(row = top, column = left, sticky = "EW")
+
+        # Indices:
+        self.inputIndexFrame = self._gridFrame(self.main, mid, left)
+        _, self.inputIndexEntry = self._entryPair(self.inputIndexFrame,
+            self.PARAM_REPEAT, "In: ", validateN, active = False)
+        self.inputIndexEntry.config(state = tk.DISABLED)
+        self.outputIndexFrame = self._gridFrame(self.main, low, left)
+        _, self.outputIndexEntry = self._entryPair(self.outputIndexFrame,
+            self.PARAM_REPEAT, "Out: ", validateN, active = False)
+        self.outputIndexEntry.config(state = tk.DISABLED)
 
         # IP and Port:
-        self.addressFrame = self._gridFrame(self.main, top, right)
-        self.ipFrame = self._gridFrame(self.addressFrame, 0, 0)
-        self.portFrame = self._gridFrame(self.addressFrame, 1, 0)
-        self.addressFrame.grid_columnconfigure(0, weight = 1)
+        self.ipFrame = self._gridFrame(self.main, top, right)
         _, self.ipEntry = self._entryPair(self.ipFrame, self.PARAM_IP, "IP: ",
-            validateA, self.editIP)
+            validateA, self.editIP, 15)
         if not self.editIP:
             self.ipEntry.config(state = tk.DISABLED)
+        self.portFrame = self._gridFrame(self.main, mid, right)
         _, self.portEntry = self._entryPair(self.portFrame, self.PARAM_PORT,
             "Port: ", validateN)
 
-        # Repeat:
-        self.repeatFrame = self._gridFrame(self.main, mid, left)
+        # Index and Repeat:
+        self.repeatFrame = self._gridFrame(self.main, low, right)
         _, self.repeatEntry = self._entryPair(self.repeatFrame,
             self.PARAM_REPEAT, "Repeat: ", validateN)
-
-        # Rate:
-        self.rateFrame = self._gridFrame(self.main, mid, right)
-        _, self.rateEntry = self._entryPair(self.rateFrame, self.PARAM_RATE,
-            "Rate(Hz): ", validateN)
 
         # Start and stop button:
         self.startStopFrame = self._gridFrame(self.main, bottom, left)
@@ -286,9 +309,6 @@ class ECSetupWidget(tk.Frame):
     def isActive(self):
         return self.active
 
-    def getRate(self):
-        return self._get(self.PARAM_RATE)
-
     def getRepeat(self):
         return self._get(self.PARAM_REPEAT)
 
@@ -304,11 +324,8 @@ class ECSetupWidget(tk.Frame):
     def setPort(self, port):
         self._set(self.PARAM_PORT, port)
 
-    def setRate(self, rate):
-        self._set(self.PARAM_RATE, rate)
-
     def setRepeat(self, repeat):
-        self._set(self.PARAM_REPEAT, rate)
+        self._set(self.PARAM_REPEAT, repeat)
 
     def setDefaults(self):
         for parameter in self.PARAMETERS:
@@ -344,16 +361,17 @@ class ECSetupWidget(tk.Frame):
     def _onDefault(self, *_):
         self.setDefaults()
 
-    def _gridFrame(self, master, row, column):
+    def _gridFrame(self, master, row, column, columnspan = 1):
         """
         Repetitive behavior to build a frame in one of the grid containers. The
         frame is constructed and "gridded" before being returned.
         """
         frame =  tk.Frame(master)
-        frame.grid(row = row, column = column, sticky = "NEWS")
+        frame.grid(row = row, column = column, sticky = "NEWS",
+            columnspan = columnspan)
         return frame
 
-    def _entryPair(self, master, key, text, validator, active = True):
+    def _entryPair(self, master, key, text, validator, active = True,width = 7):
         """
         Repetitive behavior to build a label-entry pair in the given container.
         Packs the two widgets and returns them as a tuple of the form
@@ -366,13 +384,16 @@ class ECSetupWidget(tk.Frame):
         - active := bool, whether to add the entry to the list of "active"
             widgets.
         """
-        label = tk.Label(master, text = text, **gus.fontc)
+
+
+        label = tk.Label(master, text = text, **gus.fontc, width = 7,
+            anchor = 'e')
         label.pack(side = tk.LEFT)
 
         entry = tk.Entry(master, **gus.efont, validate = "key",
             validatecommand = (validator, '%S', '%s', '%d'),
             disabledforeground = 'black')
-        entry.pack(side = tk.RIGHT, fill = tk.X, )
+        entry.pack(side = tk.LEFT, fill = tk.X, expand = True)
         if active:
             self.activeWidgets.append(entry)
         self.entries[key] = entry

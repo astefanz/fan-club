@@ -160,16 +160,16 @@ class FCInterface(us.PrintServer):
             """
             if self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
-                for client in self.feedbackClients:
-                    client(F)
+                for clientMethod in self.feedbackClients:
+                    clientMethod(F)
             if self.networkPipeRecv.poll():
                 N = self.networkPipeRecv.recv()
-                for client in self.networkClients:
-                    client(N)
+                for clientMethod in self.networkClients:
+                    clientMethod(N)
             if self.slavePipeRecv.poll():
                 S = self.slavePipeRecv.recv()
-                for client in self.slaveClients:
-                    client(S)
+                for clientMethod in self.slaveClients:
+                    clientMethod(S)
             """ experimental
             F = None
             while self.feedbackPipeRecv.poll():
