@@ -47,7 +47,8 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus, grid as gd, loader as ldr, timer as tmr
+from . import guiutils as gus, grid as gd, loader as ldr, timer as tmr,\
+    external as ex
 from .embedded import colormaps as cms
 from .. import archive as ac, utils as us, standards as s
 
@@ -66,13 +67,14 @@ class ControlWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[CW]"
 
-    def __init__(self, master, network, archive, pqueue):
+    def __init__(self, master, network, external, archive, pqueue):
 
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
         self.network = network
+        self.external = external
 
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
@@ -162,7 +164,8 @@ class ControlWidget(tk.Frame, us.PrintClient):
             self.control.destroy()
             self.control = None
         self.control = ControlPanelWidget(self.controlFrame, self.archive,
-            self.network, self.display, self._setLive, self.pqueue)
+            self.network, self.external, self.display, self._setLive,
+            self.pqueue)
         self.control.pack(fill = tk.BOTH, expand = True)
 
     def _buildDisplays(self):
@@ -869,19 +872,6 @@ class FunctionControlWidget(tk.Frame, us.PrintClient):
         """
         self.widget.map(self.f, t, k)
 
-class ExternalControlWidget(tk.Frame, us.PrintClient):
-    """
-    Container for the "external" control tools.
-    """
-
-    def __init__(self, master, pqueue):
-        tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
-        l = tk.Label(self, text = "[External control goes here]")
-        l.pack(fill = tk.BOTH, expand = True)
-
-        # FIXME
-    # FIXME
 
 class BuiltinFlow:
     """
@@ -1052,13 +1042,15 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     DM_LIVE = 690
     DM_BUILDER = 691
 
-    def __init__(self, master, archive, network, display, setLive, pqueue):
+    def __init__(self, master, archive, network, external, display, setLive,
+        pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.archive = archive
         self.network = network
+        self.externalBackEnd = external
         self.display = display
         self.setLive = setLive
         self.grid_columnconfigure(0, weight = 1)
@@ -1155,7 +1147,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             state = tk.NORMAL)
 
         # External .............................................................
-        self.external = ExternalControlWidget(self.notebook, pqueue)
+        self.external = ex.ExternalControlWidget(self.notebook, self.archive,
+           self.externalBackEnd, pqueue) # FIXME pass backend
         self.notebook.add(self.external, text = "External Control",
             state = tk.NORMAL)
 
@@ -1360,7 +1353,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         Get the "flat" (replace newline by semicolon) Python function
         in the dynamic Python input widget.
         """
-        return self.dynamic.flat()
+        return self.functional.flat()
 
     def _onRecordStop(self, event = None):
         self.dataLogger.stop()

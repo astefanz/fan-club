@@ -35,6 +35,7 @@ import time as tm
 import fc.archive as ac
 import fc.utils as us
 import fc.communicator as cm
+import fc.external as ex
 
 ## GLOBALS #####################################################################
 SENTINEL_PERIOD = 0.1 # Seconds
@@ -85,6 +86,7 @@ class FCInterface(us.PrintServer):
         # Build backend abstraction:
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
             self.networkPipeSend, archive, pqueue)
+        self.external = ex.ExternalControl(archive, pqueue)
 
         self.archiveClients = []
 

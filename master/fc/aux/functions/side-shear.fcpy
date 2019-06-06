@@ -1,0 +1,7 @@
+# horizontal, symmetric, quadratic shear from 
+# center column to edges
+mid_c = int(C/2)
+dist_c = abs(c - mid_c)
+ndist_c = dist_c/mid_c
+ampl = .6
+return ampl*((ndist_c)**2)

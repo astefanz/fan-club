@@ -84,43 +84,51 @@ printQueue = 4
 version = 5
 
 # Network ----------------------------------------------------------------------
-broadcastIP = 1000
-broadcastPort  = 100
-broadcastPeriodMS = 101
+broadcastIP = 100
+broadcastPort  = 101
+broadcastPeriodMS = 102
 periodMS = 103
-maxLength = 105
-maxTimeouts = 106
+maxLength = 104
+maxTimeouts = 105
 
-mainQueueSize = 107
-slaveQueueSize= 108
-broadcastQueueSize = 109
-listenerQueueSize = 110
-misoQueueSize = 111
-printerQueueSize = 112
-passcode = 113
+mainQueueSize = 106
+slaveQueueSize= 107
+broadcastQueueSize = 108
+listenerQueueSize = 109
+misoQueueSize = 110
+printerQueueSize = 111
+passcode = 112
 
-socketLimit = 114
+socketLimit = 113
 
-defaultSlave = 1105
-savedSlaves = 1106
+defaultSlave = 114
+savedSlaves = 115
+
+# External control:
+externalDefaultBroadcastIP = 116
+externalDefaultBroadcastPort = 117
+externalDefaultListenerIP = 118
+externalDefaultListenerPort = 119
+externalDefaultRepeat = 120
+externalDefaultRateHz = 121
 
 # For each Slave .........
-SV_name = 116
-SV_mac = 117
-SV_index = 118
-SV_fanModel = 119
-SV_fanMode = 120
-SV_targetRelation = 121
-SV_chaserTolerance = 122
-SV_fanFrequencyHZ = 123
-SV_counterCounts = 124
-SV_counterTimeoutMS = 125
-SV_pulsesPerRotation = 126
-SV_maxRPM = 127
-SV_minRPM = 128
-SV_minDC = 129
-SV_maxFans = 130
-SV_pinout = 131
+SV_name = 216
+SV_mac = 217
+SV_index = 218
+SV_fanModel = 219
+SV_fanMode = 220
+SV_targetRelation = 221
+SV_chaserTolerance = 222
+SV_fanFrequencyHZ = 223
+SV_counterCounts = 224
+SV_counterTimeoutMS = 225
+SV_pulsesPerRotation = 226
+SV_maxRPM = 227
+SV_minRPM = 228
+SV_minDC = 229
+SV_maxFans = 230
+SV_pinout = 231
 # For each module . . . .
 MD_assigned = 300
 MD_row = 301
@@ -129,19 +137,18 @@ MD_rows = 303
 MD_columns = 304
 MD_mapping = 306
 # ........................
-
-pinouts = 132
+pinouts = 307
 
 # Fan array --------------------------------------------------------------------
-maxRPM = 200
-maxFans = 201
-dcDecimals = 202
-fanArray = 203
+maxRPM = 400
+maxFans = 401
+dcDecimals = 402
+fanArray = 403
 
 # For each fan array .....
-FA_rows = 208
-FA_columns = 209
-FA_layers = 210
+FA_rows = 408
+FA_columns = 409
+FA_layers = 410
 
 # . . . . . . . . . . . .
 # ........................
@@ -409,6 +416,36 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         v_positive_int),
+    externalDefaultBroadcastIP  : ("externalDefaultBroadcastIP",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+		v_nonempty_str),
+    externalDefaultListenerIP  : ("externalDefaultListenerIP",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+		v_nonempty_str),
+    externalDefaultBroadcastPort  : ("externalDefaultBroadcastPort",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+		v_port),
+    externalDefaultListenerPort  : ("externalDefaultListenerPort",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+		v_port),
+    externalDefaultRepeat : ("externalDefaultRepeat",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+        v_positive_int),
+    externalDefaultRateHz : ("externalDefaultRateHz",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+        v_positive_int),
     defaultSlave : ("defaultSlave",
 		5,
 		TYPE_SUB,
@@ -634,6 +671,13 @@ class FCArchive(us.PrintClient):
         passcode : "CT",
         socketLimit : 1024,
 
+        externalDefaultBroadcastIP : "<broadcast>",
+        externalDefaultBroadcastPort : 60069,
+        externalDefaultListenerIP : "0.0.0.0",
+        externalDefaultListenerPort : "60169",
+        externalDefaultRepeat : 1,
+        externalDefaultRateHz : 5,
+
         defaultSlave :
             {
                 SV_name : "FAWT Module",
@@ -816,5 +860,14 @@ class FCArchive(us.PrintClient):
         """
         Fetch a value from the current profile, indexed by KEY. Here KEY must
         be a valid key value defined in fc.archive.
+
+        If the key is not present in the currently loaded profile, an attempt
+        will be made to fetch it from the built-in default profile before
+        raising a KeyError.
         """
-        return self.P[key]
+        try:
+            return self.P[key]
+        except KeyError:
+            self.printw("Missing key {} loaded from default profile.".format(
+                META[key][NAME]))
+            return self.DEFAULT[key]

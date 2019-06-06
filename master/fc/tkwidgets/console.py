@@ -99,7 +99,7 @@ class ConsoleWidget(tk.Frame):
         self.screen.tag_config(TAG_REGULAR)
         self.screen.tag_config(TAG_SUCCESS, foreground = FG_SUCCESS)
         self.screen.tag_config(TAG_WARNING,foreground = FG_WARNING)
-        self.screen.tag_config(TAG_ERROR, underline = 1,
+        self.screen.tag_config(TAG_ERROR,
             foreground = FG_ERROR, background = BG_ERROR)
         self.screen.tag_config(TAG_DEBUG, foreground = FG_DEBUG)
 

@@ -976,13 +976,13 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
             self.statusVars[code].set(0)
 
             self.statusLabels[code] = tk.Label(self.statusFrames[code],
-                text = name + ": ", font = "Courier 7", padx = 10, pady = 5,
+                text = name + ": ", font = "Courier 7 bold", padx = 10, pady =2,
                 fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
             self.statusLabels[code].pack(side = tk.LEFT, pady = 5)
 
             self.statusDisplays[code] = tk.Label(self.statusFrames[code],
-                textvariable = self.statusVars[code], font = "Courier 7",
-                padx = 10, pady = 5,
+                textvariable = self.statusVars[code], font = "Courier 7 bold",
+                padx = 10, pady = 2,
                 fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
             self.statusDisplays[code].pack(side = tk.LEFT)
 
@@ -1006,7 +1006,7 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
             font = "Calibri 9 bold",
             highlightbackground= 'black',
             activebackground = "#560e0e", activeforeground = "#ffd3d3",
-            foreground ='#560e0e')
+            foreground ='#560e0e', pady = 0)
         self.shutdownButton.pack(side = tk.RIGHT, fill = tk.Y)
 
         # Slave data:

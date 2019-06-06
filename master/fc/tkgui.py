@@ -77,8 +77,8 @@ class FCGUI(it.FCInterface):
         # GUI:
         self.root = tk.Tk()
         title = TITLE + " " + self.version
-        base = bas.Base(self.root, self.network, self.archive, title,
-            self.version, self.feedbackClient, self.networkClient,
+        base = bas.Base(self.root, self.network, self.external, self.archive,
+            title, self.version, self.feedbackClient, self.networkClient,
             self.slaveClient, self._onProfileChange, self.pqueue)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)

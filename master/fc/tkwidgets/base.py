@@ -56,7 +56,7 @@ class Base(tk.Frame, us.PrintClient):
 
     SYMBOL = "[BS]"
 
-    def __init__(self, master, network, archive, title, version,
+    def __init__(self, master, network, external, archive, title, version,
         feedbackAdd, networkAdd, slavesAdd, profileCallback, pqueue):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
@@ -72,6 +72,7 @@ class Base(tk.Frame, us.PrintClient):
 
         PQUEUE is the Queue object to be used for inter-process printing.
         """
+        # FIXME outdated description
         tk.Frame.__init__(self, master = master)
         us.PrintClient.__init__(self, pqueue, self.SYMBOL)
 
@@ -79,6 +80,7 @@ class Base(tk.Frame, us.PrintClient):
 
         # Core setup -----------------------------------------------------------
         self.network = network
+        self.external = external
         self.archive = archive
         self.feedbackAdd = feedbackAdd
         self.networkAdd = networkAdd
@@ -147,7 +149,7 @@ class Base(tk.Frame, us.PrintClient):
 
         # Control tab:
         self.controlWidget = ctr.ControlWidget(self.controlTab, network,
-            archive, pqueue = pqueue)
+            external, archive, pqueue = pqueue)
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
         self.feedbackAdd(self.controlWidget)

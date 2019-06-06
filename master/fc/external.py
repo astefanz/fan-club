@@ -1,5 +1,4 @@
-#!/usr/bin/python3 #############################################################
-## Project: Fanclub Mark IV "Master" main file ## File: main.py               ##
+################################################################################
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,39 +22,33 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + FC execution starts here. Launches Core.
+ + External control back end.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
-## IMPORTS #####################################################################
-import multiprocessing as mp
+# IMPORTS ######################################################################
+from . import utils as us, standards as s
 
-import fc.tkgui as tkg
-import fc.archive as ac
-import fc.communicator as cm
-import fc.utils as us
-import fc.builtin.profiles as btp
+# CLASS DEFINITIONS ############################################################
+class ExternalControl(us.PrintClient): # FIXME Back end base class?
+    """
+    Back end for "external control" functionality.
+    """
+    SYMBOL = "[EX]"
 
-## GLOBALS #####################################################################
-VERSION = "0.10"
-INIT_PROFILE = "BASE" # FIXME
+    def __init__(self, archive, pqueue): # FIXME
+        """
+        - archive := MkIV FCArchive instance.
+        - pqueue := Queue instance for I.P. printing.
+        """
+        us.PrintClient.__init__(self, pqueue)
+        # TODO
 
-## MAIN ########################################################################
-print(us.HEADER)
+    def set(self, key, value):
+        """
+        Set the whether a module (broadcast or listener) is active.
+        - key := a standard constant referring to either broadcast or listener.
+        - value := a standard constant referring to either active or inactive.
+        """
+        # TODO
+        pass
 
-# FIXME: reminders
-print("[REM] Look into 'memory leak' in profile switches and data path")
-print("[REM] Look into control after profile switching ('return 1')")
-print("[REM] Pass profiles, not archive, when profile changes will cause reset")
-print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
-print("[REM] Indexing by 1 in functional input")
-print("[REM] Standardize notation (also: function argument consistency)")
-print("[REM] period_ms abstraction barrier in FCInterface")
-print("[REM] LiveTable and manual control")
-
-pqueue = mp.Queue()
-archive = ac.FCArchive(pqueue, VERSION)
-archive.profile(btp.PROFILES[INIT_PROFILE])
-interface = tkg.FCGUI(archive, pqueue)
-interface.run()
-
-print("[--] FC MkIV GUI demo finished") # FIXME
