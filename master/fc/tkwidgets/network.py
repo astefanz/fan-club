@@ -957,7 +957,6 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
-        self.config(relief = tk.RIDGE, borderwidth = 2)
 
         # Status counters ......................................................
         self.statusFrame = tk.Frame(self, relief = tk.SUNKEN, borderwidth = 0)
@@ -969,30 +968,32 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         for code, name in ((self.TOTAL, "Total"),) \
             + tuple(s.SLAVE_STATUSES.items()):
             self.statusFrames[code] = tk.Frame(self.statusFrame,
-                relief = tk.SUNKEN, bd = 1)
-            self.statusFrames[code].pack(side = tk.LEFT, padx = 5, pady = 3)
+                relief = tk.RIDGE, bd = 1)
+            self.statusFrames[code].pack(side = tk.LEFT, padx = 5, pady = 1)
 
             self.statusVars[code] = tk.IntVar()
             self.statusVars[code].set(0)
 
             self.statusLabels[code] = tk.Label(self.statusFrames[code],
-                text = name + ": ", font = "Courier 7 bold", padx = 10, pady =2,
+                text = name, font = "Courier 6 bold", padx = 6, pady = 1,
+                width = 14,
                 fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
-            self.statusLabels[code].pack(side = tk.LEFT, pady = 5)
+            self.statusLabels[code].pack(side = tk.TOP)
 
             self.statusDisplays[code] = tk.Label(self.statusFrames[code],
-                textvariable = self.statusVars[code], font = "Courier 7 bold",
-                padx = 10, pady = 2,
+                textvariable = self.statusVars[code], font = "Courier 6 bold",
+                padx = 6, pady = 1, relief = tk.SUNKEN, bd = 1,
                 fg = s.FOREGROUNDS[code] if code in s.FOREGROUNDS else 'black')
-            self.statusDisplays[code].pack(side = tk.LEFT)
+            self.statusDisplays[code].pack(side = tk.TOP, fill = tk.X, padx = 2)
 
         self.connectionVar = tk.StringVar()
         self.connectionVar.set("[NO CONNECTION]")
+
         self.connectionLabel = tk.Label(self.statusFrame,
-            textvariable = self.connectionVar, width = 15,
-            relief = tk.SUNKEN, font = "Courier 7 bold", padx = 10, pady = 5)
+            textvariable = self.connectionVar, width = 11,
+            relief = tk.SUNKEN, font = "Courier 7 bold", padx = 6, pady = 5)
         self.connectionLabel.pack(side = tk.RIGHT, fill = tk.Y, pady = 3,
-            padx = 10)
+            padx = 6)
         self.status = s.SS_DISCONNECTED
 
         # Buttons ..............................................................

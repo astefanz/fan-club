@@ -54,7 +54,8 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         - master := tkiner parent widget.
         - archive := FCMkIV Archive instance.
         - external := ExternalControl back end.
-        - pqueue := Queue instance for printing (see fc.utils)
+        - vertical := bool, whether the widget will be taller than it is wide.
+        - pqueue := Queue instance for printing (see fc.utils).
         """
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
@@ -70,10 +71,10 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         self.allFrame = tk.Frame(self)
         self.allFrame.grid(row = row, column = 0, sticky = "EW")
         self.startAllButton = tk.Button(self.allFrame, text = "Start All",
-            command = self._onStartAll)
+            command = self._onStartAll, **gus.fontc)
         self.startAllButton.pack(side = tk.LEFT, fill = tk.X, expand = True)
         self.stopAllButton = tk.Button(self.allFrame, text = "Stop All",
-            command = self._onStopAll)
+            command = self._onStopAll, **gus.fontc)
         self.stopAllButton.pack(side = tk.LEFT, fill = tk.X, expand = True)
         row += 1
 
@@ -213,7 +214,7 @@ class ECSetupWidget(tk.Frame):
 
         # GUI ..................................................................
         # Main Layout:
-        self.main = tk.LabelFrame(self, text = title)
+        self.main = tk.LabelFrame(self, text = title, **gus.fontc)
         self.main.pack(fill = tk.BOTH, expand = True)
         rows, columns = (0, 1, 2), (0, 1)
 
@@ -252,7 +253,7 @@ class ECSetupWidget(tk.Frame):
         # Start and stop button:
         self.startStopFrame = self._gridFrame(self.main, bottom, left)
         self.startStopButton = tk.Button(self.startStopFrame, text = "Start",
-            command = self._onStart)
+            command = self._onStart, **gus.fontc)
         self.startStopButton.pack(fill = tk.X, expand = True)
 
         self.ssb_configs = {
@@ -263,7 +264,7 @@ class ECSetupWidget(tk.Frame):
         # Default button:
         self.defaultFrame = self._gridFrame(self.main, bottom, right)
         self.defaultButton = tk.Button(self.defaultFrame, text = "Defaults",
-            command = self._onDefault)
+            command = self._onDefault, **gus.fontc)
         self.defaultButton.pack(fill = tk.X, expand = True)
         self.activeWidgets.append(self.defaultButton)
 

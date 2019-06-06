@@ -272,6 +272,14 @@ SLAVE_STATUSES = {
     SS_UPDATING : 'Bootloader'
 }
 
+SLAVE_STATUSES_SHORT = {
+    SS_CONNECTED : 'CONND',
+    SS_KNOWN : 'KNOWN',
+    SS_DISCONNECTED : 'DISCN',
+    SS_AVAILABLE : 'AVAIL',
+    SS_UPDATING : 'BOOTN'
+}
+
 
 # Status foreground colors:
 FOREGROUNDS = {

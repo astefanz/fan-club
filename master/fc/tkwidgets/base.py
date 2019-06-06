@@ -175,7 +175,8 @@ class Base(tk.Frame, us.PrintClient):
         self.bottomBar.grid(row = 2, sticky = 'EW')
         self.bottomWidget = ntw.StatusBarWidget(self.bottomBar,
             network.shutdown, pqueue)
-        self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True)
+        self.bottomWidget.pack(side = tk.LEFT, fill = tk.X, expand = True,
+            pady = 3, padx = 3)
         self.networkAdd(self.bottomWidget)
         self.slavesAdd(self.bottomWidget)
 
