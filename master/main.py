@@ -36,7 +36,7 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "0.10"
+VERSION = "0.11"
 INIT_PROFILE = "BASE" # FIXME
 
 ## MAIN ########################################################################
@@ -51,6 +51,8 @@ print("[REM] Indexing by 1 in functional input")
 print("[REM] Standardize notation (also: function argument consistency)")
 print("[REM] period_ms abstraction barrier in FCInterface")
 print("[REM] LiveTable and manual control")
+print("[REM] Enforce consistent slave indices")
+print("[REM] External control on profile changes")
 
 pqueue = mp.Queue()
 archive = ac.FCArchive(pqueue, VERSION)

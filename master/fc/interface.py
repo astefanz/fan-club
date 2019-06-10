@@ -87,8 +87,10 @@ class FCInterface(us.PrintServer):
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
             self.networkPipeSend, archive, pqueue)
         self.external = ex.ExternalControl(archive, pqueue)
+        self.feedbackClient(self.external)
+        self.networkClient(self.external)
+        self.slaveClient(self.external)
 
-        self.archiveClients = []
 
     # "PUBLIC" INTERFACE -------------------------------------------------------
     def run(self):
@@ -223,6 +225,7 @@ class FCInterface(us.PrintServer):
         self.feedbackClients = []
         self.networkClients = []
         self.slaveClients = []
+        self.archiveClients = []
 
     def _onProfileChange(self):
         """

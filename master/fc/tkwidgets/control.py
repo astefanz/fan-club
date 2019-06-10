@@ -50,7 +50,7 @@ import tkinter.font as fnt
 from . import guiutils as gus, grid as gd, loader as ldr, timer as tmr,\
     external as ex
 from .embedded import colormaps as cms
-from .. import archive as ac, utils as us, standards as s
+from .. import archive as ac, utils as us, standards as s, mapper as mr
 
 ## GLOBALS #####################################################################
 P_TIME = 't'
@@ -1746,6 +1746,12 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # Configure callbacks:
         self.setLeftClick(self._simpleSelectOnClick)
 
+        # FIXME confirm and apply:
+        self.sg, self.gs, _, _ = mr.mappings(self.archive)
+        self.nslaves = len(self.archive[ac.savedSlaves])
+        self.N = self.nslaves*self.maxFans
+        mr._testMapping(self.archive)
+
     # Standard interface .......................................................
     def feedbackIn(self, F):
         """
@@ -1768,15 +1774,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                     f = self.layers[l][i]
                     if f is not None:
                         self.updatei(i, l, F[self.layers[l][i] + offset])
+        """
 
-            """
-            grid_i = 0
-            offset = self.offset*len(F)//2
-            for feedback_i in self.layers[self.layer]:
-                if feedback_i is not None:
-                    self.updatei(grid_i, self.layer, F[feedback_i + offset])
-                grid_i += 1
-            """
+        if self.canvas:
+            for index_S in range(self.N):
+                index_G = self.sg(index_S)
+                if index_G is not s.RIP:
+                    l = index_G//(self.R*self.C)
+                    self.updatei(index_G, l, F[index_S])
+        """
 
     def networkIn(self, N):
         if N[0]:
@@ -1882,6 +1888,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Set grid index I to VALUE on layer L if the given fan is active.
         """
+
+        # FIXME debug:
+        #print(i, l, value)
         if value >= 0:
             if not self.active[l][i]:
                 self.activatei(i, l)

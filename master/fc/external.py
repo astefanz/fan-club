@@ -52,7 +52,7 @@ Build separate from "master" network (Communicator). Focus on simplicity.
         - One for Python expression results
 - Have a simple message format:
     - Broadcast:
-    LISTENER_PORT|INDEX|NROWS|NCOLS|RPMS
+    LISTENER_PORT|INDEX|NROWS|NCOLS|NLAYERS|RPMS
     - Listener reply:
     INDEX|REPLY_CODE|REPLY_VALUE
     - Command to listener:
@@ -63,7 +63,7 @@ Build separate from "master" network (Communicator). Focus on simplicity.
 # IMPORTS ######################################################################
 import socket as sk
 
-from . import utils as us, standards as s
+from . import utils as us, standards as s, archive as ac
 
 # CLASS DEFINITIONS ############################################################
 class ExternalControl(us.PrintClient):
@@ -71,8 +71,17 @@ class ExternalControl(us.PrintClient):
     Back end for "external control" functionality.
     """
     SYMBOL = "[EX]"
+    NOTHING = lambda n: None
+    BROADCAST_TEMPLATE = "{}|{}|{}|{}|{}|{}"
 
-    def __init__(self, archive, pqueue): # FIXME control
+    # TODO: Listener behavior
+
+    def __init__(self, archive, pqueue,
+        setBroadcastStatus = NOTHING,
+        setBroadcastOut = NOTHING,
+        setListenerStatus = NOTHING,
+        setListenerIn = NOTHING,
+        setListenerOut = NOTHING): # FIXME control
         """
         - archive := MkIV FCArchive instance.
         - pqueue := Queue instance for I.P. printing.
@@ -82,11 +91,35 @@ class ExternalControl(us.PrintClient):
         self.archive = archive
         self.pqueue = pqueue
 
+        self.dimensions = (
+            self.archive[ac.fanArray][ac.FA_rows],
+            self.archive[ac.fanArray][ac.FA_columns],
+            self.archive[ac.fanArray][ac.FA_layers])
+
+        self.broadcastTarget = None
+        self.broadcastRepeat = 0
+
+        self.listenerPort = 0
+        self.listenerRepeat = 0
+
+
+        self.setBroadcastStatus = setBroadcastStatus
+        self.setBroadcastOut = setBroadcastOut
+        self.setListenerStatus = setListenerStatus
+        self.setListenerIn = setListenerIn
+        self.setListenerOut = setListenerOut
+
         self.sockets = {}
         self.statuses = {}
+        self.indices = {}
         for key in s.EX_KEYS:
             self.sockets[key] = None
             self.statuses[key] = s.EX_INACTIVE
+            self.indices[key] = {}
+            for index in s.EX_INDICES:
+                self.indices[key][index] = 0
+
+        self.F, self.N, self.S = [], [], []
 
     # API ----------------------------------------------------------------------
     def isActive(self, key):
@@ -108,50 +141,63 @@ class ExternalControl(us.PrintClient):
         """
         return self.statuses[s.EX_LISTENER] == s.EX_ACTIVE
 
-    def activateBroadcast(self, target):
+    def activateBroadcast(self, target, repeat):
         """
         Activate the broadcast module.
         """
-        self.activate(s.EX_BROADCAST, target = target)
+        if self._activate(s.EX_BROADCAST):
+            self.broadcastTarget = target
+            self.broadcastRepeat = repeat
+            self.setBroadcastStatus(s.EX_ACTIVE)
 
-    def activateListener(self, port):
+    def activateListener(self, port, repeat):
         """
         Activate the listener module.
         """
-        self.activate(s.EX_LISTENER, port = port)
+        if self._activate(s.EX_LISTENER, port = port):
+            self.listenerPort = port
+            self.listenerRepeat = repeat
+            self.setListenerStatus(s.EX_ACTIVE)
 
     def deactivateBroadcast(self):
         """
         Deactivate the broadcast module.
         """
         self.deactivate(s.EX_BROADCAST)
+        self.setBroadcastOut(self.indices[s.EX_BROADCAST][s.EX_I_OUT])
+        self.setBroadcastStatus(s.EX_INACTIVE)
 
     def deactivateListener(self):
         """
         Deactivate the listener module.
         """
         self.deactivate(s.EX_LISTENER)
+        self.setListenerIn(self.indices[s.EX_LISTENER][s.EX_I_IN])
+        self.setListenerOut(self.indices[s.EX_LISTENER][s.EX_I_OUT])
+        self.listenerPort = 0
+        self.setListenerStatus(s.EX_INACTIVE)
 
-    def activate(self, key, port = 0, target = ("", 0)):
+    def _activate(self, key, port = 0):
         """
         Activate the module referred to by the given key. If the requested
-        module is already active, it will be deactivated first.
+        module is already active, it will be deactivated first. Returns whether
+        the operation was successful
         - key := standard constant referring to either the broadcast or listener
             module.
         - port := int, (optional) port to assign to the corresponding socket.
             Defaults to 0 to let the operating system assign any port.
-        - target := int, (optional) address tuple to which to bind the
-            corresponding socket. Defaults to ("", 0) to bind to nothing.
         """
         try:
             if self.isActive(key):
                 self.deactivate(key)
-            self.sockets[key] = self._socket(port,target,key == s.EX_BROADCAST)
+            self.sockets[key] = self._socket(port, key == s.EX_BROADCAST)
             self.statuses[key] = s.EX_ACTIVE
             self.prints("{} Activated".format(s.EX_NAMES[key]))
+            return True
         except Exception as e:
             self.printx(e,"Error while activating {}".format(s.EX_NAMES[key]))
             self.deactivate(key)
+            return False
 
     def deactivate(self, key):
         """
@@ -169,41 +215,76 @@ class ExternalControl(us.PrintClient):
             self.printx(e,"Error while deactivating {}".format(s.EX_NAMES[key]))
         finally:
             self.sockets[key] = None
+            for index in s.EX_INDICES:
+                self.indices[key][index] = 0
             self.prints("{} Deactivated".format(s.EX_NAMES[key]))
 
     def feedbackIn(self, F):
         """
         Process the feedback vector F.
         """
-        # TODO
-        pass
+        self.F = F
+        if self.isBroadcastActive():
+            self._broadcast()
 
     def networkIn(self, N):
         """
         Process the network state vector N.
         """
-        # TODO
-        pass
+        self.N = N
 
     def slavesIn(self, S):
         """
         Process the slave status vector S.
         """
-        # TODO
-        pass
+        self.S = S
+
+    def setCallbacks(self, setBroadcastStatus = NOTHING,
+        setBroadcastOut = NOTHING, setListenerStatus = NOTHING,
+        setListenerIn = NOTHING, setListenerOut = NOTHING):
+        """
+        Set the methods to be called to update the front end.
+        """
+        self.setBroadcastStatus = setBroadcastStatus
+        self.setBroadcastOut = setBroadcastOut
+        self.setListenerStatus = setListenerStatus
+        self.setListenerIn = setListenerIn
+        self.setListenerOut = setListenerOut
 
     # Internal methods ---------------------------------------------------------
-    def _socket(self, port: int, target: tuple, broadcast: bool):
+    def _socket(self, port: int, broadcast: bool):
         """
         Create an UDP socket on the given port and bound to the given address
         tuple, which must be of the form (TARGET_IP, TARGET_PORT).
         - port := int, port to assign to the socket.
-        - target := tuple, of the form (TARGET_IP, TARGET_PORT).
         - broadcast := bool, whether to set the socket as a broadcast socket.
         """
         sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
         sock.setsockopt(sk.SOL_SOCKET, sk.SO_REUSEADDR, 1)
         if broadcast:
             sock.setsockopt(sk.SOL_SOCKET, sk.SO_BROADCAST, 1)
-        sock.bind(target)
+        sock.bind(("", port))
         return sock
+
+    def _broadcast(self):
+        """
+        Send a broadcast.
+        """
+        try:
+            index = self.indices[s.EX_BROADCAST][s.EX_I_OUT]
+            message = self.BROADCAST_TEMPLATE.format(
+                self.listenerPort, index, *self.dimensions, self._getRPMs())
+            for _ in range(self.broadcastRepeat):
+                self.sockets[s.EX_BROADCAST].sendto(
+                    bytearray(message, 'ascii'), self.broadcastTarget)
+            self.setBroadcastOut(index)
+            self.indices[s.EX_BROADCAST][s.EX_I_OUT] = index + 1
+        except Exception as e:
+            self.printx(e, "Error in State Broadcast")
+            self.deactivateBroadcast()
+
+    def _getRPMs(self):
+        """
+        Get RPM values from the current feedback vector.
+        """
+        return "" # FIXME

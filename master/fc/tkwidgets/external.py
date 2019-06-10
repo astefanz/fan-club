@@ -90,7 +90,7 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         row += 1
 
         self.broadcast = ECSetupWidget(self, "State Broadcast",
-            self.startBroadcast, self.stopBroadcast,
+            self._startBroadcastBackEnd, self._stopBroadcastBackEnd,
             defaultIP = self.archive[ac.externalDefaultBroadcastIP],
             defaultPort = self.archive[ac.externalDefaultBroadcastPort],
             defaultRepeat = self.archive[ac.externalDefaultRepeat],
@@ -103,7 +103,7 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         self.modules[s.EX_BROADCAST] = self.broadcast
 
         self.listener = ECSetupWidget(self, "Command Listener",
-            self.startListener, self.stopListener,
+            self._startListenerBackEnd, self._stopListenerBackEnd,
             defaultIP = self.archive[ac.externalDefaultListenerIP],
             defaultPort = self.archive[ac.externalDefaultListenerPort],
             defaultRepeat = self.archive[ac.externalDefaultRepeat],
@@ -114,23 +114,34 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         self.modules[s.EX_LISTENER] = self.listener
 
         # Wrap-up ..............................................................
+        self.backend.setCallbacks(
+            setBroadcastStatus = self.setBroadcast,
+            setBroadcastOut = self.broadcast.setOutputIndex,
+            setListenerStatus = self.setListener,
+            setListenerIn = self.listener.setInputIndex,
+            setListenerOut = self.listener.setOutputIndex)
 
     # API ----------------------------------------------------------------------
-    def set(self, key, value):
+    def set(self, key, value, backend = True):
         try:
             self.modules[key].setActive(value)
-            self.setters[key][value]()
         except Exception as e:
             self.printx(e, "Exception while {}activating {}".format(
                 "de" if value == s.EX_INACTIVE else "", s.EX_NAMES[key]))
             if value == s.EX_ACTIVE:
                 self.set(key, s.EX_INACTIVE)
 
+    def setBroadcast(self, value):
+        self.set(s.EX_BROADCAST, value)
+
     def startBroadcast(self):
         self.set(s.EX_BROADCAST, s.EX_ACTIVE)
 
     def stopBroadcast(self):
         self.set(s.EX_BROADCAST, s.EX_INACTIVE)
+
+    def setListener(self, value):
+        self.set(s.EX_LISTENER, value)
 
     def startListener(self):
         self.set(s.EX_LISTENER, s.EX_ACTIVE)
@@ -139,23 +150,25 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         self.set(s.EX_LISTENER, s.EX_INACTIVE)
 
     def startAll(self):
-        for key in self.modules.keys():
-            self.set(key, s.EX_ACTIVE)
+        self._startBroadcastBackEnd()
+        self._startListenerBackEnd()
 
     def stopAll(self):
-        for key in self.modules.keys():
-            self.set(key, s.EX_INACTIVE)
+        self._stopBroadcastBackEnd()
+        self._stopListenerBackEnd()
 
     # Internal methods ---------------------------------------------------------
     def _startBroadcastBackEnd(self):
         self.backend.activateBroadcast(
-            (self.broadcast.getIP(), self.broadcast.getPort()))
+            target = (self.broadcast.getIP(), self.broadcast.getPort()),
+            repeat = self.broadcast.getRepeat())
 
     def _stopBroadcastBackEnd(self):
         self.backend.deactivateBroadcast()
 
     def _startListenerBackEnd(self):
-        self.backend.activateListener(self.listener.getPort())
+        self.backend.activateListener(port = self.listener.getPort(),
+            repeat = self.listener.getRepeat())
 
     def _stopListenerBackEnd(self):
         self.backend.deactivateListener()
@@ -249,14 +262,19 @@ class ECSetupWidget(tk.Frame):
         self.activeDisplay.grid(row = top, column = left, sticky = "EW")
 
         # Indices:
+
         self.inputIndexFrame = self._gridFrame(self.main, mid, left)
         _, self.inputIndexEntry = self._entryPair(self.inputIndexFrame,
             self.PARAM_REPEAT, "In: ", validateN, active = False)
-        self.inputIndexEntry.config(state = tk.DISABLED)
+        self.inputIndexVar = tk.IntVar()
+        self.inputIndexEntry.config(state = tk.DISABLED,
+            textvariable = self.inputIndexVar)
         self.outputIndexFrame = self._gridFrame(self.main, low, left)
         _, self.outputIndexEntry = self._entryPair(self.outputIndexFrame,
             self.PARAM_REPEAT, "Out: ", validateN, active = False)
-        self.outputIndexEntry.config(state = tk.DISABLED)
+        self.outputIndexVar = tk.IntVar()
+        self.outputIndexEntry.config(state = tk.DISABLED,
+            textvariable = self.outputIndexVar)
 
         # IP and Port:
         self.ipFrame = self._gridFrame(self.main, top, right)
@@ -317,6 +335,12 @@ class ECSetupWidget(tk.Frame):
 
     def getPort(self):
         return self._get(self.PARAM_PORT)
+
+    def setInputIndex(self, index):
+        self.inputIndexVar.set(index)
+
+    def setOutputIndex(self, index):
+        self.outputIndexVar.set(index)
 
     def setIP(self, ip):
         self._set(self.PARAM_IP, ip)
