@@ -37,16 +37,16 @@ SPLITTER_LAYER = '-'
 
 def mappings(archive):
     """
-    Build the mappings between the slave-space "S" and the grid-space
+    Build the mappings between network coordinates "K" and the grid coordinates
     "G" based on the profile loaded in the FCArchive.
 
     - archive := FCArchive instance with the loaded profile to use.
 
-    Returns a tuple of the form (f_SG_i, f_GS_i, f_SG_p, f_GS_p) where i
-    functions take SG or GS indices and return the other and p functions take
-    SG (s, f) pairs or GS (l, r, c) pairs and return the other.
+    Returns a tuple of the form (f_KG_i, f_GK_i, f_KG_p, f_GK_p) where i
+    functions take KG or GK indices and return the other and p functions take
+    KG (s, f) pairs or GK (l, r, c) pairs and return the other.
     """
-    SG, GS = _buildMappings(archive)
+    KG, GK = _buildMappings(archive)
     L = archive[ac.fanArray][ac.FA_layers]
     R = archive[ac.fanArray][ac.FA_rows]
     C = archive[ac.fanArray][ac.FA_columns]
@@ -54,26 +54,28 @@ def mappings(archive):
     n_f = archive[ac.maxFans]
     n_S = len(archive[ac.savedSlaves])
 
-    def f_SG_i(i_SG):
-        return SG[i_SG]
+    def f_KG_i(i_KG):
+        return KG[i_KG]
 
-    def f_GS_i(i_GS):
-        return GS[i_GS]
+    def f_GK_i(i_GK):
+        return GK[i_GK]
 
-    def f_SG_p(s, f):
-        i_GS = SG[s*n_f + f]
-        l = i_GS//RC
-        r = (l%RC)//C
-        c = (l%RC)%C
+    def f_KG_p(s, f):
+        k = s*n_f + f
+        g = KG[k]
+        l = g//RC
+        r = (g%RC)//C
+        c = (g%RC)%C
         return l, r, c
 
-    def f_GS_p(l, r, c):
-        i_SG = GS[l*RC + r*C + c]
-        s = i_SG//n_f
-        f = i_SG%n_f
+    def f_GK_p(l, r, c):
+        g = l*RC + r*C + c
+        k = GK[g]
+        s = k//n_f
+        f = k%n_f
         return s, f
 
-    return (f_SG_i, f_GS_i, f_SG_p, f_GS_p)
+    return (f_KG_i, f_GK_i, f_KG_p, f_GK_p)
 
 def _buildMappings(archive):
     """
@@ -82,8 +84,8 @@ def _buildMappings(archive):
 
     - archive := FCArchive instance with the loaded profile to use.
 
-    Returns a tuple of the form (SG, GS) where SG is the slaves -> grid mapping
-    vector and GS is the grid -> slaves mapping vector.
+    Returns a tuple of the form (KG, GK) where KG is the slaves -> grid mapping
+    vector and GK is the grid -> slaves mapping vector.
     """
 
     array = archive[ac.fanArray]
@@ -96,10 +98,10 @@ def _buildMappings(archive):
     maxFans = archive[ac.maxFans]
 
     nfans = nslaves*maxFans
-    SG = [s.RIP]*(nfans)
+    KG = [s.PAD]*(nfans)
 
     gridSize = nlayers*nrows*ncolumns
-    GS = [s.RIP]*(gridSize)
+    GK = [s.PAD]*(gridSize)
 
     for i_slave, slave in enumerate(slaves):
         row_base, column_base = slave[ac.MD_row], slave[ac.MD_column]
@@ -107,8 +109,8 @@ def _buildMappings(archive):
         ncolumns_slave = slave[ac.MD_columns]
         mapping = slave[ac.MD_mapping]
 
-        base_SG = i_slave*maxFans
-        base_GS = column_base + row_base*ncolumns
+        base_KG = i_slave*maxFans
+        base_GK = column_base + row_base*ncolumns
 
         for i_cell, cell in enumerate(mapping.split(SPLITTER_CELL)):
             for layer, fan in enumerate(cell.split(SPLITTER_LAYER)):
@@ -120,20 +122,20 @@ def _buildMappings(archive):
                 if fan != '' and row_cell + row_base < nrows \
                     and column_cell + column_base < ncolumns:
 
-                    index_SG = base_SG + int(fan)
-                    index_GS = layer*nlayers + base_GS \
+                    index_KG = base_KG + int(fan)
+                    index_GK = layer*nlayers + base_GK \
                         + row_cell*ncolumns + column_cell
 
-                    SG[index_SG] = index_GS
-                    GS[index_GS] = index_SG
+                    KG[index_KG] = index_GK
+                    GK[index_GK] = index_KG
 
-    return SG, GS
+    return KG, GK
 
 def _testMapping(archive):
     print("** Testing FC mapping for profile '{}'".format(archive[ac.name]))
 
     print("* Building mappings... ", end = '')
-    _, _, f_SG, f_GS = mappings(archive)
+    _, _, f_KG, f_GK = mappings(archive)
     A = archive[ac.fanArray]
     L, R, C = A[ac.FA_layers], A[ac.FA_rows], A[ac.FA_columns]
     n_S = len(archive[ac.savedSlaves])
@@ -151,6 +153,6 @@ def _testMapping(archive):
             print("{:02d}|".format(r), end = '')
             for c in range(C):
                 # s,f -> _00:00_ (7)
-                print(" {:02d}:{:02d} ".format(*f_GS(l, r, c)), end = '')
+                print(" {:02d}:{:02d} ".format(*f_GK(l, r, c)), end = '')
             print('')
 

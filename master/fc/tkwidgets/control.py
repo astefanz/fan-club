@@ -1571,6 +1571,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
     DEFAULT_COLORS = cms.COLORMAP_GALCIT_REVERSED
     DEFAULT_OFF_COLOR = "#303030"
+    DEFAULT_EMPTY_COLOR = 'darkgray'
     DEFAULT_HIGH = 100
     DEFAULT_LOW = 0
     CURSOR = "hand1"
@@ -1584,27 +1585,40 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         P_ROWS, P_COLUMNS, P_LAYERS, P_TIME, P_STEP)
 
     def __init__(self, master, archive, send, pqueue, colors = DEFAULT_COLORS,
-        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH):
+        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
+        empty_color = DEFAULT_EMPTY_COLOR):
 
+        # Setup ................................................................
         self.archive = archive
         self._send = send
 
         self.fanArray = self.archive[ac.fanArray]
+        self.L = self.fanArray[ac.FA_layers]
         self.R, self.C = self.fanArray[ac.FA_rows], self.fanArray[ac.FA_columns]
+        self.RC = self.R*self.C
+        self.size_g = self.RC*self.L
+        self.range_g = range(self.size_g)
         self.maxRPM = self.archive[ac.maxRPM]
-        self.L = self.archive[ac.fanArray][ac.FA_layers]
         self.maxFans = self.archive[ac.maxFans]
-        # Save the slaves that are mapped to the grid and have not received an
-        # index from the back-end
-        self.unindexed = {}
-        self.indexed = {}
-        for slave in self.archive[ac.savedSlaves]:
-            if slave[ac.MD_assigned]:
-                self.unindexed[slave[ac.SV_mac]] = slave
 
+        self.empty_color = empty_color
+        self.off_color = off_color
         gd.BaseGrid.__init__(self, master, self.R, self.C, cursor = self.CURSOR,
-            empty = 'darkgray')
+            empty = self.empty_color)
         us.PrintClient.__init__(self, pqueue)
+
+        # Mapping ..............................................................
+        self.values_g = [0]*self.size_g
+        self.active_g = [False]*self.size_g
+        self.selected_g = [False]*self.size_g
+
+        self.getIndex_g, self.getIndex_k, \
+            self.getCoordinates_g, self.getCoordinates_k \
+                = mr.mappings(self.archive)
+
+        self.nslaves = len(self.archive[ac.savedSlaves])
+        self.size_k = self.nslaves*self.maxFans
+        self.range_k = range(self.size_k)
 
         # Tools ................................................................
         self.toolBar = tk.Frame(self)
@@ -1699,38 +1713,10 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.maxColor = self.numColors - 1
         self.high = high
         self.low = 0
-        self.off_color = off_color
-        self.range = range(self.size)
         self.rows, self.columns = range(self.R), range(self.C)
         self.dc = 0 # Whether to use duty cycles
 
         self.is_live = True
-
-        # For flow builders:
-        # - Activate everything and set it to 0
-        # - Ignore all incoming vectors
-        # - Redirect controls to self
-        # - Store controls in buffer
-        # - Set buffer when switching
-
-        self.layers = {}
-        self.selected = {}
-        self.active = {}
-        self.values = {}
-        for l in range(self.L):
-            self.layers[l] = {}
-            self.selected[l] = {}
-            self.active[l] = {}
-            self.values[l] = {}
-            for i in range(self.size):
-                self.layers[l][i] = None
-                self.selected[l][i] = False
-                self.active[l][i] = False
-                self.values[l][i] = 0
-        self.totalSlaves = 0
-
-        # FIXME: are we using self.values correctly, or at all?
-
 
         # TODO: (redundant "TODO's" indicate priority)
         # - handle resets on profile changing TODO
@@ -1746,12 +1732,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         # Configure callbacks:
         self.setLeftClick(self._simpleSelectOnClick)
 
-        # FIXME confirm and apply:
-        self.sg, self.gs, _, _ = mr.mappings(self.archive)
-        self.nslaves = len(self.archive[ac.savedSlaves])
-        self.N = self.nslaves*self.maxFans
-        mr._testMapping(self.archive)
-
     # Standard interface .......................................................
     def feedbackIn(self, F):
         """
@@ -1763,6 +1743,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             grid.layers[grid.layer][i]%grid.maxFans))
         """
         # FIXME performance
+        # FIXME nomenclature
+
+        for k in self.range_k:
+            g = self.getIndex_g(k)
+            if g >= 0:
+                self.update_g(g, F[k])
+        """
         if self.canvas:
             L = len(F)//2
             self.totalSlaves = L//self.maxFans
@@ -1776,14 +1763,6 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
                         self.updatei(i, l, F[self.layers[l][i] + offset])
         """
 
-        if self.canvas:
-            for index_S in range(self.N):
-                index_G = self.sg(index_S)
-                if index_G is not s.RIP:
-                    l = index_G//(self.R*self.C)
-                    self.updatei(index_G, l, F[index_S])
-        """
-
     def networkIn(self, N):
         if N[0]:
             self.activate()
@@ -1791,32 +1770,41 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             self.deactivate()
 
     def slavesIn(self, S):
-        if self.unindexed:
-            S_i = 0
-            for mac in S[s.SD_MAC::s.SD_LEN]:
-                if mac in self.unindexed:
-                    self._assign(S[S_i], mac)
-                S_i += s.SD_LEN
+        # TODO deactivate on disconnection
+        # FIXME will activation on connection happen automatically?
+        slave, status = S[s.SD_INDEX], S[s.SD_STATUS]
+        if status != s.SS_CONNECTED:
+            self.deactivate_s(slave)
 
     def selectAll(self):
-        for i in self.range:
-            self.selectd(i)
+        for g in self.range_g:
+            self.select_g(g)
 
     def deselectAll(self):
-        for i in self.range:
-            self.deselectd(i)
+        for g in self.range_g:
+            self.deselect_g(g)
 
     def parameters(self):
         return self.PARAMETERS
 
-    def map(self, f, t, k):
+    def map(self, f, t, t_index):
         # FIXME performance
-        control = [0]*(self.totalSlaves*self.maxFans)
+        control = [0]*self.size_k
+
+        for k in self.range_k:
+            g = self.getIndex_g(k)
+            if g is not s.PAD \
+                and (self.mapVar.get() or self.selected_g[g]):
+                l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
+                control[k] = f(r, c, l, self.R, self.C, self.L, t, t_index)
+        self._send(control)
+        if not self.holdVar.get():
+            self.deselectAll()
+        """
         for l in self.layers:
             for i in self.range:
                 control_i = self.layers[l][i]
                 if control_i is not None and \
-                    (self.mapVar.get() or self.selected[l][i]):
                     r = i//self.C
                     c = i%self.C
                     control[control_i] = \
@@ -1824,6 +1812,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self._send(control)
         if not self.holdVar.get():
             self.deselectAll()
+        """
 
     def set(self, dc):
         """
@@ -1854,78 +1843,127 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     def redraw(self, event = None):
         self.draw(margin = 20)
 
+    # Mapping ..................................................................
+    def layer_g(self, g):
+        """
+        Get the layer that corresponds to the given grid-coordinate index.
+        """
+        return g // self.RC
+
+    def gridi_g(self, g):
+        """
+        Get the 2D "within layer" index that corresponds to the given
+        grid-coordinate index.
+
+        In a single-layer grid, this function makes no difference.
+        """
+        return g % self.RC
+
+    def slave_k(self, k):
+        """
+        Get the slave index corresponding to the network-coordinate index k.
+        """
+        return k // self.maxFans
+
+    def fan_k(self, k):
+        """
+        Get the fan index corresponding to the network-coordinate index k.
+        """
+        return k % self.maxFans
+
     # Activity .................................................................
-    def activatei(self, i, l):
-        self.active[l][i] = True
+    def activate_g(self, g):
+        self.active_g[g] = True
+        self.update_g(g, s.PAD)
 
-    def deactivatei(self, i, l):
-        self.deselecti(i, l)
-        self.active[l][i] = False
-        self.filli(i, self.off_color)
+    def deactivate_g(self, g):
+        self.active_g[g] = False
+        self.deselect_g(g)
+        self.update_g(g, s.RIP)
 
-    def activate(self, A = None):
+    def deactivate_s(self, slave):
         """
-        Set the display as "active."
-            - A := Optional "activation vector" (a feedback vector with which to
-                initialize slave lists and display values).
+        Deactivate all fans assigned to the slave of the given slave index.
+        Operates in K-coordinates.
         """
-        if A is None:
-            for i in self.range:
-                for l in self.layers:
-                    if not self.active[l][i]:
-                        self.activatei(i, l)
-        else:
-            self.feedbackIn(A)
+        # TODO performance
+        k_offset = slave*self.maxFans
+        for k in range(k_offset, k_offset + self.maxFans):
+            self.deactivate_k(k)
+
+    def deactivate_k(self, k):
+        self.deactivate_g(self.getIndex_g(k))
+
+    def activate(self, F = None):
+        """
+        Activate the entire grid.
+        - F := list, optional feedback vector with which to initialize values.
+        """
+        for g in self.range_g:
+            self.activate_g(g)
+        if F is not None:
+            self.feedbackIn(F)
 
     def deactivate(self):
-        for i in self.range:
-            for l in self.layers:
-                if self.active[l][i]:
-                    self.deactivatei(i, l)
+        """
+        Deactivate the entire grid.
+        """
+        for g in self.range_g:
+            self.deactivate_g(g)
 
     # Values ...................................................................
-    def updatei(self, i, l, value):
+    def update_g(self, g, value):
         """
-        Set grid index I to VALUE on layer L if the given fan is active.
-        """
+        Set the given grid index to the given value, saturating it at this
+        grid's maximum value, and update the corresponding cell's color if
+        the value is in the observed layer.
 
-        # FIXME debug:
-        #print(i, l, value)
+        - g := int, G-coordinate index.
+        - value := int or float, value to apply.
+        """
+        self.values_g[g] = value
+        fill = self.empty_color
+
         if value >= 0:
-            if not self.active[l][i]:
-                self.activatei(i, l)
-            self.values[l][i] = value
-            if l == self.layer:
-                self.filli(i, self.colors[min(self.maxColor,
-                    int(((value*self.maxColor)/self.maxValue)))])
-        if value == s.RIP and self.active[l][i]:
-            self.deactivatei(i, l)
+            fill = self.colors[min(self.maxColor,
+                int(((value*self.maxColor)/self.maxValue)))]
+        elif value == s.RIP:
+            fill = self.off_color
+
+        if self.layer_g(g) == self.layer:
+            self.filli(self.gridi_g(g), fill)
 
     # Selection ................................................................
-    def selecti(self, i, l):
-        if self.active[l][i]:
-            self.selected[l][i] = True
-            if l == self.layer:
-                self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+    # FIXME: performance
 
-    def deselecti(self, i, l):
-        self.selected[l][i] = False
-        if l == self.layer:
-            self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
+    def select_g(self, g):
+        if self.active_g[g]:
+            self.selected_g[g] = True
+            if self.layer_g(g) == self.layer:
+                self.outlinei(self.gridi(g),
+                    self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
 
-    def selectd(self, i):
+    def deselect_g(self, g):
+        self.selected_g[g] = False
+        if self.layer_g(g) == self.layer:
+            self.outlinei(self.gridi_g(g),
+                self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
+
+    def selectd_g(self, g):
         """
         Select "deep": applies selection to all layers.
         """
+        g_0 = self.gridi_g(g)
         for l in self.layers:
-            self.selecti(i, l)
+            self.select_g(g_0 + l*self.RC)
 
-    def deselectd(self, i):
+    def deselectd_g(self, g):
         """
         Select "deep": applies selection to all layers.
         """
+        g_0 = self.gridi_g(g)
         for l in self.layers:
-            self.deselecti(i, l)
+            self.deselect_g(g_0 + l*self.RC)
 
     # Widget ...................................................................
     def blockAdjust(self):
@@ -1944,63 +1982,15 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         """
         Get the mapping data structure of this Grid.
         """
-        return cp.deepcopy(self.layers)
+        return [self.getIndex_g(k) for k in self.range_k]
 
     # Internal methods .........................................................
-    def _assign(self, index, mac):
-        """
-        Map the given slave (expected to be in the unindexed dictionary) to
-        the grid, store it in the indexed dictionary, and remove it from the
-        unindexed dictionary.
-        """
-        slave = self.unindexed.pop(mac)
-
-        # Build mapping based on current profile:
-        slave[ac.SV_index] = index
-        s_i = index
-        s_r, s_c = slave[ac.MD_row], slave[ac.MD_column]
-        s_R, s_C = slave[ac.MD_rows], slave[ac.MD_columns]
-
-        for cell_i, cell_data in enumerate(slave[ac.MD_mapping].split(',')):
-            # Skip empty cells:
-            if not cell_data:
-                continue
-            for layer, fan in enumerate(cell_data.split('-')):
-                # Skip empty fans:
-                if not fan:
-                    continue
-                # Fan index:
-                fan_i = int(fan)
-
-                # Corresponding grid row, column, and index:
-                grid_r = s_r + (cell_i//s_C)
-                grid_c = s_c + (cell_i%s_C)
-                grid_i = grid_r*self.C + grid_c
-                # Corresponding index in the feedback vector:
-                feedback_i = self.maxFans*s_i + fan_i
-
-                # FIXME
-                #self._temp_setmap(grid_i, s_i, fan_i)
-
-                if grid_r < self.R and grid_c < self.C \
-                    and grid_i < self.size:
-                    try:
-                        self.layers[layer][grid_i] = feedback_i
-                    except IndexError as e:
-                        self.printe(
-                            "Invalid coordinates or dimensions for "\
-                            + "Slave {} at ({},{}) of {}x{} "
-                            + "(\"{}\")".format(
-                                s_i, s_r, s_c, s_R, s_C, slave[ac.SV_name]))
-        self.indexed[index] = slave
-
     def _onLayerChange(self, *A):
         """
         To be called when the view layer is changed.
         """
         self.layer = self.layerVar.get() - 1
-        if self.canvas:
-            self._updateStyle()
+        self._updateStyle()
 
     def _onTypeMenuChange(self, *E):
         """
@@ -2026,13 +2016,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         Enforce style rules when switching layers.
         """
         l = self.layer
-        for i in self.layers[l]:
-            if not self.active[l][i]:
-                self.filli(i, self.off_color)
-            if self.selected[l][i] and self.active[l][i]:
-                self.outlinei(i, self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+        offset = self.layer*self.RC
+        for g in range(offset, offset + self.RC):
+            self.update_g(g, self.values_g[g])
+            if self.selected_g[g]:
+                self.select_g(g)
             else:
-                self.outlinei(i, self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
+                self.deselect_g(g)
 
     def _adjust(self, *E):
         self.redraw()
@@ -2042,10 +2032,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     @staticmethod
     def _simpleSelectOnClick(grid, i):
         if i is not None:
-            if grid.selected[grid.layer][i]:
-                grid.deselecti(i, grid.layer)
+            g = grid.layer*grid.RC + i
+            if grid.selected[g]:
+                grid.deselect_g(g)
             else:
-                grid.selecti(i, grid.layer)
+                grid.select_g(g)
                 """
                 print("Clicked on slave {}'s fan {}".format(
                     grid.layers[grid.layer][i]//grid.maxFans,

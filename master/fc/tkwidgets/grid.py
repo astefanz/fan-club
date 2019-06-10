@@ -237,9 +237,10 @@ class BaseGrid(tk.Frame):
         """
         Set the cell at 'index' I to color FILL.
         """
-        self.fills[i] = fill
-        self.canvas.itemconfig(
-            self.iids[i], fill = fill)
+        if self.canvas:
+            self.fills[i] = fill
+            self.canvas.itemconfig(
+                self.iids[i], fill = fill)
 
     def fillc(self, r, c, fill):
         """
@@ -252,10 +253,11 @@ class BaseGrid(tk.Frame):
         Set the border of the cell at 'index' I to color OUTLINE and width
         WIDTH.
         """
-        self.outlines[i] = outline
-        self.widths[i] = width
-        self.canvas.itemconfig(
-            self.iids[i], outline = outline, width = width)
+        if self.canvas:
+            self.outlines[i] = outline
+            self.widths[i] = width
+            self.canvas.itemconfig(
+                self.iids[i], outline = outline, width = width)
 
     def outlinec(self, r, c, outline, width):
         """
