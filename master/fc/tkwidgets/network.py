@@ -275,7 +275,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
             self.bcipVar.set(N[2])
             self.bcVar.set(N[3])
             self.ltVar.set(N[4])
-        elif self.isConnected:
+        else:
             self.disconnected()
 
     def connecting(self):
@@ -339,11 +339,9 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
     # Internal methods .........................................................
     def _onConnect(self, *event):
         self._connectCallback()
-        print("[WARNING] Widget connecting behavior not implemented")
 
     def _onDisconnect(self, *event):
         self._disconnectCallback()
-        print("[WARNING] Widget disconnecting behavior not implemented")
 
     def _send(self, *E):
         """
