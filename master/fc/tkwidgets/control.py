@@ -210,7 +210,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
         """
         F = [0]*len(C)*2
         for i, dc in enumerate(C):
-            F[i] = dc*self.maxRPM
+            F[i] = int(dc*self.maxRPM)
         return F
 
     def _emptyFeedback(self):
@@ -1948,7 +1948,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         if self.active_g[g]:
             self.selected_g[g] = True
             if self.layer_g(g) == self.layer:
-                self.outlinei(self.gridi(g),
+                self.outlinei(self.gridi_g(g),
                     self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
 
     def deselect_g(self, g):
@@ -2041,7 +2041,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     def _simpleSelectOnClick(grid, i):
         if i is not None:
             g = grid.layer*grid.RC + i
-            if grid.selected[g]:
+            if grid.selected_g[g]:
                 grid.deselect_g(g)
             else:
                 grid.select_g(g)

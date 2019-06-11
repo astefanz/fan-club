@@ -281,9 +281,10 @@ class ExternalControl(us.PrintClient):
         Send a broadcast.
         """
         try:
+            # FIXME performance
             index = self.indices[s.EX_BROADCAST][s.EX_I_OUT]
             message = self.BROADCAST_TEMPLATE.format(
-                self.listenerPort, index, *self.dimensions, self._G()[1:-1])
+                self.listenerPort, index, *self.dimensions, str(self._G())[1:-1])
             for _ in range(self.broadcastRepeat):
                 self.sockets[s.EX_BROADCAST].sendto(
                     bytearray(message, 'ascii'), self.broadcastTarget)
