@@ -36,6 +36,7 @@ import fc.archive as ac
 import fc.utils as us
 import fc.communicator as cm
 import fc.external as ex
+import fc.mapper as mr
 
 ## GLOBALS #####################################################################
 SENTINEL_PERIOD = 0.1 # Seconds
@@ -79,17 +80,22 @@ class FCInterface(us.PrintServer):
         self.__setProfile()
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
+        self.mapper = mr.Mapper(self.archive)
 
         self.__buildLists()
         self.__buildPipes()
+        self.__flushAltBuffers()
+        self.live = True
 
         # Build backend abstraction:
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
             self.networkPipeSend, archive, pqueue)
-        self.external = ex.ExternalControl(archive, pqueue)
+        self.external = ex.ExternalControl(self.mapper, archive, pqueue)
         self.feedbackClient(self.external)
         self.networkClient(self.external)
         self.slaveClient(self.external)
+        self.archiveClient(self.mapper)
+        self.archiveClient(self.external)
 
 
     # "PUBLIC" INTERFACE -------------------------------------------------------
@@ -159,7 +165,6 @@ class FCInterface(us.PrintServer):
             us.PrintServer._cycle(self)
             # FIXME concrete
             """ original
-            """
             if self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
                 for clientMethod in self.feedbackClients:
@@ -172,30 +177,80 @@ class FCInterface(us.PrintServer):
                 S = self.slavePipeRecv.recv()
                 for clientMethod in self.slaveClients:
                     clientMethod(S)
+            """
             """ experimental
-            F = None
+            """
+            F, N, S = None, None, None
+
+            # Get live vectors:
             while self.feedbackPipeRecv.poll():
                 F = self.feedbackPipeRecv.recv()
+            while self.networkPipeRecv.poll():
+                N = self.networkPipeRecv.recv()
+            while self.slavePipeRecv.poll():
+                S = self.slavePipeRecv.recv()
+
+            if not self.live:
+                # Get alternative vectors:
+                F, N, S = self._getAltF(), self._getAltN(), self._getAltS()
+
+            # Apply values:
             if F is not None:
                 for client in self.feedbackClients:
                     client(F)
-            N = None
-            while self.networkPipeRecv.poll():
-                N = self.networkPipeRecv.recv()
             if N is not None:
                 for client in self.networkClients:
                     client(N)
-            S = None
-            while self.slavePipeRecv.poll():
-                S = self.slavePipeRecv.recv()
             if S is not None:
                 for client in self.slaveClients:
                     client(S)
-            """
         except Exception as e:
             self.printx(e, "Exception in I-P watchdog")
 
+
+    def setLive(self, live):
+        """
+        Set whether feedback, network and slave vectors should be fetched from
+        the network backend (live == True) or from the alternate buffers
+        (live == False)
+        """
+        self.live = live
+        self.__flushAltBuffers()
+
+    def altFeedbackIn(self, F):
+        """
+        Set the alternative feedback vector F. Ignored if "live."
+        """
+        if not self.live:
+            self.F_alt = F
+
+    def altNetworkIn(self, N):
+        """
+        Set the alternative network vector N. Ignored if "live."
+        """
+        if not self.live:
+            self.N_alt = N
+
+    def altSlaveIn(self, S):
+        """
+        Set the alternative slave status vector S. Ignored if "live."
+        """
+        if not self.live:
+            self.S_alt = S
+
     # "PRIVATE" AUXILIARY METHODS ----------------------------------------------
+    def _getAltF(self):
+        return self.F_alt
+
+    def _getAltN(self):
+        return self.N_alt
+
+    def _getAltS(self):
+        return self.S_alt
+
+    def __flushAltBuffers(self):
+        self.F_alt, self.N_alt, self.S_alt = None, None, None
+
     def __setProfile(self):
         """
         Build all data members that depend on the current profile.

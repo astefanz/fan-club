@@ -67,14 +67,16 @@ class ControlWidget(tk.Frame, us.PrintClient):
     """
     SYMBOL = "[CW]"
 
-    def __init__(self, master, network, external, archive, pqueue):
-
+    def __init__(self, master, network, external, mapper, archive, pqueue,
+        setLiveBE, setFBE):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
         self.network = network
         self.external = external
+        self.mapper = mapper
+        self.setLiveBE, self.setFBE = setLiveBE, setFBE
 
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
@@ -106,9 +108,10 @@ class ControlWidget(tk.Frame, us.PrintClient):
             - simulated := whether this is a fake feedback vector to display
                 when in flow builder mode. Defaults to False.
         """
-        if self.isLive or simulated:
-            self.display.feedbackIn(F)
-            self.control.feedbackIn(F)
+        self.display.feedbackIn(F)
+        self.control.feedbackIn(F)
+        if simulated:
+            self.setFBE(F)
 
     def slavesIn(self, S):
         """
@@ -142,10 +145,11 @@ class ControlWidget(tk.Frame, us.PrintClient):
                 mode (False).
         """
         self.isLive = live
+        self.setLiveBE(live)
         if self.isLive:
             self.display.deactivate()
         else:
-            self.display.activate(self._emptyFeedback())
+            self.feedbackIn(self._emptyFeedback(), simulated = True)
 
     def _build(self):
         """
@@ -163,9 +167,9 @@ class ControlWidget(tk.Frame, us.PrintClient):
         if self.control is not None:
             self.control.destroy()
             self.control = None
-        self.control = ControlPanelWidget(self.controlFrame, self.archive,
-            self.network, self.external, self.display, self._setLive,
-            self.pqueue)
+        self.control = ControlPanelWidget(self.controlFrame, self.mapper,
+            self.archive, self.network, self.external, self.display,
+            self._setLive, self.pqueue)
         self.control.pack(fill = tk.BOTH, expand = True)
 
     def _buildDisplays(self):
@@ -182,14 +186,14 @@ class ControlWidget(tk.Frame, us.PrintClient):
         self.display.pack(fill = tk.BOTH, expand = True)
 
         # Grid:
-        self.grid = GridWidget(self.display, self.archive, self._send,
-            pqueue = self.pqueue)
+        self.grid = GridWidget(self.display, self.archive,
+            self.mapper, self._send, pqueue = self.pqueue)
         self.display.add(self.grid, text = "Control Grid")
         self.displays.append(self.grid)
 
         # Live table
-        self.table = LiveTable(self.display, self.archive, self._send,
-            self.network, pqueue = self.pqueue)
+        self.table = LiveTable(self.display, self.archive, self.mapper,
+            self._send, self.network, pqueue = self.pqueue)
         self.display.add(self.table, text = "Live Table")
         self.displays.append(self.table)
 
@@ -1042,12 +1046,13 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     DM_LIVE = 690
     DM_BUILDER = 691
 
-    def __init__(self, master, archive, network, external, display, setLive,
-        pqueue):
+    def __init__(self, master, mapper, archive, network, external, display,
+        setLive, pqueue):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
+        self.mapper = mapper
         self.archive = archive
         self.network = network
         self.externalBackEnd = external
@@ -1147,8 +1152,8 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
             state = tk.NORMAL)
 
         # External .............................................................
-        self.external = ex.ExternalControlWidget(self.notebook, self.archive,
-           self.externalBackEnd, pqueue) # FIXME pass backend
+        self.external = ex.ExternalControlWidget(self.notebook,
+            self.archive, self.externalBackEnd, pqueue) # FIXME pass backend
         self.notebook.add(self.external, text = "External Control",
             state = tk.NORMAL)
 
@@ -1584,12 +1589,13 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     PARAMETERS = (P_ROW, P_COLUMN, P_LAYER,
         P_ROWS, P_COLUMNS, P_LAYERS, P_TIME, P_STEP)
 
-    def __init__(self, master, archive, send, pqueue, colors = DEFAULT_COLORS,
-        off_color = DEFAULT_OFF_COLOR, high = DEFAULT_HIGH,
-        empty_color = DEFAULT_EMPTY_COLOR):
+    def __init__(self, master, archive, mapper, send, pqueue,
+        colors = DEFAULT_COLORS, off_color = DEFAULT_OFF_COLOR,
+        high = DEFAULT_HIGH, empty_color = DEFAULT_EMPTY_COLOR):
 
         # Setup ................................................................
         self.archive = archive
+        self.mapper = mapper
         self._send = send
 
         self.fanArray = self.archive[ac.fanArray]
@@ -1612,9 +1618,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.active_g = [False]*self.size_g
         self.selected_g = [False]*self.size_g
 
-        self.getIndex_g, self.getIndex_k, \
-            self.getCoordinates_g, self.getCoordinates_k \
-                = mr.mappings(self.archive)
+        # FIXME transplant behavior that should be in Mapper
+        self.getIndex_g = self.mapper.index_KG
+        self.getIndex_k = self.mapper.index_GK
+        self.getCoordinates_g = self.mapper.tuple_KG
+        self.getCoordinates_k = self.mapper.tuple_GK
 
         self.nslaves = len(self.archive[ac.savedSlaves])
         self.size_k = self.nslaves*self.maxFans
@@ -1787,7 +1795,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     def parameters(self):
         return self.PARAMETERS
 
-    def map(self, f, t, t_index):
+    def map(self, func, t, t_index):
         # FIXME performance
         control = [0]*self.size_k
 
@@ -1796,7 +1804,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             if g is not s.PAD \
                 and (self.mapVar.get() or self.selected_g[g]):
                 l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
-                control[k] = f(r, c, l, self.R, self.C, self.L, t, t_index)
+                control[k] = func(r, c, l, self.R, self.C, self.L, t, t_index)
         self._send(control)
         if not self.holdVar.get():
             self.deselectAll()
@@ -2138,7 +2146,7 @@ class LiveTable(us.PrintClient, tk.Frame):
 
     PARAMETERS = (P_INDEX, P_FAN, P_INDICES, P_FANS, P_TIME, P_STEP)
 
-    def __init__(self, master, archive, send, network, pqueue):
+    def __init__(self, master, archive, mapper, send, network, pqueue):
         """
         Create a new LiveTable in MASTER.
 
@@ -2151,6 +2159,7 @@ class LiveTable(us.PrintClient, tk.Frame):
         tk.Frame.__init__(self, master)
         us.PrintClient.__init__(self, pqueue)
         self.archive = archive
+        self.mapper = mapper
         self._send = send
 
         self.maxFans = self.archive[ac.maxFans]

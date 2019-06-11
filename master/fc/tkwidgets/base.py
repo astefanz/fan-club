@@ -56,8 +56,9 @@ class Base(tk.Frame, us.PrintClient):
 
     SYMBOL = "[BS]"
 
-    def __init__(self, master, network, external, archive, title, version,
-        feedbackAdd, networkAdd, slavesAdd, profileCallback, pqueue):
+    def __init__(self, master, network, external, mapper, archive, title,
+        version, feedbackAdd, networkAdd, slavesAdd, profileCallback,
+        setLive, setF, pqueue):
         """
         Create a new GUI base on the Tkinter root MASTER, with title TITLE and
         showing the version VERSION.
@@ -81,10 +82,13 @@ class Base(tk.Frame, us.PrintClient):
         # Core setup -----------------------------------------------------------
         self.network = network
         self.external = external
+        self.mapper = mapper
         self.archive = archive
         self.feedbackAdd = feedbackAdd
         self.networkAdd = networkAdd
         self.slavesAdd = slavesAdd
+
+        self.setLive, self.setF = setLive, setF
 
         self.screenWidth = self.master.winfo_screenwidth()
         self.screenHeight = self.master.winfo_screenheight()
@@ -148,8 +152,15 @@ class Base(tk.Frame, us.PrintClient):
             pady = 20)
 
         # Control tab:
-        self.controlWidget = ctr.ControlWidget(self.controlTab, network,
-            external, archive, pqueue = pqueue)
+        self.controlWidget = ctr.ControlWidget(self.controlTab,
+            network = network,
+            external = external,
+            mapper = mapper,
+            archive = archive,
+            setLiveBE = self.setLive,
+            setFBE = self.setF,
+            pqueue = pqueue)
+
         self.controlWidget.pack(fill = tk.BOTH, expand = True, padx = 20,
             pady = 20)
         self.feedbackAdd(self.controlWidget)

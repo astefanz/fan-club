@@ -28,131 +28,130 @@ Base class with behavior to decode MkIV fan array mappings.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 # IMPORTS ######################################################################
-from . import archive as ac, standards as s
+from . import archive as ac, standards as std
 
 
 # DEFINITIONS ##################################################################
-SPLITTER_CELL = ','
-SPLITTER_LAYER = '-'
-
-def mappings(archive):
+class Mapper:
     """
-    Build the mappings between network coordinates "K" and the grid coordinates
-    "G" based on the profile loaded in the FCArchive.
-
-    - archive := FCArchive instance with the loaded profile to use.
-
-    Returns a tuple of the form (f_KG_i, f_GK_i, f_KG_p, f_GK_p) where i
-    functions take KG or GK indices and return the other and p functions take
-    KG (s, f) pairs or GK (l, r, c) pairs and return the other.
+    Abstracts the grid mapping as a bijection between two coordinate spaces:
+    network coordinates K with ordered pairs (s, f) and indices k and
+    grid coordinates G with ordered triples (l, r, c) and indices g.
     """
-    KG, GK = _buildMappings(archive)
-    L = archive[ac.fanArray][ac.FA_layers]
-    R = archive[ac.fanArray][ac.FA_rows]
-    C = archive[ac.fanArray][ac.FA_columns]
-    RC = R*C
-    n_f = archive[ac.maxFans]
-    n_S = len(archive[ac.savedSlaves])
+    SPLITTER_CELL = ','
+    SPLITTER_LAYER = '-'
 
-    def f_KG_i(i_KG):
-        return KG[i_KG]
+    def __init__(self, archive):
+        """
+        - archive := FCArchive instance.
+        """
+        self.archive = archive
+        self._buildMappings()
 
-    def f_GK_i(i_GK):
-        return GK[i_GK]
+    # API ----------------------------------------------------------------------
+    def index_KG(self, k):
+        return self.KG[k]
 
-    def f_KG_p(s, f):
-        k = s*n_f + f
-        g = KG[k]
-        l = g//RC
-        r = (g%RC)//C
-        c = (g%RC)%C
+    def index_GK(self, g):
+        return self.GK[g]
+
+    def tuple_KG(self, s, f):
+        k = s*self.maxFans + f
+        g = self.KG[k]
+        l = g//self.RC
+        r = (g%self.RC)//self.C
+        c = (g%self.RC)%self.C
         return l, r, c
 
-    def f_GK_p(l, r, c):
-        g = l*RC + r*C + c
-        k = GK[g]
+    def tuple_GK(self, l, r, c):
+        g = l*self.RC + r*self.C + c
+        k = self.GK[g]
         s = k//n_f
         f = k%n_f
         return s, f
 
-    return (f_KG_i, f_GK_i, f_KG_p, f_GK_p)
+    def profileChange(self):
+        self._buildMappings()
 
-def _buildMappings(archive):
-    """
-    Auxiliary function to build the mapping data structure. Separated from the
-    main mapping function to save memory by only keeping relevant data in scope.
+    def getSize_G(self):
+        return self.size_g
 
-    - archive := FCArchive instance with the loaded profile to use.
+    def getSize_K(self):
+        return self.size_k
 
-    Returns a tuple of the form (KG, GK) where KG is the slaves -> grid mapping
-    vector and GK is the grid -> slaves mapping vector.
-    """
+    # Internal methods ---------------------------------------------------------
 
-    array = archive[ac.fanArray]
-    nlayers = array[ac.FA_layers]
-    nrows = array[ac.FA_rows]
-    ncolumns = array[ac.FA_columns]
+    def _buildMappings(self):
+        """
+        Build the mapping data structure. Must be called before using the
+        Mapper instance and can be called later to update the mapping when
+        the loaded profile changestd.
+        """
 
-    slaves = archive[ac.savedSlaves]
-    nslaves = len(slaves)
-    maxFans = archive[ac.maxFans]
+        self.array = self.archive[ac.fanArray]
+        self.L = self.array[ac.FA_layers]
+        self.R = self.array[ac.FA_rows]
+        self.C = self.array[ac.FA_columns]
+        self.RC = self.R*self.C
 
-    nfans = nslaves*maxFans
-    KG = [s.PAD]*(nfans)
+        slaves = self.archive[ac.savedSlaves]
+        self.nslaves = len(slaves)
+        self.maxFans = self.archive[ac.maxFans]
 
-    gridSize = nlayers*nrows*ncolumns
-    GK = [s.PAD]*(gridSize)
+        self.size_k = self.nslaves*self.maxFans
+        self.KG = [std.PAD]*(self.size_k)
 
-    for i_slave, slave in enumerate(slaves):
-        row_base, column_base = slave[ac.MD_row], slave[ac.MD_column]
-        nrows_slave = slave[ac.MD_rows]
-        ncolumns_slave = slave[ac.MD_columns]
-        mapping = slave[ac.MD_mapping]
+        self.size_g = self.L*self.R*self.C
+        self.GK = [std.PAD]*(self.size_g)
 
-        base_KG = i_slave*maxFans
-        base_GK = column_base + row_base*ncolumns
+        for s, slave in enumerate(slaves):
+            row_base, column_base = slave[ac.MD_row], slave[ac.MD_column]
+            nrows_slave = slave[ac.MD_rows]
+            ncolumns_slave = slave[ac.MD_columns]
+            mapping = slave[ac.MD_mapping]
 
-        for i_cell, cell in enumerate(mapping.split(SPLITTER_CELL)):
-            for layer, fan in enumerate(cell.split(SPLITTER_LAYER)):
+            base_KG = s*self.maxFans
+            base_GK = column_base + row_base*self.C
 
-                row_cell = i_cell//ncolumns_slave
-                column_cell = i_cell%ncolumns_slave
+            for i_cell, cell in enumerate(mapping.split(self.SPLITTER_CELL)):
+                for layer, fan in enumerate(cell.split(self.SPLITTER_LAYER)):
+
+                    row_cell = i_cell//ncolumns_slave
+                    column_cell = i_cell%ncolumns_slave
 
 
-                if fan != '' and row_cell + row_base < nrows \
-                    and column_cell + column_base < ncolumns:
+                    if fan != '' and row_cell + row_base < self.R \
+                        and column_cell + column_base < self.C:
 
-                    index_KG = base_KG + int(fan)
-                    index_GK = layer*nlayers + base_GK \
-                        + row_cell*ncolumns + column_cell
+                        index_KG = base_KG + int(fan)
+                        index_GK = layer*self.L + base_GK \
+                            + row_cell*self.C + column_cell
 
-                    KG[index_KG] = index_GK
-                    GK[index_GK] = index_KG
+                        self.KG[index_KG] = index_GK
+                        self.GK[index_GK] = index_KG
 
-    return KG, GK
+    def _testMapping(self):
+        print("** Testing FC mapping for profile '{}'".format(archive[ac.name]))
 
-def _testMapping(archive):
-    print("** Testing FC mapping for profile '{}'".format(archive[ac.name]))
+        print("* Building mappingstd... ", end = '')
+        f_GK = self.tuple_GK
+        A = self.archive[ac.fanArray]
+        archive = self.archive
+        L, R, C = A[ac.FA_layers], A[ac.FA_rows], A[ac.FA_columns]
+        n_S = len(archive[ac.savedSlaves])
+        n_f = archive[ac.maxFans]
+        print("Done")
 
-    print("* Building mappings... ", end = '')
-    _, _, f_KG, f_GK = mappings(archive)
-    A = archive[ac.fanArray]
-    L, R, C = A[ac.FA_layers], A[ac.FA_rows], A[ac.FA_columns]
-    n_S = len(archive[ac.savedSlaves])
-    n_f = archive[ac.maxFans]
-    print("Done")
-
-    print("* Printing Grid Mapping")
-    for l in range(L):
-        print("- Layer {}/{}:".format(l+1, L))
-        print("___", end = '')
-        for c in range(C):
-            print("|__{:02d}__".format(c), end = '')
-        print('')
-        for r in range(R):
-            print("{:02d}|".format(r), end = '')
+        print("* Printing Grid Mapping")
+        for l in range(L):
+            print("- Layer {}/{}:".format(l+1, L))
+            print("___", end = '')
             for c in range(C):
-                # s,f -> _00:00_ (7)
-                print(" {:02d}:{:02d} ".format(*f_GK(l, r, c)), end = '')
+                print("|__{:02d}__".format(c), end = '')
             print('')
-
+            for r in range(R):
+                print("{:02d}|".format(r), end = '')
+                for c in range(C):
+                    # s,f -> _00:00_ (7)
+                    print(" {:02d}:{:02d} ".format(*f_GK(l, r, c)), end = '')
+                print('')

@@ -76,25 +76,31 @@ class ExternalControl(us.PrintClient):
 
     # TODO: Listener behavior
 
-    def __init__(self, archive, pqueue,
+    # FIXME: redundant work on old F vectors
+
+    def __init__(self, mapper, archive, pqueue,
         setBroadcastStatus = NOTHING,
         setBroadcastOut = NOTHING,
         setListenerStatus = NOTHING,
         setListenerIn = NOTHING,
         setListenerOut = NOTHING): # FIXME control
         """
+        - mapper := FC Mapper instance (grid mapping).
         - archive := MkIV FCArchive instance.
         - pqueue := Queue instance for I.P. printing.
         """
         us.PrintClient.__init__(self, pqueue)
 
+        self.mapper = mapper
         self.archive = archive
         self.pqueue = pqueue
 
         self.dimensions = (
+            self.archive[ac.fanArray][ac.FA_layers],
             self.archive[ac.fanArray][ac.FA_rows],
             self.archive[ac.fanArray][ac.FA_columns],
-            self.archive[ac.fanArray][ac.FA_layers])
+        )
+        self.L, self.R, self.C = self.dimensions
 
         self.broadcastTarget = None
         self.broadcastRepeat = 0
@@ -251,6 +257,10 @@ class ExternalControl(us.PrintClient):
         self.setListenerIn = setListenerIn
         self.setListenerOut = setListenerOut
 
+    def profileChange(self):
+        # TODO
+        return
+
     # Internal methods ---------------------------------------------------------
     def _socket(self, port: int, broadcast: bool):
         """
@@ -273,7 +283,7 @@ class ExternalControl(us.PrintClient):
         try:
             index = self.indices[s.EX_BROADCAST][s.EX_I_OUT]
             message = self.BROADCAST_TEMPLATE.format(
-                self.listenerPort, index, *self.dimensions, self._getRPMs())
+                self.listenerPort, index, *self.dimensions, self._G()[1:-1])
             for _ in range(self.broadcastRepeat):
                 self.sockets[s.EX_BROADCAST].sendto(
                     bytearray(message, 'ascii'), self.broadcastTarget)
@@ -283,8 +293,12 @@ class ExternalControl(us.PrintClient):
             self.printx(e, "Error in State Broadcast")
             self.deactivateBroadcast()
 
-    def _getRPMs(self):
+    def _G(self):
         """
-        Get RPM values from the current feedback vector.
+        Return a grid vector corresponding to the latest feedback vector.
         """
-        return "" # FIXME
+        G = [s.PAD]*self.mapper.getSize_G()
+        for k in range(self.mapper.getSize_K()):
+            G[self.mapper.index_KG(k)] = self.F[k]
+        return G
+
