@@ -115,11 +115,11 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
 
         # Wrap-up ..............................................................
         self.backend.setCallbacks(
-            setBroadcastStatus = self.setBroadcast,
-            setBroadcastOut = self.broadcast.setOutputIndex,
-            setListenerStatus = self.setListener,
-            setListenerIn = self.listener.setInputIndex,
-            setListenerOut = self.listener.setOutputIndex)
+            setFEBroadcastStatus = self.setBroadcast,
+            setFEBroadcastOut = self.broadcast.setOutputIndex,
+            setFEListenerStatus = self.setListener,
+            setFEListenerIn = self.listener.setInputIndex,
+            setFEListenerOut = self.listener.setOutputIndex)
 
     # API ----------------------------------------------------------------------
     def set(self, key, value, backend = True):

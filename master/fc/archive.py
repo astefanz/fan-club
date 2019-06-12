@@ -674,7 +674,7 @@ class FCArchive(us.PrintClient):
         externalDefaultBroadcastIP : "<broadcast>",
         externalDefaultBroadcastPort : 60069,
         externalDefaultListenerIP : "0.0.0.0",
-        externalDefaultListenerPort : "60169",
+        externalDefaultListenerPort : 60169,
         externalDefaultRepeat : 1,
         externalDefaultRateHz : 5,
 
