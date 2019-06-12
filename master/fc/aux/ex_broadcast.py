@@ -25,3 +25,21 @@
 Provisional script to test the external control broadcast.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
+import ex_listener as exl
+DEFAULT_BPORT = 60069
+MSG_LENGTH = 2048
+
+def listen(port = DEFAULT_BPORT):
+    index_in = 0
+    sock = exl.openSocket(port)
+    print("Listening for broadcast. Use Ctrl-C to stop.")
+    try:
+        while True:
+            message, sender = sock.recvfrom(MSG_LENGTH)
+            print("Received ({}):\n\t{}\nFrom: {}".format(len(message),
+                message, sender))
+    except KeyboardInterrupt:
+        print("Terminating")
+    finally:
+        sock.close()
+        print("Closed socket")
