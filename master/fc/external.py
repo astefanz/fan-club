@@ -59,6 +59,11 @@ Build separate from "master" network (Communicator). Focus on simplicity.
     - Command to listener:
     INDEX|COMMAND_CODE|COMMAND_VALUE
 
+Given a new index to be compared with the currently-stored one, the new index
+is considered valid if the following condition is met:
+    new_index > last_index or new_index < last_index - delta
+Where "delta" may be chosen arbitrarily.
+
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 # IMPORTS ######################################################################
@@ -139,7 +144,13 @@ class ExternalControl(us.PrintClient):
                 self.indices[key][index] = 0
 
         self.F, self.N, self.S = [], [], []
-        self.activateListener(self.defaultListenerPort, self.defaultRepeat)
+
+        if self.archive[ac.externalListenerAutoStart]:
+            self.activateListener(self.defaultListenerPort, self.defaultRepeat)
+        if self.archive[ac.externalBroadcastAutoStart]:
+            self.activateBroadcast(
+                (self.defaultBroadcastIP, self.defaultBroadcastPort),
+                self.defaultRepeat)
 
         self.commandHandlers = {
             s.EX_CMD_F : self._handleF,
@@ -198,6 +209,7 @@ class ExternalControl(us.PrintClient):
             self.listenerThread = mt.Thread(
                 target = self._listenerRoutine,
                 args = (self.sockets[s.EX_LISTENER], self._processCommand,
+                    self.deactivateListener,
                     self._setListenerIn, self._setListenerOut,
                     self.listenerRepeat, self.pqueue),
                 daemon = True)
@@ -214,21 +226,24 @@ class ExternalControl(us.PrintClient):
         self.setFEBroadcastOut(self.indices[s.EX_BROADCAST][s.EX_I_OUT])
         self.setFEBroadcastStatus(s.EX_INACTIVE)
 
-    def deactivateListener(self):
+    def deactivateListener(self, redundant = True):
         """
         Deactivate the listener module.
+        - redundant := whether to execute even if the listener appears to be
+            deactivated.
         """
-        temp = self._socket('Listener Deactivator', 0, False)
-        temp.sendto(bytearray('', 'ascii'),
-            self.sockets[s.EX_LISTENER].getsockname())
-        temp.close()
-        self.deactivate(s.EX_LISTENER)
-        self.setFEListenerIn(self.indices[s.EX_LISTENER][s.EX_I_IN])
-        self.setFEListenerOut(self.indices[s.EX_LISTENER][s.EX_I_OUT])
-        self.listenerPort = 0
-        self.listenerThread = None
-        self.setFEListenerStatus(s.EX_INACTIVE)
-        self.warnedDimensions = False
+        if not self.isListenerActive() or redundant:
+            temp = self._socket('Listener Deactivator', 0, False)
+            temp.sendto(bytearray('', 'ascii'),
+                self.sockets[s.EX_LISTENER].getsockname())
+            temp.close()
+            self.deactivate(s.EX_LISTENER)
+            self.setFEListenerIn(self.indices[s.EX_LISTENER][s.EX_I_IN])
+            self.setFEListenerOut(self.indices[s.EX_LISTENER][s.EX_I_OUT])
+            self.listenerPort = 0
+            self.listenerThread = None
+            self.setFEListenerStatus(s.EX_INACTIVE)
+            self.warnedDimensions = False
 
     def _activate(self, key, port = 0):
         """
@@ -324,7 +339,11 @@ class ExternalControl(us.PrintClient):
         self.L, self.R, self.C = self.dimensions
         self.RC = self.R*self.C
 
+        self.delta = self.archive[ac.externalIndexDelta]
+
         self.defaultListenerPort = self.archive[ac.externalDefaultListenerPort]
+        self.defaultBroadcastPort =self.archive[ac.externalDefaultBroadcastPort]
+        self.defaultBroadcastIP = self.archive[ac.externalDefaultBroadcastIP]
         self.defaultRepeat = self.archive[ac.externalDefaultRepeat]
 
     # Internal methods ---------------------------------------------------------
@@ -391,7 +410,8 @@ class ExternalControl(us.PrintClient):
             index_new = int(splitted[s.EX_CMD_I_INDEX])
             if index_new == 0:
                 self.printw("NOTE: Input index 0 is always ignored")
-            if index_new <= index_in:
+            if index_new >= index_in - self.delta and index_new <= index_in:
+                # new not in [old - delta, old]
                 return (None, index_in)
             code = splitted[s.EX_CMD_I_CODE]
             reply_content = ""
@@ -401,8 +421,8 @@ class ExternalControl(us.PrintClient):
         except Exception as e:
             self.printx(e, "Exception while processing external command")
             reply_content = "{}|{}".format(s.EX_REP_ERROR, e)
-        reply = "{}|{}".format(index_out, reply_content)
-        return bytearray(reply, 'ascii'), index_new
+        reply = "{}|{}|{}".format(index_out, code, reply_content)
+        return (bytearray(reply, 'ascii'), index_new)
 
     def _setListenerIn(self, index):
         self.indices[s.EX_LISTENER][s.EX_I_IN] = index
@@ -462,30 +482,30 @@ class ExternalControl(us.PrintClient):
         return eval(expression)
 
     @staticmethod
-    def _listenerRoutine(socket, method, set_in, set_out, repeat, pqueue):
+    def _listenerRoutine(socket, method, stop, set_in, set_out, repeat, pqueue):
         P = us.printers(pqueue, "[XL]")
         pr, pe, px = P[us.R], P[us.E], P[us.X]
         pr("External control listener routine started")
 
         index_in, index_out = 0, 1
         repeater = range(repeat)
-        try:
-            while True:
+        while True:
+            try:
                 message, sender = socket.recvfrom(RECV_SIZE)
                 decoded = message.decode('ascii')
                 if decoded == "":
                     break
-                pr("Received: {}".format(decoded)) # FIXME temp. debug
                 reply, index_in = method(decoded, index_in, index_out)
                 if reply is not None:
                     for _ in repeater:
-                        socket.sendto(reply, sender) # FIXME temp. echo
+                        socket.sendto(reply, sender)
                     index_out += 1
                     set_in(index_in)
                     set_out(index_out)
-        except Exception as e:
-            px(e, "Exception in external control listener routine")
+            except Exception as e:
+                px(e, "Exception in external control listener routine")
         pr("External control listener routine ended")
+        stop(redundant = False)
 
 
 

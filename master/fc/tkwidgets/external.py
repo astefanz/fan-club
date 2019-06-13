@@ -94,7 +94,6 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
             defaultIP = self.archive[ac.externalDefaultBroadcastIP],
             defaultPort = self.archive[ac.externalDefaultBroadcastPort],
             defaultRepeat = self.archive[ac.externalDefaultRepeat],
-            defaultRate = self.archive[ac.externalDefaultRateHz],
             editIP = True,
             )
 
@@ -107,7 +106,6 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
             defaultIP = self.archive[ac.externalDefaultListenerIP],
             defaultPort = self.archive[ac.externalDefaultListenerPort],
             defaultRepeat = self.archive[ac.externalDefaultRepeat],
-            defaultRate = self.archive[ac.externalDefaultRateHz],
             editIP = False)
         self.listener.grid(row = row, column = 0, sticky = "EW")
         row += 1
@@ -205,7 +203,7 @@ class ECSetupWidget(tk.Frame):
     }
 
     def __init__(self, master, title, startf, stopf,
-        defaultIP, defaultPort, defaultRepeat, defaultRate, editIP):
+        defaultIP, defaultPort, defaultRepeat, editIP):
         """
         - title := str, text to put on top label.
         - master := tkinter master widget.
@@ -220,7 +218,6 @@ class ECSetupWidget(tk.Frame):
         self.defaultIP = defaultIP
         self.defaultPort = defaultPort
         self.defaultRepeat = defaultRepeat
-        self.defaultRate = defaultRate
         self.editIP = editIP
         self.defaults = {
             self.PARAM_IP : self.defaultIP,

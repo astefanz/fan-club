@@ -77,6 +77,7 @@ class FCInterface(us.PrintServer):
         """
         us.PrintServer.__init__(self, pqueue)
         self.archive = archive
+        self.live = True
         self.__setProfile()
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
@@ -85,7 +86,6 @@ class FCInterface(us.PrintServer):
         self.__buildLists()
         self.__buildPipes()
         self.__flushAltBuffers()
-        self.live = True
 
         # Build backend abstraction:
         self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
@@ -216,6 +216,7 @@ class FCInterface(us.PrintServer):
         """
         self.live = live
         self.__flushAltBuffers()
+        self.__updatePeriod()
 
     def altFeedbackIn(self, F):
         """
@@ -257,8 +258,11 @@ class FCInterface(us.PrintServer):
         """
         # TODO:
         # Test lists
-        self.period_ms = int((self.archive[ac.periodMS])/2)
-        print(self.period_ms)
+        self.__updatePeriod()
+
+    def __updatePeriod(self):
+        self.period_ms = int((self.archive[ac.periodMS])\
+            /(2 if self.live else 1))
         if self.period_ms <= 0:
             raise ValueError("Communications period ({}ms) is too small for "\
                 "front-end".format(self.archive[ac.periodMS]))

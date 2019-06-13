@@ -1,5 +1,4 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master"  ## File: archive.py                     ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -110,7 +109,9 @@ externalDefaultBroadcastPort = 117
 externalDefaultListenerIP = 118
 externalDefaultListenerPort = 119
 externalDefaultRepeat = 120
-externalDefaultRateHz = 121
+externalListenerAutoStart = 121
+externalBroadcastAutoStart = 122
+externalIndexDelta = 123
 
 # For each Slave .........
 SV_name = 216
@@ -441,11 +442,21 @@ META = {
 		TYPE_PRIMITIVE,
 		True,
         v_positive_int),
-    externalDefaultRateHz : ("externalDefaultRateHz",
+    externalListenerAutoStart:("externalIndexDelta",
 		4,
 		TYPE_PRIMITIVE,
 		True,
-        v_positive_int),
+        v_bool),
+    externalBroadcastAutoStart: ("externalIndexDelta",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+        v_bool),
+    externalIndexDelta: ("externalIndexDelta",
+		4,
+		TYPE_PRIMITIVE,
+		True,
+        v_nonnegative_int),
     defaultSlave : ("defaultSlave",
 		5,
 		TYPE_SUB,
@@ -676,7 +687,9 @@ class FCArchive(us.PrintClient):
         externalDefaultListenerIP : "0.0.0.0",
         externalDefaultListenerPort : 60169,
         externalDefaultRepeat : 1,
-        externalDefaultRateHz : 5,
+        externalBroadcastAutoStart: False,
+        externalListenerAutoStart: True,
+        externalIndexDelta: 10,
 
         defaultSlave :
             {
