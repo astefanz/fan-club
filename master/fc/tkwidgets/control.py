@@ -190,6 +190,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
             self.mapper, self._send, pqueue = self.pqueue)
         self.display.add(self.grid, text = "Control Grid")
         self.displays.append(self.grid)
+        self.external.setController(self.grid)
 
         # Live table
         self.table = LiveTable(self.display, self.archive, self.mapper,
@@ -1795,7 +1796,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
     def parameters(self):
         return self.PARAMETERS
 
-    def map(self, func, t, t_index):
+    def map(self, func, t = 0, t_index = 0):
         # FIXME performance
         control = [0]*self.size_k
 

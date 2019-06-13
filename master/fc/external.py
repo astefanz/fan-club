@@ -41,7 +41,8 @@ Build separate from "master" network (Communicator). Focus on simplicity.
     - Only one broadcast (send RPM's)
     - Listener commands:
         - One for each state vector, so F, N and S
-        - One to fit a duty cycle matrix
+        - One for a duty cycle matrix
+        - One for uniform flow
         - One to request profile data (send the attribute name)
         - One to evaluate a Python expression
     - Listener replies:
@@ -66,11 +67,21 @@ import threading as mt
 from . import utils as us, standards as s, archive as ac
 
 # CONSTANT DEFINITIONS #########################################################
-RECV_SIZE = 2048
+RECV_SIZE = 32768
 MAIN_SPLITTER = '|'
 END_CODE = "END"
 
 # CLASS DEFINITIONS ############################################################
+class NoController:
+    def set(self, dc):
+        self._rip()
+
+    def map(self, *_):
+        self._rip()
+
+    def _rip(self):
+        raise RuntimeError("No controller set up for external control")
+
 class ExternalControl(us.PrintClient):
     """
     Back end for "external control" functionality.
@@ -84,6 +95,7 @@ class ExternalControl(us.PrintClient):
     # FIXME: redundant work on old F vectors
 
     def __init__(self, mapper, archive, pqueue,
+        controller = NoController(),
         setFEBroadcastStatus = NOTHING,
         setFEBroadcastOut = NOTHING,
         setFEListenerStatus = NOTHING,
@@ -99,14 +111,9 @@ class ExternalControl(us.PrintClient):
         self.mapper = mapper
         self.archive = archive
         self.pqueue = pqueue
+        self.controller = controller
 
-        self.dimensions = (
-            self.archive[ac.fanArray][ac.FA_layers],
-            self.archive[ac.fanArray][ac.FA_rows],
-            self.archive[ac.fanArray][ac.FA_columns],
-        )
-        self.warnedDimensions = False
-        self.L, self.R, self.C = self.dimensions
+        self.profileChange()
 
         self.broadcastTarget = None
         self.broadcastRepeat = 0
@@ -132,14 +139,14 @@ class ExternalControl(us.PrintClient):
                 self.indices[key][index] = 0
 
         self.F, self.N, self.S = [], [], []
-        self.activateListener(self.archive[ac.externalDefaultListenerPort],
-            self.archive[ac.externalDefaultRepeat])
+        self.activateListener(self.defaultListenerPort, self.defaultRepeat)
 
         self.commandHandlers = {
             s.EX_CMD_F : self._handleF,
             s.EX_CMD_N : self._handleN,
             s.EX_CMD_S : self._handleS,
-            s.EX_CMD_DC_MATRIX : self._handleDCMatrix,
+            s.EX_CMD_DC_MATRIX : self._handleDCVector,
+            s.EX_CMD_UNIFORM : self._handleUniform,
             s.EX_CMD_PROFILE : self._handleProfile,
             s.EX_CMD_EVALUATE : self._handleEvaluate,
         }
@@ -305,9 +312,20 @@ class ExternalControl(us.PrintClient):
         self.setFEListenerIn(self.indices[s.EX_LISTENER][s.EX_I_IN])
         self.setFEListenerOut(self.indices[s.EX_LISTENER][s.EX_I_OUT])
 
+    def setController(self, controller):
+        self.controller = controller
+
     def profileChange(self):
-        # TODO
-        return
+        self.dimensions = (
+            self.archive[ac.fanArray][ac.FA_layers],
+            self.archive[ac.fanArray][ac.FA_rows],
+            self.archive[ac.fanArray][ac.FA_columns],
+        )
+        self.L, self.R, self.C = self.dimensions
+        self.RC = self.R*self.C
+
+        self.defaultListenerPort = self.archive[ac.externalDefaultListenerPort]
+        self.defaultRepeat = self.archive[ac.externalDefaultRepeat]
 
     # Internal methods ---------------------------------------------------------
     def _socket(self, name: str, port: int, broadcast: bool):
@@ -403,24 +421,38 @@ class ExternalControl(us.PrintClient):
     def _handleS(self, index_new, code):
         return str(self.S)[1:-1]
 
-    def _handleDCMatrix(self, index_new, code, L_raw, R_raw, C_raw, vector):
+    def _handleDCVector(self, index_new, code, L_raw, R_raw, C_raw, vector_raw):
         # TODO confirm dimensions make sense
         # TODO send warnings about averaging and fitting
 
-        dcs = tuple(map(float, vector.split(s.EX_LIST_SPLITTER)))
+        dcs = tuple(map(float, vector_raw.split(s.EX_LIST_SPLITTER)))
         L, R, C = int(L_raw), int(R_raw), int(C_raw)
         if len(dcs) != L*R*C:
-            raise ValueError("DC vector length () does not match given "\
-                + "dimensions ({}x{}x{} = {})".format(len(dcs), L, R, C, L*R*C))
-        if (L, R, C) != self.dimensions and not self.warnedDimensions:
-            self.printw("NOTE: Fitting DC matrix with different dimensions:"\
-                + "\n\tGiven: {} layer(s), {} row(s), {} column(s)".format(
-                    L, R, C)
-                + "\n\tOwn: {} layers(s), {} row(s), {} column(s)".format(
-                    self.L, self.R, self.C))
-            self.warnedDimensions = True
-        self.printw("[TODO] implement Grid fitting")
-        return "TO_DO" # TODO
+            raise ValueError(
+                "DC vector length () does not match given ".format(len(dcs))
+                + "dimensions ({}x{}x{} = {})".format(L, R, C, L*R*C))
+        if (L, R, C) != self.dimensions:
+            raise ValueError("DC matrix dimension mismatch. Expected "\
+                + "{}x{}x{}".format(L, R, C)\
+                + " and got {}x{}x{}".format(*self.dimensions))
+        self.controller.map(self._oneToOne(dcs), 0)
+        return str(L*R*C)
+
+    def _oneToOne(self, vector):
+        """
+        Return an FC function that maps fans 1:1 to a given DC vector.
+        """
+        def f(r, c, l, *_):
+            # FIXME lack of robustness w/ assignment position
+            return vector[l*self.RC + r*self.C + c]
+        return f
+
+    def _handleUniform(self, index_new, code, dc_raw):
+        dc = float(dc_raw)
+        if dc < 0.0 or dc > 1.0:
+            raise ValueError(f"Duty cycle {dc:} outside of range [0.0, 1.0]")
+        self.controller.set(dc)
+        return str(dc)
 
     def _handleProfile(self, index_new, code, attribute):
         return self.archive[ac.INVERSE[attribute]]
