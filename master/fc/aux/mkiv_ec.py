@@ -43,7 +43,8 @@ CODE_ERROR = 'E'
 CODE_UNIFORM = 'U'
 CODE_DC_VECTOR = 'D'
 CODE_PROFILE = 'P'
-CODE_EVALUATE = 'E'
+CODE_EVALUATE = 'V'
+CODE_RESET = 'R'
 
 
 # CLASS DEFINITIONS ############################################################
@@ -123,6 +124,8 @@ class FCClient:
         self.listener_socket = None
         self.resetListenerIndices()
         self._buildListenerSocket()
+        if self.listener_port != 0:
+            self.requestReset()
 
     # API ----------------------------------------------------------------------
     # Broadcast ................................................................
@@ -171,6 +174,7 @@ class FCClient:
         self._verify(port, int, minimum = 0, maximum = 65536)
         self.listener_port = port
         self.print(f"Listener port set to {port}")
+        self.requestReset()
 
     def setListenerIP(self, ip):
         """
@@ -180,6 +184,7 @@ class FCClient:
         self._verify(ip, str)
         self.listener_ip = ip
         self.print(f"Listener ip set to {ip}")
+        self.requestReset()
 
     def getListenerIndices(self):
         """
@@ -292,6 +297,12 @@ class FCClient:
         """
         return eval(self._sendToListener(CODE_PROFILE, attribute))
 
+    def requestReset(self):
+        """
+        Send a request that this side's outgoing listener index be reset.
+        """
+        return self._sendToListener(CODE_RESET, get_reply = False)
+
     # Other ....................................................................
     def setPacketSize(self, size):
         self._verify(size, int, minimum = 1)
@@ -367,12 +378,14 @@ class FCClient:
             name, sock.getsockname()[1]))
         return sock
 
-    def _sendToListener(self, code, content = ""):
+    def _sendToListener(self, code, content = "", get_reply = True):
         """
         Send a message to the command listener.
 
         - code := str, code that identifies the type of command.
         - content := str, content of the command, if any.
+        - get_reply := bool, whether to wait for a reply and return the result.
+            Defaults to True.
         """
         if self.listener_port == 0:
             raise RuntimeError(
@@ -385,10 +398,11 @@ class FCClient:
                 (self.listener_ip, self.listener_port))
         self.index_out += 1
 
-        reply_code, reply_message = self._getReply(code)
-        if reply_code == CODE_ERROR:
-            self._errorCallback(reply_message)
-        return reply_message
+        if get_reply:
+            reply_code, reply_message = self._getReply(code)
+            if reply_code == CODE_ERROR:
+                self._errorCallback(reply_message)
+            return reply_message
 
     def _getReply(self, code):
         """

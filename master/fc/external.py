@@ -233,10 +233,13 @@ class ExternalControl(us.PrintClient):
             deactivated.
         """
         if not self.isListenerActive() or redundant:
-            temp = self._socket('Listener Deactivator', 0, False)
-            temp.sendto(bytearray('', 'ascii'),
-                self.sockets[s.EX_LISTENER].getsockname())
-            temp.close()
+            try:
+                temp = self._socket('Listener Deactivator', 0, False)
+                temp.sendto(bytearray('', 'ascii'),
+                    self.sockets[s.EX_LISTENER].getsockname())
+                temp.close()
+            except AttributeError:
+                pass
             self.deactivate(s.EX_LISTENER)
             self.setFEListenerIn(self.indices[s.EX_LISTENER][s.EX_I_IN])
             self.setFEListenerOut(self.indices[s.EX_LISTENER][s.EX_I_OUT])
@@ -408,6 +411,9 @@ class ExternalControl(us.PrintClient):
         """
         splitted = command.split(s.EX_CMD_SPLITTER)
         index_new = int(splitted[s.EX_CMD_I_INDEX])
+        code = splitted[s.EX_CMD_I_CODE]
+        if code == s.EX_CMD_RESET:
+            return (None, 0)
         if index_new == 0:
             self.printw("NOTE: Input index 0 is always ignored")
         if splitted[-1] == '':
@@ -415,7 +421,6 @@ class ExternalControl(us.PrintClient):
         if index_new >= index_in - self.delta and index_new <= index_in:
             # new not in [old - delta, old]
             return (None, index_in)
-        code = splitted[s.EX_CMD_I_CODE]
         reply_content = ""
         if code not in s.EX_CMD_CODES:
             raise KeyError("Unrecognized command code \"{}\"".format(code))
@@ -441,9 +446,6 @@ class ExternalControl(us.PrintClient):
         return str(self.S)[1:-1]
 
     def _handleDCVector(self, index_new, code, R_raw, C_raw, L_raw, vector_raw):
-        # TODO confirm dimensions make sense
-        # TODO send warnings about averaging and fitting
-
         dcs = tuple(map(float, vector_raw.split(s.EX_LIST_SPLITTER)))
         R, C, L = int(R_raw), int(C_raw), int(L_raw)
         if len(dcs) != R*C*L:
@@ -504,8 +506,8 @@ class ExternalControl(us.PrintClient):
                     for _ in repeater:
                         socket.sendto(reply, sender)
                     index_out += 1
-                    set_in(index_in)
-                    set_out(index_out)
+                set_in(index_in)
+                set_out(index_out)
             except Exception as e:
                 px(e, "Exception in external control listener routine")
         pr("External control listener routine ended")

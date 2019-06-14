@@ -372,7 +372,8 @@ EX_CMD_F, EX_CMD_N, EX_CMD_S = 'F', 'N', 'S' # Get state vectors
 EX_CMD_DC_VECTOR = 'D' # Process DC matrix
 EX_CMD_UNIFORM = 'U' # Apply DC to al
 EX_CMD_PROFILE = 'P' # Profile attribute
-EX_CMD_EVALUATE = 'E' # Evaluate Python expression and get result
+EX_CMD_EVALUATE = 'V' # Evaluate Python expression and get result
+EX_CMD_RESET = 'R' # Reset input index
 
 EX_CMD_CODES = (EX_CMD_F, EX_CMD_N, EX_CMD_S, EX_CMD_DC_VECTOR, EX_CMD_UNIFORM,
     EX_CMD_PROFILE, EX_CMD_EVALUATE)
