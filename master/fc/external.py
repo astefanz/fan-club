@@ -53,7 +53,7 @@ Build separate from "master" network (Communicator). Focus on simplicity.
         - One for Python expression results
 - Have a simple message format:
     - Broadcast:
-    INDEX|B|LISTENER_PORT|NROWS|NCOLS|NLAYERS|RPMS
+    INDEX|B|LISTENER_PORT|TIME_STAMP|NROWS|NCOLS|NLAYERS|RPMS
     - Listener reply:
     INDEX|REPLY_CODE|REPLY_VALUE
     - Command to listener:
@@ -93,7 +93,7 @@ class ExternalControl(us.PrintClient):
     """
     SYMBOL = "[EX]"
     NOTHING = lambda n: None
-    BROADCAST_TEMPLATE = "{}|B|{}|{}|{}|{}|{}"
+    BROADCAST_TEMPLATE = "{}|B|{}|{}|{}|{}|{}|{}"
 
     # TODO: Listener behavior
 
@@ -156,7 +156,7 @@ class ExternalControl(us.PrintClient):
             s.EX_CMD_F : self._handleF,
             s.EX_CMD_N : self._handleN,
             s.EX_CMD_S : self._handleS,
-            s.EX_CMD_DC_MATRIX : self._handleDCVector,
+            s.EX_CMD_DC_VECTOR : self._handleDCVector,
             s.EX_CMD_UNIFORM : self._handleUniform,
             s.EX_CMD_PROFILE : self._handleProfile,
             s.EX_CMD_EVALUATE : self._handleEvaluate,
@@ -332,12 +332,13 @@ class ExternalControl(us.PrintClient):
 
     def profileChange(self):
         self.dimensions = (
-            self.archive[ac.fanArray][ac.FA_layers],
             self.archive[ac.fanArray][ac.FA_rows],
             self.archive[ac.fanArray][ac.FA_columns],
+            self.archive[ac.fanArray][ac.FA_layers],
         )
-        self.L, self.R, self.C = self.dimensions
+        self.R, self.C, self.L = self.dimensions
         self.RC = self.R*self.C
+        self.RCL = self.RC*self.L
 
         self.delta = self.archive[ac.externalIndexDelta]
 
@@ -371,7 +372,7 @@ class ExternalControl(us.PrintClient):
             # FIXME performance
             index = self.indices[s.EX_BROADCAST][s.EX_I_OUT]
             message = self.BROADCAST_TEMPLATE.format(
-                index, self.listenerPort, *self.dimensions,
+                index, self.listenerPort, 0,  *self.dimensions,
                 str(self._G())[1:-1])
             for _ in range(self.broadcastRepeat):
                 self.sockets[s.EX_BROADCAST].sendto(
@@ -405,22 +406,20 @@ class ExternalControl(us.PrintClient):
             (None, old_input_index)
         If the command is redundant and the message should be ignored.
         """
-        try:
-            splitted = command.split(s.EX_CMD_SPLITTER)
-            index_new = int(splitted[s.EX_CMD_I_INDEX])
-            if index_new == 0:
-                self.printw("NOTE: Input index 0 is always ignored")
-            if index_new >= index_in - self.delta and index_new <= index_in:
-                # new not in [old - delta, old]
-                return (None, index_in)
-            code = splitted[s.EX_CMD_I_CODE]
-            reply_content = ""
-            if code not in s.EX_CMD_CODES:
-                raise KeyError("Unrecognized command code \"{}\"".format(code))
-            reply_content = self.commandHandlers[code](*splitted)
-        except Exception as e:
-            self.printx(e, "Exception while processing external command")
-            reply_content = "{}|{}".format(s.EX_REP_ERROR, e)
+        splitted = command.split(s.EX_CMD_SPLITTER)
+        index_new = int(splitted[s.EX_CMD_I_INDEX])
+        if index_new == 0:
+            self.printw("NOTE: Input index 0 is always ignored")
+        if splitted[-1] == '':
+            splitted = splitted[:-1]
+        if index_new >= index_in - self.delta and index_new <= index_in:
+            # new not in [old - delta, old]
+            return (None, index_in)
+        code = splitted[s.EX_CMD_I_CODE]
+        reply_content = ""
+        if code not in s.EX_CMD_CODES:
+            raise KeyError("Unrecognized command code \"{}\"".format(code))
+        reply_content = self.commandHandlers[code](*splitted)
         reply = "{}|{}|{}".format(index_out, code, reply_content)
         return (bytearray(reply, 'ascii'), index_new)
 
@@ -441,22 +440,22 @@ class ExternalControl(us.PrintClient):
     def _handleS(self, index_new, code):
         return str(self.S)[1:-1]
 
-    def _handleDCVector(self, index_new, code, L_raw, R_raw, C_raw, vector_raw):
+    def _handleDCVector(self, index_new, code, R_raw, C_raw, L_raw, vector_raw):
         # TODO confirm dimensions make sense
         # TODO send warnings about averaging and fitting
 
         dcs = tuple(map(float, vector_raw.split(s.EX_LIST_SPLITTER)))
-        L, R, C = int(L_raw), int(R_raw), int(C_raw)
-        if len(dcs) != L*R*C:
+        R, C, L = int(R_raw), int(C_raw), int(L_raw)
+        if len(dcs) != R*C*L:
             raise ValueError(
                 "DC vector length () does not match given ".format(len(dcs))
                 + "dimensions ({}x{}x{} = {})".format(L, R, C, L*R*C))
-        if (L, R, C) != self.dimensions:
+        if (R, C, L) != self.dimensions:
             raise ValueError("DC matrix dimension mismatch. Expected "\
-                + "{}x{}x{}".format(L, R, C)\
+                + "{}x{}x{}".format(R, C, L)\
                 + " and got {}x{}x{}".format(*self.dimensions))
         self.controller.map(self._oneToOne(dcs), 0)
-        return str(L*R*C)
+        return str(R*C*L)
 
     def _oneToOne(self, vector):
         """
@@ -495,7 +494,12 @@ class ExternalControl(us.PrintClient):
                 decoded = message.decode('ascii')
                 if decoded == "":
                     break
-                reply, index_in = method(decoded, index_in, index_out)
+                try:
+                    reply, index_in = method(decoded, index_in, index_out)
+                except Exception as e:
+                    px(e,"Exception while processing external command")
+                    reply = bytearray(
+                        "{}|{}|{}".format(index_out, s.EX_REP_ERROR, e),'ascii')
                 if reply is not None:
                     for _ in repeater:
                         socket.sendto(reply, sender)

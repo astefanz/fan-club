@@ -369,12 +369,12 @@ EX_CMD_SPLITTER = '|'
 EX_LIST_SPLITTER = ','
 EX_CMD_I_INDEX, EX_CMD_I_CODE = 0, 1
 EX_CMD_F, EX_CMD_N, EX_CMD_S = 'F', 'N', 'S' # Get state vectors
-EX_CMD_DC_MATRIX = 'D' # Process DC matrix
+EX_CMD_DC_VECTOR = 'D' # Process DC matrix
 EX_CMD_UNIFORM = 'U' # Apply DC to al
 EX_CMD_PROFILE = 'P' # Profile attribute
 EX_CMD_EVALUATE = 'E' # Evaluate Python expression and get result
 
-EX_CMD_CODES = (EX_CMD_F, EX_CMD_N, EX_CMD_S, EX_CMD_DC_MATRIX, EX_CMD_UNIFORM,
+EX_CMD_CODES = (EX_CMD_F, EX_CMD_N, EX_CMD_S, EX_CMD_DC_VECTOR, EX_CMD_UNIFORM,
     EX_CMD_PROFILE, EX_CMD_EVALUATE)
 
 EX_REP_ERROR = 'E'

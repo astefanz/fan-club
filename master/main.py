@@ -39,6 +39,13 @@ import fc.builtin.profiles as btp
 VERSION = "0.11"
 INIT_PROFILE = "BASE" # FIXME
 
+# NOTE on writing servers like the ext. ctl. API:
+# - have stop methods handle redundance
+# - call stop method from end of routine
+# - have start methods restart if applicable
+# - have listener threads block at socket and deactivate them by sending
+#   to that socket
+
 ## MAIN ########################################################################
 print(us.HEADER)
 
