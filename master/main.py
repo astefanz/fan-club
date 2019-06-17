@@ -1,5 +1,4 @@
 #!/usr/bin/python3 #############################################################
-## Project: Fanclub Mark IV "Master" main file ## File: main.py               ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -36,7 +35,7 @@ import fc.utils as us
 import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
-VERSION = "0.11"
+VERSION = "0.12"
 INIT_PROFILE = "BASE" # FIXME
 
 # NOTE on writing servers like the ext. ctl. API:

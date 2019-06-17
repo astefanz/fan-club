@@ -64,6 +64,10 @@ is considered valid if the following condition is met:
     new_index > last_index or new_index < last_index - delta
 Where "delta" may be chosen arbitrarily.
 
+ON INDICES:
+Output indices should be initialized to 1. Input indices should be initialized
+to 0.
+
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 # IMPORTS ######################################################################
@@ -287,8 +291,8 @@ class ExternalControl(us.PrintClient):
             self.printx(e,"Error while deactivating {}".format(s.EX_NAMES[key]))
         finally:
             self.sockets[key] = None
-            for index in s.EX_INDICES:
-                self.indices[key][index] = 0
+            self.indices[key][s.EX_I_IN] = 0
+            self.indices[key][s.EX_I_OUT] = 1
             self.prints("{} Deactivated".format(s.EX_NAMES[key]))
 
     def feedbackIn(self, F):
@@ -446,7 +450,7 @@ class ExternalControl(us.PrintClient):
         return str(self.S)[1:-1]
 
     def _handleDCVector(self, index_new, code, R_raw, C_raw, L_raw, vector_raw):
-        dcs = tuple(map(float, vector_raw.split(s.EX_LIST_SPLITTER)))
+        dcs = tuple(map(float, vector_raw.split(s.EX_LIST_SPLITTER)[:self.RCL]))
         R, C, L = int(R_raw), int(C_raw), int(L_raw)
         if len(dcs) != R*C*L:
             raise ValueError(
