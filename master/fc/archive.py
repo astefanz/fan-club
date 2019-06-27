@@ -44,9 +44,9 @@ CODE = 1
 
 # Platforms:
 UNKNOWN = -1
-WINDOWS = 0
-MACOS = 1
-LINUX = 2
+WINDOWS = us.WINDOWS
+MACOS = us.MAC
+LINUX = us.LINUX
 
 # Fan modes:
 SINGLE = -1 # NOTE: mat change to positive values when slave side is updated
