@@ -1779,11 +1779,11 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             self.deactivate()
 
     def slavesIn(self, S):
-        # TODO deactivate on disconnection
         # FIXME will activation on connection happen automatically?
-        slave, status = S[s.SD_INDEX], S[s.SD_STATUS]
-        if status != s.SS_CONNECTED:
-            self.deactivate_s(slave)
+        index_s, status = S[s.SD_INDEX], S[s.SD_STATUS]
+        if index_s < self.nslaves:
+            if index_s != s.SS_CONNECTED:
+                self.deactivate_s(index_s)
 
     def selectAll(self):
         for g in self.range_g:

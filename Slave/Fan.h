@@ -10,7 +10,7 @@
  * handles all operations on said fan.
  *******************************************************************************
  */
- 
+
 #ifndef FAN_H
 #define FAN_H
 
@@ -24,13 +24,13 @@
 class FastPWM;
 
 // CONSTANT DECLARATIONS ///////////////////////////////////////////////////////
-extern const int 
+extern const int
 	NO_TARGET;
-           
+
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
 extern PinName PWMS[24];
-extern PinName TACHS[29];
+extern PinName TACHS[31];
 
 #if 0 // -----------------------------------------------------------------------
 // VERSION CT1 (ADAPTED TO CAST WIND TUNNEL) ===================================
@@ -85,25 +85,25 @@ extern PinName tachIn[MAX_FANS];
 extern PwmOut pwmOut[MAX_FANS];
 
 extern PinName tachIn[MAX_FANS];
-                          
+
 #endif  // v2_7 // =============================================================
 #endif // ----------------------------------------------------------------------
-           
+
 // CLASS INTERFACE /////////////////////////////////////////////////////////////
 
 
 class Fan{
 public:
-    // CONSTRUCTORS AND DESTRUCTORS 
+    // CONSTRUCTORS AND DESTRUCTORS
     Fan();
 		/* ABOUT: Constructor for class Fan. Creates an uninitialized fan which
 		 * must be configured with Fan::configure before usage.
 		 */
-         
+
     ~Fan();
 		/* ABOUT: Destructor for class Fan.
 		 */
-         
+
 	bool configure(PinName pwmPin, PinName tachPin, int frequencyHZ,
 		int counterCounts, int pulsesPerRotation, int minRPM,
 		float minDC,
@@ -116,15 +116,15 @@ public:
 		 * -uint32_t counterCounts: number of pulses to count
 		 * -uint8_t pulsesPerRotation: number of pulses for one full rotation
 		 * -float minDC: minimum duty cycle for nonzero RPM
-		 * -uint8_t maxTimeouts: maximum number of threshold misses before 
+		 * -uint8_t maxTimeouts: maximum number of threshold misses before
 		 *	chasing is aborted.
 		 */
 
 
     int read(Timer& timerRef, Timeout& timeoutRef, InterruptIn& interruptRef);
-		/* ABOUT: Read the RPM of a fan. 
+		/* ABOUT: Read the RPM of a fan.
 		 * RETURNS:
-		 * -int, either RPM value or negative integer if the fan is 
+		 * -int, either RPM value or negative integer if the fan is
 		 *	uninitialzed.
 		 */
 
@@ -134,12 +134,12 @@ public:
 	void onInterrupt();
 		/* ABOUT: To be executed w/in interrupt routine when counting pulses.
 		 */
-	
+
 	void onTimeout();
 		/* ABOUT: To be executed w/in timeout ISR
 		 */
-		
-    
+
+
     bool write(float newDC);
  		/* ABOUT: Set the duty cycle of a fan.
 		 * PARAMETERS:
@@ -181,12 +181,12 @@ private:
 	volatile bool doneReading;
 
 	int counterCounts;
-	int pulsesPerRotation;	
+	int pulsesPerRotation;
 	int timeouts, maxTimeouts;
 
 	int dbc;
 	int intDC;
-	
+
 	static	InterruptIn interrupt;
 
 };

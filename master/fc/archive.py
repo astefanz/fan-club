@@ -57,7 +57,8 @@ FAN_MODES = (SINGLE, DOUBLE)
 PINOUTS = {
     "BASE" : "FGHMALXWKJUVNISOBQTDC qsrnabdtfhvuepckmljoi",
     "CAST" : "ETRGMLWXPQJKUVBADC edcb_^ng`w\\]porqfs",
-    "JPL"  : "FGCDABNOLMHITUQSJK efcdabnolmhirspqjk"
+    "JPL"  : "FGCDABNOLMHITUQSJK efcdabnolmhirspqjk",
+    "S117" : "VUXWTSQONMLKJIHGFDCBA xytsrqponmlkjihfedcba"
 }
 
 # Supported I-P Comms. Messages:

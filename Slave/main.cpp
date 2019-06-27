@@ -38,7 +38,8 @@
 #include "print.h" // Thread-safe printing
 #include "Communicator.h" // Network handler
 
-#define FCMKII_VERSION "CAST1"
+#define FCMKII_VERSION "B06261"
+// BMMDD: Restored basement + seven sq. FAWT's
 // BASE1: Switch to basement configuration
 // CAST17.0DB: Added "MULTI" command to Processor
 // Changed on CAST150.0DB: Removed default fan array values and refactored main
