@@ -47,10 +47,13 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus, grid as gd, loader as ldr, timer as tmr,\
+from fc import archive as ac, printer as pt, standards as s, utils as us
+from fc.backend import mapper as mr
+
+from fc.frontend.gui import guiutils as gus
+from fc.frontend.gui.embedded import colormaps as cms
+from fc.frontend.gui.widgets import grid as gd, loader as ldr, timer as tmr, \
     external as ex
-from .embedded import colormaps as cms
-from .. import archive as ac, utils as us, standards as s, mapper as mr
 
 ## GLOBALS #####################################################################
 P_TIME = 't'
@@ -61,7 +64,7 @@ P_INDICES, P_FANS = 'S', 'F'
 P_STEP = 'k'
 
 ## MAIN WIDGET #################################################################
-class ControlWidget(tk.Frame, us.PrintClient):
+class ControlWidget(tk.Frame, pt.PrintClient):
     """
     Container for all the FC control GUI front-end widgets.
     """
@@ -70,7 +73,7 @@ class ControlWidget(tk.Frame, us.PrintClient):
     def __init__(self, master, network, external, mapper, archive, pqueue,
         setLiveBE, setFBE):
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
         self.network = network
@@ -248,7 +251,7 @@ class PythonInputWidget(tk.Frame):
         after being parsed and instantiated, as well as the current time step.
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
 
         self.parameters = parameters
@@ -425,7 +428,7 @@ class PythonInputWidget(tk.Frame):
         """
         print("[WARNING] _help not implemented ")
 
-class MainControlWidget(tk.Frame, us.PrintClient):
+class MainControlWidget(tk.Frame, pt.PrintClient):
     """
     Container for the steady flow control tools.
     """
@@ -446,7 +449,7 @@ class MainControlWidget(tk.Frame, us.PrintClient):
 
     def __init__(self, master, network, display, logstart, logstop,  pqueue):
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -792,7 +795,7 @@ class MainControlWidget(tk.Frame, us.PrintClient):
         """
         pass
 
-class FunctionControlWidget(tk.Frame, us.PrintClient):
+class FunctionControlWidget(tk.Frame, pt.PrintClient):
     """
     Container for the dynamic flow control tools.
     """
@@ -802,7 +805,7 @@ class FunctionControlWidget(tk.Frame, us.PrintClient):
 
     def __init__(self, master, display, logstart, logstop, pqueue):
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.display = display
         self.logstart, self.logstop = logstart, logstop
@@ -904,14 +907,14 @@ class BuiltinFlow:
         self.name, self.description = name, description
         self.source, self.ptype, self.attributes = source, ptype, attributes
 
-class FlowLibraryWidget(tk.Frame, us.PrintClient):
+class FlowLibraryWidget(tk.Frame, pt.PrintClient):
     """
     Container for built-in flows.
     """
 
     def __init__(self, master, flows, display, pqueue):
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
         # Setup:
         self.flows = flows
         self.display = display
@@ -1037,7 +1040,7 @@ class FlowLibraryWidget(tk.Frame, us.PrintClient):
             widget.config(state = state)
     # FIXME
 
-class ControlPanelWidget(tk.Frame, us.PrintClient):
+class ControlPanelWidget(tk.Frame, pt.PrintClient):
     """
     Container for the control GUI tools and peripherals.
     """
@@ -1050,7 +1053,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
     def __init__(self, master, mapper, archive, network, external, display,
         setLive, pqueue):
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.mapper = mapper
@@ -1382,7 +1385,7 @@ class ControlPanelWidget(tk.Frame, us.PrintClient):
         for widget in self.activeWidgets:
             widget.config(state = state)
 
-class DisplayMaster(tk.Frame, us.PrintClient):
+class DisplayMaster(tk.Frame, pt.PrintClient):
     """
     Wrapper around interactive control widgets such as the grid or the live
     table. Allows the user to switch between them and abstracts their specifics
@@ -1426,7 +1429,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
         See fc.standards.
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
         self.displays = {}
         self.selected = tk.IntVar()
         self.selected.trace('w', self._update)
@@ -1564,7 +1567,7 @@ class DisplayMaster(tk.Frame, us.PrintClient):
             for callback in self.parameterCallbacks:
                 callback(parameters)
 
-class GridWidget(gd.BaseGrid, us.PrintClient):
+class GridWidget(gd.BaseGrid, pt.PrintClient):
     """
     Front end for the 2D interactive Grid.
     """
@@ -1612,7 +1615,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
         self.off_color = off_color
         gd.BaseGrid.__init__(self, master, self.R, self.C, cursor = self.CURSOR,
             empty = self.empty_color)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Mapping ..............................................................
         self.values_g = [0]*self.size_g
@@ -2072,7 +2075,7 @@ class ColorBarWidget(tk.Frame):
     def __init__(self, master, colors, pqueue, high = 100, unit = "[?]"):
 
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.grid_columnconfigure(0, weight = 1)
@@ -2132,7 +2135,7 @@ class ColorBarWidget(tk.Frame):
         self.canvas.create_line(left, y, right, y, width = 4)
         self.canvas.create_line(left, y, right, y, width = 2, fill = 'white')
 
-class LiveTable(us.PrintClient, tk.Frame):
+class LiveTable(pt.PrintClient, tk.Frame):
     """
     Another interactive control widget. This one displays all slaves and fans
     in a tabular fashion and hence needs no mapping.
@@ -2160,7 +2163,7 @@ class LiveTable(us.PrintClient, tk.Frame):
 
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
         self.archive = archive
         self.mapper = mapper
         self._send = send
@@ -2804,7 +2807,7 @@ class LiveTable(us.PrintClient, tk.Frame):
 
         self.built = True
 
-class DataLogger(us.PrintClient):
+class DataLogger(pt.PrintClient):
     """
     Print feedback vectors to CSV files.
     """
@@ -2818,7 +2821,7 @@ class DataLogger(us.PrintClient):
     # NOTE: watchdog?
 
     def __init__(self, archive, pqueue):
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.pipeRecv, self.pipeSend = None, None
         self._buildPipes()
@@ -2928,7 +2931,7 @@ class DataLogger(us.PrintClient):
         # FIXME watch for thread death
 
         # FIXME performance
-        P = us.PrintClient(pqueue)
+        P = pt.PrintClient(pqueue)
         P.symbol = "[DR]"
         P.printr("Setting up data log")
         with open(filename, 'w') as f:

@@ -35,13 +35,13 @@ import os
 import time as tm
 import shutil as sh
 
-from . import guiutils as gus
-from .. import standards as s, utils as us
-
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
+
+from fc.frontend.gui import guiutils as gus
+from fc import standards as s, printer as pt
 
 ## GLOBALS #####################################################################
 TEST_VECTORS = [
@@ -61,7 +61,7 @@ TEST_VECTORS = [
 ]
 
 ## BASE ########################################################################
-class NetworkWidget(tk.Frame, us.PrintClient):
+class NetworkWidget(tk.Frame, pt.PrintClient):
     """
     Container for all the FC network GUI front-end widgets, except the FC
     status bar.
@@ -81,7 +81,7 @@ class NetworkWidget(tk.Frame, us.PrintClient):
         """
         # Core setup -----------------------------------------------------------
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.main = tk.Frame(self)
         self.main.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 5)
@@ -115,7 +115,7 @@ class NetworkWidget(tk.Frame, us.PrintClient):
 ## WIDGETS #####################################################################
 
 # Network control ==============================================================
-class NetworkControlWidget(tk.Frame, us.PrintClient):
+class NetworkControlWidget(tk.Frame, pt.PrintClient):
     """
     GUI front-end for the FC network control tools (such as adding and removing
     Slaves).
@@ -135,7 +135,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
         """
 
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.network = network
         self.slaveList = slaveList
@@ -420,7 +420,7 @@ class NetworkControlWidget(tk.Frame, us.PrintClient):
             self.printr("Sent broadcast IP change request (\"{}\")".format(ip))
 
 # Firmware update ==============================================================
-class FirmwareUpdateWidget(tk.Frame, us.PrintClient):
+class FirmwareUpdateWidget(tk.Frame, pt.PrintClient):
     """
     GUI front-end for the FC firmware update tools, i.e the Mark III
     "Bootloader."
@@ -437,7 +437,7 @@ class FirmwareUpdateWidget(tk.Frame, us.PrintClient):
         PQUEUE := Queue instance for I-P printing
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -635,7 +635,7 @@ class FirmwareUpdateWidget(tk.Frame, us.PrintClient):
             self._inactive()
 
 # Slave list ===================================================================
-class SlaveListWidget(tk.Frame, us.PrintClient):
+class SlaveListWidget(tk.Frame, pt.PrintClient):
     """
     GUI front-end for the FC Slave List display.
     """
@@ -651,7 +651,7 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
         """
 
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
         self.network = network
@@ -932,7 +932,7 @@ class SlaveListWidget(tk.Frame, us.PrintClient):
         self.testi += 1
 
 # Network status bar ===========================================================
-class StatusBarWidget(tk.Frame, us.PrintClient):
+class StatusBarWidget(tk.Frame, pt.PrintClient):
     """
     GUI front-end for the FC "status bar."
     """
@@ -952,7 +952,7 @@ class StatusBarWidget(tk.Frame, us.PrintClient):
         PQUEUE := Queue object to be used for I-P printing
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         # Setup ................................................................
 

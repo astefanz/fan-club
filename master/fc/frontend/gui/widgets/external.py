@@ -37,11 +37,11 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus
-from .. import archive as ac, utils as us, standards as s
+from fc.frontend.gui import guiutils as gus
+from fc import archive as ac, printer as pt, standards as s
 
 ## CLASSES #####################################################################
-class ExternalControlWidget(us.PrintClient, tk.Frame):
+class ExternalControlWidget(pt.PrintClient, tk.Frame):
     """
     Front end for external control.
     """
@@ -58,7 +58,7 @@ class ExternalControlWidget(us.PrintClient, tk.Frame):
         - pqueue := Queue instance for printing (see fc.utils).
         """
         tk.Frame.__init__(self, master)
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.archive = archive
         self.backend = backend

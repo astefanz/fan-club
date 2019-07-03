@@ -48,14 +48,14 @@ import numpy as np  # Fast arrays and matrices
 import random as rd # For random names
 
 # FCMkIII:
-from . import FCSlave as sv
-from . import hardcoded as hc
-from . import names as nm
+import fc.backend.mkiii.FCSlave as sv
+import fc.backend.mkiii.hardcoded as hc
+import fc.backend.mkiii.names as nm
 
 # FCMkIV:
-from .. import archive as ac
-from .. import standards as s
-from .. import utils as us
+import fc.archive as ac
+import fc.standards as s
+import fc.printer as pt
 
 ## CONSTANT DEFINITIONS ########################################################
 
@@ -152,7 +152,7 @@ MOSI_DC_MULTI = 27
 # - broadcast modes (both here and in interface)
 # - stopped behavior
 
-class FCCommunicator(us.PrintClient):
+class FCCommunicator(pt.PrintClient):
     VERSION = "Adapted 1"
     SYMBOL = "[CM]"
     SYMBOL_IR = "[IR]"
@@ -186,7 +186,7 @@ class FCCommunicator(us.PrintClient):
             pqueue := mp Queue() instance for I-P printing  (see fc.utils)
 
         """
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
         try:
             # INITIALIZE DATA MEMBERS ==========================================
 

@@ -30,9 +30,10 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from . import loader as ldr, guiutils as gus
-from .. import archive as ac, utils as us
+from fc import archive as ac, printer as pt
 from fc.builtin import profiles as btp
+from fc.frontend.gui import guiutils as gus
+from fc.frontend.gui.widgets import loader as ldr
 
 ## AUXILIARY GLOBALS ###########################################################
 TAG_SUB = "M"
@@ -40,7 +41,7 @@ TAG_PRIMITIVE = "P"
 TAG_LIST = "L"
 
 ## MAIN ########################################################################
-class ProfileDisplay(tk.Frame, us.PrintClient):
+class ProfileDisplay(tk.Frame, pt.PrintClient):
     SYMBOL = "[PD]"
 
     def __init__(self, master, archive, callback, pqueue):
@@ -52,7 +53,7 @@ class ProfileDisplay(tk.Frame, us.PrintClient):
         - pqueue := Queue object to use for I-P printing
         """
         tk.Frame.__init__(self, master = master)
-        us.PrintClient.__init__(self, pqueue, self.SYMBOL)
+        pt.PrintClient.__init__(self, pqueue, self.SYMBOL)
 
         # TODO:
         # - means by which to automatically update values here if the archive

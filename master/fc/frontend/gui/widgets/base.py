@@ -31,15 +31,11 @@ import time as tm
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from . import network as ntw, control as ctr, profile as pro, console as csl,\
-    guiutils as gus
-from .. import utils as us
-
-
-if __name__ == '__main__':
-    import embedded.caltech_white as cte
-else:
-    from .embedded import caltech_white as cte
+from fc.frontend.gui import guiutils as gus
+from fc.frontend.gui.widgets import network as ntw, control as ctr, \
+    profile as pro, console as csl
+from fc.frontend.gui.embedded import caltech_white as cte
+from fc import printer as pt, utils as us
 
 ## AUXILIARY GLOBALS ###########################################################
 BG_CT = "#ff6e1f"
@@ -49,7 +45,7 @@ FG_ERROR = "red"
 NOPE = lambda m: print("[SILENCED]: ", m)
 
 ## MAIN ########################################################################
-class Base(tk.Frame, us.PrintClient):
+class Base(tk.Frame, pt.PrintClient):
 
     ERROR_MESSAGE = \
         "[There are error messages in the console. Click here.]"
@@ -75,7 +71,7 @@ class Base(tk.Frame, us.PrintClient):
         """
         # FIXME outdated description
         tk.Frame.__init__(self, master = master)
-        us.PrintClient.__init__(self, pqueue, self.SYMBOL)
+        pt.PrintClient.__init__(self, pqueue, self.SYMBOL)
 
         print("[NOTE] Streamline GUI printing?") # TODO
 

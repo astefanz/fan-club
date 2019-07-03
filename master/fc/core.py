@@ -1,5 +1,4 @@
 ################################################################################
-## Project: Fanclub Mark IV "Master"  ## File: interface.py                   ##
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -23,7 +22,7 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Base class for any Fan Club front end (i.e user interface).
+ + Bridge between front and back ends. Handles inter-process communication.
  +
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
@@ -34,15 +33,16 @@ import time as tm
 
 import fc.archive as ac
 import fc.utils as us
-import fc.communicator as cm
-import fc.external as ex
-import fc.mapper as mr
+import fc.printer as pt
+import fc.backend.communicator as cm
+import fc.backend.external as ex
+import fc.backend.mapper as mr
 
 ## GLOBALS #####################################################################
 SENTINEL_PERIOD = 0.1 # Seconds
 
 ################################################################################
-class FCInterface(us.PrintServer):
+class FCCore(pt.PrintServer):
     """
     This class abstracts the common behavior of any Fan Club user interface. In
     particular, it handles the general API and the inter-process communication
@@ -51,7 +51,7 @@ class FCInterface(us.PrintServer):
     back-end communications process and distributes it to the corresponding
     "client" processes. See "inheritance notes" below.
 
-    Note that, by the current implementation, an FCInterface instance is meant
+    Note that, by the current implementation, an FCCore instance is meant
     to be "run" (read: used) once.
 
     -- ON PERFORMANCE AND INHERITANCE ------------------------------------------
@@ -75,7 +75,7 @@ class FCInterface(us.PrintServer):
         Note that an FCInstance instance is meant to be used once per execution.
         Calling run twice will result in a RuntimeError.
         """
-        us.PrintServer.__init__(self, pqueue)
+        pt.PrintServer.__init__(self, pqueue)
         self.archive = archive
         self.live = True
         self.__setProfile()
@@ -88,8 +88,8 @@ class FCInterface(us.PrintServer):
         self.__flushAltBuffers()
 
         # Build backend abstraction:
-        self.network = cm.FCNetwork(self.feedbackPipeSend, self.slavePipeSend,
-            self.networkPipeSend, archive, pqueue)
+        self.network = cm.FCCommunicator(self.feedbackPipeSend,
+            self.slavePipeSend, self.networkPipeSend, archive, pqueue)
         self.external = ex.ExternalControl(self.mapper, archive, pqueue)
         self.feedbackClient(self.external)
         self.networkClient(self.external)
@@ -162,7 +162,7 @@ class FCInterface(us.PrintServer):
         exceptions from breaking the sentinel loop.
         """
         try:
-            us.PrintServer._cycle(self)
+            pt.PrintServer._cycle(self)
             # FIXME concrete
             """ original
             if self.feedbackPipeRecv.poll():
@@ -269,7 +269,7 @@ class FCInterface(us.PrintServer):
 
     def __buildPipes(self):
         """
-        Create the multiprocessing Pipe instances used by this FCInterface and
+        Create the multiprocessing Pipe instances used by this FCCore and
         assign them to the corresponding member attributes.
         """
         self.feedbackPipeRecv, self.feedbackPipeSend = mp.Pipe(False)

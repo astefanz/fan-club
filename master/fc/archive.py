@@ -33,7 +33,7 @@ import copy as cp
     # https://stackoverflow.com/questions/3975376/\
     #   understanding-dict-copy-shallow-or-deep/3975388
 
-import fc.utils as us
+from fc import utils as us, printer as pt
 
 # NOTE: When importing the CAST wind tunnel, remember the difference by one
 # between MkIII module assignments and MkIV module assignments
@@ -650,7 +650,7 @@ DEFAULTS = {
 
 ## MAIN ########################################################################
 
-class FCArchive(us.PrintClient):
+class FCArchive(pt.PrintClient):
     """
     Handles the data that distinguishes FC configurations, such as fan array
     details, network settings and known slaves, as well as its storage and
@@ -739,7 +739,7 @@ class FCArchive(us.PrintClient):
         Note that a profile must be loaded (may be the default) before this
         instance is used.
         """
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
         self.runtime = {platform : us.platform(), version : ver}
         self.P = None
         self.isModified = False

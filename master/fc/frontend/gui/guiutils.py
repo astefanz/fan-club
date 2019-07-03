@@ -35,8 +35,6 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import simpledialog
 
-from .. import utils as us
-
 ## DEFINITIONS #################################################################
 # Pre-defined configurations:
 efont = {"font":"Courier 7"}

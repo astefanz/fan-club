@@ -29,11 +29,11 @@
 import multiprocessing as mp
 import threading as mt
 
-from . import standards as s, utils as us
-from fc.mkiii import FCCommunicator as fcc
+from fc import standards as s, printer as pt
+from fc.backend.mkiii import FCCommunicator as fcc
 
 ## HELPER CLASSES ##############################################################
-class FCNetwork(us.PrintClient):
+class FCCommunicator(pt.PrintClient):
     """
     Abstractions to be used by the FC front-end to interface with the
     communications back-end.
@@ -43,9 +43,8 @@ class FCNetwork(us.PrintClient):
     def __init__(self, feedbackPipeSend, slavePipeSend, networkPipeSend,
         archive, pqueue):
         """
-        Create a new NetworkAbstraction that operates a Communicator back-end.
         """
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.feedbackPipeSend = feedbackPipeSend
         self.slavePipeSend = slavePipeSend
@@ -182,16 +181,16 @@ class FCNetwork(us.PrintClient):
         """
         Back-end routine. To be executed by the B.E. process.
         """
-        P = us.printers(pqueue, "[CR]")
-        P[us.R]("Comms. backend process started")
+        P = pt.printers(pqueue, "[CR]")
+        P[pt.R]("Comms. backend process started")
         try:
             comms = fcc.FCCommunicator(profile, commandPipeRecv,
                 controlPipeRecv, feedbackPipeSend, slavePipeSend,
                 networkPipeSend, pqueue)
             comms.join()
         except Exception as e:
-            P[us.X](e, "Fatal error in comms. backend process")
-        P[us.W]("Comms. backend process terminated")
+            P[pt.X](e, "Fatal error in comms. backend process")
+        P[pt.W]("Comms. backend process terminated")
 
     def _w_routine(self):
         """

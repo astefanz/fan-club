@@ -30,18 +30,16 @@
 ## IMPORTS #####################################################################
 import tkinter as tk
 
-import fc.utils as us
-import fc.interface as it
-import fc.communicator as cm
-from fc.tkwidgets import splash as spl, base as bas
-from fc.tkwidgets.embedded import icon as icn
+from fc import core as cr, printer as pt, utils as us
+from fc.frontend.gui.widgets import splash as spl, base as bas
+import fc.frontend.gui.embedded.icon as icn
 
 ## GLOBALS #####################################################################
 TITLE = "FC MkIV"
-SPLASH_SECONDS = 5
+SPLASH_SECONDS = 4
 
 ################################################################################
-class FCGUI(it.FCInterface):
+class FCGUI(cr.FCCore):
     SYMBOL = "[GI]"
 
     def __init__(self, archive, pqueue):
@@ -55,12 +53,12 @@ class FCGUI(it.FCInterface):
         periodic checks to distribute inter-process data and print messages.)
         defaults to fc.interface.SENTINEL_PERIOD.
         """
-        it.FCInterface.__init__(self, archive, pqueue)
+        cr.FCCore.__init__(self, archive, pqueue)
         self.base = None
 
     def _mainloop(self):
         """
-        Overriden. Build GUI and run main loop. See fc.interface.FCInterface.
+        Overriden. Build GUI and run main loop. See FCCore.
         """
 
         # Fix Windows DPI ......................................................
@@ -122,7 +120,7 @@ class FCGUI(it.FCInterface):
         Overriden. Executes single cycle of both print and inter-process
         sentinels.
         """
-        it.FCInterface._cycle(self)
+        cr.FCCore._cycle(self)
         if not self.done.is_set():
             self.root.after(self.period_ms, self._cycle)
         else:
@@ -134,6 +132,6 @@ class FCGUI(it.FCInterface):
         code clean.
         """
         self.outputs = {}
-        self.outputs[us.R], self.outputs[us.W], self.outputs[us.E], \
-            self.outputs[us.S], self.outputs[us.D], self.outputs[us.X] = \
+        self.outputs[pt.R], self.outputs[pt.W], self.outputs[pt.E], \
+            self.outputs[pt.S], self.outputs[pt.D], self.outputs[pt.X] = \
             base.getConsoleMethods()

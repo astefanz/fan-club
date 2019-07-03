@@ -38,10 +38,7 @@ import multiprocessing as mp
 import threading as mt
 import time as tm
 
-if __name__ == "__main__":
-    import embedded.splash3_bg as stp
-else:
-    from .embedded import splash3_bg as stp
+from fc.frontend.gui.embedded import splash3_bg as stp
 
 ## AUXILIARY GLOBALS ###########################################################
 DEFAULT_TIMEOUT = 3

@@ -73,7 +73,7 @@ to 0.
 # IMPORTS ######################################################################
 import socket as sk
 import threading as mt
-from . import utils as us, standards as s, archive as ac
+from fc import printer as pt, standards as s, archive as ac
 
 # CONSTANT DEFINITIONS #########################################################
 RECV_SIZE = 32768
@@ -91,7 +91,7 @@ class NoController:
     def _rip(self):
         raise RuntimeError("No controller set up for external control")
 
-class ExternalControl(us.PrintClient):
+class ExternalControl(pt.PrintClient):
     """
     Back end for "external control" functionality.
     """
@@ -115,7 +115,7 @@ class ExternalControl(us.PrintClient):
         - archive := MkIV FCArchive instance.
         - pqueue := Queue instance for I.P. printing.
         """
-        us.PrintClient.__init__(self, pqueue)
+        pt.PrintClient.__init__(self, pqueue)
 
         self.mapper = mapper
         self.archive = archive
@@ -488,8 +488,8 @@ class ExternalControl(us.PrintClient):
 
     @staticmethod
     def _listenerRoutine(socket, method, stop, set_in, set_out, repeat, pqueue):
-        P = us.printers(pqueue, "[XL]")
-        pr, pe, px = P[us.R], P[us.E], P[us.X]
+        P = pt.printers(pqueue, "[XL]")
+        pr, pe, px = P[pt.R], P[pt.E], P[pt.X]
         pr("External control listener routine started")
 
         index_in, index_out = 0, 1

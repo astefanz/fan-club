@@ -28,7 +28,7 @@ Base class with behavior to decode MkIV fan array mappings.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
 # IMPORTS ######################################################################
-from . import archive as ac, standards as std
+from fc import archive as ac, standards as std
 
 
 # DEFINITIONS ##################################################################

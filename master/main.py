@@ -33,10 +33,11 @@ if __name__ == '__main__':
     ## IMPORTS #################################################################
     import multiprocessing as mp
 
-    import fc.tkgui as tkg
+    import fc.frontend.gui.tkgui as tkg
     import fc.archive as ac
-    import fc.communicator as cm
+    import fc.backend.communicator as cm
     import fc.utils as us
+    import fc.printer as pt
     import fc.builtin.profiles as btp
 
     ## GLOBALS #################################################################
@@ -55,7 +56,7 @@ if __name__ == '__main__':
 
 
     # Prints ...................................................................
-    print(us.HEADER)
+    print(pt.HEADER)
 
     # FIXME: reminders
     print("[REM] Look into 'memory leak' in profile switches and data path")
@@ -73,6 +74,9 @@ if __name__ == '__main__':
     print("[REM] Direct control w/ live table")
     print("[REM] Auto-update displays to latest data when switching")
     print("[REM] Automatically select all when there is no selection")
+    print("[REM] SEVENSQ selection bug")
+    print("[REM] Change core and print server to use blocked threads")
+    print("[REM] Terminal arguments")
 
     # Execution ................................................................
     pqueue = mp.Queue()

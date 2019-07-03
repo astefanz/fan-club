@@ -35,8 +35,9 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus, grid as gd
-from .embedded import colormaps as cms
+from fc.frontend.gui import guiutils as gus
+from fc.frontend.gui.widgets import grid as gd
+from fc.frontend.gui.embedded import colormaps as cms
 
 ## GLOBALS #####################################################################
 NOTHING = lambda: None

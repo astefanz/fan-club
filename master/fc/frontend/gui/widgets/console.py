@@ -35,8 +35,8 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from . import guiutils as gus
-from .. import utils as us
+from fc.frontend.gui import guiutils as gus
+from fc import printer as pt
 
 ## GLOBALS #####################################################################
 
@@ -211,6 +211,6 @@ class ConsoleWidget(tk.Frame):
 
     def _debug(self, *E):
         if self.debugVar.get() == 1:
-            us.DEBUGP = True
+            pt.DEBUGP = True
         else:
-            us.DEBUGP = False
+            pt.DEBUGP = False

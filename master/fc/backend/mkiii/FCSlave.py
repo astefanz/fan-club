@@ -39,7 +39,7 @@ import queue      # Communication between threads
 import threading   # Thread-safe access
 
 # MkIV:
-from .. import standards as s
+import fc.standards as s
 
 ## CONSTANT VALUES #############################################################
 
