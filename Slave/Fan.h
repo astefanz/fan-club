@@ -30,7 +30,7 @@ extern const int
 // PINOUTS /////////////////////////////////////////////////////////////////////
 
 extern PinName PWMS[24];
-extern PinName TACHS[31];
+extern PinName TACHS[29];
 
 #if 0 // -----------------------------------------------------------------------
 // VERSION CT1 (ADAPTED TO CAST WIND TUNNEL) ===================================
