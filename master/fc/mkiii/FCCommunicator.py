@@ -264,7 +264,7 @@ class FCCommunicator(us.PrintClient):
                 s.CTL_DC_VECTOR : self.__handle_input_CTL_DC_VECTOR,
             }
 
-            if self.profile[ac.platform] == ac.WINDOWS:
+            if self.profile[ac.platform] != ac.WINDOWS:
                 self.printd("\tNOTE: Increasing socket limit w/ \"resource\"")
                 # Use resource library to get OS to give extra sockets:
                 import resource

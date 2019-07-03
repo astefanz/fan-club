@@ -25,48 +25,57 @@
  + FC execution starts here. Launches Core.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
-## IMPORTS #####################################################################
-import multiprocessing as mp
+if __name__ == '__main__':
+    #if us.platform() == us.WINDOWS:
+    # Windows-specific requirement around processes. See:
+    # https://stackoverflow.com/questions/18204782
 
-import fc.tkgui as tkg
-import fc.archive as ac
-import fc.communicator as cm
-import fc.utils as us
-import fc.builtin.profiles as btp
+    ## IMPORTS #################################################################
+    import multiprocessing as mp
 
-## GLOBALS #####################################################################
-VERSION = "0.12"
-INIT_PROFILE = "SEVENSQ" # FIXME
+    import fc.tkgui as tkg
+    import fc.archive as ac
+    import fc.communicator as cm
+    import fc.utils as us
+    import fc.builtin.profiles as btp
 
-# NOTE on writing servers like the ext. ctl. API:
-# - have stop methods handle redundance
-# - call stop method from end of routine
-# - have start methods restart if applicable
-# - have listener threads block at socket and deactivate them by sending
-#   to that socket
+    ## GLOBALS #################################################################
+    VERSION = "0.13"
+    INIT_PROFILE = "BASE" # FIXME
 
-## MAIN ########################################################################
-print(us.HEADER)
+    # NOTE on writing servers like the ext. ctl. API:
+    # - have stop methods handle redundance
+    # - call stop method from end of routine
+    # - have start methods restart if applicable
+    # - have listener threads block at socket and deactivate them by sending
+    #   to that socket
 
-# FIXME: reminders
-print("[REM] Look into 'memory leak' in profile switches and data path")
-print("[REM] Look into control after profile switching ('return 1')")
-print("[REM] Pass profiles, not archive, when profile changes will cause reset")
-print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
-print("[REM] Indexing by 1 in functional input")
-print("[REM] Standardize notation (also: function argument consistency)")
-print("[REM] period_ms abstraction barrier in FCInterface")
-print("[REM] LiveTable and manual control")
-print("[REM] Enforce consistent slave indices")
-print("[REM] External control on profile changes")
-print("[REM] Comms. reset on profile changes")
-print("[REM] Direct control w/ live table")
-print("[REM] Index out of bounds w/ new boards and mapping")
+    ## MAIN ####################################################################
 
-pqueue = mp.Queue()
-archive = ac.FCArchive(pqueue, VERSION)
-archive.profile(btp.PROFILES[INIT_PROFILE])
-interface = tkg.FCGUI(archive, pqueue)
-interface.run()
 
-print("[--] FC MkIV GUI demo finished") # FIXME
+
+    # Prints ...................................................................
+    print(us.HEADER)
+
+    # FIXME: reminders
+    print("[REM] Look into 'memory leak' in profile switches and data path")
+    print("[REM] Look into control after profile switching ('return 1')")
+    print("[REM] Pass profiles, not archive, " \
+          +  "when profile changes will cause reset")
+    print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
+    print("[REM] Indexing by 1 in functional input")
+    print("[REM] Standardize notation (also: function argument consistency)")
+    print("[REM] period_ms abstraction barrier in FCInterface")
+    print("[REM] LiveTable and manual control")
+    print("[REM] Enforce consistent slave indices")
+    print("[REM] External control on profile changes")
+    print("[REM] Comms. reset on profile changes")
+    print("[REM] Direct control w/ live table")
+    print("[REM] Index out of bounds w/ new boards and mapping")
+
+    # Execution ................................................................
+    pqueue = mp.Queue()
+    archive = ac.FCArchive(pqueue, VERSION)
+    archive.profile(btp.PROFILES[INIT_PROFILE])
+    interface = tkg.FCGUI(archive, pqueue)
+    interface.run()
