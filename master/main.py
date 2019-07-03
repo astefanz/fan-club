@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     ## GLOBALS #################################################################
     VERSION = "0.13"
-    INIT_PROFILE = "BASE" # FIXME
+    INIT_PROFILE = "SEVENSQ" # FIXME
 
     # NOTE on writing servers like the ext. ctl. API:
     # - have stop methods handle redundance
@@ -71,7 +71,8 @@ if __name__ == '__main__':
     print("[REM] External control on profile changes")
     print("[REM] Comms. reset on profile changes")
     print("[REM] Direct control w/ live table")
-    print("[REM] Index out of bounds w/ new boards and mapping")
+    print("[REM] Auto-update displays to latest data when switching")
+    print("[REM] Automatically select all when there is no selection")
 
     # Execution ................................................................
     pqueue = mp.Queue()

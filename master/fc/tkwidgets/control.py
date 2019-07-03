@@ -1802,7 +1802,7 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
 
         for k in self.range_k:
             g = self.getIndex_g(k)
-            if g is not s.PAD \
+            if g != s.PAD \
                 and (self.mapVar.get() or self.selected_g[g]):
                 l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
                 control[k] = func(r, c, l, self.R, self.C, self.L, t, t_index)
@@ -1901,7 +1901,9 @@ class GridWidget(gd.BaseGrid, us.PrintClient):
             self.deactivate_k(k)
 
     def deactivate_k(self, k):
-        self.deactivate_g(self.getIndex_g(k))
+        g = self.getIndex_g(k)
+        if g != s.PAD:
+            self.deactivate_g(g)
 
     def activate(self, F = None):
         """
