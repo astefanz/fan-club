@@ -36,7 +36,7 @@ import fc.builtin.profiles as btp
 
 ## GLOBALS #####################################################################
 VERSION = "0.12"
-INIT_PROFILE = "BASE" # FIXME
+INIT_PROFILE = "SEVENSQ" # FIXME
 
 # NOTE on writing servers like the ext. ctl. API:
 # - have stop methods handle redundance

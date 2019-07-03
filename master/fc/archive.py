@@ -58,7 +58,7 @@ PINOUTS = {
     "BASE" : "FGHMALXWKJUVNISOBQTDC qsrnabdtfhvuepckmljoi",
     "CAST" : "ETRGMLWXPQJKUVBADC edcb_^ng`w\\]porqfs",
     "JPL"  : "FGCDABNOLMHITUQSJK efcdabnolmhirspqjk",
-    "S117" : "VUXWTSQONMLKJIHGFDCBA xytsrqponmlkjihfedcba"
+    "S117" : "VUXWTSQONMLKJIHGFDCBA vutsrqponmlkjihfedcba"
 }
 
 # Supported I-P Comms. Messages:
