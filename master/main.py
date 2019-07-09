@@ -32,7 +32,6 @@ if __name__ == '__main__':
 
     ## IMPORTS #################################################################
     import multiprocessing as mp
-
     import fc.frontend.gui.tkgui as tkg
     import fc.archive as ac
     import fc.backend.communicator as cm
@@ -41,7 +40,7 @@ if __name__ == '__main__':
     import fc.builtin.profiles as btp
 
     ## GLOBALS #################################################################
-    VERSION = "0.13"
+    VERSION = "0.14"
     INIT_PROFILE = "SEVENSQ" # FIXME
 
     # NOTE on writing servers like the ext. ctl. API:
@@ -52,9 +51,6 @@ if __name__ == '__main__':
     #   to that socket
 
     ## MAIN ####################################################################
-
-
-
     # Prints ...................................................................
     print(pt.HEADER)
 
@@ -80,7 +76,6 @@ if __name__ == '__main__':
 
     # Execution ................................................................
     pqueue = mp.Queue()
-    archive = ac.FCArchive(pqueue, VERSION)
-    archive.profile(btp.PROFILES[INIT_PROFILE])
+    archive = ac.FCArchive(pqueue, VERSION, btp.PROFILES[INIT_PROFILE])
     interface = tkg.FCGUI(archive, pqueue)
     interface.run()

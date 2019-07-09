@@ -1749,17 +1749,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         Process the feedback vector F according to the grid mapping.
         """
-        """
-        print("Clicked on slave {}'s fan {}".format(
-            grid.layers[grid.layer][i]//grid.maxFans,
-            grid.layers[grid.layer][i]%grid.maxFans))
-        """
         # FIXME performance
         # FIXME nomenclature
 
         for k in self.range_k:
             g = self.getIndex_g(k)
-            if g >= 0:
+            if g >= 0 and self.active_g[g]:
                 self.update_g(g, F[k])
         """
         if self.canvas:
@@ -1776,17 +1771,18 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
 
     def networkIn(self, N):
-        if N[0]:
-            self.activate()
-        else:
+        if not N[s.NS_I_CONN]:
             self.deactivate()
 
     def slavesIn(self, S):
-        # FIXME will activation on connection happen automatically?
-        index_s, status = S[s.SD_INDEX], S[s.SD_STATUS]
-        if index_s < self.nslaves:
-            if index_s != s.SS_CONNECTED:
-                self.deactivate_s(index_s)
+        for offset in range(0, len(S), s.SD_LEN):
+            index_s, status = S[offset + s.SD_INDEX], S[offset + s.SD_STATUS]
+            if index_s < self.nslaves:
+                # TODO account for redundancy
+                if status == s.SS_CONNECTED:
+                    self.activate_s(index_s)
+                else:
+                    self.deactivate_s(index_s)
 
     def selectAll(self):
         for g in self.range_g:
@@ -1885,13 +1881,25 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     # Activity .................................................................
     def activate_g(self, g):
+        if not self.active_g[g]:
+            self.update_g(g, s.PAD)
         self.active_g[g] = True
-        self.update_g(g, s.PAD)
 
     def deactivate_g(self, g):
-        self.active_g[g] = False
+        if self.active_g[g]:
+            self.update_g(g, s.RIP)
         self.deselect_g(g)
-        self.update_g(g, s.RIP)
+        self.active_g[g] = False
+
+    def activate_s(self, slave):
+        """
+        Activate all fans assigned to the slave of the given slave index.
+        Operates in K-coordinates.
+        """
+        # TODO performance
+        k_offset = slave*self.maxFans
+        for k in range(k_offset, k_offset + self.maxFans):
+            self.activate_k(k)
 
     def deactivate_s(self, slave):
         """
@@ -1902,6 +1910,11 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         k_offset = slave*self.maxFans
         for k in range(k_offset, k_offset + self.maxFans):
             self.deactivate_k(k)
+
+    def activate_k(self, k):
+        g = self.getIndex_g(k)
+        if g != s.PAD:
+            self.activate_g(g)
 
     def deactivate_k(self, k):
         g = self.getIndex_g(k)
@@ -2051,11 +2064,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 grid.deselect_g(g)
             else:
                 grid.select_g(g)
-                """
-                print("Clicked on slave {}'s fan {}".format(
-                    grid.layers[grid.layer][i]//grid.maxFans,
-                    grid.layers[grid.layer][i]%grid.maxFans))
-                """
+
     @staticmethod
     def _const(dc):
         """

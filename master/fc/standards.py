@@ -353,6 +353,7 @@ SD_INDEX, SD_NAME, SD_MAC, SD_STATUS, SD_FANS, SD_VERSION = range(SD_LEN)
 # TODO: Need means by to handle disconnected slaves and different fan sizes...
 RIP = -666
 PAD = -69
+END = -354
 
 # EXTERNAL CONTROL #############################################################
 EX_BROADCAST, EX_LISTENER = 40001, 40002

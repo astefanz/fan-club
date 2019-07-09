@@ -38,9 +38,10 @@ import time as tm
 
 import platform as plt
 
+import fc.standards as std
+
 ## GLOBAL CONSTANTS ############################################################
 DEBUGP = False
-DEFAULT_PERIOD = 1 # second
 
 DPREFIX = "[DBG]"
 EPREFIX = "[ERR]"
@@ -194,69 +195,25 @@ class PrintServer(PrintClient):
     """
     Watch a print queue for messages and print them to some form of text
     output. The specific printing process is to be implemented by the children
-    of this class by overriding the "process" method.
+    of this class by overriding the "print" method.
 
     NOTE that an instance of this class is meant to be started and stopped once
     in its life time. Unless overriden, trying to start a PrintServer twice will
     raise a RuntimeError.
-
-    -- ON PERFORMANCE AND INHERITANCE ------------------------------------------
-    This class uses a "sentinel" thread to regularly poll the print queue for
-    messages to display to the user. If the default behavior (a standard thread)
-    interferes with your interface implementation (e.g. Tkinter with
-    multithreading horror) such behavior can be customized by overriding or
-    calling the following methods (for some instance P):
-
-    ============================================================================
-      METHOD            | DESCRIPTION
-    ============================================================================
-      P.start()         | build and launch the sentinel thread.
-    --------------------+-------------------------------------------------------
-      P.stop()          | terminate the sentinel thread
-    --------------------+-------------------------------------------------------
-      P._cycle()        | execute a single iteration of the sentinel main loop
-    --------------------+-------------------------------------------------------
-      P._setStarted()   | record that this instance has been started. To be
-                        | called by start()
-    --------------------+-------------------------------------------------------
-      P._checkStarted() | verify that this instance has not been started before
-                        | and raise the appropriate exception if it has
-    ============================================================================
-
-    While overriding these methods, the following attributes may come in handy:
-
-    ============================================================================
-      ATTRIBUTE         | DESCRIPTION
-    ============================================================================
-      P.period_s        | int; wait between sentinel cycles in seconds
-    --------------------+-------------------------------------------------------
-      P.period_ms       | int; wait between sentinel cycles in milliseconds
-    --------------------+-------------------------------------------------------
-      P.done            | threading.Event; to tell sentinel thread to end
-    --------------------+-------------------------------------------------------
-      P.started         | boolean; whether this instance has been started
-    --------------------+-------------------------------------------------------
     """
     SYMBOL = "[PS]"
 
-    def __init__(self, pqueue, period = DEFAULT_PERIOD):
+    def __init__(self, pqueue):
         """
         Build and start a PrintServer that tracks PQUEUE. A daemonic "print
-        thread" will be started. The print thread will check for messages to
-        print every PERIOD seconds (defaults to PrintServer.default_period).
+        thread" will be started.
         """
         PrintClient.__init__(self, pqueue)
-        self.period_s = period
-        self.period_ms = int(period*1000)
-        if self.period_ms <= 0:
-            raise ValueError(
-                "Given period {}s is too small (yiels {}ms)".format(
-                    period_s, period_ms))
 
         self.started = False
         self.done = mt.Event()
 
-    def process(self, code, text):
+    def print(self, code, text):
         """
         To be overriden by child classes to implement specific printing
         behavior. CODE is a constant as defined in utils.py; it determines
@@ -272,7 +229,7 @@ class PrintServer(PrintClient):
         """
         self._checkStarted()
         self.thread = mt.Thread(name = "FC Print Thread",
-            target = self._routine, args = (self.done,))
+            target = self._routine, daemon = True)
         self.thread.start()
         self._setStarted()
 
@@ -280,32 +237,27 @@ class PrintServer(PrintClient):
         """
         Set the flag to end the print thread. Cannot be undone.
         """
-        self.done.set()
+        self.pqueue.put_nowait(std.END)
 
     def _routine(self):
         """
         Procedure to be executed by the sentinel thread. Contains its main loop
         and checks for the appropriate threading.Event to terminate.
         """
-        while not self.done.is_set():
+        print(self.SYMBOL, "Print thread started.")
+        self.printr("Print thread started.")
+        while True:
             try:
-                tm.sleep(self.period_s)
-                self._cycle()
+                message = self.pqueue.get()
+                if message == std.END:
+                    break
+                self.print(*message)
             except Exception as e:
-                self.printx(e, "Exception in sentinel:")
-                print("[ERROR] Exception in sentinel:",
+                print("[ERROR] Exception in print thread:",
                     traceback.format_exc())
-        print(self.symbol, "Print thread terminated")
-
-    def _cycle(self):
-        """
-        Execute one iteration of the print sentinel main loop.
-
-        NOTE: You may want to call this method within a try/catch block to keep
-        exceptions from breaking the sentinel loop.
-        """
-        while not self.pqueue.empty():
-            self.process(*self.pqueue.get_nowait())
+                self.printx(e, "Exception in print thread:")
+        print(self.SYMBOL, "Print thread terminated.")
+        self.printr("Print thread started.")
 
     def _checkStarted(self):
         """
@@ -320,56 +272,3 @@ class PrintServer(PrintClient):
         Record that this instance has been started once.
         """
         self.started = True
-
-class TerminalPrinter:
-    """
-    Print FC output (using multiprocessing.Queue) to a given file in a
-    multiprocessing.Process. The process is made daemonic so it terminates
-    automatically if needed.
-    """
-
-    @staticmethod
-    def routine(queue, file, lock):
-        """
-        Continuously scan QUEUE to print its contents to TARGET.
-
-        Stop when LOCK is released.
-        """
-        T = {
-            R : "[R]",
-            W : "[W]",
-            E : "[!]",
-            S : "[S]",
-        }
-        while not lock.acquire(block = False):
-            if not queue.empty():
-                message = queue.get_nowait()
-                print(T[message[MI_CODE]] + message[MI_CONT],
-                    file = file)
-        lock.release()
-
-    def __init__(self, queue, file = sys.stdout):
-        """
-        New TerminalPrinter instance that prints messages sent to QUEUE to FILE.
-        """
-        self.file = file
-        self.queue = queue
-        self.lock = mp.Lock()
-        self.process = mp.Process(
-            name = "FC TerminalPrinter",
-            target = self.routine,
-            args = (self.queue, self.file, self.lock),
-            daemon = True)
-        self.lock.acquire()
-
-    def start(self):
-        """
-        Start the printer process.
-        """
-        self.process.start()
-
-    def stop(self):
-        """
-        Stop the printer process.
-        """
-        self.lock.release()

@@ -30,7 +30,8 @@
 ## IMPORTS #####################################################################
 import tkinter as tk
 
-from fc import core as cr, printer as pt, utils as us
+from fc import printer as pt, utils as us
+from fc.frontend import frontend as fe
 from fc.frontend.gui.widgets import splash as spl, base as bas
 import fc.frontend.gui.embedded.icon as icn
 
@@ -39,7 +40,7 @@ TITLE = "FC MkIV"
 SPLASH_SECONDS = 4
 
 ################################################################################
-class FCGUI(cr.FCCore):
+class FCGUI(fe.FCFrontend):
     SYMBOL = "[GI]"
 
     def __init__(self, archive, pqueue):
@@ -53,19 +54,13 @@ class FCGUI(cr.FCCore):
         periodic checks to distribute inter-process data and print messages.)
         defaults to fc.interface.SENTINEL_PERIOD.
         """
-        cr.FCCore.__init__(self, archive, pqueue)
+        fe.FCFrontend.__init__(self, archive, pqueue)
         self.base = None
-
-    def _mainloop(self):
-        """
-        Overriden. Build GUI and run main loop. See FCCore.
-        """
 
         # Fix Windows DPI ......................................................
         if self.platform is us.WINDOWS:
             from ctypes import windll
             windll.shcore.SetProcessDpiAwareness(1)
-
 
         # Build GUI ............................................................
         # Splash:
@@ -76,56 +71,29 @@ class FCGUI(cr.FCCore):
         self.root = tk.Tk()
         title = TITLE + " " + self.version
         base = bas.Base(self.root, self.network, self.external, self.mapper,
-            self.archive, title, self.version, self.feedbackClient,
-            self.networkClient, self.slaveClient, self._onProfileChange,
-            setLive = self.setLive,
-            setF = self.altFeedbackIn,
-            pqueue = self.pqueue,
-            )
+            self.archive, title, self.version, self.addFeedbackClient,
+            self.addNetworkClient, self.addSlaveClient, self._onProfileChange,
+            setLive = self.setLive, setF = self.altFeedbackIn,
+            pqueue = self.pqueue)
         base.pack(fill = tk.BOTH, expand = True)
         self._setPrintMethods(base)
         self.archiveClient(base)
         self.network.connect()
         base.focusControl()
 
-        # Main loop ------------------------------------------------------------
-        self._start()
+    def _mainloop(self):
+        """
+        Overriden. Build GUI and run main loop. See base class.
+        """
         self.root.mainloop()
 
-
-    def process(self, code, text):
+    def print(self, code, text):
         """
         Overriden. See fc.utils.PrintServer.
         """
         self.outputs[code](text)
 
     # Overriding sentinel thread implementation --------------------------------
-    def start(self):
-        """
-        Overriden. Modified to do nothing so that sentinel threads can be
-        started after Tkinter root has been initialized.
-        """
-        return
-
-    def _start(self):
-        """
-        Overriden. Starts sentinel threads.
-        """
-        self._checkStarted()
-        self.root.after(self.period_ms, self._cycle)
-        self._setStarted()
-
-    def _cycle(self):
-        """
-        Overriden. Executes single cycle of both print and inter-process
-        sentinels.
-        """
-        cr.FCCore._cycle(self)
-        if not self.done.is_set():
-            self.root.after(self.period_ms, self._cycle)
-        else:
-            print(self.symbol, "Sentinels terminated")
-
     def _setPrintMethods(self, base):
         """
         Get the print methods from the base widgets. Placed here to keep build

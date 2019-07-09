@@ -22,7 +22,7 @@
 ################################################################################
 
 """ ABOUT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- + Bridge between front and back ends. Handles inter-process communication.
+ + Base class for the FC Frontend. Handles inter-process communication.
  +
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
@@ -37,12 +37,10 @@ import fc.printer as pt
 import fc.backend.communicator as cm
 import fc.backend.external as ex
 import fc.backend.mapper as mr
-
-## GLOBALS #####################################################################
-SENTINEL_PERIOD = 0.1 # Seconds
+import fc.standards as std
 
 ################################################################################
-class FCCore(pt.PrintServer):
+class FCFrontend(pt.PrintServer):
     """
     This class abstracts the common behavior of any Fan Club user interface. In
     particular, it handles the general API and the inter-process communication
@@ -69,31 +67,30 @@ class FCCore(pt.PrintServer):
         """
         Initialize a new FC interface. PQUEUE is a Queue
         instance to be used for printing, ARCHIVE is an FCArchive instance.
-        PERIOD optionally specifies the time between sentinel cycles,
-        in seconds, and defaults to PrintServer.default_period.
 
-        Note that an FCInstance instance is meant to be used once per execution.
+        Note that an instance is meant to be used once per execution.
         Calling run twice will result in a RuntimeError.
         """
         pt.PrintServer.__init__(self, pqueue)
         self.archive = archive
         self.live = True
-        self.__setProfile()
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
-        self.mapper = mr.Mapper(self.archive)
-
+        self.__setProfile()
         self.__buildLists()
         self.__buildPipes()
+        self.__buildThreads()
         self.__flushAltBuffers()
 
-        # Build backend abstraction:
-        self.network = cm.FCCommunicator(self.feedbackPipeSend,
-            self.slavePipeSend, self.networkPipeSend, archive, pqueue)
+        # TODO backend abstraction
+        self.mapper = mr.Mapper(self.archive)
+
+        self.network = cm.FCCommunicator(self.feedback_send, self.slave_send,
+            self.network_send, archive, pqueue)
         self.external = ex.ExternalControl(self.mapper, archive, pqueue)
-        self.feedbackClient(self.external)
-        self.networkClient(self.external)
-        self.slaveClient(self.external)
+        self.addFeedbackClient(self.external)
+        self.addNetworkClient(self.external)
+        self.addSlaveClient(self.external)
         self.archiveClient(self.mapper)
         self.archiveClient(self.external)
 
@@ -101,49 +98,47 @@ class FCCore(pt.PrintServer):
     # "PUBLIC" INTERFACE -------------------------------------------------------
     def run(self):
         """
-        Run the main loop of the interface. Expected to block during the entire
-        execution of the interface. (Returning means the interface has been
-        closed.)
+        Run the main loop of the program. Expected to block during execution
+        Returning means the program has been closed.
         """
-        # Check for redundant usage:
-        self._checkStarted()
-
         # Start sentinels:
-        self.start()
+        pt.PrintServer.start(self)
+        self._startThreads()
 
-        # Run interface:
+        # Execute front end:
         self._mainloop()
 
         # Clean up:
-        self.stop()
+        self._stopThreads()
+        pt.PrintServer.stop(self)
 
-    def feedbackClient(self, client):
+    def addFeedbackClient(self, client):
         """
         Add CLIENT to the list of objects who's feedbackIn method is to be
         called to distribute incoming feedback vectors.
         """
-        self.feedbackClients.append(client.feedbackIn)
+        self.feedback_clients.append(client.feedbackIn)
 
-    def networkClient(self, client):
+    def addNetworkClient(self, client):
         """
         Add CLIENT to the list of objects who's networkIn method is to be
         called to distribute incoming network vectors.
         """
-        self.networkClients.append(client.networkIn)
+        self.network_clients.append(client.networkIn)
 
-    def slaveClient(self, client):
+    def addSlaveClient(self, client):
         """
         Add CLIENT to the list of objects who's slavesIn method is to be
         called to distribute incoming slaves vectors.
         """
-        self.slaveClients.append(client.slavesIn)
+        self.slave_clients.append(client.slavesIn)
 
     def archiveClient(self, client):
         """
         Add CLIENT to the list of objects to be notified when the loaded
         profile is modified by calling their profileChange method.
         """
-        self.archiveClients.append(client)
+        self.archive_clients.append(client)
 
     # FOR INHERITANCE ----------------------------------------------------------
     def _mainloop():
@@ -154,60 +149,6 @@ class FCCore(pt.PrintServer):
         """
         raise AttributeError("Interface missing _mainloop implementation.")
 
-    def _cycle(self):
-        """
-        Execute one iteration of the inter-process and print sentinels.
-
-        NOTE: You may want to call this method within a try/catch block to keep
-        exceptions from breaking the sentinel loop.
-        """
-        try:
-            pt.PrintServer._cycle(self)
-            # FIXME concrete
-            """ original
-            if self.feedbackPipeRecv.poll():
-                F = self.feedbackPipeRecv.recv()
-                for clientMethod in self.feedbackClients:
-                    clientMethod(F)
-            if self.networkPipeRecv.poll():
-                N = self.networkPipeRecv.recv()
-                for clientMethod in self.networkClients:
-                    clientMethod(N)
-            if self.slavePipeRecv.poll():
-                S = self.slavePipeRecv.recv()
-                for clientMethod in self.slaveClients:
-                    clientMethod(S)
-            """
-            """ experimental
-            """
-            F, N, S = None, None, None
-
-            # Get live vectors:
-            while self.feedbackPipeRecv.poll():
-                F = self.feedbackPipeRecv.recv()
-            while self.networkPipeRecv.poll():
-                N = self.networkPipeRecv.recv()
-            while self.slavePipeRecv.poll():
-                S = self.slavePipeRecv.recv()
-
-            if not self.live:
-                # Get alternative vectors:
-                F, N, S = self._getAltF(), self._getAltN(), self._getAltS()
-
-            # Apply values:
-            if F is not None:
-                for client in self.feedbackClients:
-                    client(F)
-            if N is not None:
-                for client in self.networkClients:
-                    client(N)
-            if S is not None:
-                for client in self.slaveClients:
-                    client(S)
-        except Exception as e:
-            self.printx(e, "Exception in I-P watchdog")
-
-
     def setLive(self, live):
         """
         Set whether feedback, network and slave vectors should be fetched from
@@ -216,7 +157,6 @@ class FCCore(pt.PrintServer):
         """
         self.live = live
         self.__flushAltBuffers()
-        self.__updatePeriod()
 
     def altFeedbackIn(self, F):
         """
@@ -256,35 +196,28 @@ class FCCore(pt.PrintServer):
         """
         Build all data members that depend on the current profile.
         """
-        # TODO:
-        # Test lists
-        self.__updatePeriod()
-
-    def __updatePeriod(self):
-        self.period_ms = int((self.archive[ac.periodMS])\
-            /(2 if self.live else 1))
-        if self.period_ms <= 0:
-            raise ValueError("Communications period ({}ms) is too small for "\
-                "front-end".format(self.archive[ac.periodMS]))
+        pass
 
     def __buildPipes(self):
         """
         Create the multiprocessing Pipe instances used by this FCCore and
         assign them to the corresponding member attributes.
         """
-        self.feedbackPipeRecv, self.feedbackPipeSend = mp.Pipe(False)
-        self.networkPipeRecv, self.networkPipeSend = mp.Pipe(False)
-        self.slavePipeRecv, self.slavePipeSend = mp.Pipe(False)
+        self.feedback_recv, self.feedback_send = mp.Pipe(False)
+        self.network_recv, self.network_send = mp.Pipe(False)
+        self.slave_recv, self.slave_send = mp.Pipe(False)
+        self.send_pipes = (
+            self.feedback_send, self.network_send, self.slave_send)
 
     def __buildLists(self):
         """
         Create the containers to hold the clients of each inter-process message
         type.
         """
-        self.feedbackClients = []
-        self.networkClients = []
-        self.slaveClients = []
-        self.archiveClients = []
+        self.feedback_clients = []
+        self.network_clients = []
+        self.slave_clients = []
+        self.archive_clients = []
 
     def _onProfileChange(self):
         """
@@ -295,9 +228,72 @@ class FCCore(pt.PrintServer):
 
         self.__setProfile()
 
-        for client in self.archiveClients:
+        for client in self.archive_clients:
             client.profileChange()
         if was_active:
             self.network.start()
 
+    def __buildThreads(self):
+        """
+        Build the I.P. watchdogs that listen for communicator messages.
+        Meant to be called only during construction.
+        """
+        self.threads = (
+            mt.Thread(target = self._feedbackRoutine, daemon = True),
+            mt.Thread(target = self._slaveRoutine, daemon = True),
+            mt.Thread(target = self._networkRoutine, daemon = True))
+
+    def _startThreads(self):
+        """
+        Start I.P. watchdogs. Meant to be called only once.
+        """
+        for thread in self.threads:
+            thread.start()
+
+    def _stopThreads(self):
+        """
+        Stop I.P. watchdogs. Meant to be called only once.
+        """
+        for pipe in self.send_pipes:
+            pipe.send(std.END)
+
+    def _feedbackRoutine(self):
+        """
+        Watchdog for I.P. feedback vectors.
+        """
+        self.printr("Feedback watchdog started.")
+        F = None
+        while True:
+            F = self.feedback_recv.recv()
+            if F == std.END:
+                break
+            if not self.live:
+                F = self._getAltF()
+            if F is not None:
+                for client_method in self.feedback_clients:
+                    client_method(F)
+        self.printr("Feedback watchdog terminated.")
+
+    def _slaveRoutine(self):
+        self.printr("Slave state watchdog started.")
+        S = None
+        while True:
+            S = self.slave_recv.recv()
+            if S == std.END:
+                break
+            if S is not None:
+                for client_method in self.slave_clients:
+                    client_method(S)
+        self.printr("Slave state watchdog terminated.")
+
+    def _networkRoutine(self):
+        self.printr("Network state watchdog started.")
+        while True:
+            N = self.network_recv.recv()
+            if N == std.END:
+                break
+            if N is not None:
+                for client_method in self.network_clients:
+                    client_method(N)
+        self.printr("Network state watchdog terminated.")
 

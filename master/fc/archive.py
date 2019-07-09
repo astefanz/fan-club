@@ -729,21 +729,21 @@ class FCArchive(pt.PrintClient):
         },
     }
 
-    def __init__(self, pqueue, ver):
+    def __init__(self, pqueue, fc_version, profile = None):
         """
-        Create a new FCProfile with no profile. PQUEUE is a Queue object in
-        which to place standardized (by fc.utils) console output messages.
+        - pqueue := Queue instance to use for printing. See PrintServer and
+        PrintClient.
 
-        VER is a string representing the current FC version.
+        - fc_version := str, software version.
 
-        Note that a profile must be loaded (may be the default) before this
-        instance is used.
+        - profile := FC profile to use. Optional. Defaults to the built-in
+        default profile.
         """
         pt.PrintClient.__init__(self, pqueue)
-        self.runtime = {platform : us.platform(), version : ver}
+        self.runtime = {platform : us.platform(), version : fc_version}
         self.P = None
         self.isModified = False
-        # FIXME startup
+        self.profile(profile)
 
     def modified(self):
         """
