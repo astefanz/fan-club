@@ -2128,7 +2128,6 @@ class ColorBarWidget(tk.Frame):
         """
         Rebuild the color bar to adjust to a new size.
         """
-        print("RD Colorbar")
         self.canvas.delete(tk.ALL)
         self._draw()
 

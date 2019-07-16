@@ -49,6 +49,17 @@ class BaseGrid(tk.Frame):
 
     GRID_WEIGHT = 1
 
+    CALLBACK_CODES = {
+        _LEFT_CLICK : '<ButtonPress-1>',
+        _LEFT_DOUBLE : '<Double-Button-1>',
+        _LEFT_RELEASE : '<ButtonRelease-1>',
+        _RIGHT_CLICK : '<ButtonPress-3>',
+        _RIGHT_DOUBLE : '<Double-Button-3>',
+        _RIGHT_RELEASE : '<ButtonRelease-3>',
+        _DRAG : '<B1-Motion>'
+    }
+
+
     def __init__(self, master, R, C, cursor = 'crosshair', empty = "white",
         border = 1, outline = "black", minCell = 10):
         """
@@ -105,13 +116,13 @@ class BaseGrid(tk.Frame):
         self.outline = outline
 
         self.callbacks = {
-            _LEFT_CLICK : self._nothing,
-            _LEFT_DOUBLE : self._nothing,
-            _LEFT_RELEASE : self._nothing,
-            _RIGHT_CLICK : self._nothing,
-            _RIGHT_DOUBLE : self._nothing,
-            _RIGHT_RELEASE : self._nothing,
-            _DRAG : self._nothing
+            _LEFT_CLICK : None,
+            _LEFT_DOUBLE : None,
+            _LEFT_RELEASE : None,
+            _RIGHT_CLICK : None,
+            _RIGHT_DOUBLE : None,
+            _RIGHT_RELEASE : None,
+            _DRAG : None
         }
 
         self.size = R*C
@@ -206,21 +217,10 @@ class BaseGrid(tk.Frame):
                 self._temp_tiids[index] = self.canvas.create_text(
                     x + l/2, y + l/2, font = "TkFixedFont 7")
 
-                self.canvas.tag_bind(iid, '<ButtonPress-1>',
-                    self._wrapper(_LEFT_CLICK))
-                self.canvas.tag_bind(iid, '<Double-Button-1>',
-                    self._wrapper(_LEFT_DOUBLE))
-                self.canvas.tag_bind(iid, '<ButtonRelease-1>',
-                    self._wrapper(_LEFT_RELEASE))
-
-                self.canvas.tag_bind(iid, '<ButtonPress-3>',
-                    self._wrapper(_RIGHT_CLICK))
-                self.canvas.tag_bind(iid, '<Double-Button-3>',
-                    self._wrapper(_RIGHT_DOUBLE))
-                self.canvas.tag_bind(iid, '<ButtonRelease-3>',
-                    self._wrapper(_RIGHT_RELEASE))
-
-                self.canvas.tag_bind(iid, '<B1-Motion>', self._wrapper(_DRAG))
+                for key, callback in self.callbacks.items():
+                    if callback is not None:
+                        self.canvas.tag_bind(iid, self.CALLBACK_CODES[key],
+                            self._wrapper(key))
 
                 x += l
             x = xmargin
@@ -283,24 +283,38 @@ class BaseGrid(tk.Frame):
 
     def setLeftClick(self, f):
         self.callbacks[_LEFT_CLICK] = f
+        if self.built():
+            self.draw()
 
     def setLeftDoubleClick(self, f):
         self.callbacks[_LEFT_DOUBLE] = f
+        if self.built():
+            self.draw()
 
     def setLeftRelease(self, f):
         self.callbacks[_LEFT_RELEASE] = f
+        if self.built():
+            self.draw()
 
     def setRightClick(self, f):
         self.callbacks[_RIGHT_CLICK] = f
+        if self.built():
+            self.draw()
 
     def setRightDoubleClick(self, f):
         self.callbacks[_RIGHT_DOUBLE] = f
+        if self.built():
+            self.draw()
 
     def setRightRelease(self, f):
         self.callbacks[_RIGHT_RELEASE] = f
+        if self.built():
+            self.draw()
 
     def setDrag(self, f):
         self.callbacks[_DRAG] = f
+        if self.built():
+            self.draw()
 
     def setCursor(self, cursor):
         self.config(cursor = cursor)
@@ -316,11 +330,12 @@ class BaseGrid(tk.Frame):
         found
         """
         def wrapper(event):
-            iid = self.canvas.find_closest(
-                self.canvas.canvasx(event.x),
-                self.canvas.canvasy(event.y))[0]
-            index = self.indices[iid] if iid in self.indices else None
-            self.callbacks[C](self, index)
+            if self.callbacks[C] is not None:
+                iid = self.canvas.find_closest(
+                    self.canvas.canvasx(event.x),
+                    self.canvas.canvasy(event.y))[0]
+                index = self.indices[iid] if iid in self.indices else None
+                self.callbacks[C](self, index)
         return wrapper
 
     def _nothing(*args):
