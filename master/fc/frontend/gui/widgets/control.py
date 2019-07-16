@@ -1600,7 +1600,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         # Setup ................................................................
         self.archive = archive
         self.mapper = mapper
-        self._send = send
+        self.send_method = send
 
         self.fanArray = self.archive[ac.fanArray]
         self.L = self.fanArray[ac.FA_layers]
@@ -1631,6 +1631,9 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.nslaves = len(self.archive[ac.savedSlaves])
         self.size_k = self.nslaves*self.maxFans
         self.range_k = range(self.size_k)
+
+        self.control_buffer = []
+        self._resetControlBuffer()
 
         # Tools ................................................................
         self.toolBar = tk.Frame(self)
@@ -1797,7 +1800,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def map(self, func, t = 0, t_index = 0):
         # FIXME performance
-        control = [0]*self.size_k
+        control = self.control_buffer # FIXME redundant
 
         for k in self.range_k:
             g = self.getIndex_g(k)
@@ -1805,7 +1808,9 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 and (self.mapVar.get() or self.selected_g[g]):
                 l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
                 control[k] = func(r, c, l, self.R, self.C, self.L, t, t_index)
-        self._send(control)
+
+        self.send_method(self.control_buffer)
+
         if not self.holdVar.get():
             self.deselectAll()
         """
@@ -1850,6 +1855,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def redraw(self, event = None):
         self.draw(margin = 20)
+        self.colorBar.redraw()
 
     # Mapping ..................................................................
     def layer_g(self, g):
@@ -1933,10 +1939,11 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def deactivate(self):
         """
-        Deactivate the entire grid.
+        Deactivate the entire grid and reset control buffer.
         """
         for g in self.range_g:
             self.deactivate_g(g)
+        self._resetControlBuffer()
 
     # Values ...................................................................
     def update_g(self, g, value):
@@ -2051,9 +2058,14 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
             else:
                 self.deselect_g(g)
 
+    def _resetControlBuffer(self):
+        """
+        Set the control buffer back to its default value.
+        """
+        self.control_buffer = [0]*self.size_k
+
     def _adjust(self, *E):
         self.redraw()
-        self.colorBar.redraw()
         self.bind("<Configure>", self._scheduleAdjust)
 
     @staticmethod
@@ -2116,6 +2128,7 @@ class ColorBarWidget(tk.Frame):
         """
         Rebuild the color bar to adjust to a new size.
         """
+        print("RD Colorbar")
         self.canvas.delete(tk.ALL)
         self._draw()
 
@@ -2130,15 +2143,17 @@ class ColorBarWidget(tk.Frame):
         """
         Draw the colorbar.
         """
+        self.winfo_toplevel().update_idletasks()
         height = max(self.winfo_height(), self.winfo_reqheight())
         width = self.highLabel.winfo_reqwidth()
-        step = max(height/self.steps, 3)
+        step = height/self.steps
         left, right = 0, width
         y = 0
         self.bind("<Button-1>", self.redraw)
         for i in range(self.steps):
             iid = self.canvas.create_rectangle(
-                left, y, right, y + step, fill = self.colors[i], width = 0)
+                left, y, right, y + step, fill = self.colors[i],
+                width = 0)
             self.canvas.tag_bind(iid, "<ButtonPress-1>", self.redraw)
             y += step
         self.canvas.create_line(left, y, right, y, width = 4)
