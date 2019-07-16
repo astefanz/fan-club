@@ -81,6 +81,9 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         self.mapper = mapper
         self.setLiveBE, self.setFBE = setLiveBE, setFBE
 
+        self.S_buffer = None
+        self.N_buffer = None
+
         self.main = ttk.PanedWindow(self, orient = tk.HORIZONTAL)
         self.main.pack(fill = tk.BOTH, expand = True)
 
@@ -120,14 +123,18 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         """
         Process a new slaves vector.
         """
-        self.display.slavesIn(S)
-        self.control.slavesIn(S)
+        self.S_buffer = S
+        if self.isLive:
+            self.display.slavesIn(S)
+            self.control.slavesIn(S)
 
     def networkIn(self, N):
         """
         Process a new network vector.
         """
-        self.display.networkIn(N)
+        self.N_buffer = N
+        if self.isLive:
+            self.display.networkIn(N)
 
     def blockAdjust(self):
         """
@@ -151,7 +158,12 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         self.setLiveBE(live)
         if self.isLive:
             self.display.deactivate()
+            if self.N_buffer is not None:
+                self.display.networkIn(self.N_buffer)
+            if self.S_buffer is not None:
+                self.display.slavesIn(self.S_buffer)
         else:
+            self.display.activate()
             self.feedbackIn(self._emptyFeedback(), simulated = True)
 
     def _build(self):
@@ -1606,6 +1618,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.L = self.fanArray[ac.FA_layers]
         self.R, self.C = self.fanArray[ac.FA_rows], self.fanArray[ac.FA_columns]
         self.RC = self.R*self.C
+        self.RCL = self.RC*self.L
         self.size_g = self.RC*self.L
         self.range_g = range(self.size_g)
         self.maxRPM = self.archive[ac.maxRPM]
@@ -1683,6 +1696,11 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.drawButton.pack(side = tk.LEFT, **gus.padc)
         self.selectMode.trace('w', self._onSelectModeChange)
 
+        self.drag_start = None
+        self.drag_end = None
+
+        self.selected_count = 0
+
         # Color display .......................................................
         self.colorDisplay = tk.Label(self.toolBar, relief = tk.RIDGE, bd = 1,
             bg = 'darkgray', text = "          " ) # TODO
@@ -1694,14 +1712,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         # "inverse" color (or "opposite" color or whatever it is) as foreground.
         # NOTE: IDEA -- have setDC do this automatically (the mapping is there)
         self.colorDisplay.pack(side = tk.LEFT, **gus.padc)
-
-        # Map mode .............................................................
-        self.mapVar = tk.BooleanVar()
-        self.mapVar.set(True)
-        self.mapButton = tk.Checkbutton(self.toolBar,
-            text = "Map All", variable = self.mapVar,
-            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
-        self.mapButton.pack(side = tk.RIGHT, **gus.padc)
 
         # Selection hold .......................................................
         self.holdVar = tk.BooleanVar()
@@ -1745,7 +1755,15 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.selectMode.set(self.SM_SELECT)
 
         # Configure callbacks:
-        self.setLeftClick(self._simpleSelectOnClick)
+        self.setLeftClick(self._onLeftClick)
+        self.setRightClick(self._onRightClick)
+        self.setLeftRelease(self._onLeftRelease)
+        self.setRightRelease(self._onRightRelease)
+        self.setLeftDoubleClick(self._onDoubleLeft)
+        self.setRightDoubleClick(self._onDoubleRight)
+        self.setLeftDrag(self._onLeftDrag)
+        self.setRightDrag(self._onRightDrag)
+
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
@@ -1801,11 +1819,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
     def map(self, func, t = 0, t_index = 0):
         # FIXME performance
         control = self.control_buffer # FIXME redundant
+        map_all = self.selected_count == 0
 
         for k in self.range_k:
             g = self.getIndex_g(k)
             if g != s.PAD \
-                and (self.mapVar.get() or self.selected_g[g]):
+                and (map_all or self.selected_g[g]):
                 l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
                 control[k] = func(r, c, l, self.R, self.C, self.L, t, t_index)
 
@@ -1972,12 +1991,16 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def select_g(self, g):
         if self.active_g[g]:
+            if not self.selected_g[g]:
+                self.selected_count += 1
             self.selected_g[g] = True
             if self.layer_g(g) == self.layer:
                 self.outlinei(self.gridi_g(g),
                     self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
 
     def deselect_g(self, g):
+        if self.selected_g[g]:
+            self.selected_count -= 1
         self.selected_g[g] = False
         if self.layer_g(g) == self.layer:
             self.outlinei(self.gridi_g(g),
@@ -2037,7 +2060,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         To be called when the direct input mode is changed.
         """
-        # TODO (?)
         if self.built():
             self.deselectAll()
 
@@ -2069,13 +2091,106 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.bind("<Configure>", self._scheduleAdjust)
 
     @staticmethod
-    def _simpleSelectOnClick(grid, i):
+    def _onLeftClick(grid, i):
+        grid.drag_start = i
+        grid.drag_end = i
         if i is not None:
             g = grid.layer*grid.RC + i
             if grid.selected_g[g]:
                 grid.deselect_g(g)
             else:
                 grid.select_g(g)
+
+    @staticmethod
+    def _onRightClick(grid, i):
+        grid.drag_start = i
+        grid.drag_end = i
+        if i is not None:
+            grid.deselect_g(grid.layer*grid.RC + i)
+
+    @staticmethod
+    def _generalDrag(grid, i, f_g):
+        if i != None:
+            if grid.selectMode.get() == grid.SM_SELECT:
+                if grid.drag_start == None:
+                    grid.drag_start = i
+                if i != None:
+                    grid.drag_end = i
+            else:
+                f_g(grid.layer*grid.RC + i)
+
+
+    @staticmethod
+    def _onLeftDrag(grid, i):
+        if i != None:
+            if grid.selectMode.get() == grid.SM_SELECT:
+                if grid.drag_start == None:
+                    grid.drag_start = i
+                grid.drag_end = i
+            else:
+                grid.select_g(grid.layer*grid.RC + i)
+
+    @staticmethod
+    def _onRightDrag(grid, i):
+        if i != None:
+            if grid.selectMode.get() == grid.SM_SELECT:
+                if grid.drag_start == None:
+                    grid.drag_start = i
+                grid.drag_end = i
+            else:
+                grid.deselect_g(grid.layer*grid.RC + i)
+
+    @staticmethod
+    def _onLeftRelease(grid, i):
+        grid._generalRelease(grid, i, grid.select_g)
+
+    @staticmethod
+    def _onRightRelease(grid, i):
+        grid._generalRelease(grid, i, grid.deselect_g)
+
+    @staticmethod
+    def _generalRelease(grid, i, f_g):
+        if grid.drag_start != grid.drag_end and grid.drag_start != None and \
+            grid.drag_end != None:
+
+            if grid.selectMode.get() == grid.SM_SELECT:
+                row_1, row_2 = grid.drag_start//grid.R, grid.drag_end//grid.R
+                row_start = min(row_1, row_2)
+                row_end = max(row_1, row_2)
+
+                col_1, col_2 = grid.drag_start%grid.R, grid.drag_end%grid.R
+                col_start = min(col_1, col_2)
+                col_end = max(col_1, col_2)
+
+                for r in range(row_start, row_end + 1):
+                    for c in range(col_start, col_end + 1):
+                        for l in range(grid.L):
+                            f_g(l*grid.RCL + r*grid.C + c)
+
+                grid.drag_start = None
+                grid.drag_end = None
+            else:
+                pass
+
+    @staticmethod
+    def _onDoubleLeft(grid, i):
+        k_i = grid.getIndex_k(i + grid.layer*grid.RC)
+        k_0 = grid.slave_k(k_i)*grid.maxFans
+
+        for k in range(k_0, k_0 + grid.maxFans):
+            g = grid.getIndex_g(k)
+            if g >= 0:
+                grid.select_g(g)
+
+    @staticmethod
+    def _onDoubleRight(grid, i):
+        k_i = grid.getIndex_k(i + grid.layer*grid.RC)
+        k_0 = grid.slave_k(k_i)*grid.maxFans
+
+        for k in range(k_0, k_0 + grid.maxFans):
+            g = grid.getIndex_g(k)
+            if g >= 0:
+                grid.deselect_g(g)
 
     @staticmethod
     def _const(dc):

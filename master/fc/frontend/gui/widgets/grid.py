@@ -37,7 +37,8 @@ _LEFT_RELEASE = 3
 _RIGHT_CLICK = 4
 _RIGHT_DOUBLE = 5
 _RIGHT_RELEASE = 6
-_DRAG = 7
+_LEFT_DRAG = 7
+_RIGHT_DRAG = 8
 
 ## MAIN ########################################################################
 class BaseGrid(tk.Frame):
@@ -56,7 +57,8 @@ class BaseGrid(tk.Frame):
         _RIGHT_CLICK : '<ButtonPress-3>',
         _RIGHT_DOUBLE : '<Double-Button-3>',
         _RIGHT_RELEASE : '<ButtonRelease-3>',
-        _DRAG : '<B1-Motion>'
+        _LEFT_DRAG : '<B1-Motion>',
+        _RIGHT_DRAG : '<B3-Motion>'
     }
 
 
@@ -122,7 +124,8 @@ class BaseGrid(tk.Frame):
             _RIGHT_CLICK : None,
             _RIGHT_DOUBLE : None,
             _RIGHT_RELEASE : None,
-            _DRAG : None
+            _LEFT_DRAG : None,
+            _RIGHT_DRAG : None
         }
 
         self.size = R*C
@@ -311,8 +314,13 @@ class BaseGrid(tk.Frame):
         if self.built():
             self.draw()
 
-    def setDrag(self, f):
-        self.callbacks[_DRAG] = f
+    def setLeftDrag(self, f):
+        self.callbacks[_LEFT_DRAG] = f
+        if self.built():
+            self.draw()
+
+    def setRightDrag(self, f):
+        self.callbacks[_RIGHT_DRAG] = f
         if self.built():
             self.draw()
 

@@ -133,6 +133,9 @@ CMD_STOP = 3038 # ............................................... Stop back-end
 CMD_BMODE = 3039  # .............................................. Set broadcast
 CMD_BIP = 3040
 
+CMD_N = 3041 # .............................................. Get Network Vector
+CMD_S = 3042 # .............................................. Get Slave Vector
+
 # Broadcast modes:
 BMODE_BROADCAST = 8391
 BMODE_TARGETTED = 8392
@@ -159,7 +162,9 @@ COMMAND_CODES = {
     CMD_FUPDATE_STOP : "CMD_FUPDATE_STOP",
     CMD_STOP : "CMD_STOP",
     CMD_BMODE : "CMD_BMODE",
-    CMD_BIP : "CMD_BIP"
+    CMD_BIP : "CMD_BIP",
+    CMD_N : "CMD_N",
+    CMD_S : "CMD_S"
 }
 
 # Control vectors ##############################################################

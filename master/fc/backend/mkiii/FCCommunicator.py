@@ -257,6 +257,8 @@ class FCCommunicator(pt.PrintClient):
                 s.CMD_STOP : self.__handle_input_CMD_STOP,
                 s.CMD_BMODE : self.__handle_input_CMD_BMODE,
                 s.CMD_BIP : self.__handle_input_CMD_BIP,
+                s.CMD_N : self.__handle_input_CMD_N,
+                s.CMD_S : self.__handle_input_CMD_S,
             }
 
             self.controlHandlers = {
@@ -442,7 +444,7 @@ class FCCommunicator(pt.PrintClient):
             self.slaves = [None]*len(saved)
             # TODO: get rid of FCSlaves
 
-            update = []
+            update = False
             for index, slave in enumerate(saved):
                 self.slaves[index] = \
                     sv.FCSlave(
@@ -457,17 +459,10 @@ class FCCommunicator(pt.PrintClient):
                     index = index,
                     )
 
-                # Add to list:
-                update +=[
-                    index,
-                    slave[ac.SV_name],
-                    slave[ac.SV_mac],
-                    sv.DISCONNECTED,
-                    slave[ac.SV_maxFans],
-                    self.slaves[index].getVersion()]
+                update = True
 
             if update:
-                self.slavePipeSend.send(update)
+                self._sendSlaves()
 
             # START THREADS:
 
@@ -639,6 +634,18 @@ class FCCommunicator(pt.PrintClient):
         else:
             self.printe("Invalid broadcast IP received: {}".format(ip))
 
+    def __handle_input_CMD_N(self, *_):
+        """
+        Process a request for an updated network state vector.
+        """
+        self._sendNetwork()
+
+    def __handle_input_CMD_S(self, *_):
+        """
+        Process a request for an updated slave state vector.
+        """
+        self._sendSlaves()
+
     def _validBIP(self, ip):
         """
         Return whether the given ip address is a valid broadcast IP.
@@ -706,6 +713,7 @@ class FCCommunicator(pt.PrintClient):
             index += 1
             i += self.maxFans
 
+
     def _outputRoutine(self): # ================================================
         """
         Send network, slave, and fan array state vectors to the front-end.
@@ -718,15 +726,10 @@ class FCCommunicator(pt.PrintClient):
                 try:
 
                     # Network status:
-                    # FIXME (nothing?)
+                    self._sendNetwork()
 
                     # Slave status:
-                    updates = []
-                    while not self.slaveUpdateQueue.empty():
-                        updates += self.slaveUpdateQueue.get_nowait()
-                    if updates:
-                        self.prints("Sending updates: {}".format(updates)) # FDG
-                        self.slavePipeSend.send(updates)
+                    self._sendSlaves()
 
                     # Feedback vector:
                     # FIXME performance with this format
@@ -933,9 +936,7 @@ class FCCommunicator(pt.PrintClient):
                                 )
 
                                 # Add new Slave's information to newSlaveQueue:
-                                self.slavePipeSend.send(
-                                    (index, name, mac, sv.AVAILABLE, fans,
-                                    version))
+                                self._sendSlaves()
 
                                 # Start Slave thread:
                                 self.slaves[index].start()
@@ -1765,9 +1766,16 @@ class FCCommunicator(pt.PrintClient):
                 netargs[3], lock = lock)
 
         # Send update to handlers:
-        self.slaveUpdateQueue.put_nowait([slave.index, slave.name, slave.mac,
-            newStatus, slave.fans, slave.version])
+        self.slaveUpdateQueue.put_nowait(self.getSlaveStateVector(slave))
         # End setSlaveStatus ===================================================
+
+    def getSlaveStateVector(self, slave):
+        """
+        Generate and return a list to be appended to a slave state vector.
+        - slave: slave object from which to generate the list.
+        """
+        return [slave.index, slave.name, slave.mac, slave.getStatus(),
+            slave.fans, slave.version]
 
     def stop(self): # ==========================================================
         """
@@ -1800,6 +1808,12 @@ class FCCommunicator(pt.PrintClient):
             self.broadcastIP,
             self.broadcastPort,
             self.listenerPort))
+
+    def _sendSlaves(self):
+        S = []
+        for slave in self.slaves:
+            S += self.getSlaveStateVector(slave)
+        self.slavePipeSend.send(S)
 
 ## MODULE'S TEST SUITE #########################################################
 
