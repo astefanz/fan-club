@@ -112,6 +112,9 @@ class NetworkWidget(tk.Frame, pt.PrintClient):
         self.networkAdd(self.networkControl)
         self.slavesAdd(self.slaveList)
 
+    def profileChange(self):
+        self.slaveList.clear()
+
 ## WIDGETS #####################################################################
 
 # Network control ==============================================================
@@ -335,6 +338,23 @@ class NetworkControlWidget(tk.Frame, pt.PrintClient):
         of status.
         """
         self.clients.append(client)
+
+    def connect(self):
+        """
+        API to trigger connection. Equivalent to pressing the connect button.
+        NOTE: Should be called only when disconnected.
+        """
+        self._onConnect()
+
+
+    def disconnect(self):
+        """
+        API to trigger disconnection. Equivalent to pressing the disconnect
+        button.
+
+        NOTE: Should be called only when connected.
+        """
+        self._onDisconnect()
 
     # Internal methods .........................................................
     def _onConnect(self, *event):
@@ -1107,6 +1127,9 @@ class StatusBarWidget(tk.Frame, pt.PrintClient):
         for count in self.statusVars.values():
             count.set(0)
             self.slaves = {}
+
+    def profileChange(self):
+        self.clear()
 
     # Internal methods .........................................................
     def _onShutdown(self, *event):

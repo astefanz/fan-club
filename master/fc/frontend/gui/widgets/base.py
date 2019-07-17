@@ -207,7 +207,9 @@ class Base(tk.Frame, pt.PrintClient):
         return (c.printr, c.printw, c.printe, c.prints, c.printd, c.printx)
 
     def profileChange(self):
+        self.networkWidget.profileChange()
         self.controlWidget.profileChange()
+        self.bottomWidget.profileChange()
 
     # Internal methods ---------------------------------------------------------
     def _helpCallback(self):

@@ -76,9 +76,9 @@ class FCFrontend(pt.PrintServer):
         self.live = True
         self.version = self.archive[ac.version]
         self.platform = self.archive[ac.platform]
-        self.__setProfile()
         self.__buildLists()
         self.__buildPipes()
+        self.__buildLocks()
         self.__buildThreads()
         self.__flushAltBuffers()
 
@@ -180,6 +180,41 @@ class FCFrontend(pt.PrintServer):
             self.S_alt = S
 
     # "PRIVATE" AUXILIARY METHODS ----------------------------------------------
+    def _onProfileChange(self):
+        """
+        Handle a change in the loaded FC Profile.
+        """
+        self.network.stop()
+        self._pauseThreads()
+        self.__flushPipes()
+        self._resumeThreads()
+
+        for client in self.archive_clients:
+            client.profileChange()
+
+
+
+    def _pauseThreads(self):
+        """
+        Freeze the sentinel threads. Acquires each thread's corresponding lock.
+        NOTE: Stop the network backend before using.
+        """
+        while not self.feedback_lock.acquire(False):
+            self.feedback_send.send(std.PAD)
+        while not self.network_lock.acquire(False):
+            self.network_send.send(std.PAD)
+        while not self.slave_lock.acquire(False):
+            self.slave_send.send(std.PAD)
+
+    def _resumeThreads(self):
+        """
+        Unfreeze the sentinel threads. Releases their corresponding locks.
+        NOTE: _pauseThreads should have been called.
+        """
+        self.feedback_lock.release()
+        self.network_lock.release()
+        self.slave_lock.release()
+
     def _getAltF(self):
         return self.F_alt
 
@@ -192,11 +227,10 @@ class FCFrontend(pt.PrintServer):
     def __flushAltBuffers(self):
         self.F_alt, self.N_alt, self.S_alt = None, None, None
 
-    def __setProfile(self):
-        """
-        Build all data members that depend on the current profile.
-        """
-        pass
+    def __flushPipes(self):
+        for pipe in self.recv_pipes:
+            while pipe.poll():
+                _ = pipe.recv()
 
     def __buildPipes(self):
         """
@@ -208,6 +242,16 @@ class FCFrontend(pt.PrintServer):
         self.slave_recv, self.slave_send = mp.Pipe(False)
         self.send_pipes = (
             self.feedback_send, self.network_send, self.slave_send)
+        self.recv_pipes = (
+            self.feedback_recv, self.network_recv, self.slave_recv)
+
+    def __buildLocks(self):
+        """
+        Create the sentinel synchronization locks within construction.
+        """
+        self.feedback_lock = mt.Lock()
+        self.network_lock = mt.Lock()
+        self.slave_lock = mt.Lock()
 
     def __buildLists(self):
         """
@@ -218,20 +262,6 @@ class FCFrontend(pt.PrintServer):
         self.network_clients = []
         self.slave_clients = []
         self.archive_clients = []
-
-    def _onProfileChange(self):
-        """
-        Handle a change in the loaded FC Profile.
-        """
-        was_active = self.network.active()
-        self.network.stop()
-
-        self.__setProfile()
-
-        for client in self.archive_clients:
-            client.profileChange()
-        if was_active:
-            self.network.start()
 
     def __buildThreads(self):
         """
@@ -263,13 +293,16 @@ class FCFrontend(pt.PrintServer):
         """
         self.printr("Feedback watchdog started.")
         F = None
+        # TODO: Try-catch
         while True:
+            self.feedback_lock.acquire()
+            self.feedback_lock.release()
             F = self.feedback_recv.recv()
             if F == std.END:
                 break
             if not self.live:
                 F = self._getAltF()
-            if F is not None:
+            if F != None and F != std.PAD:
                 for client_method in self.feedback_clients:
                     client_method(F)
         self.printr("Feedback watchdog terminated.")
@@ -278,10 +311,12 @@ class FCFrontend(pt.PrintServer):
         self.printr("Slave state watchdog started.")
         S = None
         while True:
+            self.slave_lock.acquire()
+            self.slave_lock.release()
             S = self.slave_recv.recv()
             if S == std.END:
                 break
-            if S is not None:
+            if S != None and S != std.PAD:
                 for client_method in self.slave_clients:
                     client_method(S)
         self.printr("Slave state watchdog terminated.")
@@ -289,10 +324,12 @@ class FCFrontend(pt.PrintServer):
     def _networkRoutine(self):
         self.printr("Network state watchdog started.")
         while True:
+            self.network_lock.acquire()
+            self.network_lock.release()
             N = self.network_recv.recv()
             if N == std.END:
                 break
-            if N is not None:
+            if N != None and N != std.PAD:
                 for client_method in self.network_clients:
                     client_method(N)
         self.printr("Network state watchdog terminated.")
