@@ -192,8 +192,6 @@ class FCFrontend(pt.PrintServer):
         for client in self.archive_clients:
             client.profileChange()
 
-
-
     def _pauseThreads(self):
         """
         Freeze the sentinel threads. Acquires each thread's corresponding lock.

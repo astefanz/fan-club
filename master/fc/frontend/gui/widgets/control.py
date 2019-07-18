@@ -2611,8 +2611,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
 
 
     def set(self, dc):
-        # FIXME
-        pass
+        self.map(self._const(dc), 0, 0)
 
     def apply(self):
         # FIXME
@@ -2942,8 +2941,18 @@ class LiveTable(pt.PrintClient, tk.Frame):
                 slave_i += 1
                 vector_i += self.maxFans
 
-
         self.built = True
+
+    @staticmethod
+    def _const(dc):
+        """
+        Return a function that ignores any arguments passed and returns the
+        given duty cycle.
+        - dc: the value to be returned.
+        """
+        def f(*_):
+            return dc
+        return f
 
 class DataLogger(pt.PrintClient):
     """
