@@ -73,7 +73,8 @@ if __name__ == '__main__':
     print("[REM] Terminal arguments")
     print("[REM] Daemon threads")
     print("[REM] Grid position indicators")
-    print("[REM] Switch from preview")
+    print("[REM] Switching from preview")
+    print("[REM] FC Function constants")
 
     # Execution ................................................................
     pqueue = mp.Queue()

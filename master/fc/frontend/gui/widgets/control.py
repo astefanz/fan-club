@@ -157,11 +157,15 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         self.isLive = live
         self.setLiveBE(live)
         if self.isLive:
-            self.display.deactivate()
+            #self.display.deactivate() FIXME
             if self.N_buffer is not None:
                 self.display.networkIn(self.N_buffer)
+            else:
+                self.printw("No network state buffered when switching to Live")
             if self.S_buffer is not None:
                 self.display.slavesIn(self.S_buffer)
+            else:
+                self.printw("No slave state buffered when switching to Live")
         else:
             self.display.activate()
             self.feedbackIn(self._emptyFeedback(), simulated = True)
@@ -248,12 +252,15 @@ class PythonInputWidget(tk.Frame):
     """
     SYMBOL = "[PI]"
 
+    WARNING = "NOTE: Scripts use zero-indexing"
     HEADER = "def duty_cycle({}):"
     FOOTER = "self.func = duty_cycle"
 
     IMPORTS = "math", "random"
 
-    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_TIME, P_STEP)
+    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN,
+        P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_TIME, P_STEP)
+
 
     def __init__(self, master, callback, pqueue):
         """
@@ -273,11 +280,14 @@ class PythonInputWidget(tk.Frame):
 
         self.interactive = []
 
-        self.grid_rowconfigure(1, weight = 1)
         self.grid_columnconfigure(1, weight = 1)
         row = 0
 
-        self.topLabel = tk.Label(self, font = "Courier 7 bold",
+        self.noteLabel = tk.Label(self, font = "Courier 7 bold",
+            text = self.WARNING, fg = "orange", anchor = tk.W)
+        self.noteLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
+        row += 1
+        self.topLabel = tk.Label(self, font = "Courier 6 bold",
             text = self.signature, anchor = tk.W)
         self.topLabel.grid(row = row, column = 0, columnspan = 2, sticky = "EW")
         row += 1
@@ -295,6 +305,7 @@ class PythonInputWidget(tk.Frame):
             fg = 'black', insertbackground = "#ff6e1f",
             tabs = self.tabsize)
         self.text.grid(row = row, column = 1, rowspan = 2, sticky = "NEWS")
+        self.grid_rowconfigure(row, weight = 1)
         self.interactive.append(self.text)
 
         # For scrollbar, see:
@@ -1145,12 +1156,12 @@ class ControlPanelWidget(tk.Frame, pt.PrintClient):
         # Basic ................................................................
         self.basic = MainControlWidget(self.notebook, network, display,
             self._onRecordStart, self._onRecordStop, pqueue)
-        self.notebook.add(self.basic, text = "Manual Control")
+        self.notebook.add(self.basic, text = "Manual")
 
         # Flow Library .........................................................
         self.library = FlowLibraryWidget(self.notebook, {}, self.display,pqueue)
             # TODO
-        self.notebook.add(self.library, text = "Flow Library",state = tk.NORMAL)
+        self.notebook.add(self.library, text = "Library",state = tk.NORMAL)
 
         # Functional ...........................................................
         self.functional = FunctionControlWidget(self.notebook, display,
@@ -1161,8 +1172,13 @@ class ControlPanelWidget(tk.Frame, pt.PrintClient):
         # External .............................................................
         self.external = ex.ExternalControlWidget(self.notebook,
             self.archive, self.externalBackEnd, pqueue) # FIXME pass backend
-        self.notebook.add(self.external, text = "External Control",
+        self.notebook.add(self.external, text = "External",
             state = tk.NORMAL)
+
+        # Watchdog .............................................................
+        self.watchdog = tk.Frame(self.notebook) # FIXME TODO
+        self.notebook.add(self.watchdog, text = "Watchdog",
+            state = tk.DISABLED) # FIXME
 
         # Record ...............................................................
         # Add spacer:
@@ -1806,6 +1822,8 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         IMPLEMENTATION NOTES:
         - func(r, c, l, s, f, t, k)
+        PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN,
+            P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_TIME, P_STEP)
         """
         # FIXME performance
         for k in self.range_k:
@@ -1817,7 +1835,9 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 l, r, c = self.getCoordinates_g(s, f)
 
             if self.selected_count == 0 or self.selected_g[g]:
-                self.control_buffer[k] = func(r, c, l, s, f, t, t_step)
+                self.control_buffer[k] = func(r, c, l, s, f,
+                    self.R, self.C, self.L, self.nslaves, self.maxFans,
+                    t, t_step)
 
         self.send_method(self.control_buffer)
 
