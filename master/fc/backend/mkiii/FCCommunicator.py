@@ -1755,13 +1755,10 @@ class FCCommunicator(pt.PrintClient):
         # FIXME: No locking?
         # FIXME: Upon simplification of SV data structure...
 
-        self.printw("\tAdding slave {}".format(slave.index))
         # Update status:
         if netargs is None:
-            self.printw("\tNo netargs")
             slave.setStatus(newStatus, lock = lock)
         else:
-            self.printw("\tNetargs")
             slave.setStatus(newStatus, netargs[0], netargs[1], netargs[2],
                 netargs[3], lock = lock)
 

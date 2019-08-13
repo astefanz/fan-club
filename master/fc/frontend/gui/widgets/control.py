@@ -47,7 +47,7 @@ import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
 import tkinter.font as fnt
 
-from fc import archive as ac, printer as pt, standards as s, utils as us
+from fc import archive as ac, printer as pt, standards as std, utils as us
 from fc.backend import mapper as mr
 
 from fc.frontend.gui import guiutils as gus
@@ -253,11 +253,12 @@ class PythonInputWidget(tk.Frame):
 
     IMPORTS = "math", "random"
 
-    def __init__(self, master, callback, parameters, pqueue):
+    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_TIME, P_STEP)
+
+    def __init__(self, master, callback, pqueue):
         """
         Create a Python input widget in which the user may define a function
-        to be mapped to parameters defined by the current interactive control
-        widget.
+        to be mappeded throughout the array.
 
         CALLBACK is a method to which to pass the resulting Python function
         after being parsed and instantiated, as well as the current time step.
@@ -265,8 +266,7 @@ class PythonInputWidget(tk.Frame):
         tk.Frame.__init__(self, master)
         pt.PrintClient.__init__(self, pqueue)
 
-
-        self.parameters = parameters
+        self.parameters = self.PARAMETERS
         self._buildSignature()
 
         self.callback = callback
@@ -341,14 +341,6 @@ class PythonInputWidget(tk.Frame):
         self.loader.disable()
         for widget in self.interactive:
             widget.config(state = tk.DISABLED)
-
-    def setParameters(self, parameters):
-        """
-        Update the list of parameters to be used.
-        """
-        self.parameters = parameters
-        self._buildSignature()
-        self.topLabel.config(text = self.signature)
 
     def flat(self):
         """
@@ -834,10 +826,9 @@ class FunctionControlWidget(tk.Frame, pt.PrintClient):
         self.pythonFrame.grid(row = row, sticky = "NEWS")
         row += 1
         self.python = PythonInputWidget(self.pythonFrame, self._applyFunction,
-            self.display.parameters(), pqueue)
+            pqueue)
         self.flat = self.python.flat
         self.python.pack(fill = tk.BOTH, expand = True)
-        self.display.addParameterCallback(self.python.setParameters)
 
         # Timing ...............................................................
         self.timeFrame = tk.LabelFrame(self, text = "Time Series",
@@ -1421,12 +1412,9 @@ class DisplayMaster(tk.Frame, pt.PrintClient):
 
         - selectAll()
         - deselectAll()
-        - parameters() : returns a list of parameters for function mapping that
-                contains at least 't' (for time)
-        - map(f, t) : takes a function that accepts the parameters returned by
-                    parameters() in the same order in which it returns them and
-                    the current "time step" and returns a normalized duty cycle
-                    ([0, 1])
+        - map(f, t) : takes a function that accepts the standardized parameters
+                    of the PythonInputWidget and returns a normalized duty cycle
+                    (in [0, 1])
         - set(dc) : takes a normalized duty cycle ([0, 1])
         - apply()
         - getC() : return a standard control vector
@@ -1496,13 +1484,6 @@ class DisplayMaster(tk.Frame, pt.PrintClient):
         """
         return self.displays[self.current]
 
-    def addParameterCallback(self, callback):
-        """
-        Record the given callback and call it when the list of parameters
-        changes (passing in the new list of parameters).
-        """
-        self.parameterCallbacks.append(callback)
-
     # Wrapper methods ----------------------------------------------------------
     def feedbackIn(self, F):
         self.count += 1
@@ -1531,9 +1512,6 @@ class DisplayMaster(tk.Frame, pt.PrintClient):
 
     def deselectAll(self):
         self.displays[self.current].deselectAll()
-
-    def parameters(self):
-        return self.displays[self.current].parameters()
 
     def map(self, f, t, k):
         self.displays[self.current].map(f, t, k)
@@ -1574,10 +1552,6 @@ class DisplayMaster(tk.Frame, pt.PrintClient):
             self.displays[self.current].grid_forget()
             self.displays[new].grid(**self.GRID_KWARGS)
             self.current = new
-
-            parameters = self.displays[new].parameters()
-            for callback in self.parameterCallbacks:
-                callback(parameters)
 
 class GridWidget(gd.BaseGrid, pt.PrintClient):
     """
@@ -1764,6 +1738,10 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.setLeftDrag(self._onLeftDrag)
         self.setRightDrag(self._onRightDrag)
 
+        print("DEBUG: GRID STATISTICS")
+        print(f"\tRCL: {self.RCL}")
+        print(f"\tSize g: {self.size_g}")
+        print(f"\tSize k: {self.size_k}")
 
     # Standard interface .......................................................
     def feedbackIn(self, F):
@@ -1792,15 +1770,15 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
 
     def networkIn(self, N):
-        if not N[s.NS_I_CONN]:
+        if not N[std.NS_I_CONN]:
             self.deactivate()
 
     def slavesIn(self, S):
-        for offset in range(0, len(S), s.SD_LEN):
-            index_s, status = S[offset + s.SD_INDEX], S[offset + s.SD_STATUS]
+        for offset in range(0, len(S), std.SD_LEN):
+            index_s, status = S[offset + std.SD_INDEX], S[offset + std.SD_STATUS]
             if index_s < self.nslaves:
                 # TODO account for redundancy
-                if status == s.SS_CONNECTED:
+                if status == std.SS_CONNECTED:
                     self.activate_s(index_s)
                 else:
                     self.deactivate_s(index_s)
@@ -1813,38 +1791,38 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         for g in self.range_g:
             self.deselect_g(g)
 
-    def parameters(self):
-        return self.PARAMETERS
+    def map(self, func, t = 0, t_step = 0):
+        """
+        Map the given function to the entire array, calling it once for each
+        fan with the corresponding argument values.
 
-    def map(self, func, t = 0, t_index = 0):
+        Note that values that correspond only to mapped fans (such as row,
+        column and layer) will default to zero when unavailable.
+
+        - func := function to map
+        - t := timestamp (float)
+        - t_step := time step (int)
+        """
+        """
+        IMPLEMENTATION NOTES:
+        - func(r, c, l, s, f, t, k)
+        """
         # FIXME performance
-        control = self.control_buffer # FIXME redundant
-        map_all = self.selected_count == 0
-
         for k in self.range_k:
             g = self.getIndex_g(k)
-            if g != s.PAD \
-                and (map_all or self.selected_g[g]):
-                l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
-                control[k] = func(r, c, l, self.R, self.C, self.L, t, t_index)
+            s, f  = self.slave_k(k), self.fan_k(k)
+            if g == std.PAD: # FIXME prev: if g != std.PAD:
+                l, r, c = 0, 0, 0
+            else:
+                l, r, c = self.getCoordinates_g(s, f)
+
+            if self.selected_count == 0 or self.selected_g[g]:
+                self.control_buffer[k] = func(r, c, l, s, f, t, t_step)
 
         self.send_method(self.control_buffer)
 
         if not self.holdVar.get():
             self.deselectAll()
-        """
-        for l in self.layers:
-            for i in self.range:
-                control_i = self.layers[l][i]
-                if control_i is not None and \
-                    r = i//self.C
-                    c = i%self.C
-                    control[control_i] = \
-                        f(r, c, l, self.R, self.C, self.L, t, k)
-        self._send(control)
-        if not self.holdVar.get():
-            self.deselectAll()
-        """
 
     def set(self, dc):
         """
@@ -1907,12 +1885,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
     # Activity .................................................................
     def activate_g(self, g):
         if not self.active_g[g]:
-            self.update_g(g, s.PAD)
+            self.update_g(g, std.PAD)
         self.active_g[g] = True
 
     def deactivate_g(self, g):
         if self.active_g[g]:
-            self.update_g(g, s.RIP)
+            self.update_g(g, std.RIP)
         self.deselect_g(g)
         self.active_g[g] = False
 
@@ -1938,12 +1916,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def activate_k(self, k):
         g = self.getIndex_g(k)
-        if g != s.PAD:
+        if g != std.PAD:
             self.activate_g(g)
 
     def deactivate_k(self, k):
         g = self.getIndex_g(k)
-        if g != s.PAD:
+        if g != std.PAD:
             self.deactivate_g(g)
 
     def activate(self, F = None):
@@ -1980,7 +1958,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         if value >= 0:
             fill = self.colors[min(self.maxColor,
                 int(((value*self.maxColor)/self.maxValue)))]
-        elif value == s.RIP:
+        elif value == std.RIP:
             fill = self.off_color
 
         if self.layer_g(g) == self.layer:
@@ -1990,13 +1968,17 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
     # FIXME: performance
 
     def select_g(self, g):
-        if self.active_g[g]:
-            if not self.selected_g[g]:
-                self.selected_count += 1
-            self.selected_g[g] = True
-            if self.layer_g(g) == self.layer:
-                self.outlinei(self.gridi_g(g),
-                    self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+        try:
+            if self.active_g[g]:
+                if not self.selected_g[g]:
+                    self.selected_count += 1
+                self.selected_g[g] = True
+                if self.layer_g(g) == self.layer:
+                    self.outlinei(self.gridi_g(g),
+                        self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+        except IndexError as e:
+            print("IE: ({}): {}".format(g, e)) # FIXME
+            raise e
 
     def deselect_g(self, g):
         if self.selected_g[g]:
@@ -2060,8 +2042,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         To be called when the direct input mode is changed.
         """
-        if self.built():
-            self.deselectAll()
+        pass
 
     def _scheduleAdjust(self, *E):
         self.after(self.RESIZE_MS, self._adjust)
@@ -2165,7 +2146,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 for r in range(row_start, row_end + 1):
                     for c in range(col_start, col_end + 1):
                         for l in range(grid.L):
-                            f_g(l*grid.RCL + r*grid.C + c)
+                            f_g(l*grid.RC + r*grid.C + c)
 
                 grid.drag_start = None
                 grid.drag_end = None
@@ -2290,13 +2271,13 @@ class LiveTable(pt.PrintClient, tk.Frame):
 
     PARAMETERS = (P_INDEX, P_FAN, P_INDICES, P_FANS, P_TIME, P_STEP)
 
-    def __init__(self, master, archive, mapper, send, network, pqueue):
+    def __init__(self, master, archive, mapper, send_method, network, pqueue):
         """
         Create a new LiveTable in MASTER.
 
             master := Tkinter parent widget
             archive := FCArchive instance
-            send := method to which to pass generated control vectors
+            send_method := method to which to pass generated control vectors
             pqueue := Queue instance for I-P printing
 
         """
@@ -2304,11 +2285,39 @@ class LiveTable(pt.PrintClient, tk.Frame):
         pt.PrintClient.__init__(self, pqueue)
         self.archive = archive
         self.mapper = mapper
-        self._send = send
+        self.send_method = send_method
 
         self.maxFans = self.archive[ac.maxFans]
         self.startDisplacement = 2
         self.endDisplacement = self.startDisplacement + self.maxFans
+
+        self.fanArray = self.archive[ac.fanArray]
+        self.L = self.fanArray[ac.FA_layers]
+        self.R, self.C = self.fanArray[ac.FA_rows], self.fanArray[ac.FA_columns]
+        self.RC = self.R*self.C
+        self.RCL = self.RC*self.L
+        self.size_g = self.RC*self.L
+        self.range_g = range(self.size_g)
+        self.maxRPM = self.archive[ac.maxRPM]
+        self.maxFans = self.archive[ac.maxFans]
+
+        # Mapping ..............................................................
+        self.values_g = [0]*self.size_g
+        self.active_g = [False]*self.size_g
+        self.selected_g = [False]*self.size_g
+
+        # FIXME transplant behavior that should be in Mapper
+        self.getIndex_g = self.mapper.index_KG
+        self.getIndex_k = self.mapper.index_GK
+        self.getCoordinates_g = self.mapper.tuple_KG
+        self.getCoordinates_k = self.mapper.tuple_GK
+
+        self.nslaves = len(self.archive[ac.savedSlaves])
+        self.size_k = self.nslaves*self.maxFans
+        self.range_k = range(self.size_k)
+
+        self.control_buffer = []
+        self._resetControlBuffer()
 
         # Build menu ...........................................................
         self.main = tk.Frame(self)
@@ -2584,7 +2593,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         self.numSlaves = 0
 
     def networkIn(self, N):
-        if not N[s.NS_I_CONN]:
+        if not N[std.NS_I_CONN]:
             self.deactivate()
 
     def slavesIn(self, S):
@@ -2597,17 +2606,42 @@ class LiveTable(pt.PrintClient, tk.Frame):
     def deselectAll(self):
         self.table.selection_set(())
 
-    def parameters(self):
-        return self.PARAMETERS
-
     def map(self, f, t, k):
-        # TODO performance
-        control = [0]*len(self.slaves)*self.maxFans
-        for s in self.slaves:
-            for fan in self.fans:
-                control[fan + s*self.maxFans] = f(s, fan, len(self.slaves),
-                    self.maxFans, t, k)
-        self._send(control)
+        """
+        Map the given function to the entire array, calling it once for each
+        fan with the corresponding argument values.
+
+        Note that values that correspond only to mapped fans (such as row,
+        column and layer) will default to zero when unavailable.
+
+        - func := function to map
+        - t := timestamp (float)
+        - t_step := time step (int)
+        """
+        """
+        IMPLEMENTATION NOTES:
+        - func(r, c, l, s, f, t, k)
+        """
+
+        # TODO selection
+        #)))) FIXME
+
+        # FIXME performance
+        for k in self.range_k:
+            g = self.getIndex_g(k)
+            if g != std.PAD:
+                l, r, c = 0, 0, 0
+            else:
+                l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
+            s, f  = self.slave_k(k), self.fan_k(k)
+
+            if self.selected_count == 0 or self.selected_g[g]:
+                self.control_buffer[k] = func(r, c, l, s, f, t, t_step)
+
+        self.send_method(self.control_buffer)
+
+        if not self.holdVar.get():
+            self.deselectAll()
 
 
     def set(self, dc):
@@ -2635,10 +2669,39 @@ class LiveTable(pt.PrintClient, tk.Frame):
 
     def redraw(self):
         # FIXME
+        print("redraw")
         pass
 
     def getMapping(self):
         return None
+
+    # Mapping ..................................................................
+    def layer_g(self, g):
+        """
+        Get the layer that corresponds to the given grid-coordinate index.
+        """
+        return g // self.RC
+
+    def gridi_g(self, g):
+        """
+        Get the 2D "within layer" index that corresponds to the given
+        grid-coordinate index.
+
+        In a single-layer grid, this function makes no difference.
+        """
+        return g % self.RC
+
+    def slave_k(self, k):
+        """
+        Get the slave index corresponding to the network-coordinate index k.
+        """
+        return k // self.maxFans
+
+    def fan_k(self, k):
+        """
+        Get the fan index corresponding to the network-coordinate index k.
+        """
+        return k % self.maxFans
 
     # Selection ................................................................
     # TODO implement
@@ -2669,6 +2732,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         """
         for index in self.slaves:
             self.deactivatei(index)
+        self._resetControlBuffer()
 
     def deactivatei(self, i):
         """
@@ -2676,6 +2740,12 @@ class LiveTable(pt.PrintClient, tk.Frame):
         """
         self.table.item(self.slaves[i],
             values = (i + 1,), tag = "D")
+
+    def _resetControlBuffer(self):
+        """
+        Set the control buffer back to its default value.
+        """
+        self.control_buffer = [0]*self.size_k
 
     def _applySentinel(self, event = False):
         """
@@ -2924,11 +2994,11 @@ class LiveTable(pt.PrintClient, tk.Frame):
             while vector_i < end_i:
                 values = tuple(F[vector_i:vector_i + self.maxFans])
 
-                if s.RIP in values:
+                if std.RIP in values:
                     # This slave is disconnected
                     self.table.item(self.slaves[slave_i],
                         values = (slave_i + 1,), tag = "D")
-                elif s.PAD not in values:
+                elif std.PAD not in values:
                     # This slave is active
                     if self.sentinelFlag:
                         for fan, value in enumerate(values):
@@ -2979,7 +3049,7 @@ class DataLogger(pt.PrintClient):
 
     # API ----------------------------------------------------------------------
 
-    def start(self, filename, timeout = s.MP_STOP_TIMEOUT_S,
+    def start(self, filename, timeout = std.MP_STOP_TIMEOUT_S,
         script = "[NONE]", mappings = ("[NONE]",)):
         """
         Begin data logging.
@@ -3004,7 +3074,7 @@ class DataLogger(pt.PrintClient):
             self.printx(e, "Exception activating data log:")
             self._sendStop()
 
-    def stop(self, timeout = s.MP_STOP_TIMEOUT_S):
+    def stop(self, timeout = std.MP_STOP_TIMEOUT_S):
         """
         Stop data logging.
         """
@@ -3043,10 +3113,10 @@ class DataLogger(pt.PrintClient):
         i = 0
         while i < length:
             index, name, mac = \
-                S[i + s.SD_INDEX] + 1, S[i + s.SD_NAME], S[i + s.SD_MAC]
+                S[i + std.SD_INDEX] + 1, S[i + std.SD_NAME], S[i + std.SD_MAC]
             if index not in self.slaves:
                 self.slaves[index] = (name, mac)
-            i += s.SD_LEN
+            i += std.SD_LEN
 
     def networkIn(self, N):
         """

@@ -1,4 +1,3 @@
-
 ################################################################################
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
@@ -50,12 +49,21 @@ class Mapper:
 
     # API ----------------------------------------------------------------------
     def index_KG(self, k):
+        """
+        Given a k-index, return the corresponding g-index.
+        """
         return self.KG[k]
 
     def index_GK(self, g):
+        """
+        Given a g-index, return the corresponding k-index.
+        """
         return self.GK[g]
 
     def tuple_KG(self, s, f):
+        """
+        Given a k-tuple (s, f), return the corresponding g-tuple (l, r, c).
+        """
         k = s*self.maxFans + f
         g = self.KG[k]
         l = g//self.RC
@@ -64,6 +72,9 @@ class Mapper:
         return l, r, c
 
     def tuple_GK(self, l, r, c):
+        """
+        Given a g-tuple (l, r, c), return the corresponding k-tuple (s, f).
+            """
         g = l*self.RC + r*self.C + c
         k = self.GK[g]
         s = k//n_f
@@ -124,11 +135,13 @@ class Mapper:
                         and column_cell + column_base < self.C:
 
                         index_KG = base_KG + int(fan)
-                        index_GK = layer*self.L + base_GK \
+                        index_GK = layer*self.RC + base_GK \
                             + row_cell*self.C + column_cell
 
                         self.KG[index_KG] = index_GK
                         self.GK[index_GK] = index_KG
+
+        # FIXME debug
 
     def _testMapping(self):
         print("** Testing FC mapping for profile '{}'".format(archive[ac.name]))

@@ -895,7 +895,7 @@ CAST = {
     ac.description : "Caltech's newest toy.",
     ac.platform : ac.UNKNOWN,
 
-    ac.broadcastIP : "<broadcast>",
+    ac.broadcastIP : "192.168.88.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
     ac.periodMS : 100,
@@ -927,7 +927,7 @@ CAST = {
             ac.SV_maxRPM : 16000,
             ac.SV_minRPM : 1200,
             ac.SV_minDC : 0.1,
-            ac.SV_maxFans : 21,
+            ac.SV_maxFans : 18,
             ac.SV_pinout : "CAST",
             ac.MD_assigned : False,
             ac.MD_row : -1,
@@ -1512,7 +1512,7 @@ CAST = {
         {
 
             ac.SV_name : "Module 23",
-            ac.SV_mac : "00:80:e1:47:00:38",
+            ac.SV_mac : "00:80:e1:51:00:38",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.DOUBLE,

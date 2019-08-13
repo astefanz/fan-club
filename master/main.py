@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     ## GLOBALS #################################################################
     VERSION = "0.14"
-    INIT_PROFILE = "SEVENSQ" # FIXME
+    INIT_PROFILE = "CAST" # FIXME
 
     # NOTE on writing servers like the ext. ctl. API:
     # - have stop methods handle redundance
@@ -69,10 +69,11 @@ if __name__ == '__main__':
     print("[REM] Comms. reset on profile changes")
     print("[REM] Direct control w/ live table")
     print("[REM] Auto-update displays to latest data when switching")
-    print("[REM] Automatically select all when there is no selection")
-    print("[REM] SEVENSQ selection bug")
     print("[REM] Change core and print server to use blocked threads")
     print("[REM] Terminal arguments")
+    print("[REM] Daemon threads")
+    print("[REM] Grid position indicators")
+    print("[REM] Switch from preview")
 
     # Execution ................................................................
     pqueue = mp.Queue()
