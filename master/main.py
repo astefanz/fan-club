@@ -74,7 +74,8 @@ if __name__ == '__main__':
     print("[REM] Daemon threads")
     print("[REM] Grid position indicators")
     print("[REM] Switching from preview")
-    print("[REM] FC Function constants")
+    print("[REM] DC Limit")
+    print("[REM] DC on preview")
 
     # Execution ................................................................
     pqueue = mp.Queue()

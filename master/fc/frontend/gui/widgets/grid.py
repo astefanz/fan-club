@@ -40,6 +40,9 @@ _RIGHT_RELEASE = 6
 _LEFT_DRAG = 7
 _RIGHT_DRAG = 8
 
+ALT_COLOR_0 = "#e2e2e2"
+ALT_COLOR_1 = "#bfbfbf"
+
 ## MAIN ########################################################################
 class BaseGrid(tk.Frame):
     """ Interactive 2D grid widget that supports clicking, dragging, and live
@@ -207,7 +210,18 @@ class BaseGrid(tk.Frame):
 
         x, y = xmargin, ymargin
         l = self.cellLength
+
+        for col in range(self.C):
+            self.canvas.create_text(
+                x + l/2, ymargin/2, font = "TkFixedFont 5", text = f"{col + 1}",
+                    fill = "darkgray", angle = 0)
+            x += l
+
+        x = xmargin
         for row in range(self.R):
+            self.canvas.create_text(
+                xmargin/2, y + l/2, font = "TkFixedFont 5", text = f"{row + 1}",
+                    fill = "darkgray", angle = 0)
             for col in range(self.C):
                 index = row*self.C + col
                 iid = self.canvas.create_rectangle(
@@ -230,11 +244,14 @@ class BaseGrid(tk.Frame):
             y += l
 
 
+        # TODO show variables:
+        self.canvas.create_text(
+            xmargin + l/2, l*self.R + ymargin*3/2,
+            font = "TkFixedFont 6", text = f"   ",
+            fill = "darkgray", angle = 0)
+
         self.xmargin = xmargin
-        self.ymargin = margin
-        # TODO
-        self.canvas.create_line(self.xmargin, self.ymargin + l*self.R/2,
-            0, self.ymargin + l*self.R/2, fill = "darkgray", width = 4)
+        self.ymargin = ymargin
 
     def filli(self, i, fill):
         """

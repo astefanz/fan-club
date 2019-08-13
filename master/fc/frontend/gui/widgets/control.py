@@ -1649,9 +1649,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.offset = self.offsets["RPM"]
         self.typeFrame = tk.Frame(self.toolBar)
         self.typeFrame.pack(side = tk.LEFT, fill = tk.Y)
-        self.typeLabel = tk.Label(self.typeFrame, text = "Data: ",
-            **gus.fontc, **gus.padc)
-        self.typeLabel.pack(side = tk.LEFT, **gus.padc)
         self.typeMenuVar = tk.StringVar()
         self.typeMenuVar.trace('w', self._onTypeMenuChange)
         self.typeMenuVar.set("RPM")
@@ -1664,13 +1661,10 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.layer = 0
         self.layerFrame = tk.Frame(self.toolBar)
         self.layerFrame.pack(side = tk.LEFT, fill = tk.Y)
-        self.layerLabel = tk.Label(self.layerFrame, text = "Layer: ",
-            **gus.fontc, **gus.padc)
-        self.layerLabel.pack(side = tk.LEFT, **gus.padc)
-        self.layerVar = tk.IntVar()
+        self.layerVar = tk.StringVar()
         self.layerVar.trace('w', self._onLayerChange)
         self.layerMenu = tk.OptionMenu(self.layerFrame, self.layerVar,
-            *list(range(1, self.L + 1)))
+            *["Layer {}".format(l + 1) for l in range(self.L)])
         self.layerMenu.config(**gus.fontc)
         self.layerMenu.pack(side = tk.LEFT, **gus.padc)
 
@@ -1678,30 +1672,18 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         # FIXME
         self.selectMode = tk.IntVar()
         self.selectButton = tk.Radiobutton(self.toolBar,
-            variable = self.selectMode, value = self.SM_SELECT, text = "Select",
-            **gus.rbconf)
-        self.selectButton.pack(side = tk.LEFT, **gus.padc)
-        self.drawButton = tk.Radiobutton(self.toolBar, text = "Draw",
+            variable = self.selectMode, value = self.SM_SELECT,
+            text = "Rectangle", **gus.rbconf)
+        self.selectButton.pack(side = tk.LEFT)
+        self.drawButton = tk.Radiobutton(self.toolBar, text = "Trace",
             variable = self.selectMode, value = self.SM_DRAW, **gus.rbconf)
-        self.drawButton.pack(side = tk.LEFT, **gus.padc)
+        self.drawButton.pack(side = tk.LEFT)
         self.selectMode.trace('w', self._onSelectModeChange)
 
         self.drag_start = None
         self.drag_end = None
 
         self.selected_count = 0
-
-        # Color display .......................................................
-        self.colorDisplay = tk.Label(self.toolBar, relief = tk.RIDGE, bd = 1,
-            bg = 'darkgray', text = "          " ) # TODO
-        # TODO: implement color picker.
-        # give the color bar a callback that takes in a normalized DC and a
-        # color; bind it to each of the color bar's "rectangles" (find how to
-        # get the corresponding percentage) and then set the color as the
-        # background and the corresponding percentage as a text with the
-        # "inverse" color (or "opposite" color or whatever it is) as foreground.
-        # NOTE: IDEA -- have setDC do this automatically (the mapping is there)
-        self.colorDisplay.pack(side = tk.LEFT, **gus.padc)
 
         # Selection hold .......................................................
         self.holdVar = tk.BooleanVar()
@@ -1741,7 +1723,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         # - drag, drop, etc..
         # - get selections
         # - [...]
-        self.layerVar.set(1)
+        self.layerVar.set("Layer 1")
         self.selectMode.set(self.SM_SELECT)
 
         # Configure callbacks:
@@ -2048,7 +2030,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         To be called when the view layer is changed.
         """
-        self.layer = self.layerVar.get() - 1
+        self.layer = int(self.layerVar.get().split()[-1]) - 1
         self._updateStyle()
 
     def _onTypeMenuChange(self, *E):
@@ -2336,6 +2318,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         self.size_k = self.nslaves*self.maxFans
         self.range_k = range(self.size_k)
 
+        self.selected_count = 0
         self.control_buffer = []
         self._resetControlBuffer()
 
