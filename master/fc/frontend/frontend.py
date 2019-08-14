@@ -291,44 +291,52 @@ class FCFrontend(pt.PrintServer):
         """
         self.printr("Feedback watchdog started.")
         F = None
-        # TODO: Try-catch
         while True:
-            self.feedback_lock.acquire()
-            self.feedback_lock.release()
-            F = self.feedback_recv.recv()
-            if F == std.END:
-                break
-            if not self.live:
-                F = self._getAltF()
-            if F != None and F != std.PAD:
-                for client_method in self.feedback_clients:
-                    client_method(F)
+            try:
+                self.feedback_lock.acquire()
+                self.feedback_lock.release()
+                F = self.feedback_recv.recv()
+                if F == std.END:
+                    break
+                if not self.live:
+                    F = self._getAltF()
+                if F != None and F != std.PAD:
+                    for client_method in self.feedback_clients:
+                        client_method(F)
+            except Exception as e:
+                self.printx(e, "Exception in FE feedback routine")
         self.printr("Feedback watchdog terminated.")
 
     def _slaveRoutine(self):
         self.printr("Slave state watchdog started.")
         S = None
         while True:
-            self.slave_lock.acquire()
-            self.slave_lock.release()
-            S = self.slave_recv.recv()
-            if S == std.END:
-                break
-            if S != None and S != std.PAD:
-                for client_method in self.slave_clients:
-                    client_method(S)
+            try:
+                self.slave_lock.acquire()
+                self.slave_lock.release()
+                S = self.slave_recv.recv()
+                if S == std.END:
+                    break
+                if S != None and S != std.PAD:
+                    for client_method in self.slave_clients:
+                        client_method(S)
+            except Exception as e:
+                self.printx(e, "Exception in FE slave routine")
         self.printr("Slave state watchdog terminated.")
 
     def _networkRoutine(self):
         self.printr("Network state watchdog started.")
         while True:
-            self.network_lock.acquire()
-            self.network_lock.release()
-            N = self.network_recv.recv()
-            if N == std.END:
-                break
-            if N != None and N != std.PAD:
-                for client_method in self.network_clients:
-                    client_method(N)
+            try:
+                self.network_lock.acquire()
+                self.network_lock.release()
+                N = self.network_recv.recv()
+                if N == std.END:
+                    break
+                if N != None and N != std.PAD:
+                    for client_method in self.network_clients:
+                        client_method(N)
+            except Exception as e:
+                self.printx(e, "Exception in FE network routine")
         self.printr("Network state watchdog terminated.")
 

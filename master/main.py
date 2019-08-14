@@ -76,6 +76,7 @@ if __name__ == '__main__':
     print("[REM] Switching from preview")
     print("[REM] DC Limit")
     print("[REM] DC on preview")
+    print("[REM] Hotkeys")
 
     # Execution ................................................................
     pqueue = mp.Queue()
