@@ -918,7 +918,7 @@ class FCSlave:
 
     def _emptyMISOBuffer(self): # ==============================================
         # ABOUT: Empty the buffer of the MISO socket, if any, to prevent
-        # obsolete messages.
+        # obsolete messages. The MISO data buffer is also reset.
 
         if self.misoS is not None:
             timeout = self.misoS.gettimeout()
@@ -931,6 +931,7 @@ class FCSlave:
                 pass
 
             self.misoS.settimeout(timeout)
+            self.misoBuffer = None
 
         return
 

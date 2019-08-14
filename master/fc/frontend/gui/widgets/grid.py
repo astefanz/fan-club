@@ -131,6 +131,7 @@ class BaseGrid(tk.Frame):
             _RIGHT_DRAG : None
         }
 
+        self.is_built = False
         self.size = R*C
         self.iids = [0]*self.size
         self._temp_tiids = [0]*self.size # FIXME
@@ -167,6 +168,8 @@ class BaseGrid(tk.Frame):
         """
         Build the grid. CELLLENGTH forces a cell size to use.
         """
+        self.is_built = False
+
         if self.canvas != None:
             self.canvas.destroy()
 
@@ -252,6 +255,8 @@ class BaseGrid(tk.Frame):
 
         self.xmargin = xmargin
         self.ymargin = ymargin
+
+        self.is_built = True
 
     def filli(self, i, fill):
         """
@@ -345,7 +350,7 @@ class BaseGrid(tk.Frame):
         self.config(cursor = cursor)
 
     def built(self):
-        return self.canvas is not None
+        return self.is_built
 
     def _wrapper(self, C):
         """

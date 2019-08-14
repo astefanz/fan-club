@@ -1736,50 +1736,35 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.setLeftDrag(self._onLeftDrag)
         self.setRightDrag(self._onRightDrag)
 
-        print("DEBUG: GRID STATISTICS")
-        print(f"\tRCL: {self.RCL}")
-        print(f"\tSize g: {self.size_g}")
-        print(f"\tSize k: {self.size_k}")
-
     # Standard interface .......................................................
+    def activate(self, F_0 = None):
+        if F_0 is not None:
+            self.feedbackIn(F_0)
+
+    def deactivate(self):
+        self.feedbackIn([std.RIP]*self.size_g) # TODO performance
+        pass
+
     def feedbackIn(self, F):
         """
         Process the feedback vector F according to the grid mapping.
         """
         # FIXME performance
         # FIXME nomenclature
-
-        for k in self.range_k:
-            g = self.getIndex_g(k)
-            if g >= 0 and self.active_g[g]:
-                self.update_g(g, F[k])
-        """
-        if self.canvas:
-            L = len(F)//2
-            self.totalSlaves = L//self.maxFans
-
-            offset = self.offset*L
-
-            for l in self.layers:
-                for i in self.range:
-                    f = self.layers[l][i]
-                    if f is not None:
-                        self.updatei(i, l, F[self.layers[l][i] + offset])
-        """
+        if self.built():
+            for k in self.range_k:
+                g = self.getIndex_g(k)
+                if g >= 0:
+                    self.update_g(g, F[k])
+        else:
+            self.printw("F received while grid isn't built. Ignoring.")
 
     def networkIn(self, N):
-        if not N[std.NS_I_CONN]:
+        if N[std.NS_I_CONN] != std.NS_CONNECTED:
             self.deactivate()
 
     def slavesIn(self, S):
-        for offset in range(0, len(S), std.SD_LEN):
-            index_s, status = S[offset + std.SD_INDEX], S[offset + std.SD_STATUS]
-            if index_s < self.nslaves:
-                # TODO account for redundancy
-                if status == std.SS_CONNECTED:
-                    self.activate_s(index_s)
-                else:
-                    self.deactivate_s(index_s)
+        pass
 
     def selectAll(self):
         for g in self.range_g:
@@ -1885,66 +1870,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         return k % self.maxFans
 
     # Activity .................................................................
-    def activate_g(self, g):
-        if not self.active_g[g]:
-            self.update_g(g, std.PAD)
-        self.active_g[g] = True
-
-    def deactivate_g(self, g):
-        if self.active_g[g]:
-            self.update_g(g, std.RIP)
-        self.deselect_g(g)
-        self.active_g[g] = False
-
-    def activate_s(self, slave):
-        """
-        Activate all fans assigned to the slave of the given slave index.
-        Operates in K-coordinates.
-        """
-        # TODO performance
-        k_offset = slave*self.maxFans
-        for k in range(k_offset, k_offset + self.maxFans):
-            self.activate_k(k)
-
-    def deactivate_s(self, slave):
-        """
-        Deactivate all fans assigned to the slave of the given slave index.
-        Operates in K-coordinates.
-        """
-        # TODO performance
-        k_offset = slave*self.maxFans
-        for k in range(k_offset, k_offset + self.maxFans):
-            self.deactivate_k(k)
-
-    def activate_k(self, k):
-        g = self.getIndex_g(k)
-        if g != std.PAD:
-            self.activate_g(g)
-
-    def deactivate_k(self, k):
-        g = self.getIndex_g(k)
-        if g != std.PAD:
-            self.deactivate_g(g)
-
-    def activate(self, F = None):
-        """
-        Activate the entire grid.
-        - F := list, optional feedback vector with which to initialize values.
-        """
-        for g in self.range_g:
-            self.activate_g(g)
-        if F is not None:
-            self.feedbackIn(F)
-
-    def deactivate(self):
-        """
-        Deactivate the entire grid and reset control buffer.
-        """
-        for g in self.range_g:
-            self.deactivate_g(g)
-        self._resetControlBuffer()
-
-    # Values ...................................................................
     def update_g(self, g, value):
         """
         Set the given grid index to the given value, saturating it at this
@@ -1971,13 +1896,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     def select_g(self, g):
         try:
-            if self.active_g[g]:
-                if not self.selected_g[g]:
-                    self.selected_count += 1
-                self.selected_g[g] = True
-                if self.layer_g(g) == self.layer:
-                    self.outlinei(self.gridi_g(g),
-                        self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
+            if not self.selected_g[g]:
+                self.selected_count += 1
+            self.selected_g[g] = True
+            if self.layer_g(g) == self.layer:
+                self.outlinei(self.gridi_g(g),
+                    self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
         except IndexError as e:
             print("IE: ({}): {}".format(g, e)) # FIXME
             raise e
@@ -2305,7 +2229,6 @@ class LiveTable(pt.PrintClient, tk.Frame):
 
         # Mapping ..............................................................
         self.values_g = [0]*self.size_g
-        self.active_g = [False]*self.size_g
         self.selected_g = [False]*self.size_g
 
         # FIXME transplant behavior that should be in Mapper
