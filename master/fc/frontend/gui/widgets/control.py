@@ -151,7 +151,7 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         """
         self.display.unblockAdjust()
 
-    def _setLive(self, live):
+    def _setLive(self, live, redundance = 0):
         """
         Set feedback display mode.
             - live := whether in live display mode (True) or in flow builder
@@ -160,7 +160,6 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         self.isLive = live
         self.setLiveBE(live)
         if self.isLive:
-            #self.display.deactivate() FIXME
             if self.N_buffer is not None:
                 self.display.networkIn(self.N_buffer)
             else:
@@ -1132,23 +1131,6 @@ class ControlPanelWidget(tk.Frame, pt.PrintClient):
         self.bind('<Control-d>', self.deselectAll)
         self.bind('<Control-D>', self.deselectAll)
 
-        # Flow limits ..........................................................
-        self.limitFrame = tk.LabelFrame(self.topFrame,
-            text = "DC Limit [0, 100]",
-            **gus.fontc, padx = 10)
-        self.limitFrame.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
-
-        self.limitEntry = tk.Entry(self.limitFrame, **gus.efont, width = 6)
-        self.limitEntry.pack(side = tk.TOP, fill = tk.X, expand = True,
-            **gus.padc)
-
-        # TODO: Use "ceiling vs scale" menu instead of "Set" button
-
-        self.limitButton = tk.Button(self.limitFrame, text = "Set",
-            **gus.fontc) # FIXME command
-        self.limitButton.pack(side = tk.TOP, fill = tk.X, expand = True,
-            **gus.padc)
-
         # Flow control .........................................................
         self.grid_rowconfigure(row, weight = 1) # FIXME
         self.notebook = ttk.Notebook(self)
@@ -1176,11 +1158,6 @@ class ControlPanelWidget(tk.Frame, pt.PrintClient):
             self.archive, self.externalBackEnd, pqueue) # FIXME pass backend
         self.notebook.add(self.external, text = "External",
             state = tk.NORMAL)
-
-        # Watchdog .............................................................
-        self.watchdog = tk.Frame(self.notebook) # FIXME TODO
-        self.notebook.add(self.watchdog, text = "Watchdog",
-            state = tk.DISABLED) # FIXME
 
         # Record ...............................................................
         # Add spacer:
@@ -1744,7 +1721,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
             self.feedbackIn(F_0)
 
     def deactivate(self):
-        self.feedbackIn([std.RIP]*self.size_g) # TODO performance
+        self.feedbackIn([std.RIP]*(self.size_g*2)) # TODO performance
         pass
 
     def feedbackIn(self, F):
@@ -1897,16 +1874,12 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
     # FIXME: performance
 
     def select_g(self, g):
-        try:
-            if not self.selected_g[g]:
-                self.selected_count += 1
-            self.selected_g[g] = True
-            if self.layer_g(g) == self.layer:
-                self.outlinei(self.gridi_g(g),
-                    self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
-        except IndexError as e:
-            print("IE: ({}): {}".format(g, e)) # FIXME
-            raise e
+        if not self.selected_g[g]:
+            self.selected_count += 1
+        self.selected_g[g] = True
+        if self.layer_g(g) == self.layer:
+            self.outlinei(self.gridi_g(g),
+                self.OUTLINE_SELECTED, self.WIDTH_SELECTED)
 
     def deselect_g(self, g):
         if self.selected_g[g]:
