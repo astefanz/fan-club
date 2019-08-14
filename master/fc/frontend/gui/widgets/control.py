@@ -114,9 +114,12 @@ class ControlWidget(tk.Frame, pt.PrintClient):
             - simulated := whether this is a fake feedback vector to display
                 when in flow builder mode. Defaults to False.
         """
-        self.display.feedbackIn(F)
-        self.control.feedbackIn(F)
-        if simulated:
+        if self.isLive and not simulated:
+            self.display.feedbackIn(F)
+            self.control.feedbackIn(F)
+        elif not self.isLive and simulated:
+            self.display.feedbackIn(F)
+            self.control.feedbackIn(F)
             self.setFBE(F)
 
     def slavesIn(self, S):

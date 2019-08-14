@@ -214,13 +214,19 @@ class FCFrontend(pt.PrintServer):
         self.slave_lock.release()
 
     def _getAltF(self):
-        return self.F_alt
+        temp = self.F_alt
+        self.F_alt = None
+        return temp
 
     def _getAltN(self):
-        return self.N_alt
+        temp = self.N_alt
+        self.N_alt = None
+        return temp
 
     def _getAltS(self):
-        return self.S_alt
+        temp = self.S_alt
+        self.S_alt = None
+        return temp
 
     def __flushAltBuffers(self):
         self.F_alt, self.N_alt, self.S_alt = None, None, None
