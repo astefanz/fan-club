@@ -228,10 +228,10 @@ class ControlWidget(tk.Frame, pt.PrintClient):
         Build and return a simulated flow to feed back to the display widgets.
             - C := Control vector
         """
-        F = [0]*len(C)*2
+        F = [0]*len(C)
         for i, dc in enumerate(C):
             F[i] = int(dc*self.maxRPM)
-        return F
+        return F + C
 
     def _emptyFeedback(self):
         """
@@ -1755,7 +1755,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
             for k in self.range_k:
                 g = self.getIndex_g(k)
                 if g >= 0:
-                    self.update_g(g, F[k])
+                    self.update_g(g, F[k + self.size_g*self.offset])
         else:
             self.printw("F received while grid isn't built. Ignoring.")
 
@@ -1809,7 +1809,8 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.send_method(self.control_buffer)
 
         if not self.holdVar.get():
-            self.deselectAll()
+            #self.deselectAll()
+            pass # FIXME debug
 
     def set(self, dc):
         """
@@ -2562,13 +2563,11 @@ class LiveTable(pt.PrintClient, tk.Frame):
             s, f  = self.slave_k(k), self.fan_k(k)
 
             if self.selected_count == 0 or self.selected_g[g]:
-                self.control_buffer[k] = func(r, c, l, s, f, t, t_step)
+                self.control_buffer[k] = func(r, c, l, s, f,
+                    self.R, self.C, self.L, self.nslaves, self.maxFans,
+                    t, t_step)
 
         self.send_method(self.control_buffer)
-
-        if not self.holdVar.get():
-            self.deselectAll()
-
 
     def set(self, dc):
         self.map(self._const(dc), 0, 0)
