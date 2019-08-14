@@ -635,7 +635,6 @@ class MainControlWidget(tk.Frame, pt.PrintClient):
             - normalize := bool, whether to divide dc by 100.
         """
         normalized = dc/100 if normalize else dc
-        self.slider.set(dc if normalize else dc*100)
         self.display.set(normalized)
 
     def _sendRandom(self, *_):
@@ -1809,8 +1808,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.send_method(self.control_buffer)
 
         if not self.holdVar.get():
-            #self.deselectAll()
-            pass # FIXME debug
+            self.deselectAll()
 
     def set(self, dc):
         """
