@@ -861,7 +861,8 @@ class SlaveListWidget(tk.Frame, pt.PrintClient):
 
         self.slaves[index] = slave + (iid,)
 
-        if self.autoVar.get():
+        if self.autoVar.get() \
+                and slave[s.SD_STATUS] != self.slaves[index][s.SD_STATUS]:
             self.slaveList.move(iid, '', 0)
 
     def updateSlaves(self, slaves):
