@@ -1601,7 +1601,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
         # Mapping ..............................................................
         self.values_g = [0]*self.size_g
-        self.active_g = [False]*self.size_g
         self.selected_g = [False]*self.size_g
 
         # FIXME transplant behavior that should be in Mapper
@@ -1646,6 +1645,14 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
             *["Layer {}".format(l + 1) for l in range(self.L)])
         self.layerMenu.config(**gus.fontc)
         self.layerMenu.pack(side = tk.LEFT, **gus.padc)
+
+        # Layer selection ......................................................
+        self.deepVar = tk.BooleanVar()
+        self.deepVar.set(True)
+        self.deepButton = tk.Checkbutton(self.toolBar,
+            text = "Deep Select", variable = self.deepVar,
+            indicatoron = False, padx = 10, pady = 5, **gus.fontc)
+        self.deepButton.pack(side = tk.LEFT, **gus.padc)
 
         # Selection mode control ...............................................
         # FIXME
@@ -1872,6 +1879,24 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
     # Selection ................................................................
     # FIXME: performance
+    def select_i(self, i):
+        if self.deepVar.get():
+            l = 0
+            while l < self.L:
+                self.select_g(i + l*self.RC)
+                l += 1
+        else:
+            self.select_g(i + self.layer*self.RC)
+
+    def deselect_i(self, i):
+        if self.deepVar.get():
+            l = 0
+            while l < self.L:
+                self.deselect_g(i + l*self.RC)
+                l += 1
+        else:
+            self.deselect_g(i + self.layer*self.RC)
+
 
     def select_g(self, g):
         if not self.selected_g[g]:
@@ -1888,22 +1913,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         if self.layer_g(g) == self.layer:
             self.outlinei(self.gridi_g(g),
                 self.OUTLINE_NORMAL, self.WIDTH_NORMAL)
-
-    def selectd_g(self, g):
-        """
-        Select "deep": applies selection to all layers.
-        """
-        g_0 = self.gridi_g(g)
-        for l in self.layers:
-            self.select_g(g_0 + l*self.RC)
-
-    def deselectd_g(self, g):
-        """
-        Select "deep": applies selection to all layers.
-        """
-        g_0 = self.gridi_g(g)
-        for l in self.layers:
-            self.deselect_g(g_0 + l*self.RC)
 
     # Widget ...................................................................
     def blockAdjust(self):
@@ -1977,18 +1986,17 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         grid.drag_start = i
         grid.drag_end = i
         if i is not None:
-            g = grid.layer*grid.RC + i
-            if grid.selected_g[g]:
-                grid.deselect_g(g)
+            if grid.selected_g[grid.layer*grid.RC + i]:
+                grid.deselect_i(i)
             else:
-                grid.select_g(g)
+                grid.select_i(i)
 
     @staticmethod
     def _onRightClick(grid, i):
         grid.drag_start = i
         grid.drag_end = i
         if i is not None:
-            grid.deselect_g(grid.layer*grid.RC + i)
+            grid.deselect_i(i)
 
     @staticmethod
     def _generalDrag(grid, i, f_g):
@@ -2010,7 +2018,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                     grid.drag_start = i
                 grid.drag_end = i
             else:
-                grid.select_g(grid.layer*grid.RC + i)
+                grid.select_i(i)
 
     @staticmethod
     def _onRightDrag(grid, i):
@@ -2020,18 +2028,18 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                     grid.drag_start = i
                 grid.drag_end = i
             else:
-                grid.deselect_g(grid.layer*grid.RC + i)
+                grid.deselect_i(i)
 
     @staticmethod
     def _onLeftRelease(grid, i):
-        grid._generalRelease(grid, i, grid.select_g)
+        grid._generalRelease(grid, i, grid.select_i)
 
     @staticmethod
     def _onRightRelease(grid, i):
-        grid._generalRelease(grid, i, grid.deselect_g)
+        grid._generalRelease(grid, i, grid.deselect_i)
 
     @staticmethod
-    def _generalRelease(grid, i, f_g):
+    def _generalRelease(grid, i, f_i):
         if grid.drag_start != grid.drag_end and grid.drag_start != None and \
             grid.drag_end != None:
 
@@ -2046,8 +2054,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
                 for r in range(row_start, row_end + 1):
                     for c in range(col_start, col_end + 1):
-                        for l in range(grid.L):
-                            f_g(l*grid.RC + r*grid.C + c)
+                        f_i(r*grid.C + c)
 
                 grid.drag_start = None
                 grid.drag_end = None

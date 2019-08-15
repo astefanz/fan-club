@@ -40,7 +40,7 @@ if __name__ == '__main__':
     import fc.builtin.profiles as btp
 
     ## GLOBALS #################################################################
-    VERSION = "0.14"
+    VERSION = "0.15"
     INIT_PROFILE = "CAST" # FIXME
 
     # NOTE on writing servers like the ext. ctl. API:
