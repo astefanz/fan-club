@@ -286,10 +286,11 @@ class FCFrontend(pt.PrintServer):
 
     def _stopThreads(self):
         """
-        Stop I.P. watchdogs. Meant to be called only once.
+        Stop I.P. watchdogs. Meant to be called only once. Stops the watchdogs
+        by closing their multiprocessing pipes to generate an IO exception.
         """
         for pipe in self.send_pipes:
-            pipe.send(std.END)
+            pipe.close()
 
     def _feedbackRoutine(self):
         """
@@ -312,6 +313,7 @@ class FCFrontend(pt.PrintServer):
             except Exception as e:
                 self.printx(e, "Exception in FE feedback routine")
         self.printr("Feedback watchdog terminated.")
+        print("Feedback watchdog terminated.")
 
     def _slaveRoutine(self):
         self.printr("Slave state watchdog started.")
@@ -329,6 +331,7 @@ class FCFrontend(pt.PrintServer):
             except Exception as e:
                 self.printx(e, "Exception in FE slave routine")
         self.printr("Slave state watchdog terminated.")
+        print("Slave state watchdog terminated.")
 
     def _networkRoutine(self):
         self.printr("Network state watchdog started.")
@@ -345,4 +348,5 @@ class FCFrontend(pt.PrintServer):
             except Exception as e:
                 self.printx(e, "Exception in FE network routine")
         self.printr("Network state watchdog terminated.")
+        print("Network state watchdog terminated.")
 

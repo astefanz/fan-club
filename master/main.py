@@ -71,11 +71,8 @@ if __name__ == '__main__':
     print("[REM] Auto-update displays to latest data when switching")
     print("[REM] Change core and print server to use blocked threads")
     print("[REM] Terminal arguments")
-    print("[REM] Daemon threads")
     print("[REM] Grid position indicators")
     print("[REM] Switching from preview")
-    print("[REM] DC Limit")
-    print("[REM] DC on preview")
     print("[REM] Hotkeys")
 
     # Execution ................................................................
