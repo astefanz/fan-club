@@ -42,6 +42,11 @@ import random as rd
 import multiprocessing as mp
 import copy as cp
 
+import math
+import random
+from math import *
+from random import *
+
 import tkinter as tk
 import tkinter.filedialog as fdg
 import tkinter.ttk as ttk
@@ -58,6 +63,9 @@ from fc.frontend.gui.widgets import grid as gd, loader as ldr, timer as tmr, \
 ## GLOBALS #####################################################################
 P_TIME = 't'
 P_ROW, P_COLUMN, P_LAYER = 'r', 'c', 'l'
+P_DUTY_CYCLE = 'd'
+P_RPM = 'p'
+P_MAX_RPM = 'P'
 P_ROWS, P_COLUMNS, P_LAYERS = 'R', 'C', 'L'
 P_INDEX, P_FAN = 's', 'f'
 P_INDICES, P_FANS = 'S', 'F'
@@ -260,8 +268,8 @@ class PythonInputWidget(tk.Frame):
 
     IMPORTS = "math", "random"
 
-    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN,
-        P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_TIME, P_STEP)
+    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_DUTY_CYCLE, P_RPM,
+        P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_MAX_RPM,P_TIME,P_STEP)
 
 
     def __init__(self, master, callback, pqueue):
@@ -384,8 +392,10 @@ class PythonInputWidget(tk.Frame):
         retabbed = raw.replace('\t', self.realtabs)
 
         built = self.signature + '\n'
+        """
         for imported in self.IMPORTS:
             built += self.realtabs + "import {}\n".format(imported)
+        """ # FIXME test
         for line in retabbed.split('\n'):
             built += self.realtabs + line + '\n'
         built += self.FOOTER + '\n'
@@ -1571,9 +1581,6 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
     WIDTH_NORMAL = 1
     WIDTH_SELECTED = 3
 
-    PARAMETERS = (P_ROW, P_COLUMN, P_LAYER,
-        P_ROWS, P_COLUMNS, P_LAYERS, P_TIME, P_STEP)
-
     def __init__(self, master, archive, mapper, send, pqueue,
         colors = DEFAULT_COLORS, off_color = DEFAULT_OFF_COLOR,
         high = DEFAULT_HIGH, empty_color = DEFAULT_EMPTY_COLOR):
@@ -1612,6 +1619,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.nslaves = len(self.archive[ac.savedSlaves])
         self.size_k = self.nslaves*self.maxFans
         self.range_k = range(self.size_k)
+        self.F_buffer = [0]*(2*self.size_k)
 
         self.control_buffer = []
         self._resetControlBuffer()
@@ -1742,6 +1750,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 g = self.getIndex_g(k)
                 if g >= 0:
                     self.update_g(g, F[k + self.size_g*self.offset])
+            self.F_buffer = F
         else:
             self.printw("F received while grid isn't built. Ignoring.")
 
@@ -1774,9 +1783,10 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         """
         """
         IMPLEMENTATION NOTES:
-        - func(r, c, l, s, f, t, k)
-        PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN,
-            P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_TIME, P_STEP)
+        - func(r, c, l, s, f, d, p, R, C, L, S, F, P, t, k)
+        PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_DUTY_CYCLE,
+        P_RPM, P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_MAX_RPM,P_TIME,
+        P_STEP)
         """
         # FIXME performance
         for k in self.range_k:
@@ -1789,8 +1799,9 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
 
             if self.selected_count == 0 or self.selected_g[g]:
                 self.control_buffer[k] = func(r, c, l, s, f,
+                    self.F_buffer[self.size_k + k], self.F_buffer[k],
                     self.R, self.C, self.L, self.nslaves, self.maxFans,
-                    t, t_step)
+                    self.maxRPM, t, t_step)
 
         self.send_method(self.control_buffer)
 
@@ -2177,7 +2188,6 @@ class LiveTable(pt.PrintClient, tk.Frame):
     INF = float('inf')
     NINF = -INF
 
-    PARAMETERS = (P_INDEX, P_FAN, P_INDICES, P_FANS, P_TIME, P_STEP)
 
     def __init__(self, master, archive, mapper, send_method, network, pqueue):
         """
@@ -2222,6 +2232,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         self.nslaves = len(self.archive[ac.savedSlaves])
         self.size_k = self.nslaves*self.maxFans
         self.range_k = range(self.size_k)
+        self.F_buffer = [0]*(2*self.size_k)
 
         self.selected_count = 0
         self.control_buffer = []
@@ -2514,7 +2525,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
     def deselectAll(self):
         self.table.selection_set(())
 
-    def map(self, f, t, k):
+    def map(self, func, t = 0, t_step = 0):
         """
         Map the given function to the entire array, calling it once for each
         fan with the corresponding argument values.
@@ -2528,27 +2539,28 @@ class LiveTable(pt.PrintClient, tk.Frame):
         """
         """
         IMPLEMENTATION NOTES:
-        - func(r, c, l, s, f, t, k)
+        - func(r, c, l, s, f, d, p, R, C, L, S, F, P, t, k)
+        PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_DUTY_CYCLE,
+        P_RPM, P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_MAX_RPM,P_TIME,
+        P_STEP)
         """
-
-        # TODO selection
-        #)))) FIXME
-
         # FIXME performance
         for k in self.range_k:
             g = self.getIndex_g(k)
-            if g != std.PAD:
+            s, f  = self.slave_k(k), self.fan_k(k)
+            if g == std.PAD: # FIXME prev: if g != std.PAD:
                 l, r, c = 0, 0, 0
             else:
-                l, r, c = self.getCoordinates_g(self.slave_k(k), self.fan_k(k))
-            s, f  = self.slave_k(k), self.fan_k(k)
+                l, r, c = self.getCoordinates_g(s, f)
 
             if self.selected_count == 0 or self.selected_g[g]:
                 self.control_buffer[k] = func(r, c, l, s, f,
+                    self.F_buffer[self.size_k + k], self.F_buffer[k],
                     self.R, self.C, self.L, self.nslaves, self.maxFans,
-                    t, t_step)
+                    self.maxRPM, t, t_step)
 
         self.send_method(self.control_buffer)
+
 
     def set(self, dc):
         self.map(self._const(dc), 0, 0)
@@ -2916,6 +2928,8 @@ class LiveTable(pt.PrintClient, tk.Frame):
                             + values, tag = tag)
                 slave_i += 1
                 vector_i += self.maxFans
+
+            self.F_buffer = F
 
         self.built = True
 
