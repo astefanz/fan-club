@@ -3,7 +3,8 @@
 # mean.
 #################################################
 
-mean = .7*r/R + .1
+shear_max = .7
+mean = shear_max*r/R + .1
 
 
 # Parameters # ..................................
@@ -19,5 +20,6 @@ if l == layer_uniform:
 	return mean
 else:
 	return mean + (2*dev_max*random() - dev_max)
+
 
 
