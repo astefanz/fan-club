@@ -1,0 +1,25 @@
+#################################################
+# Uniform flow plus random fluctuations about a
+# mean.
+#################################################
+
+shear_max = .7
+mean = shear_max*r/R + .1
+
+
+# Parameters # ..................................
+
+dev_range_percent = 1
+layer_uniform = 2
+
+# ...............................................
+range = min(mean, 1 - mean)
+dev_max = range*dev_range_percent
+
+if l == layer_uniform:
+	return mean
+else:
+	return mean + (2*dev_max*random() - dev_max)
+
+
+

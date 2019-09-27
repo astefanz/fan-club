@@ -1,0 +1,6 @@
+A = .3
+B = .7
+C = .1
+
+
+return (A*math.sin(B*t - math.pi/2) + A + C)

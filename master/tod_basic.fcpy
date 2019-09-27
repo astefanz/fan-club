@@ -1,0 +1,20 @@
+#################################################
+# Uniform flow plus random fluctuations about a
+# mean.
+#################################################
+
+# Parameters # ..................................
+mean = .5
+dev_range_percent = .2
+layer_uniform = 2
+
+# ...............................................
+range = min(mean, 1 - mean)
+dev_max = range*dev_range_percent
+
+if l == layer_uniform:
+	return mean
+else:
+	return mean + (2*dev_max*random() - dev_max)
+
+

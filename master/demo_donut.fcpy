@@ -1,0 +1,30 @@
+# "Hypnotic donut" adapted to CAST array
+
+# Amplitudes to try:
+# .2, .3, .5
+
+# Speedups to try:
+# 3, 5
+
+A = 0.3
+speedup = 5
+
+c_center = C/2 - .5*(C%2)
+r_center = R/2 - .5*(R%2)
+tol = 2
+
+in_center = abs(c - c_center) < tol and abs(r - r_center) < tol
+
+c_rad = (c - c_center)**2
+r_rad = (r - r_center)**2
+
+rad = math.sqrt(c_rad + r_rad)
+max_rad = math.sqrt(c_center**2 + r_center**2)
+
+phase = 2*math.pi*(rad/max_rad)
+D = .1
+res = 50
+
+return A*math.sin(-2*math.pi*((t*speedup%res)/res) + phase) + A + D
+
+

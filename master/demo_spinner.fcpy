@@ -1,0 +1,91 @@
+# "Spinner" flow
+# Draws lines revolving around the center
+# assuming comms. period of 100 ms
+
+speedup = 5
+
+res = 50 # time steps per period
+A = 0.3  # sine amplitude
+B = 2   # number of "blades"
+D = 0.4  # DC offset
+
+c_center = C/2 - .5*(C%2)
+r_center = R/2 - .5*(R%2)
+
+c_rad = (c - c_center)**2
+r_rad = (r - r_center)**2
+
+
+rad = math.sqrt(c_rad + r_rad)
+max_rad = math.sqrt(c_center**2 + r_center**2)
+
+phase = 2*math.pi*(t*speedup/res)
+
+x = c_center - c
+y = r_center - r
+d = math.sqrt(x**2 + y**2)
+
+spinner = A*math.sin(math.atan2(y, x)*B + phase) + D if d != 0 else D
+
+
+
+# Amplitudes to try:
+# .2, .3, .5
+
+# Speedups to try:
+# 3, 5
+
+A = 0.5
+
+c_center = C/2 - .5*(C%2)
+r_center = R/2 - .5*(R%2)
+tol = 2
+
+in_center = abs(c - c_center) < tol and abs(r - r_center) < tol
+
+c_rad = (c - c_center)**2
+r_rad = (r - r_center)**2
+
+rad = math.sqrt(c_rad + r_rad)
+max_rad = math.sqrt(c_center**2 + r_center**2)
+
+phase = 2*math.pi*(rad/max_rad)
+D = .1
+res = 50
+
+donut = A*math.sin(-2*math.pi*((t*speedup%res)/res) + phase) + A
+
+return donut*spinner + D
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
