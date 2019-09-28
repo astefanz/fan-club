@@ -1,0 +1,28 @@
+###########################################
+## FCMkIV Provisional RPM Chaser script ###
+###########################################
+
+# Parameters ##############################
+target = 2000     # in [0, maxRPM]
+tolerance = 0.01   # Percentage, in [0, 1]
+t_setup = 5        # Seconds of open loop
+maxRPM = 11500     # Nominal max.
+	# Basement: 11500
+
+# Computation #############################
+if t < t_setup:
+	# First use open-loop linear fit guess
+	return max(min(target/maxRPM, 1), 0)
+
+delta = target - p
+
+if abs(delta) > target*tolerance:
+	# Use feedback for closed-loop attempt
+	result_raw = d + abs(1 - d)*(delta/maxRPM)
+	result = min(max(result_raw, 0), 1)
+	return result
+
+else:
+	# Within tolerance
+	return d
+

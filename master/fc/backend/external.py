@@ -394,7 +394,7 @@ class ExternalControl(pt.PrintClient):
         """
         Return a grid vector corresponding to the latest feedback vector.
         """
-        G = [s.PAD]*self.mapper.getSize_G()
+        G = [s.PAD]*(self.mapper.getSize_G()*2)
         for k in range(self.mapper.getSize_K()):
             G[self.mapper.index_KG(k)] = self.F[k]
         return G

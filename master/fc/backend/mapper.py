@@ -90,6 +90,18 @@ class Mapper:
     def getSize_K(self):
         return self.size_k
 
+    def getZero_K(self):
+        """
+        Return a zero-vector of size K*2.
+        """
+        return [0]*(2*self.getSize_K())
+
+    def getZero_K(self):
+        """
+        Return a zero-vector of size G*2.
+        """
+        return [0]*(2*self.getSize_G())
+
     # Internal methods ---------------------------------------------------------
 
     def _buildMappings(self):

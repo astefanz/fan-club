@@ -1,4 +1,4 @@
-#!/usr/bin/python3 #############################################################
+#!/usr/bin/python3
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##
@@ -39,9 +39,13 @@ if __name__ == '__main__':
     import fc.printer as pt
     import fc.builtin.profiles as btp
 
+    import sys
+
     ## GLOBALS #################################################################
     VERSION = "0.15"
     INIT_PROFILE = "CAST" # FIXME
+    if len(sys.argv) == 2 and sys.argv[1] in btp.PROFILES:
+        INIT_PROFILE = sys.argv[1]
 
     # NOTE on writing servers like the ext. ctl. API:
     # - have stop methods handle redundance
