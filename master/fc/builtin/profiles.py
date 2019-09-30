@@ -186,7 +186,7 @@ SEVENSQ = {
         },
         {
             ac.SV_name : "S2",
-            ac.SV_mac : "00:80:e1:3c:00:36",
+            ac.SV_mac : "00:80:e1:49:00:22",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,

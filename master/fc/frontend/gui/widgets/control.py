@@ -1600,6 +1600,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         self.maxRPM = self.archive[ac.maxRPM]
         self.maxFans = self.archive[ac.maxFans]
 
+        print("**", self.R, self.C, self.L, self.RC, self.RCL)
         self.empty_color = empty_color
         self.off_color = off_color
         gd.BaseGrid.__init__(self, master, self.R, self.C, cursor = self.CURSOR,
@@ -1789,19 +1790,23 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
         P_STEP)
         """
         # FIXME performance
-        for k in self.range_k:
-            g = self.getIndex_g(k)
-            s, f  = self.slave_k(k), self.fan_k(k)
-            if g == std.PAD: # FIXME prev: if g != std.PAD:
-                l, r, c = 0, 0, 0
-            else:
-                l, r, c = self.getCoordinates_g(s, f)
+        try:
+            for k in self.range_k:
+                g = self.getIndex_g(k)
+                s, f  = self.slave_k(k), self.fan_k(k)
+                if g == std.PAD: # FIXME prev: if g != std.PAD:
+                    l, r, c = 0, 0, 0
+                else:
+                    l, r, c = self.getCoordinates_g(s, f)
 
-            if self.selected_count == 0 or self.selected_g[g]:
-                self.control_buffer[k] = func(r, c, l, s, f,
-                    self.F_buffer[self.size_k + k], self.F_buffer[k],
-                    self.R, self.C, self.L, self.nslaves, self.maxFans,
-                    self.maxRPM, t, t_step)
+                if self.selected_count == 0 or self.selected_g[g]:
+                    self.control_buffer[k] = func(r, c, l, s, f,
+                        self.F_buffer[self.size_k + k], self.F_buffer[k],
+                        self.R, self.C, self.L, self.nslaves, self.maxFans,
+                        self.maxRPM, t, t_step)
+        except Exception as e:
+            print(k)
+            raise e
 
         self.send_method(self.control_buffer)
 
@@ -2222,6 +2227,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         # Mapping ..............................................................
         self.values_g = [0]*self.size_g
         self.selected_g = [False]*self.size_g
+        
 
         # FIXME transplant behavior that should be in Mapper
         self.getIndex_g = self.mapper.index_KG
@@ -2552,7 +2558,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
                 l, r, c = 0, 0, 0
             else:
                 l, r, c = self.getCoordinates_g(s, f)
-
+            
             if self.selected_count == 0 or self.selected_g[g]:
                 self.control_buffer[k] = func(r, c, l, s, f,
                     self.F_buffer[self.size_k + k], self.F_buffer[k],

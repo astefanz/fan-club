@@ -42,7 +42,7 @@ if __name__ == '__main__':
     import sys
 
     ## GLOBALS #################################################################
-    VERSION = "0.15"
+    VERSION = "0.16"
     INIT_PROFILE = "CAST" # FIXME
     if len(sys.argv) == 2 and sys.argv[1] in btp.PROFILES:
         INIT_PROFILE = sys.argv[1]
@@ -78,6 +78,7 @@ if __name__ == '__main__':
     print("[REM] Grid position indicators")
     print("[REM] Switching from preview")
     print("[REM] Hotkeys")
+    print("[REM] List index out of bounds on control.py:1800 w/ selection")
 
     # Execution ................................................................
     pqueue = mp.Queue()
