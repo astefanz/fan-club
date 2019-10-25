@@ -79,6 +79,7 @@ if __name__ == '__main__':
     print("[REM] Switching from preview")
     print("[REM] Hotkeys")
     print("[REM] List index out of bounds on control.py:1800 w/ selection")
+    print("[REM] Account for possible name conflicts between fcpy fn parametrs and user-defined variables")
 
     # Execution ................................................................
     pqueue = mp.Queue()

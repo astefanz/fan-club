@@ -1,23 +1,20 @@
 # basic sine wave
 # assuming time step of 100ms
 
-k_0 = 20 # time steps to wait
-k_f = None # time steps after which to stop
-res = 100 # steps in 1 period
+t_0 = 0
+freq = 1 # Hz
 
-a = .3 # amplitude in DC
-b = 2*math.pi/res # angular freq
-c = -2*math.pi*t_0/res # phase shift
-d = 0.4 # vertical offset in DC
+a = .2                  # amplitude in DC
+w = 2*math.pi*freq         # angular freq
+phase = 2*math.pi*0        # phase shift
+v_offset = 0.3             # vertical offset in DC
 
-x = k%res # argument
 
-if k < k_0:
-	return d
-elif k_f is not None and k > k_f:
-	return d
+if t < t_0:
+	return v_offset
 else:
-	return a*math.sin(b*x + c) + d
+	return a*math.sin(w*t + phase) + v_offset
+
 
 
 
