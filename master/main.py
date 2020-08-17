@@ -25,6 +25,31 @@
  + FC execution starts here.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
+REMINDERS = [
+    " Look into 'memory leak' in profile switches and data path",
+    " Look into control after profile switching ('return 1',",
+    " Pass profiles, not archive, " +
+        "when profile changes will cause reset",
+    " Change all watchdog threads to Tkinter 'after' scheduling",
+    " Indexing by 1 in functional input",
+    " Standardize notation (also: function argument consistency,",
+    " period_ms abstraction barrier in FCInterface",
+    " LiveTable and manual control",
+    " Enforce consistent slave indices",
+    " External control on profile changes",
+    " Comms. reset on profile changes",
+    " Direct control w/ live table",
+    " Auto-update displays to latest data when switching",
+    " Change core and print server to use blocked threads",
+    " Terminal arguments",
+    " Grid position indicators",
+    " Switching from preview",
+    " Hotkeys",
+    " List index out of bounds on control.py:1800 w/ selection",
+    " Account for possible name conflicts between fcpy fn parametrs and " +
+        "user-defined variables",
+]
+
 if __name__ == '__main__':
     #if us.platform() == us.WINDOWS:
     # Windows-specific requirement around processes. See:
@@ -38,6 +63,8 @@ if __name__ == '__main__':
     import fc.utils as us
     import fc.printer as pt
     import fc.builtin.profiles as btp
+
+    import getopt # https://docs.python.org/3.1/library/getopt.html
 
     import sys
 
@@ -59,27 +86,8 @@ if __name__ == '__main__':
     print(pt.HEADER)
 
     # FIXME: reminders
-    print("[REM] Look into 'memory leak' in profile switches and data path")
-    print("[REM] Look into control after profile switching ('return 1')")
-    print("[REM] Pass profiles, not archive, " \
-          +  "when profile changes will cause reset")
-    print("[REM] Change all watchdog threads to Tkinter 'after' scheduling")
-    print("[REM] Indexing by 1 in functional input")
-    print("[REM] Standardize notation (also: function argument consistency)")
-    print("[REM] period_ms abstraction barrier in FCInterface")
-    print("[REM] LiveTable and manual control")
-    print("[REM] Enforce consistent slave indices")
-    print("[REM] External control on profile changes")
-    print("[REM] Comms. reset on profile changes")
-    print("[REM] Direct control w/ live table")
-    print("[REM] Auto-update displays to latest data when switching")
-    print("[REM] Change core and print server to use blocked threads")
-    print("[REM] Terminal arguments")
-    print("[REM] Grid position indicators")
-    print("[REM] Switching from preview")
-    print("[REM] Hotkeys")
-    print("[REM] List index out of bounds on control.py:1800 w/ selection")
-    print("[REM] Account for possible name conflicts between fcpy fn parametrs and user-defined variables")
+    for reminder in REMINDERS:
+        print("[REM]", reminder)
 
     # Execution ................................................................
     pqueue = mp.Queue()
