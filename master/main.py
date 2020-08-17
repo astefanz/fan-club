@@ -25,6 +25,11 @@
  + FC execution starts here.
  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ """
 
+## GLOBALS #####################################################################
+VERSION = "0.17"
+INIT_PROFILE = "CAST" # FIXME
+
+
 REMINDERS = [
     " Look into 'memory leak' in profile switches and data path",
     " Look into control after profile switching ('return 1',",
@@ -68,11 +73,11 @@ if __name__ == '__main__':
 
     import sys
 
-    ## GLOBALS #################################################################
-    VERSION = "0.16"
-    INIT_PROFILE = "CAST" # FIXME
+
+    # FIXME use getopt and streamline this
+    init_profile = INIT_PROFILE
     if len(sys.argv) == 2 and sys.argv[1] in btp.PROFILES:
-        INIT_PROFILE = sys.argv[1]
+        init_profile = sys.argv[1]
 
     # NOTE on writing servers like the ext. ctl. API:
     # - have stop methods handle redundance
@@ -85,12 +90,11 @@ if __name__ == '__main__':
     # Prints ...................................................................
     print(pt.HEADER)
 
-    # FIXME: reminders
     for reminder in REMINDERS:
         print("[REM]", reminder)
 
     # Execution ................................................................
     pqueue = mp.Queue()
-    archive = ac.FCArchive(pqueue, VERSION, btp.PROFILES[INIT_PROFILE])
+    archive = ac.FCArchive(pqueue, VERSION, btp.PROFILES[init_profile])
     interface = tkg.FCGUI(archive, pqueue)
     interface.run()
