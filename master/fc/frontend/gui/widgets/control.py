@@ -1799,7 +1799,7 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
                 else:
                     l, r, c = self.getCoordinates_g(s, f)
 
-                if self.selected_count == 0 or self.selected_g[g]:
+                if self.selected_count == 0 or (g >= 0 and self.selected_g[g]):
                     self.control_buffer[k] = func(r, c, l, s, f,
                         self.F_buffer[self.size_k + k], self.F_buffer[k],
                         self.R, self.C, self.L, self.nslaves, self.maxFans,
@@ -1808,10 +1808,10 @@ class GridWidget(gd.BaseGrid, pt.PrintClient):
             print(k)
             raise e
 
-        self.send_method(self.control_buffer)
-
-        if not self.holdVar.get():
-            self.deselectAll()
+        else:
+            self.send_method(self.control_buffer)
+            if not self.holdVar.get():
+                self.deselectAll()
 
     def set(self, dc):
         """
@@ -2227,7 +2227,7 @@ class LiveTable(pt.PrintClient, tk.Frame):
         # Mapping ..............................................................
         self.values_g = [0]*self.size_g
         self.selected_g = [False]*self.size_g
-        
+
 
         # FIXME transplant behavior that should be in Mapper
         self.getIndex_g = self.mapper.index_KG
@@ -2549,7 +2549,12 @@ class LiveTable(pt.PrintClient, tk.Frame):
         PARAMETERS = (P_ROW, P_COLUMN, P_LAYER, P_INDEX, P_FAN, P_DUTY_CYCLE,
         P_RPM, P_ROWS, P_COLUMNS, P_LAYERS, P_INDICES, P_FANS, P_MAX_RPM,P_TIME,
         P_STEP)
+
+        * "g" is still relevant here because FC functions use both Grid and
+            LiveTable parameters.
         """
+        # FIXME why are there redundant implementations of this? See GridWidget
+        # FIXME no Exception handling?
         # FIXME performance
         for k in self.range_k:
             g = self.getIndex_g(k)
@@ -2558,8 +2563,8 @@ class LiveTable(pt.PrintClient, tk.Frame):
                 l, r, c = 0, 0, 0
             else:
                 l, r, c = self.getCoordinates_g(s, f)
-            
-            if self.selected_count == 0 or self.selected_g[g]:
+
+            if self.selected_count == 0 or (g >= 0 and self.selected_g[g]):
                 self.control_buffer[k] = func(r, c, l, s, f,
                     self.F_buffer[self.size_k + k], self.F_buffer[k],
                     self.R, self.C, self.L, self.nslaves, self.maxFans,
