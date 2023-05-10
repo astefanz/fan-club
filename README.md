@@ -4,7 +4,7 @@ Alejandro A. Stefan-Zavala `aastefan@caltech.edu`
 
 We're in the process of open-sourcing this repository, which has been in development since 2017 within GALCIT, at Caltech. ==This documentation is incomplete.==
 
-![](/home/asz/Dropbox/Research/fan-club/doc/screenshots/fcmkiv_screenshot_donut.png)
+![](./doc/screenshots/fcmkiv_screenshot_donut.png)
 
 ## Quickstart [incomplete]
 
