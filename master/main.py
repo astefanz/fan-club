@@ -27,7 +27,7 @@
 
 ## GLOBALS #####################################################################
 VERSION = "0.17"
-INIT_PROFILE = "CAST" # FIXME
+INIT_PROFILE = "CANN" # FIXME
 
 
 REMINDERS = [
