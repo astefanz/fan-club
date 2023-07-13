@@ -8639,7 +8639,7 @@ CANN = {
 
 
     ac.pinouts : ac.PINOUTS.copy(),
-    ac.maxRPM : 16000,
+    ac.maxRPM : 6000,
     ac.maxFans : 20,
     ac.dcDecimals : 2,
     ac.fanArray : {
