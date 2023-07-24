@@ -8617,7 +8617,7 @@ CAST_SIDE = {
 
 
 CANN = {
-    ac.name : "Restored Cann Lab tunnell",
+    ac.name : "Restored Cann Lab tunnel",
     ac.description : "The GALCIT OG",
     ac.platform : ac.UNKNOWN,
 
@@ -8639,7 +8639,7 @@ CANN = {
 
 
     ac.pinouts : ac.PINOUTS.copy(),
-    ac.maxRPM : 6000,
+    ac.maxRPM : 5500,
     ac.maxFans : 20,
     ac.dcDecimals : 2,
     ac.fanArray : {
@@ -8701,7 +8701,7 @@ CANN = {
         },
         {
             ac.SV_name : "Rows 3 & 4",
-            ac.SV_mac : "00:80:e1:28:00:32",
+            ac.SV_mac : "00:80:e1:3c:00:36",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
