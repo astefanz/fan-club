@@ -117,7 +117,7 @@ SEVENSQ = {
     ac.description : "...",
     ac.platform : ac.UNKNOWN,
 
-    ac.broadcastIP : "10.42.0.255",
+    ac.broadcastIP : "192.168.255.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
     ac.periodMS : 100,
@@ -232,7 +232,12 @@ SEVENSQ = {
             ac.MD_rows : 2,
             ac.MD_columns : 7,
             ac.MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13")
+                ("0,1,2,3,4,5,6,7,8,9,10,14,12,13") # 12th fan's board connector is
+                                                    # borked so I put it in the 15th
+                                                    # fan connector and swapped them
+                                                    # here, where we index starting
+                                                    # at 0, so replace fan with index
+                                                    # 11 with fan with index 14
         }),
     ac.pinouts : ac.PINOUTS.copy(),
     ac.maxRPM : 9000,
