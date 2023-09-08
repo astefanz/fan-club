@@ -182,7 +182,9 @@ SEVENSQ = {
             ac.MD_rows : 2,
             ac.MD_columns : 7,
             ac.MD_mapping : \
-                ("0,1,2,3,4,5,6,7,8,9,10,11,12,13")
+                ("0,1,2,14,4,5,6,7,8,9,10,11,12,13") # Fan #4 (index 3) tach is bad,
+                                                     # swap it with Fan connector #15
+                                                     # (index 14)
         },
         {
             ac.SV_name : "S2",
