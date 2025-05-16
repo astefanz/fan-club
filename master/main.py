@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/bin/python3
 ##----------------------------------------------------------------------------##
 ## CALIFORNIA INSTITUTE OF TECHNOLOGY ## GRADUATE AEROSPACE LABORATORY ##     ##
 ## CENTER FOR AUTONOMOUS SYSTEMS AND TECHNOLOGIES                      ##     ##

@@ -32,7 +32,7 @@ MODULE = {
     ac.description : "...",
     ac.platform : ac.UNKNOWN,
 
-    ac.broadcastIP : "10.0.0.255",
+    ac.broadcastIP : "192.168.0.255",
     ac.broadcastPort  : 65000,
     ac.broadcastPeriodMS : 1000,
     ac.periodMS : 100,
@@ -76,7 +76,7 @@ MODULE = {
     ac.savedSlaves : (
         {
             ac.SV_name : "Module 1",
-            ac.SV_mac : "00:80:e1:42:00:1f",
+            ac.SV_mac : "00:80:e1:47:00:38",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.DOUBLE,
@@ -735,8 +735,8 @@ BASE = {
         },
     ac.savedSlaves : (
         {
-            ac.SV_name : "B1",
-            ac.SV_mac : "00:80:e1:4b:00:36",
+            ac.SV_name : "B1", # MAC ADDRESS VALIDATED
+            ac.SV_mac : "00:80:e1:39:00:20",#"00:80:e1:4b:00:36",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
@@ -760,8 +760,8 @@ BASE = {
                 '19,17,13,9,,,18,16,12,8,5,2,,15,11,7,4,1,,14,10,6,3,0'
         },
         {
-            ac.SV_name : "B2",
-            ac.SV_mac : "00:80:e1:2f:00:1d",
+            ac.SV_name : "B2", # MAC ADDRESS VALIDATED
+            ac.SV_mac : "00:80:e1:3e:00:3d",#"00:80:e1:2f:00:1d",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
@@ -786,7 +786,7 @@ BASE = {
         },
         {
             ac.SV_name : "B3",
-            ac.SV_mac : "00:80:e1:29:00:2e",
+            ac.SV_mac : "00:80:e1:4a:00:44",#"00:80:e1:29:00:2e",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
@@ -810,8 +810,8 @@ BASE = {
                 '18,19,,,,,13,14,15,16,17,,7,8,9,10,11,12,2,3,4,5,6,,0,1,,,,'
         },
         {
-            ac.SV_name : "B4",
-            ac.SV_mac : "00:80:e1:27:00:3e",
+            ac.SV_name : "B4", # MAC ADDRESS VALIDATED
+            ac.SV_mac : "00:80:e1:4d:00:27",#"00:80:e1:27:00:3e",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
@@ -835,7 +835,7 @@ BASE = {
                 '0,1,2,3,4,,5,6,7,8,9,,10,11,12,13,14,15,,,16,17,18,19'
         },
         {
-            ac.SV_name : "B5",
+            ac.SV_name : "B5", # MAC ADDRESS VALIDATED
             ac.SV_mac : "00:80:e1:37:00:2d",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
@@ -860,8 +860,8 @@ BASE = {
                 '19,17,13,9,5,2,18,16,12,8,4,1,,15,11,7,3,0,,14,10,6,,,'
         },
         {
-            ac.SV_name : "B6",
-            ac.SV_mac : "00:80:e1:47:00:3d",
+            ac.SV_name : "B6", # MAC ADDRESS VALIDATED
+            ac.SV_mac : "00:80:e1:20:00:29",#"00:80:e1:47:00:3d",
             ac.SV_index : -1,
             ac.SV_fanModel : "Unknown",
             ac.SV_fanMode : ac.SINGLE,
